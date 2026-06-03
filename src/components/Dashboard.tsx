@@ -16,18 +16,18 @@ const storeItems = [
 { id: 4, name: 'Choose Class Game', cost: 75 },
 { id: 5, name: 'Homework Helper', cost: 40 },
 ]
-const DAYS = ['Mon','Tue','Wed','Thu','Fri']
+const DAYS: string[] = ['Mon','Tue','Wed','Thu','Fri']
 export default function Dashboard() {
 const [studentList, setStudentList] = useState(students)
 const [activeTab, setActiveTab] = useState('alerts')
 const [selectedStudent, setSelectedStudent] = useState(null)
-function addPoints(id, amount) {
+function addPoints(id: number, amount: number) {
 setStudentList(prev => prev.map(s => s.id === id ? {...s, points: Math.max(0, s.points + amount)} : s))
 }
-function addRedMark(id) {
+function addRedMark(id: number) {
 setStudentList(prev => prev.map(s => s.id === id ? {...s, redMarks: s.redMarks + 1} : s))
 }
-function buyItem(studentId, cost, itemName) {
+function buyItem(studentId: number, cost: number, itemName: string) {
 const student = studentList.find(s => s.id === studentId)
 if (!student || student.points < cost) { alert('Not enough points!'); return }
 setStudentList(prev => prev.map(s => s.id === studentId ? {...s, points: s.points - cost} : s))
