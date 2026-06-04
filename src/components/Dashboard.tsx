@@ -141,7 +141,7 @@ function DrillDown({ title, students, onClose, onSelectStudent }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 600, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
         <div style={{ background: '#1a1f36', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{title} <span style={{ opacity: 0.6, fontSize: 13 }}>({students.length} students)</span></div>
+          <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{title} <span style={{ opacity: 0.6, fontSize: 13 }}>({students.length})</span></div>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 14 }}>✕</button>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
@@ -150,7 +150,7 @@ function DrillDown({ title, students, onClose, onSelectStudent }) {
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
             const imp = getImprovement(s)
             return (
-              <div key={s.id} onClick={() => { onSelectStudent(s); onClose() }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 8, border: '1px solid #e8eaed', marginBottom: 8, cursor: 'pointer', background: '#fafafa' }}
+              <div key={s.id} onClick={() => onSelectStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 8, border: '1px solid #e8eaed', marginBottom: 8, cursor: 'pointer', background: '#fafafa' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f0f2f5'}
                 onMouseLeave={e => e.currentTarget.style.background = '#fafafa'}>
                 <div style={S.avatar(i, 40)}>{initials(s.name)}</div>
@@ -225,8 +225,8 @@ function LoginPage({ onLogin }) {
 }
 
 // ─── STUDENT PROFILE ─────────────────────────────────────────────────────────
-function StudentProfile({ student, students, setStudents, onClose, role }) {
-  const [tab, setTab] = useState('overview')
+function StudentProfile({ student, students, setStudents, onClose, role, defaultTab = 'overview' }) {
+  const [tab, setTab] = useState(defaultTab)
   const [noteText, setNoteText] = useState('')
   const [callNotes, setCallNotes] = useState('')
   const [callStaff, setCallStaff] = useState('Rabbi Klein')
@@ -328,7 +328,7 @@ function StudentProfile({ student, students, setStudents, onClose, role }) {
                 <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>Behavior Log</div>
                 {s.behaviorLog.length === 0 ? <div style={{ color: '#9ca3af', fontSize: 13 }}>No behavior events yet.</div> : s.behaviorLog.map((b, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f4f5f7', fontSize: 13 }}>
-                    <span>{b.label}</span><span style={{ fontWeight: 700, color: b.points > 0 ? '#166634' : '#dc2626' }}>{b.points > 0 ? '+' : ''}{b.points}</span><span style={{ color: '#9ca3af' }}>{b.date}</span>
+                    <span>{b.label}</span><span style={{ fontWeight: 700, color: b.points > 0 ? '#166534' : '#dc2626' }}>{b.points > 0 ? '+' : ''}{b.points}</span><span style={{ color: '#9ca3af' }}>{b.date}</span>
                   </div>
                 ))}
               </div>
@@ -345,7 +345,7 @@ function StudentProfile({ student, students, setStudents, onClose, role }) {
           )}
           {tab === 'calls' && (
             <div style={S.card}>
-              <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>Parent Call Log</div>
+              <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>📞 Parent Call Log</div>
               {s.parentCalls.length === 0 ? <div style={{ color: '#9ca3af', fontSize: 13, marginBottom: 16 }}>No calls recorded yet.</div> : s.parentCalls.map((c, i) => (
                 <div key={i} style={{ background: '#f4f5f7', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontWeight: 600, fontSize: 13 }}>{c.staff}</span><span style={{ color: '#9ca3af', fontSize: 12 }}>{c.date} · {c.duration}</span></div>
@@ -389,14 +389,12 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState([])
   const filtered = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
-
   function toggleSelect(id) { setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]) }
   function applyToSelected(amount, label) {
     playSound(amount > 0 ? 'positive' : 'negative')
     setStudents(prev => prev.map(s => selected.includes(s.id) ? { ...s, points: Math.max(0, s.points + amount), reminders: amount < 0 ? s.reminders + 1 : s.reminders, behaviorLog: [{ label, points: amount, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
     setSelected([])
   }
-
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#f4f5f7', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
       <div style={{ background: '#1a1f36', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -434,10 +432,171 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
                   {s.reminders > 0 && <span style={S.badge('#dc2626', '#fee2e2')}>⚠️ {s.reminders}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                  <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points + 2, behaviorLog: [{label:'+2', points:2, date: new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
-                  <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points + 5, behaviorLog: [{label:'+5', points:5, date: new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
-                  <button onClick={() => { playSound('negative'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: Math.max(0,x.points-1), reminders: x.reminders+1, behaviorLog: [{label:'Reminder', points:-1, date: new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
+                  <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points+2, behaviorLog: [{label:'+2', points:2, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
+                  <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points+5, behaviorLog: [{label:'+5', points:5, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
+                  <button onClick={() => { playSound('negative'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: Math.max(0,x.points-1), reminders: x.reminders+1, behaviorLog: [{label:'Reminder', points:-1, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
                 </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── TEACHER DASHBOARD ───────────────────────────────────────────────────────
+function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode }) {
+  const present = students.filter(s => s.status === 'present').length
+  const absent = students.filter(s => s.status === 'absent').length
+  const late = students.filter(s => s.status === 'late').length
+  const inTherapy = students.filter(s => s.status === 'therapy').length
+  const notArrived = students.filter(s => s.status === 'not-arrived').length
+  const inHallway = students.filter(s => s.status === 'hallway').length
+  const total = students.length
+
+  function quickPoints(id, amount) {
+    playSound(amount > 0 ? 'positive' : 'negative')
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount), behaviorLog: [{ label: amount > 0 ? `+${amount} pts` : `${amount} pts`, points: amount, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
+  }
+  function quickReminder(id) {
+    playSound('negative')
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, reminders: s.reminders + 1, behaviorLog: [{ label: 'Reminder', points: -1, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Good morning, {userName} 👋</h1>
+        <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}>Dargei Beis · Wednesday, June 4, 2025 · {total} students</p>
+      </div>
+
+      {/* Quick stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 24 }}>
+        {[['Present', present, '#2563eb'],['Absent', absent, '#dc2626'],['Late', late, '#d97706'],['Therapy', inTherapy, '#7c3aed'],['Hallway', inHallway, '#0891b2'],['Not Arrived', notArrived, '#6b7280']].map(([label, val, color]) => (
+          <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e8eaed', textAlign: 'center', borderTop: `3px solid ${color}` }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color }}>{val}</div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick action button */}
+      <div style={{ marginBottom: 20 }}>
+        <button onClick={() => setTeachingMode(true)} style={{ ...S.btn('primary'), padding: '10px 20px', fontSize: 14 }}>🏫 Enter Teaching Mode</button>
+      </div>
+
+      {/* Student cards with quick actions */}
+      <div style={{ ...S.card, marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 My Students — Quick Actions</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          {students.map((s, i) => {
+            const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
+            return (
+              <div key={s.id} style={{ background: '#fafafa', border: '1px solid #e8eaed', borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => setSelectedStudent(s)}>
+                  <div style={S.avatar(i, 34)}>{initials(s.name)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
+                      <span style={{ ...S.tag(statusColor[s.status]), fontSize: 10 }}>{statusEmoji[s.status]} {statusLabel[s.status]}</span>
+                      {withStaffObj && <span style={{ fontSize: 10, color: '#0891b2', fontWeight: 600 }}>👤 {withStaffObj.name}</span>}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={S.badge('#92400e', '#fef3c7')}>{s.points} pts</span>
+                  {s.reminders > 0 && <span style={S.badge('#dc2626', '#fee2e2')}>⚠️ {s.reminders}</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button onClick={() => quickPoints(s.id, 2)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
+                  <button onClick={() => quickPoints(s.id, 5)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
+                  <button onClick={() => quickPoints(s.id, 10)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+10</button>
+                  <button onClick={() => quickReminder(s.id)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Who is not in class */}
+      <div style={S.card}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>📍 Not In Class Right Now</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {students.filter(s => s.status !== 'present').map((s, i) => {
+            const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
+            return (
+              <div key={s.id} onClick={() => setSelectedStudent(s)} style={{ background: '#fafafa', border: '1px solid #e8eaed', borderRadius: 8, padding: '10px 12px', cursor: 'pointer' }}>
+                <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 4 }}>{s.name}</div>
+                <div style={{ fontSize: 11, color: statusColor[s.status], fontWeight: 600 }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>
+                {withStaffObj && <div style={{ fontSize: 10, color: '#0891b2', marginTop: 2 }}>👤 {withStaffObj.name}</div>}
+              </div>
+            )
+          })}
+          {students.filter(s => s.status !== 'present').length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, gridColumn: 'span 4', textAlign: 'center', padding: '1rem' }}>All students present ✅</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── THERAPIST DASHBOARD ─────────────────────────────────────────────────────
+function TherapistDashboard({ students, userName, setSelectedStudent }) {
+  const myStudents = students.filter(s => s.services.length > 0)
+  const inSessionNow = students.filter(s => s.status === 'therapy')
+
+  return (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Good morning, {userName} 👋</h1>
+        <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}>Therapist Portal · Wednesday, June 4, 2025</p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+        {[['My Students', myStudents.length, '#5b21b6'],['In Session Now', inSessionNow.length, '#166534'],['Sessions This Week', THERAPY_SCHEDULE.length, '#0891b2']].map(([label, val, color]) => (
+          <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '18px 20px', border: '1px solid #e8eaed', borderTop: `3px solid ${color}` }}>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>{label}</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color }}>{val}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={S.card}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>🧠 My Students</div>
+          {myStudents.map((s, i) => {
+            const imp = getImprovement(s)
+            return (
+              <div key={s.id} onClick={() => setSelectedStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f4f5f7', cursor: 'pointer' }}>
+                <div style={S.avatar(i, 36)}>{initials(s.name)}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                    <span style={S.tag(statusColor[s.status])}>{statusEmoji[s.status]} {statusLabel[s.status]}</span>
+                    <span style={{ fontSize: 11, color: imp.color, fontWeight: 600 }}>{imp.icon}</span>
+                  </div>
+                </div>
+                <div>
+                  {s.services.map((svc, j) => <div key={j} style={{ fontSize: 11, color: '#5b21b6', fontWeight: 600 }}>{svc.type}</div>)}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div style={S.card}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📅 This Week's Sessions</div>
+          {THERAPY_SCHEDULE.map((t, i) => {
+            const staffMember = STAFF.find(st => st.id === t.staffId)
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f4f5f7' }}>
+                <div style={{ width: 40, height: 40, borderRadius: 8, background: '#5b21b6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{t.day}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{t.student}</div>
+                  <div style={{ fontSize: 11, color: '#6b7280' }}>{t.type} · {t.duration}</div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>{t.time}</div>
               </div>
             )
           })}
@@ -455,15 +614,17 @@ export default function Dashboard() {
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState(initialStudents)
   const [selectedStudent, setSelectedStudent] = useState(null)
+  const [selectedStudentTab, setSelectedStudentTab] = useState('overview')
   const [storeStudent, setStoreStudent] = useState(null)
   const [behaviorStudent, setBehaviorStudent] = useState(null)
   const [behaviorTab, setBehaviorTab] = useState('positive')
   const [attFilter, setAttFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [teachingMode, setTeachingMode] = useState(false)
-  const [drillDown, setDrillDown] = useState(null) // { title, students }
+  const [drillDown, setDrillDown] = useState(null)
 
   function handleLogin(r, name) { setRole(r); setUserName(name); setLoggedIn(true); setPage('dashboard') }
+  function openStudent(s, tab = 'overview') { setSelectedStudent(s); setSelectedStudentTab(tab) }
   function updateStatus(id, status) { setStudents(prev => prev.map(s => s.id === id ? { ...s, status } : s)) }
   function addPoints(id, amount) { playSound(amount > 0 ? 'positive' : 'negative'); setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount) } : s)) }
   function addReminder(id) { const s = students.find(x => x.id === id); playSound(s && s.reminders + 1 >= 6 ? 'redmark' : 'negative'); setStudents(prev => prev.map(s => s.id === id ? { ...s, reminders: s.reminders + 1 } : s)) }
@@ -504,30 +665,44 @@ export default function Dashboard() {
     return a
   })
 
-  const navItems = [
+  // Nav per role
+  const adminNav = [
     { id: 'dashboard', label: 'Dashboard', icon: '▦' },
-    { id: 'students', label: role === 'admin' ? 'All Students' : 'My Students', icon: '👥' },
+    { id: 'students', label: 'All Students', icon: '👥' },
     { id: 'attendance', label: 'Attendance', icon: '📅' },
     { id: 'schedule', label: 'Schedule', icon: '🗓️' },
     { id: 'behavior', label: 'Behavior & Points', icon: '⭐' },
     { id: 'store', label: 'Token Store', icon: '🛍' },
     { id: 'alerts', label: `Alerts (${alerts.length})`, icon: '🔔' },
-    ...(role === 'admin' ? [{ id: 'calls', label: 'Parent Calls', icon: '📞' }] : []),
+    { id: 'calls', label: 'Parent Calls', icon: '📞' },
+  ]
+  const teacherNav = [
+    { id: 'dashboard', label: 'My Class', icon: '🏫' },
+    { id: 'attendance', label: 'Attendance', icon: '📅' },
+    { id: 'schedule', label: 'Schedule', icon: '🗓️' },
+    { id: 'behavior', label: 'Behavior & Points', icon: '⭐' },
+    { id: 'store', label: 'Token Store', icon: '🛍' },
+    { id: 'alerts', label: `Alerts (${alerts.length})`, icon: '🔔' },
+  ]
+  const therapistNav = [
+    { id: 'dashboard', label: 'My Students', icon: '🧠' },
+    { id: 'schedule', label: 'Schedule', icon: '🗓️' },
+    { id: 'students', label: 'All Students', icon: '👥' },
   ]
 
+  const navItems = role === 'admin' ? adminNav : role === 'teacher' ? teacherNav : therapistNav
   const searchedStudents = search ? students.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : students
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
 
-  // Clickable stat card helper
-  function StatCard({ label, val, color, sub, filterStudents }) {
+  function ClickStatCard({ label, val, color, sub, filterStudents, openTab = null }) {
     return (
-      <div onClick={() => filterStudents && setDrillDown({ title: label, students: filterStudents })}
+      <div onClick={() => filterStudents && (openTab ? openTab() : setDrillDown({ title: label, students: filterStudents }))}
         style={{ background: '#fff', borderRadius: 10, padding: '18px 20px', border: '1px solid #e8eaed', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: filterStudents ? 'pointer' : 'default', transition: 'box-shadow 0.15s, transform 0.15s' }}
         onMouseEnter={e => { if (filterStudents) { e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
         onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'none' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, fontWeight: 500 }}>{label}</div>
-          {filterStudents && <span style={{ fontSize: 10, color: '#9ca3af' }}>Click to view →</span>}
+          {filterStudents && <span style={{ fontSize: 10, color: '#9ca3af' }}>click to view →</span>}
         </div>
         <div style={{ fontSize: 32, fontWeight: 800, color, lineHeight: 1 }}>{val}</div>
         <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>{sub}</div>
@@ -540,7 +715,9 @@ export default function Dashboard() {
       <div style={S.sidebar}>
         <div style={S.sidebarLogo}>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Hadran Academy</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 3 }}>Dargei Beis · {role === 'admin' ? 'Menahel' : role === 'teacher' ? 'Teacher' : 'Therapist'}</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 3 }}>
+            {role === 'admin' ? 'Menahel Portal' : role === 'teacher' ? 'Teacher Portal' : 'Therapist Portal'}
+          </div>
         </div>
         <div style={{ flex: 1, paddingTop: 4 }}>
           {navItems.map(item => (
@@ -550,7 +727,8 @@ export default function Dashboard() {
           ))}
           {role !== 'therapist' && (
             <div onClick={() => setTeachingMode(true)} style={{ ...S.sidebarItem(false), background: 'rgba(255,255,255,0.08)', margin: '8px 8px 2px', border: '1px solid rgba(255,255,255,0.15)' }}>
-              <span>{role === 'admin' ? '🎓' : '🏫'}</span><span>{role === 'admin' ? 'School-Wide Mode' : 'Teaching Mode'}</span>
+              <span>{role === 'admin' ? '🎓' : '🏫'}</span>
+              <span>{role === 'admin' ? 'School-Wide Mode' : 'Teaching Mode'}</span>
             </div>
           )}
         </div>
@@ -566,23 +744,30 @@ export default function Dashboard() {
           {search && <button onClick={() => setSearch('')} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 12 }}>✕</button>}
         </div>
 
-        {page === 'dashboard' && (
+        {/* ── DASHBOARD — role based ── */}
+        {page === 'dashboard' && role === 'teacher' && (
+          <TeacherDashboard students={students} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} />
+        )}
+        {page === 'dashboard' && role === 'therapist' && (
+          <TherapistDashboard students={students} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />
+        )}
+        {page === 'dashboard' && role === 'admin' && (
           <div>
             <div style={{ marginBottom: 24 }}>
               <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: '#1a1f36' }}>Good morning, {userName}</h1>
               <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}>Wednesday, June 4, 2025 · Dargei Beis · {total} students</p>
             </div>
-
-            {/* Top clickable stat cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 16 }}>
-              <StatCard label="Total Students" val={total} color="#1a1f36" sub="enrolled" filterStudents={students} />
-              <StatCard label="Present Today" val={present} color="#2563eb" sub={`${Math.round(present/total*100)}% attendance`} filterStudents={students.filter(s=>s.status==='present')} />
-              <StatCard label="Absent Today" val={absent} color="#dc2626" sub="need follow-up" filterStudents={students.filter(s=>s.status==='absent')} />
-              <StatCard label="Urgent Alerts" val={urgentStudents.length} color="#dc2626" sub="require action" filterStudents={urgentStudents} />
-              <StatCard label="Parent Calls Due" val={callsDueStudents.length} color="#d97706" sub="not called recently" filterStudents={callsDueStudents} />
+              <ClickStatCard label="Total Students" val={total} color="#1a1f36" sub="enrolled" filterStudents={students} />
+              <ClickStatCard label="Present Today" val={present} color="#2563eb" sub={`${Math.round(present/total*100)}% attendance`} filterStudents={students.filter(s=>s.status==='present')} />
+              <ClickStatCard label="Absent Today" val={absent} color="#dc2626" sub="need follow-up" filterStudents={students.filter(s=>s.status==='absent')} />
+              <ClickStatCard label="Urgent Alerts" val={urgentStudents.length} color="#dc2626" sub="require action"
+                filterStudents={urgentStudents}
+                openTab={urgentStudents.length > 0 ? () => setPage('alerts') : null} />
+              <ClickStatCard label="Parent Calls Due" val={callsDueStudents.length} color="#d97706" sub="not called recently"
+                filterStudents={callsDueStudents}
+                openTab={callsDueStudents.length > 0 ? () => setPage('calls') : null} />
             </div>
-
-            {/* Secondary clickable row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
               {[
                 { label: 'Late Today', val: late, color: '#d97706', icon: '⏰', filter: students.filter(s=>s.status==='late') },
@@ -603,7 +788,6 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16 }}>
               <div style={S.card}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📈 Weekly Improvement Summary</div>
@@ -625,7 +809,7 @@ export default function Dashboard() {
                   {students.filter(s => s.reminders >= 4 || s.reminders > s.lastWeekReminders).slice(0, 5).map((s, i) => {
                     const imp = getImprovement(s)
                     return (
-                      <div key={s.id} onClick={() => setSelectedStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#fafafa', borderRadius: 6, cursor: 'pointer' }}>
+                      <div key={s.id} onClick={() => openStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#fafafa', borderRadius: 6, cursor: 'pointer' }}>
                         <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
                         <div style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{s.name}</div>
                         <span style={{ fontSize: 11, fontWeight: 700, color: imp.color }}>{imp.icon} {imp.label}</span>
@@ -634,12 +818,11 @@ export default function Dashboard() {
                   })}
                 </div>
               </div>
-
               <div style={S.card}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>🔔 Urgent Alerts</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflow: 'auto' }}>
                   {alerts.filter(a => a.type === 'danger').slice(0, 6).map((a, i) => (
-                    <div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) setSelectedStudent(s) }} style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 10px', cursor: 'pointer' }}>
+                    <div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) openStudent(s, 'behavior') }} style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 10px', cursor: 'pointer' }}>
                       <div style={{ fontWeight: 600, fontSize: 12 }}>{a.student}</div>
                       <div style={{ fontSize: 11, color: '#dc2626', marginTop: 1 }}>{a.msg}</div>
                     </div>
@@ -647,7 +830,6 @@ export default function Dashboard() {
                   {alerts.filter(a => a.type === 'danger').length === 0 && <div style={{ color: '#9ca3af', fontSize: 12, textAlign: 'center', padding: '1rem' }}>No urgent alerts ✅</div>}
                 </div>
               </div>
-
               <div style={S.card}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>📞 Calls Needed</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflow: 'auto' }}>
@@ -655,7 +837,7 @@ export default function Dashboard() {
                     const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null
                     const days = lastCall ? daysSince(lastCall.date) : 999
                     return (
-                      <div key={s.id} onClick={() => setSelectedStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>
+                      <div key={s.id} onClick={() => openStudent(s, 'calls')} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>
                         <div style={S.avatar(i, 24)}>{initials(s.name)}</div>
                         <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 11 }}>{s.name}</div><div style={{ fontSize: 10, color: '#92400e' }}>{lastCall ? `${days}d ago` : 'Never'}</div></div>
                       </div>
@@ -667,6 +849,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── STUDENTS ── */}
         {page === 'students' && (
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 18 }}>{role === 'admin' ? 'All Students' : 'My Students'}</h1>
@@ -676,7 +859,7 @@ export default function Dashboard() {
                 const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
                 const imp = getImprovement(s)
                 return (
-                  <div key={s.id} onClick={() => setSelectedStudent(s)} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', padding: '14px 18px' }}>
+                  <div key={s.id} onClick={() => openStudent(s)} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', padding: '14px 18px' }}>
                     <div style={S.avatar(i, 40)}>{initials(s.name)}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{s.name}</div>
@@ -701,6 +884,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── ATTENDANCE ── */}
         {page === 'attendance' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
@@ -740,6 +924,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── SCHEDULE ── */}
         {page === 'schedule' && (
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 18 }}>🗓️ Schedule</h1>
@@ -769,23 +954,24 @@ export default function Dashboard() {
                   })}
                 </div>
                 <div style={S.card}>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>📍 Where Is Everyone Now</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>📍 Not In Class Now</div>
                   {students.filter(s => s.status !== 'present').map((s, i) => {
                     const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
                     return (
-                      <div key={s.id} onClick={() => setSelectedStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#fafafa', borderRadius: 6, cursor: 'pointer', border: '1px solid #e8eaed', marginBottom: 6 }}>
+                      <div key={s.id} onClick={() => openStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#fafafa', borderRadius: 6, cursor: 'pointer', border: '1px solid #e8eaed', marginBottom: 6 }}>
                         <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
                         <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 12 }}>{s.name}</div><div style={{ fontSize: 11, color: statusColor[s.status] }}>{statusEmoji[s.status]} {statusLabel[s.status]}{withStaffObj ? ` · ${withStaffObj.name}` : ''}</div></div>
                       </div>
                     )
                   })}
-                  {students.filter(s => s.status !== 'present').length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center' }}>All students present ✅</div>}
+                  {students.filter(s => s.status !== 'present').length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center' }}>All present ✅</div>}
                 </div>
               </div>
             </div>
           </div>
         )}
 
+        {/* ── BEHAVIOR ── */}
         {page === 'behavior' && (
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 18 }}>Behavior & Points</h1>
@@ -827,6 +1013,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── STORE ── */}
         {page === 'store' && (
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 18 }}>Token Store</h1>
@@ -844,28 +1031,30 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── ALERTS ── */}
         {page === 'alerts' && (
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 18 }}>All Alerts ({alerts.length})</h1>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {alerts.length === 0 && <div style={{ ...S.card, textAlign: 'center', color: '#9ca3af', padding: '3rem' }}>No alerts ✅</div>}
-              {alerts.map((a, i) => (<div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) setSelectedStudent(s) }} style={{ background: a.type === 'danger' ? '#fef2f2' : a.type === 'warn' ? '#fffbeb' : '#eff6ff', border: `1px solid ${a.type === 'danger' ? '#fecaca' : a.type === 'warn' ? '#fde68a' : '#bfdbfe'}`, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}><div><div style={{ fontWeight: 700, fontSize: 13 }}>{a.student}</div><div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{a.msg}</div></div><span style={{ fontSize: 12, color: '#9ca3af' }}>View →</span></div>))}
+              {alerts.map((a, i) => (<div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) openStudent(s, 'behavior') }} style={{ background: a.type === 'danger' ? '#fef2f2' : a.type === 'warn' ? '#fffbeb' : '#eff6ff', border: `1px solid ${a.type === 'danger' ? '#fecaca' : a.type === 'warn' ? '#fde68a' : '#bfdbfe'}`, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}><div><div style={{ fontWeight: 700, fontSize: 13 }}>{a.student}</div><div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{a.msg}</div></div><span style={{ fontSize: 12, color: '#9ca3af' }}>View →</span></div>))}
             </div>
           </div>
         )}
 
+        {/* ── CALLS ── */}
         {page === 'calls' && role === 'admin' && (
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 18 }}>Parent Call Log</h1>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {students.map((s, i) => { const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null; const days = lastCall ? daysSince(lastCall.date) : 999; return (<div key={s.id} onClick={() => setSelectedStudent(s)} style={{ ...S.card, cursor: 'pointer', borderLeft: `3px solid ${days > 14 ? '#f97316' : '#16a34a'}`, padding: '14px 18px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}><div style={S.avatar(i, 32)}>{initials(s.name)}</div><div><div style={{ fontWeight: 700, fontSize: 13 }}>{s.name}</div><div style={{ fontSize: 11, color: days > 14 ? '#ea580c' : '#16a34a', fontWeight: 600 }}>{lastCall ? `Last call: ${days} days ago` : '⚠️ Never called'}</div></div><div style={{ marginLeft: 'auto', fontSize: 11, color: '#9ca3af' }}>{s.parentCalls.length} calls</div></div>{lastCall && <div style={{ fontSize: 12, color: '#6b7280', background: '#f4f5f7', borderRadius: 6, padding: '6px 10px' }}>{lastCall.notes}</div>}</div>) })}
+              {students.map((s, i) => { const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null; const days = lastCall ? daysSince(lastCall.date) : 999; return (<div key={s.id} onClick={() => openStudent(s, 'calls')} style={{ ...S.card, cursor: 'pointer', borderLeft: `3px solid ${days > 14 ? '#f97316' : '#16a34a'}`, padding: '14px 18px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}><div style={S.avatar(i, 32)}>{initials(s.name)}</div><div><div style={{ fontWeight: 700, fontSize: 13 }}>{s.name}</div><div style={{ fontSize: 11, color: days > 14 ? '#ea580c' : '#16a34a', fontWeight: 600 }}>{lastCall ? `Last call: ${days} days ago` : '⚠️ Never called'}</div></div><div style={{ marginLeft: 'auto', fontSize: 11, color: '#9ca3af' }}>{s.parentCalls.length} calls</div></div>{lastCall && <div style={{ fontSize: 12, color: '#6b7280', background: '#f4f5f7', borderRadius: 6, padding: '6px 10px' }}>{lastCall.notes}</div>}</div>) })}
             </div>
           </div>
         )}
       </div>
 
-      {drillDown && <DrillDown title={drillDown.title} students={drillDown.students} onClose={() => setDrillDown(null)} onSelectStudent={s => { setSelectedStudent(s); setDrillDown(null) }} />}
-      {selectedStudent && <StudentProfile student={selectedStudent} students={students} setStudents={setStudents} onClose={() => setSelectedStudent(null)} role={role} />}
+      {drillDown && <DrillDown title={drillDown.title} students={drillDown.students} onClose={() => setDrillDown(null)} onSelectStudent={s => { openStudent(s); setDrillDown(null) }} />}
+      {selectedStudent && <StudentProfile student={selectedStudent} students={students} setStudents={setStudents} onClose={() => setSelectedStudent(null)} role={role} defaultTab={selectedStudentTab} />}
     </div>
   )
 }
