@@ -1052,61 +1052,89 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+              {/* Column 1: To-Do */}
+              <div style={S.card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>📋 Today's To-Do</div>
+                  <button onClick={() => setPage('todo')} style={{ fontSize: 11, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>View all →</button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflow: 'auto' }}>
+                  {todos.filter(t => !t.done).map(todo => (
+                    <div key={todo.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 10px', background: '#fafafa', borderRadius: 8, border: '1px solid #e8eaed' }}>
+                      <input type="checkbox" checked={todo.done} onChange={() => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, done: true } : t))} style={{ marginTop: 2, cursor: 'pointer', flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 500 }}>{todo.text}</div>
+                        {todo.time && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>🕐 {todo.time}</div>}
+                      </div>
+                    </div>
+                  ))}
+                  {todos.filter(t => !t.done).length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center', padding: '1rem' }}>All done! ✅</div>}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <input placeholder="Quick add task... (press Enter)" onKeyDown={e => { if (e.key === 'Enter' && e.currentTarget.value.trim()) { setTodos(prev => [...prev, { id: Date.now(), date: new Date().toISOString().slice(0,10), time: '', text: e.currentTarget.value.trim(), category: 'general', done: false }]); e.currentTarget.value = '' } }} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 12, boxSizing: 'border-box' }} />
+                </div>
+              </div>
+
+              {/* Column 2: Weekly Improvement */}
               <div style={S.card}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📈 Weekly Improvement</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
-                  <div onClick={() => setDrillDown({ title: '📈 Improved', students: students.filter(s=>s.reminders<s.lastWeekReminders) })} style={{ background: '#f0fdf4', borderRadius: 8, padding: '12px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#166534' }}>{improved}</div>
-                    <div style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>📈 Improved</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
+                  <div onClick={() => setDrillDown({ title: '📈 Improved', students: students.filter(s=>s.reminders<s.lastWeekReminders) })} style={{ background: '#f0fdf4', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: '#166534' }}>{improved}</div>
+                    <div style={{ fontSize: 10, color: '#166534', fontWeight: 600 }}>📈 Improved</div>
                   </div>
-                  <div onClick={() => setDrillDown({ title: '📉 Needs Attention', students: students.filter(s=>s.reminders>s.lastWeekReminders) })} style={{ background: '#fef2f2', borderRadius: 8, padding: '12px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#dc2626' }}>{needsAttention}</div>
-                    <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>📉 Attention</div>
+                  <div onClick={() => setDrillDown({ title: '📉 Needs Attention', students: students.filter(s=>s.reminders>s.lastWeekReminders) })} style={{ background: '#fef2f2', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: '#dc2626' }}>{needsAttention}</div>
+                    <div style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>📉 Attention</div>
                   </div>
-                  <div onClick={() => setDrillDown({ title: '⭐ VIP', students: vipStudents })} style={{ background: '#fefce8', borderRadius: 8, padding: '12px', textAlign: 'center', cursor: 'pointer', border: '1px solid #ca8a04' }}>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#854d0e' }}>{vipStudents.length}</div>
-                    <div style={{ fontSize: 11, color: '#854d0e', fontWeight: 600 }}>⭐ VIP</div>
+                  <div onClick={() => setDrillDown({ title: '⭐ VIP', students: vipStudents })} style={{ background: '#fefce8', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'pointer', border: '1px solid #ca8a04' }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: '#854d0e' }}>{vipStudents.length}</div>
+                    <div style={{ fontSize: 10, color: '#854d0e', fontWeight: 600 }}>⭐ VIP</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 160, overflow: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflow: 'auto' }}>
                   {students.filter(s => s.reminders >= 4 || s.reminders > s.lastWeekReminders).slice(0, 5).map((s, i) => {
                     const imp = getImprovement(s)
                     return (
                       <div key={s.id} onClick={() => openStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#fafafa', borderRadius: 6, cursor: 'pointer' }}>
-                        <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
+                        <div style={S.avatar(i, 26)}>{initials(s.name)}</div>
                         <div style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{s.name}</div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: imp.color }}>{imp.icon} {imp.label}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: imp.color }}>{imp.icon}</span>
                       </div>
                     )
                   })}
                 </div>
               </div>
-              <div style={S.card}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>🔔 Urgent Alerts</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflow: 'auto' }}>
-                  {alerts.filter(a => a.type === 'danger').slice(0, 6).map((a, i) => (
-                    <div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) openStudent(s, 'behavior') }} style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 10px', cursor: 'pointer' }}>
-                      <div style={{ fontWeight: 600, fontSize: 12 }}>{a.student}</div>
-                      <div style={{ fontSize: 11, color: '#dc2626', marginTop: 1 }}>{a.msg}</div>
-                    </div>
-                  ))}
-                  {alerts.filter(a => a.type === 'danger').length === 0 && <div style={{ color: '#9ca3af', fontSize: 12, textAlign: 'center', padding: '1rem' }}>No urgent alerts ✅</div>}
-                </div>
-              </div>
-              <div style={S.card}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>📞 Calls Needed</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflow: 'auto' }}>
-                  {callsDueStudents.map((s, i) => {
-                    const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null
-                    const days = lastCall ? daysSince(lastCall.date) : 999
-                    return (
-                      <div key={s.id} onClick={() => openStudent(s, 'calls')} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>
-                        <div style={S.avatar(i, 24)}>{initials(s.name)}</div>
-                        <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 11 }}>{s.name}</div><div style={{ fontSize: 10, color: '#92400e' }}>{lastCall ? `${days}d ago` : 'Never'}</div></div>
+
+              {/* Column 3: Urgent Alerts + Calls stacked */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ ...S.card, flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>🔔 Urgent Alerts</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 150, overflow: 'auto' }}>
+                    {alerts.filter(a => a.type === 'danger').slice(0, 4).map((a, i) => (
+                      <div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) openStudent(s, 'behavior') }} style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>
+                        <div style={{ fontWeight: 600, fontSize: 12 }}>{a.student}</div>
+                        <div style={{ fontSize: 11, color: '#dc2626', marginTop: 1 }}>{a.msg}</div>
                       </div>
-                    )
-                  })}
+                    ))}
+                    {alerts.filter(a => a.type === 'danger').length === 0 && <div style={{ color: '#9ca3af', fontSize: 12, textAlign: 'center', padding: '0.5rem' }}>No urgent alerts ✅</div>}
+                  </div>
+                </div>
+                <div style={{ ...S.card, flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>📞 Calls Needed</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 150, overflow: 'auto' }}>
+                    {callsDueStudents.slice(0, 5).map((s, i) => {
+                      const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null
+                      const days = lastCall ? daysSince(lastCall.date) : 999
+                      return (
+                        <div key={s.id} onClick={() => openStudent(s, 'calls')} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>
+                          <div style={S.avatar(i, 24)}>{initials(s.name)}</div>
+                          <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 11 }}>{s.name}</div><div style={{ fontSize: 10, color: '#92400e' }}>{lastCall ? `${days}d ago` : 'Never'}</div></div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
