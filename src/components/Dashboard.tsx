@@ -92,18 +92,18 @@ const LEVITZ_CLASS_LOG = [
 ]
 
 const initialStudents = [
-  mkStudent(1, 'Bloom Yair', 45, 2, ['P','P','L','L','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Klein',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Klein',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
+  mkStudent(1, 'Bloom Yair', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Klein',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Klein',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
   mkStudent(2, 'Friedlander Zev', 80, 0, ['P','P','P','P','P','P'], 'present'),
   mkStudent(3, 'Haddad Moshe Chaim', 60, 3, ['P','L','A','P','P','P'], 'therapy', 's8', [{staffId:'s8',type:'Counseling',hrs:3}], [{date:'2025-06-01',staff:'Rabbi Klein',notes:'Left voicemail',duration:'2 min'}]),
   mkStudent(4, 'Hayon David', 95, 0, ['P','P','P','P','P','P'], 'present', null, [], [], [{date:'2025-06-02',author:'Rabbi Klein',text:'Excellent week.'}]),
   mkStudent(5, 'Karman Yitzchok', 20, 5, ['A','A','A','P','P','P'], 'absent'),
   mkStudent(6, 'Levitz Avrohom', 70, 1, ['P','P','P','L','P','P'], 'with-bt', 's10', [{staffId:'s7',type:'OT',hrs:2}], [{date:'2025-05-20',staff:'Rabbi Klein',notes:'General check-in',duration:'5 min'}], [], true, 'OT IEP - sensory processing'),
   mkStudent(7, 'Rosenfeld Yehuda', 55, 6, ['P','P','P','P','A','P'], 'late', null, [], [], [], false, '', true),
-  mkStudent(8, 'Schwartz Moishe Michael', 40, 2, ['L','L','L','L','P','P'], 'present', null, [{staffId:'s8',type:'Counseling',hrs:0.5}]),
+  mkStudent(8, 'Schwartz Moishe Michael', 40, 2, ['L','LE','L','L','P','P'], 'present', null, [{staffId:'s8',type:'Counseling',hrs:0.5}]),
   mkStudent(9, 'Simon Eliyahu', 65, 0, ['P','P','P','P','P','P'], 'unknown'),
   mkStudent(10, 'Berkowitz Avraham', 55, 0, ['P','P','P','P','P','P'], 'present'),
   mkStudent(11, 'Dinowitz Shmuel', 70, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(12, 'Ettlinger Moshe', 30, 4, ['L','P','P','A','P','P'], 'present'),
+  mkStudent(12, 'Ettlinger Moshe', 30, 4, ['LE','P','P','A','P','P'], 'present'),
   mkStudent(13, 'Feldman Shraga', 85, 0, ['P','P','P','P','P','P'], 'present'),
   mkStudent(14, 'Feltman Daniel', 45, 2, ['P','A','P','P','L','P'], 'therapy', 's9', [{staffId:'s9',type:'Therapy',hrs:2}]),
   mkStudent(15, 'Gantz Tzvi', 60, 0, ['P','P','P','P','P','P'], 'present'),
@@ -217,6 +217,10 @@ function LoginPage({ onLogin }) {
   const accounts = [
     { role: 'admin', name: 'Rabbi Baum', email: 'rbaum@hadranacademy.org' },
     { role: 'admin', name: 'Rabbi Ehrnreich', email: 'rehrnreich@hadranacademy.org' },
+    { role: 'admin', name: 'Rabbi Weiss', email: 'rweiss@hadranacademy.org' },
+    { role: 'admin', name: 'Rabbi Fried', email: 'rfried@hadranacademy.org' },
+    { role: 'admin', name: 'Rabbi Blau', email: 'rblau@hadranacademy.org' },
+    { role: 'admin', name: 'Rabbi Abramowitz', email: 'rabramowitz@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Klein', email: 'rklein@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Goldstein', email: 'rgoldstein@hadranacademy.org' },
     { role: 'therapist', name: 'Yitzi Liebowitz', email: 'yliebowitz@hadranacademy.org' },
@@ -366,7 +370,12 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
                   {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'].map((day, i) => (
                     <tr key={day} style={{ borderBottom: '1px solid #f4f5f7' }}>
                       <td style={{ padding: 10 }}>{day}</td>
-                      <td style={{ padding: 10, textAlign: 'center' }}><span style={S.badge(s.att[i]==='P'?'#166534':s.att[i]==='A'?'#dc2626':'#1d4ed8', s.att[i]==='P'?'#dcfce7':s.att[i]==='A'?'#fee2e2':'#dbeafe')}>{s.att[i]==='P'?'Present':s.att[i]==='A'?'Absent':'Late'}</span></td>
+                      <td style={{ padding: 10, textAlign: 'center' }}>
+                        <span style={S.badge(
+                          s.att[i]==='P'?'#166534':s.att[i]==='A'?'#dc2626':s.att[i]==='LE'?'#5b21b6':'#1d4ed8',
+                          s.att[i]==='P'?'#dcfce7':s.att[i]==='A'?'#fee2e2':s.att[i]==='LE'?'#f5f3ff':'#dbeafe'
+                        )}>{s.att[i]==='P'?'Present':s.att[i]==='A'?'Absent':s.att[i]==='LE'?'Left Early':'Late'}</span>
+                      </td>
                       <td style={{ padding: 10, textAlign: 'center' }}><span style={S.badge(s.breakfast[i]==='Y'?'#166534':'#dc2626', s.breakfast[i]==='Y'?'#dcfce7':'#fee2e2')}>{s.breakfast[i]==='Y'?'✓ Breakfast':'✗ Skipped'}</span></td>
                     </tr>
                   ))}
@@ -834,12 +843,128 @@ function TherapistDashboard({ students, userName, setSelectedStudent }) {
   )
 }
 
-// ── ATTENDANCE PAGE WITH TOGGLE ──────────────────────────────────────────────
+// ── WEEKLY RECORD COMPONENT ──────────────────────────────────────────────────
+function WeeklyRecord({ students, filteredStudents, openStudent }) {
+  const [view, setView] = useState('daily')
+  const dailyLabels = { 'P': 'P', 'A': 'A', 'L': 'L', 'LE': 'LE' }
+  const dailyColors = {
+    'P': ['#166534','#dcfce7'],
+    'A': ['#dc2626','#fee2e2'],
+    'L': ['#d97706','#dbeafe'],
+    'LE': ['#5b21b6','#f5f3ff']
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>📊 Weekly Record</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setView('daily')} style={{ ...S.btn(view === 'daily' ? 'primary' : 'ghost'), padding: '5px 12px', fontSize: 12 }}>📅 Daily Attendance</button>
+          <button onClick={() => setView('class')} style={{ ...S.btn(view === 'class' ? 'primary' : 'ghost'), padding: '5px 12px', fontSize: 12 }}>🏫 Class Attendance</button>
+        </div>
+      </div>
+
+      {view === 'daily' && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e8eaed' }}>
+              <th style={{ textAlign: 'left', padding: '10px 12px' }}>Student</th>
+              {DAYS.map(d => <th key={d} style={{ padding: 8, textAlign: 'center' }}>{d}</th>)}
+              <th style={{ padding: 8, textAlign: 'center' }}>P</th>
+              <th style={{ padding: 8, textAlign: 'center' }}>A</th>
+              <th style={{ padding: 8, textAlign: 'center' }}>L</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredStudents.map((s, i) => (
+              <tr key={s.id} onClick={() => openStudent(s)} style={{ borderBottom: '1px solid #f4f5f7', cursor: 'pointer' }}>
+                <td style={{ padding: '8px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={S.avatar(i, 26)}>{initials(s.name)}</div>
+                    <span style={{ fontWeight: 500 }}>{s.name}</span>
+                    {isVIP(s) && <span style={{ fontSize: 10 }}>⭐</span>}
+                  </div>
+                </td>
+                {s.att.map((d, j) => {
+                  const [color, bg] = dailyColors[d] || dailyColors['P']
+                  return (
+                    <td key={j} style={{ padding: 8, textAlign: 'center' }}>
+                      <span style={{ background: bg, color, padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{d}</span>
+                    </td>
+                  )
+                })}
+                <td style={{ textAlign: 'center', padding: 8, fontWeight: 600 }}>{s.att.filter(d=>d==='P').length}</td>
+                <td style={{ textAlign: 'center', padding: 8, color: '#dc2626', fontWeight: 600 }}>{s.att.filter(d=>d==='A').length}</td>
+                <td style={{ textAlign: 'center', padding: 8, color: '#d97706', fontWeight: 600 }}>{s.att.filter(d=>d==='L').length}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {view === 'class' && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e8eaed' }}>
+              <th style={{ textAlign: 'left', padding: '10px 12px' }}>Student</th>
+              {DAYS.map(d => <th key={d} style={{ padding: 8, textAlign: 'center' }}>{d}</th>)}
+              <th style={{ padding: 8, textAlign: 'center' }}>Avg %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredStudents.map((s, i) => {
+              const hasLog = s.classLog && s.classLog.length > 0
+              const avgPct = hasLog ? (() => {
+                let totalIn = 0, totalOut = 0
+                for (let k = 0; k < s.classLog.length - 1; k++) {
+                  const curr = s.classLog[k]; const next = s.classLog[k+1]
+                  const [ch,cm] = curr.time.split(':').map(Number)
+                  const [nh,nm] = next.time.split(':').map(Number)
+                  const mins = (nh*60+nm)-(ch*60+cm)
+                  if (curr.type === 'in') totalIn += mins; else totalOut += mins
+                }
+                return totalIn + totalOut > 0 ? Math.round(totalIn/(totalIn+totalOut)*100) : null
+              })() : null
+
+              return (
+                <tr key={s.id} onClick={() => openStudent(s, 'tracking')} style={{ borderBottom: '1px solid #f4f5f7', cursor: 'pointer' }}>
+                  <td style={{ padding: '8px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={S.avatar(i, 26)}>{initials(s.name)}</div>
+                      <span style={{ fontWeight: 500 }}>{s.name}</span>
+                    </div>
+                  </td>
+                  {DAYS.map((d, j) => (
+                    <td key={j} style={{ padding: 8, textAlign: 'center' }}>
+                      {j === new Date().getDay() && avgPct !== null ? (
+                        <span style={{ background: avgPct >= 70 ? '#dcfce7' : avgPct >= 50 ? '#fef3c7' : '#fee2e2', color: avgPct >= 70 ? '#166534' : avgPct >= 50 ? '#92400e' : '#dc2626', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{avgPct}%</span>
+                      ) : (
+                        <span style={{ color: '#d1d5db', fontSize: 11 }}>—</span>
+                      )}
+                    </td>
+                  ))}
+                  <td style={{ textAlign: 'center', padding: 8 }}>
+                    {avgPct !== null ? (
+                      <span style={{ fontWeight: 700, color: avgPct >= 70 ? '#16a34a' : avgPct >= 50 ? '#d97706' : '#dc2626' }}>{avgPct}%</span>
+                    ) : <span style={{ color: '#9ca3af', fontSize: 11 }}>No data</span>}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+// ── ATTENDANCE PAGE ───────────────────────────────────────────────────────────
 function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, filteredStudents, openStudent }) {
-  const [leavePopup, setLeavePopup] = useState(null) // { studentId }
+  const [leavePopup, setLeavePopup] = useState(null)
   const [leaveReason, setLeaveReason] = useState('therapy')
   const [leaveStaffSearch, setLeaveStaffSearch] = useState('')
   const [leaveStaffId, setLeaveStaffId] = useState('')
+  const [dailyView, setDailyView] = useState('daily') // 'daily' or 'class'
 
   const filteredStaff = leaveStaffSearch.length > 0
     ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase()) || st.role.toLowerCase().includes(leaveStaffSearch.toLowerCase()))
@@ -930,22 +1055,74 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
         <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Attendance</h1>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {['all',...Object.keys(statusLabel)].map(f => (
-            <button key={f} onClick={() => setAttFilter(f)} style={{ ...S.btn(attFilter === f ? 'primary' : 'ghost'), padding: '5px 10px', fontSize: 11 }}>{f === 'all' ? 'All' : statusLabel[f] || f}</button>
-          ))}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setDailyView('daily')} style={{ ...S.btn(dailyView === 'daily' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>📅 Daily Check-In</button>
+          <button onClick={() => setDailyView('class')} style={{ ...S.btn(dailyView === 'class' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>🏫 Class Toggle</button>
+          <button onClick={() => setDailyView('weekly')} style={{ ...S.btn(dailyView === 'weekly' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>📊 Weekly Record</button>
         </div>
       </div>
 
-      {/* Toggle grid — clean teacher view */}
-      <div style={{ ...S.card, marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>🔄 Live Class Toggle</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+      {/* DAILY CHECK-IN */}
+      {dailyView === 'daily' && (
+        <div style={S.card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>📅 Daily Attendance — Who came to Yeshiva today?</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, dailyStatus: 'present' })))} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {students.map((s, i) => {
+              const daily = s.dailyStatus || 'present'
+              const colors = { present: '#16a34a', absent: '#dc2626', late: '#d97706', 'left-early': '#7c3aed' }
+              const labels = { present: '✅ Present', absent: '❌ Absent', late: '⏰ Late', 'left-early': '🚪 Left Early' }
+              return (
+                <div key={s.id} style={{ background: '#fafafa', border: '1px solid #e8eaed', borderRadius: 10, padding: '12px 14px', borderLeft: `4px solid ${colors[daily]}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <div style={S.avatar(i, 32)}>{initials(s.name)}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>{s.name}</div>
+                      <div style={{ fontSize: 11, color: colors[daily], fontWeight: 600 }}>{labels[daily]}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                    {[['present','✅ Present'],['absent','❌ Absent'],['late','⏰ Late'],['left-early','🚪 Left Early']].map(([val, label]) => (
+                      <button key={val} onClick={() => setStudents(prev => prev.map(x => x.id === s.id ? { ...x, dailyStatus: val } : x))}
+                        style={{ padding: '4px 6px', borderRadius: 5, border: `1px solid ${daily === val ? colors[val] : '#e5e7eb'}`, background: daily === val ? colors[val] + '20' : '#fff', color: daily === val ? colors[val] : '#6b7280', fontSize: 10, fontWeight: daily === val ? 700 : 400, cursor: 'pointer' }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Summary */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid #e8eaed' }}>
+            {[
+              ['✅ Present', students.filter(s=>(s.dailyStatus||'present')==='present').length, '#16a34a'],
+              ['❌ Absent', students.filter(s=>s.dailyStatus==='absent').length, '#dc2626'],
+              ['⏰ Late', students.filter(s=>s.dailyStatus==='late').length, '#d97706'],
+              ['🚪 Left Early', students.filter(s=>s.dailyStatus==='left-early').length, '#7c3aed'],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ textAlign: 'center', background: '#f4f5f7', borderRadius: 8, padding: '10px' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color }}>{val}</div>
+                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      )}
+
+      {/* CLASS TOGGLE */}
+      {dailyView === 'class' && (
+        <div style={{ ...S.card, marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>🔄 Live Class Toggle</div>
+            <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
           {filteredStudents.map((s, i) => {
             const inClass = s.status === 'present'
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
@@ -959,7 +1136,6 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
                     {!inClass && !withStaffObj && <div style={{ fontSize: 10, color: statusColor[s.status], fontWeight: 600 }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>}
                   </div>
                 </div>
-                {/* Toggle switch */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 11, color: inClass ? '#166534' : '#dc2626', fontWeight: 600 }}>{inClass ? 'In Class' : 'Left Class'}</span>
                   <div onClick={() => role !== 'therapist' && handleToggle(s)} style={{ width: 44, height: 24, borderRadius: 12, background: inClass ? '#16a34a' : '#e5e7eb', position: 'relative', cursor: role !== 'therapist' ? 'pointer' : 'default', transition: 'background 0.2s' }}>
@@ -969,47 +1145,16 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
               </div>
             )
           })}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Weekly attendance table */}
+      {/* WEEKLY RECORD */}
+      {dailyView === 'weekly' && (
       <div style={S.card}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📅 Weekly Attendance Record</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #e8eaed' }}>
-              <th style={{ textAlign: 'left', padding: '10px 12px' }}>Student</th>
-              <th style={{ padding: 8, textAlign: 'center' }}>Status</th>
-              {DAYS.map(d => <th key={d} style={{ padding: 8, textAlign: 'center' }}>{d}</th>)}
-              <th style={{ padding: 8, textAlign: 'center' }}>P</th>
-              <th style={{ padding: 8, textAlign: 'center' }}>A</th>
-              <th style={{ padding: 8, textAlign: 'center' }}>L</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredStudents.map((s, i) => (
-              <tr key={s.id} onClick={() => openStudent(s)} style={{ borderBottom: '1px solid #f4f5f7', background: s.status === 'unknown' ? '#fef2f2' : 'transparent', cursor: 'pointer' }}>
-                <td style={{ padding: '8px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
-                    <span style={{ fontWeight: 500 }}>{s.name}</span>
-                    {isVIP(s) && <span style={{ fontSize: 10 }}>⭐</span>}
-                  </div>
-                </td>
-                <td style={{ padding: 8, textAlign: 'center' }}><span style={S.tag(statusColor[s.status])}>{statusEmoji[s.status]} {statusLabel[s.status]}</span></td>
-                {s.att.map((d, j) => (
-                  <td key={j} style={{ padding: 8, textAlign: 'center' }}>
-                    <span style={{ background: d==='P'?'#dcfce7':d==='A'?'#fee2e2':'#dbeafe', color: d==='P'?'#166534':d==='A'?'#dc2626':'#1d4ed8', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{d}</span>
-                  </td>
-                ))}
-                <td style={{ textAlign: 'center', padding: 8 }}>{s.att.filter(d=>d==='P').length}</td>
-                <td style={{ textAlign: 'center', padding: 8, color: '#dc2626', fontWeight: 600 }}>{s.att.filter(d=>d==='A').length}</td>
-                <td style={{ textAlign: 'center', padding: 8, color: '#d97706', fontWeight: 600 }}>{s.att.filter(d=>d==='L').length}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <WeeklyRecord students={students} filteredStudents={filteredStudents} openStudent={openStudent} />
       </div>
+      )}
     </div>
   )
 }
