@@ -244,6 +244,16 @@ const initialStudents = [
 ]
 initialStudents.find(s => s.id === 6).classLog = LEVITZ_CLASS_LOG
 
+// Realistic daily check-in statuses
+initialStudents.find(s => s.id === 5).dailyStatus = 'absent'   // Karman Yitzchok
+initialStudents.find(s => s.id === 7).dailyStatus = 'late'     // Rosenfeld Yehuda
+initialStudents.find(s => s.id === 7).lateDetails = { timeArrived: '10:45', reason: 'parent-called', note: 'Father called, said coming after doctor' }
+initialStudents.find(s => s.id === 11).dailyStatus = 'absent'  // Dinowitz Shmuel
+initialStudents.find(s => s.id === 16).dailyStatus = 'absent'  // Hickson Shlomo
+initialStudents.find(s => s.id === 20).dailyStatus = 'late'    // Yanni Shimon
+initialStudents.find(s => s.id === 20).lateDetails = { timeArrived: '11:10', reason: 'transport', note: '' }
+initialStudents.find(s => s.id === 8).dailyStatus = 'left-early' // Schwartz Moishe Michael
+
 // Sample family & medical data
 initialStudents.find(s => s.id === 6).family = {
   fatherName: 'Moshe Levitz', fatherPhone: '718-555-0101', fatherEmail: 'mlevitz@email.com',
@@ -553,10 +563,49 @@ function TrackingTab({ s, students }) {
   // Drill-down popup
   const DrillDownPopup = () => {
     if (!drillType) return null
-    const isDateDrill = drillType !== 'in' && drillType !== 'out'
+    const isDateDrill = drillType !== 'in' && drillType !== 'out' && drillType !== 'late'
     const isIn = drillType === 'in'
 
-    if (isDateDrill) {
+    // Late drill-down
+    if (drillType === 'late') {
+      const lateDays = DAYS.map((day, i) => ({ day, i, status: student.att?.[i] })).filter(d => d.status === 'L' || d.status === 'LE')
+      return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+            <div style={{ background: '#d97706', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>⏰ Late Days — {student.name}</div>
+              <button onClick={() => setDrillType(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 26, height: 26, borderRadius: '50%', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ padding: 16 }}>
+              {lateDays.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>No late days this week</div>
+              ) : lateDays.map((d, i) => {
+                const fullDays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday']
+                const lateDetail = student.lateDetails
+                return (
+                  <div key={i} style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 14px', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{fullDays[d.i]}</div>
+                      <span style={S.badge('#92400e', '#fef3c7')}>{d.status === 'LE' ? '🚪 Left Early' : '⏰ Late'}</span>
+                    </div>
+                    {lateDetail?.timeArrived && <div style={{ fontSize: 13, color: '#374151' }}>⏰ Arrived: <strong>{lateDetail.timeArrived}</strong></div>}
+                    {lateDetail?.reason && lateDetail.reason !== 'no-reason' && (
+                      <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>
+                        {lateDetail.reason === 'parent-called' ? '📞 Parent called ahead' : lateDetail.reason === 'sick' ? '🤒 Sick' : lateDetail.reason === 'transport' ? '🚌 Transport issue' : lateDetail.reason === 'appointment' ? '🏥 Appointment' : lateDetail.reason}
+                      </div>
+                    )}
+                    {lateDetail?.note && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3, fontStyle: 'italic' }}>"{lateDetail.note}"</div>}
+                    {!lateDetail?.timeArrived && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>No details recorded</div>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (isDateDrill && drillType !== 'late') {
       // Show specific day breakdown
       const dayData = histData.find(d => d.date === drillType) || data[0]
       const dayName = dayData ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(dayData.date).getDay()] : ''
@@ -693,7 +742,7 @@ function TrackingTab({ s, students }) {
       ) : (
         <>
           {/* Clickable summary stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
             <div onClick={() => setDrillType('in')} style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #16a34a', cursor: 'pointer', transition: 'transform 0.15s' }} onMouseEnter={e => e.currentTarget.style.transform='translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform='none'}>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#16a34a' }}>{totalIn} min</div>
               <div style={{ fontSize: 11, color: '#6b7280' }}>In Class</div>
@@ -711,6 +760,13 @@ function TrackingTab({ s, students }) {
             <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #7c3aed' }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#7c3aed' }}>{data.length}</div>
               <div style={{ fontSize: 11, color: '#6b7280' }}>Days Tracked</div>
+            </div>
+            <div onClick={() => setDrillType('late')} style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #d97706', cursor: 'pointer', transition: 'transform 0.15s' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.transform='translateY(-2px)'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.transform='none'}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706' }}>{student.att ? student.att.filter(d => d === 'L' || d === 'LE').length : 0}</div>
+              <div style={{ fontSize: 11, color: '#6b7280' }}>Times Late</div>
+              <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>click for details →</div>
             </div>
           </div>
 
@@ -1093,6 +1149,10 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
   const [leaveStaffSearch, setLeaveStaffSearch] = useState('')
   const [leaveStaffId, setLeaveStaffId] = useState('')
   const [selectedClass, setSelectedClass] = useState(initialClass)
+  const [lateClassPopup, setLateClassPopup] = useState(null) // studentId
+  const [lateClassStaffSearch, setLateClassStaffSearch] = useState('')
+  const [lateClassStaffId, setLateClassStaffId] = useState('')
+  const [lateClassNote, setLateClassNote] = useState('')
 
   // Session + intervals
   const [sessionActive, setSessionActive] = useState(false)
@@ -1268,6 +1328,52 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#f4f5f7', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
 
+      {/* Late to Class Popup */}
+      {lateClassPopup && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+            <div style={{ background: '#d97706', padding: '14px 20px', color: '#fff' }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>⏰ {students.find(s=>s.id===lateClassPopup)?.name} — Late to Class</div>
+              <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Why was he late to this class?</div>
+            </div>
+            <div style={{ padding: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Was with staff member?</div>
+              <input value={lateClassStaffSearch} onChange={e => { setLateClassStaffSearch(e.target.value); setLateClassStaffId('') }} placeholder="Start typing name (Rabbi Ehrnreich, Rabbi Baum...)" style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', marginBottom: 6 }} />
+              {lateClassStaffSearch.length > 0 && (
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
+                  {[...STAFF, { id: 's1', name: 'Rabbi Baum', role: 'Menahel' }, { id: 's2', name: 'Rabbi Ehrnreich', role: 'Sgan Menahel' }]
+                    .filter((st, i, arr) => arr.findIndex(x => x.id === st.id) === i)
+                    .filter(st => st.name.toLowerCase().includes(lateClassStaffSearch.toLowerCase()))
+                    .slice(0, 6)
+                    .map(st => (
+                      <div key={st.id} onClick={() => { setLateClassStaffId(st.id); setLateClassStaffSearch(st.name) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, background: lateClassStaffId === st.id ? '#f4f5f7' : '#fff', borderBottom: '1px solid #f4f5f7', display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontWeight: 600 }}>{st.name}</span>
+                        <span style={{ color: '#6b7280', fontSize: 11 }}>{st.role}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Note (optional)</div>
+              <input value={lateClassNote} onChange={e => setLateClassNote(e.target.value)} placeholder="e.g. was asked to come speak with Menahel" style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', marginBottom: 14 }} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setLateClassPopup(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>
+                <button onClick={() => {
+                  const now = new Date()
+                  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+                  const staffObj = lateClassStaffId ? STAFF.find(st => st.id === lateClassStaffId) : null
+                  const note = staffObj ? `Came late — was with ${staffObj.name}${lateClassNote ? `: ${lateClassNote}` : ''}` : lateClassNote ? `Came late — ${lateClassNote}` : 'Came late to class'
+                  setStudents(prev => prev.map(x => x.id === lateClassPopup ? {
+                    ...x, status: 'present',
+                    classLog: [...(x.classLog||[]), { time: timeStr, type: 'in', note, staffId: lateClassStaffId || null }]
+                  } : x))
+                  setLateClassPopup(null); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote('')
+                }} style={{ ...S.btn('primary'), flex: 1 }}>Confirm</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Leave popup */}
       {leavePopup && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1395,7 +1501,10 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #f4f5f7' }} onClick={e => e.stopPropagation()}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: inClass ? '#166534' : '#dc2626' }}>{inClass ? '✅ In Class' : '🚪 Left'}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: inClass ? '#166534' : '#dc2626' }}>{inClass ? '✅ In Class' : '🚪 Left'}</span>
+                    {inClass && <button onClick={e => { e.stopPropagation(); setLateClassPopup(s.id); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote('') }} style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid #fde68a', background: '#fffbeb', color: '#d97706', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>⏰ Came Late</button>}
+                  </div>
                   <div onClick={() => handleToggle(s)} style={{ width: 40, height: 22, borderRadius: 11, background: inClass ? '#16a34a' : '#d1d5db', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                     <div style={{ position: 'absolute', top: 2, left: inClass ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                   </div>
@@ -1701,9 +1810,8 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
   const [lateNote, setLateNote] = useState('')
 
   function updateDailyStatus(id, status) {
-    // Save to undo stack first
     const prev = students.find(s => s.id === id)
-    setUndoStack(u => [...u.slice(-9), { id, dailyStatus: prev?.dailyStatus || 'present', lateDetails: prev?.lateDetails || null }])
+    setUndoStack(u => [...u.slice(-19), { type: 'single', id, dailyStatus: prev?.dailyStatus || 'present', lateDetails: prev?.lateDetails || null }])
     setStudents(prev => prev.map(s => s.id === id ? { ...s, dailyStatus: status } : s))
     if (status === 'late') {
       setLatePopup(id)
@@ -1713,17 +1821,24 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
     }
   }
 
+  function undo() {
+    if (undoStack.length === 0) return
+    const last = undoStack[undoStack.length - 1]
+    if (last.type === 'bulk') {
+      setStudents(prev => prev.map(s => {
+        const saved = last.snapshot.find(x => x.id === s.id)
+        return saved ? { ...s, dailyStatus: saved.dailyStatus, lateDetails: saved.lateDetails } : s
+      }))
+    } else {
+      setStudents(prev => prev.map(s => s.id === last.id ? { ...s, dailyStatus: last.dailyStatus, lateDetails: last.lateDetails } : s))
+    }
+    setUndoStack(u => u.slice(0, -1))
+  }
+
   function confirmLate() {
     setStudents(prev => prev.map(s => s.id === latePopup ? { ...s, lateDetails: { timeArrived: lateTime, reason: lateReason, note: lateNote } } : s))
     setLatePopup(null)
   }
-
-  function undo() {
-    if (undoStack.length === 0) return
-    const last = undoStack[undoStack.length - 1]
-    setStudents(prev => prev.map(s => s.id === last.id ? { ...s, dailyStatus: last.dailyStatus, lateDetails: last.lateDetails } : s))
-    setUndoStack(u => u.slice(0, -1))
-  } // 'daily' or 'class'
 
   const filteredStaff = leaveStaffSearch.length > 0
     ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase()) || st.role.toLowerCase().includes(leaveStaffSearch.toLowerCase()))
@@ -1883,7 +1998,7 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
             <div style={{ display: 'flex', gap: 8 }}>
               {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>↩️ Undo</button>}
               <button onClick={() => setCollapsed(c => !c)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>{collapsed ? '⬇️ Expand All' : '⬆️ Collapse All'}</button>
-              <button onClick={() => { setUndoStack(u => [...u.slice(-9), ...students.map(s => ({ id: s.id, dailyStatus: s.dailyStatus||'present', lateDetails: s.lateDetails||null }))]); setStudents(prev => prev.map(s => ({ ...s, dailyStatus: 'present', lateDetails: null }))) }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+              <button onClick={() => { setUndoStack(u => [...u.slice(-9), { type: 'bulk', snapshot: students.map(s => ({ id: s.id, dailyStatus: s.dailyStatus||'present', lateDetails: s.lateDetails||null })) }]); setStudents(prev => prev.map(s => ({ ...s, dailyStatus: 'present', lateDetails: null }))) }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: collapsed ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: 10 }}>
@@ -1925,6 +2040,22 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
       {/* CLASS TOGGLE */}
       {dailyView === 'class' && (
         <div style={{ ...S.card, marginBottom: 16 }}>
+          {/* Summary boxes on top - clickable */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, marginBottom: 16 }}>
+            {[
+              ['✅ Present', filteredStudents.filter(s=>s.status==='present').length, '#16a34a'],
+              ['❌ Absent', filteredStudents.filter(s=>s.status==='absent').length, '#dc2626'],
+              ['⏰ Late', filteredStudents.filter(s=>s.status==='late').length, '#d97706'],
+              ['🧠 Therapy', filteredStudents.filter(s=>s.status==='therapy').length, '#7c3aed'],
+              ['👤 With BT', filteredStudents.filter(s=>s.status==='with-bt').length, '#0891b2'],
+              ['❓ Unknown', filteredStudents.filter(s=>s.status==='unknown').length, '#dc2626'],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ textAlign: 'center', background: '#f4f5f7', borderRadius: 8, padding: '10px 6px', border: `1px solid ${(val as number) > 0 ? color+'30' : '#e8eaed'}` }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: (val as number) > 0 ? color : '#9ca3af' }}>{val}</div>
+                <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>🔄 Live Class Toggle</div>
             <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
@@ -1989,6 +2120,20 @@ export default function Dashboard() {
   ])
   const [selectedIntake, setSelectedIntake] = useState(null)
   const [intakeTab, setIntakeTab] = useState('info')
+  const [intakeSection, setIntakeSection] = useState('pre') // 'pre' or 'applicants'
+  const [preIntakeList, setPreIntakeList] = useState([
+    { id: 1, name: 'Menachem Goldstein', phone: '718-555-1001', program: 'mesivta', status: 'call-back', callNotes: 'Mother called, very interested. Son is currently in Oholei Torah.', tourDate: '', tourTime: '', interviewDate: '', interviewTime: '', followUpNotes: '' },
+    { id: 2, name: 'Yaakov Rosenberg', phone: '718-555-1002', program: 'mesivta', status: 'call-back', callNotes: 'Father left message, needs callback.', tourDate: '', tourTime: '', interviewDate: '', interviewTime: '', followUpNotes: '' },
+    { id: 3, name: 'Avrohom Stein', phone: '718-555-1003', program: 'mesivta', status: 'tour-scheduled', callNotes: 'Very motivated family. Boy has ADHD, doing well with support.', tourDate: '2026-06-10', tourTime: '10:00', interviewDate: '', interviewTime: '', followUpNotes: 'Remind day before' },
+    { id: 4, name: 'Boruch Friedman', phone: '718-555-1004', program: 'mesivta', status: 'tour-scheduled', callNotes: 'Rabbi Klein referred them.', tourDate: '2026-06-10', tourTime: '11:30', interviewDate: '', interviewTime: '', followUpNotes: '' },
+    { id: 5, name: 'Shmuel Weiss', phone: '718-555-1005', program: 'mesivta', status: 'interview-scheduled', callNotes: 'Came for tour last week, very impressed.', tourDate: '2026-06-03', tourTime: '10:00', interviewDate: '2026-06-12', interviewTime: '09:00', followUpNotes: 'Send reminders' },
+    { id: 6, name: 'Pinchas Kohn', phone: '718-555-1006', program: 'mesivta', status: 'interview-scheduled', callNotes: 'Family from Monsey, willing to relocate.', tourDate: '2026-06-04', tourTime: '14:00', interviewDate: '2026-06-13', interviewTime: '10:00', followUpNotes: '' },
+    { id: 7, name: 'Dovid Levi', phone: '718-555-1007', program: 'mesivta', status: 'needs-interview-time', callNotes: 'Tour done. Ready to schedule interview.', tourDate: '2026-06-05', tourTime: '10:00', interviewDate: '', interviewTime: '', followUpNotes: 'Call to set interview time' },
+    { id: 8, name: 'Nochum Klein', phone: '718-555-1008', program: 'yeshiva-ketana', status: 'call-back', callNotes: 'Parent called about 7th grade placement.', tourDate: '', tourTime: '', interviewDate: '', interviewTime: '', followUpNotes: '' },
+    { id: 9, name: 'Yitzchok Blum', phone: '718-555-1009', program: 'yeshiva-ketana', status: 'call-back', callNotes: 'Inquiry from website.', tourDate: '', tourTime: '', interviewDate: '', interviewTime: '', followUpNotes: '' },
+    { id: 10, name: 'Moshe Berger', phone: '718-555-1010', program: 'yeshiva-ketana', status: 'tour-scheduled', callNotes: 'Looking for 8th grade.', tourDate: '2026-06-11', tourTime: '09:30', interviewDate: '', interviewTime: '', followUpNotes: '' },
+  ])
+  const [selectedPreIntake, setSelectedPreIntake] = useState(null)
   const [todos, setTodos] = useState([
     { id: 1, date: '2025-06-10', time: '10:20 AM', text: 'Tour for Friedman family', category: 'meeting', done: false },
     { id: 2, date: '2025-06-10', time: '12:30 PM', text: 'Interview with Moshe Braver', category: 'meeting', done: false },
@@ -2055,6 +2200,9 @@ export default function Dashboard() {
     if (lateCount >= 3) a.push({ student: s.name, id: s.id, msg: `Late ${lateCount} days`, type: 'warn' })
     if (!lastCall || daysSince(lastCall.date) > 14) a.push({ student: s.name, id: s.id, msg: lastCall ? `No parent call in ${daysSince(lastCall.date)} days` : 'Parent never called', type: 'info' })
     return a
+  }).sort((a, b) => {
+    const order = { danger: 0, warn: 1, info: 2 }
+    return order[a.type] - order[b.type]
   })
 
   const adminNav = [
@@ -2569,14 +2717,191 @@ export default function Dashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
               <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>📋 Intake / Admissions</h1>
-              <button onClick={() => {
-                const newApp = { id: Date.now(), name: 'New Applicant', dob: '', currentSchool: '', shul: '', heardAbout: '', fatherName: '', fatherPhone: '', motherName: '', motherMaiden: '', motherPhone: '', address: '', status: 'applicant', diagnoses: [], issues: '', interviewNotes: '', scores: { math: 0, reading: 0, comprehension: 0, social: 0, behavior: 0 }, documents: [] }
-                setIntakeList(prev => [...prev, newApp])
-                setSelectedIntake(newApp)
-                setIntakeTab('info')
-              }} style={S.btn('primary')}>+ New Applicant</button>
+              {intakeSection === 'applicants' && !selectedIntake && (
+                <button onClick={() => {
+                  const newApp = { id: Date.now(), name: 'New Applicant', dob: '', currentSchool: '', shul: '', heardAbout: '', fatherName: '', fatherPhone: '', motherName: '', motherMaiden: '', motherPhone: '', address: '', status: 'applicant', diagnoses: [], issues: '', interviewNotes: '', scores: { math: 0, reading: 0, comprehension: 0, social: 0, behavior: 0 }, documents: [] }
+                  setIntakeList(prev => [...prev, newApp])
+                  setSelectedIntake(newApp)
+                  setIntakeTab('info')
+                }} style={S.btn('primary')}>+ New Applicant</button>
+              )}
+              {intakeSection === 'pre' && !selectedPreIntake && (
+                <button onClick={() => {
+                  const newLead = { id: Date.now(), name: '', phone: '', program: 'mesivta', status: 'call-back', callNotes: '', tourDate: '', tourTime: '', interviewDate: '', interviewTime: '', followUpNotes: '' }
+                  setPreIntakeList(prev => [...prev, newLead])
+                  setSelectedPreIntake(newLead)
+                }} style={S.btn('primary')}>+ New Lead</button>
+              )}
             </div>
 
+            {/* Section tabs */}
+            {!selectedIntake && !selectedPreIntake && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                <button onClick={() => setIntakeSection('pre')} style={{ padding: '10px 20px', borderRadius: 8, border: `2px solid ${intakeSection === 'pre' ? '#1a1f36' : '#e5e7eb'}`, background: intakeSection === 'pre' ? '#1a1f36' : '#fff', color: intakeSection === 'pre' ? '#fff' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  📞 Pre-Intake Leads
+                  <span style={{ marginLeft: 8, background: intakeSection === 'pre' ? 'rgba(255,255,255,0.2)' : '#f4f5f7', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{preIntakeList.length}</span>
+                </button>
+                <button onClick={() => setIntakeSection('applicants')} style={{ padding: '10px 20px', borderRadius: 8, border: `2px solid ${intakeSection === 'applicants' ? '#1a1f36' : '#e5e7eb'}`, background: intakeSection === 'applicants' ? '#1a1f36' : '#fff', color: intakeSection === 'applicants' ? '#fff' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  📋 Applicants & Interviews
+                  <span style={{ marginLeft: 8, background: intakeSection === 'applicants' ? 'rgba(255,255,255,0.2)' : '#f4f5f7', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{intakeList.length}</span>
+                </button>
+              </div>
+            )}
+
+            {/* PRE-INTAKE SECTION */}
+            {intakeSection === 'pre' && !selectedPreIntake && (
+              <div>
+                {/* Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
+                  {[
+                    ['📞 Call Back', preIntakeList.filter(x=>x.status==='call-back').length, '#dc2626'],
+                    ['🏫 Tour Scheduled', preIntakeList.filter(x=>x.status==='tour-scheduled').length, '#2563eb'],
+                    ['📋 Interview Scheduled', preIntakeList.filter(x=>x.status==='interview-scheduled').length, '#16a34a'],
+                    ['⏰ Needs Interview Time', preIntakeList.filter(x=>x.status==='needs-interview-time').length, '#d97706'],
+                    ['🏥 Mesivta / YK', `${preIntakeList.filter(x=>x.program==='mesivta').length} / ${preIntakeList.filter(x=>x.program==='yeshiva-ketana').length}`, '#7c3aed'],
+                  ].map(([label, val, color]) => (
+                    <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e8eaed', textAlign: 'center', borderTop: `3px solid ${color}` }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color }}>{val}</div>
+                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Leads list */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    ['call-back', '📞 Calls to Return', '#dc2626'],
+                    ['needs-interview-time', '⏰ Needs Interview Time Set', '#d97706'],
+                    ['tour-scheduled', '🏫 Tour Scheduled', '#2563eb'],
+                    ['interview-scheduled', '📋 Interview Scheduled', '#16a34a'],
+                  ].map(([status, groupLabel, color]) => {
+                    const group = preIntakeList.filter(x => x.status === status)
+                    if (group.length === 0) return null
+                    return (
+                      <div key={status}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 6, textTransform: 'uppercase' }}>{groupLabel} ({group.length})</div>
+                        {group.map((lead, i) => (
+                          <div key={lead.id} onClick={() => setSelectedPreIntake(lead)}
+                            style={{ background: '#fff', border: `1px solid #e8eaed`, borderLeft: `4px solid ${color}`, borderRadius: 8, padding: '12px 16px', marginBottom: 6, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.boxShadow = 'none'}>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 14 }}>{lead.name || 'Unnamed Lead'}</div>
+                              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                                📞 {lead.phone} · {lead.program === 'mesivta' ? '🏫 Mesivta' : '📚 Yeshiva Ketana'}
+                                {lead.tourDate && ` · Tour: ${lead.tourDate} ${lead.tourTime}`}
+                                {lead.interviewDate && ` · Interview: ${lead.interviewDate} ${lead.interviewTime}`}
+                              </div>
+                              {lead.callNotes && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2, fontStyle: 'italic' }}>"{lead.callNotes.slice(0,60)}{lead.callNotes.length > 60 ? '...' : ''}"</div>}
+                            </div>
+                            <span style={{ fontSize: 12, color: '#9ca3af' }}>View →</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* PRE-INTAKE PROFILE */}
+            {intakeSection === 'pre' && selectedPreIntake && (
+              <div>
+                <button onClick={() => setSelectedPreIntake(null)} style={{ ...S.btn('ghost'), marginBottom: 16 }}>← Back to leads</button>
+                <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #e8eaed', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+                  <div style={{ background: '#1a1f36', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ flex: 1 }}>
+                      <input value={selectedPreIntake.name} onChange={e => { setSelectedPreIntake(p => ({...p, name: e.target.value})); setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, name: e.target.value} : x)) }} placeholder="Full name..." style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: 20, fontWeight: 700, width: '100%', outline: 'none' }} />
+                      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                        {[['mesivta','🏫 Mesivta'],['yeshiva-ketana','📚 Yeshiva Ketana']].map(([val, label]) => (
+                          <button key={val} onClick={() => { setSelectedPreIntake(p => ({...p, program: val})); setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, program: val} : x)) }} style={{ padding: '2px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: selectedPreIntake.program === val ? '#fff' : 'rgba(255,255,255,0.15)', color: selectedPreIntake.program === val ? '#1a1f36' : '#fff' }}>{label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <input value={selectedPreIntake.phone} onChange={e => { setSelectedPreIntake(p => ({...p, phone: e.target.value})); setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, phone: e.target.value} : x)) }} placeholder="Phone..." style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '6px 12px', borderRadius: 6, fontSize: 14, width: 160 }} />
+                  </div>
+
+                  <div style={{ padding: 20, background: '#f4f5f7', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                    {/* Status pipeline */}
+                    <div style={S.card}>
+                      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📍 Status Pipeline</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {[
+                          ['call-back', '📞 Call Back'],
+                          ['tour-scheduled', '🏫 Schedule Tour'],
+                          ['needs-interview-time', '⏰ Set Interview Time'],
+                          ['interview-scheduled', '📋 Interview Scheduled'],
+                          ['move-to-applicant', '✅ Move to Applicants'],
+                        ].map(([val, label]) => (
+                          <button key={val} onClick={() => {
+                            if (val === 'move-to-applicant') {
+                              // Move to applicants list
+                              const newApp = { id: Date.now(), name: selectedPreIntake.name, dob: '', currentSchool: '', shul: '', heardAbout: 'Pre-intake lead', fatherName: '', fatherPhone: selectedPreIntake.phone, motherName: '', motherMaiden: '', motherPhone: '', address: '', status: 'applicant', diagnoses: [], issues: selectedPreIntake.callNotes, interviewNotes: '', scores: { math: 0, reading: 0, comprehension: 0, social: 0, behavior: 0 }, documents: [] }
+                              setIntakeList(prev => [...prev, newApp])
+                              setPreIntakeList(prev => prev.filter(x => x.id !== selectedPreIntake.id))
+                              setSelectedPreIntake(null)
+                              setIntakeSection('applicants')
+                              setSelectedIntake(newApp)
+                              setIntakeTab('info')
+                            } else {
+                              setSelectedPreIntake(p => ({...p, status: val}))
+                              setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, status: val} : x))
+                            }
+                          }} style={{ padding: '8px 14px', borderRadius: 8, border: `2px solid ${selectedPreIntake.status === val ? '#1a1f36' : '#e5e7eb'}`, background: selectedPreIntake.status === val ? '#1a1f36' : '#fff', color: selectedPreIntake.status === val ? '#fff' : '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{label}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Tour & Interview scheduling */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                      <div style={S.card}>
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>🏫 Tour</div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Date</div>
+                            <input type="date" value={selectedPreIntake.tourDate} onChange={e => { setSelectedPreIntake(p => ({...p, tourDate: e.target.value})); setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, tourDate: e.target.value} : x)) }} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Time</div>
+                            <input type="time" value={selectedPreIntake.tourTime} onChange={e => { setSelectedPreIntake(p => ({...p, tourTime: e.target.value})); setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, tourTime: e.target.value} : x)) }} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                          </div>
+                        </div>
+                      </div>
+                      <div style={S.card}>
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>📋 Interview</div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Date</div>
+                            <input type="date" value={selectedPreIntake.interviewDate} onChange={e => { setSelectedPreIntake(p => ({...p, interviewDate: e.target.value})); setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, interviewDate: e.target.value} : x)) }} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Time</div>
+                            <input type="time" value={selectedPreIntake.interviewTime} onChange={e => { setSelectedPreIntake(p => ({...p, interviewTime: e.target.value})); setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, interviewTime: e.target.value} : x)) }} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Call notes */}
+                    <div style={S.card}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>📞 Call Notes</div>
+                      <textarea value={selectedPreIntake.callNotes} onChange={e => { setSelectedPreIntake(p => ({...p, callNotes: e.target.value})); setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, callNotes: e.target.value} : x)) }} placeholder="Notes from the call — who called, what was discussed, any concerns..." style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 90, boxSizing: 'border-box', resize: 'vertical' }} />
+                    </div>
+
+                    {/* Follow-up notes */}
+                    <div style={S.card}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>📝 Follow-Up Notes</div>
+                      <textarea value={selectedPreIntake.followUpNotes} onChange={e => { setSelectedPreIntake(p => ({...p, followUpNotes: e.target.value})); setPreIntakeList(prev => prev.map(x => x.id === selectedPreIntake.id ? {...x, followUpNotes: e.target.value} : x)) }} placeholder="Reminders, next steps..." style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 60, boxSizing: 'border-box', resize: 'vertical' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* APPLICANTS SECTION */}
+            {intakeSection === 'applicants' && (
+            <div>
             {selectedIntake ? (
               // ── INTAKE PROFILE ──
               <div>
@@ -2801,6 +3126,8 @@ export default function Dashboard() {
                   })}
                 </div>
               </div>
+            )}
+            </div>
             )}
           </div>
         )}
