@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 function playSound(type) {
   try {
@@ -110,6 +110,28 @@ function daysSince(dateStr) { return Math.floor((new Date().getTime() - new Date
 function initials(name) { return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() }
 const AVATAR_COLORS = ['#1e3a5f','#374151','#1e4d2b','#713f12','#4c1d95','#164e63','#831843','#14532d','#7c2d12','#1e3a5f','#374151','#1e4d2b','#713f12','#4c1d95','#164e63','#831843','#14532d','#7c2d12','#1e3a5f','#374151','#1e4d2b']
 
+function useNow() {
+  const [now, setNow] = useState(new Date())
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t) }, [])
+  return now
+}
+
+function getGreeting(hour) {
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function LiveClock() {
+  const now = useNow()
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const day = days[now.getDay()]
+  const date = `${day}, ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`
+  const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return <span style={{ color: '#6b7280', fontSize: 13 }}>{date} · {time}</span>
+}
+
 function getImprovement(s) {
   if (s.lastWeekReminders === 0 && s.reminders === 0) return { label: 'No reminders', color: '#16a34a', icon: '✅' }
   if (s.reminders < s.lastWeekReminders) return { label: `Improved (${s.lastWeekReminders}→${s.reminders})`, color: '#16a34a', icon: '📈' }
@@ -124,7 +146,7 @@ const S = {
   sidebar: { width: 220, background: '#1a1f36', color: '#fff', display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100 },
   sidebarLogo: { padding: '20px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 8 },
   sidebarItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', cursor: 'pointer', borderRadius: 6, margin: '1px 8px', background: active ? 'rgba(255,255,255,0.12)' : 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.6)', fontSize: 13.5, fontWeight: active ? 600 : 400 }),
-  main: { marginLeft: 220, padding: '24px 100px', minHeight: '100vh', flex: 1, width: 'calc(100% - 220px)', boxSizing: 'border-box' },
+  main: { marginLeft: 220, padding: '24px 140px', minHeight: '100vh', flex: 1, width: 'calc(100% - 220px)', boxSizing: 'border-box' },
   card: { background: '#fff', borderRadius: 10, padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', border: '1px solid #e8eaed' },
   statCard: (color) => ({ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e8eaed', borderTop: `3px solid ${color}` }),
   badge: (color, bg) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, color, background: bg }),
@@ -987,7 +1009,11 @@ export default function Dashboard() {
         <div style={{ flex: 1, paddingTop: 4 }}>
           {navItems.map(item => (
             <div key={item.id} style={S.sidebarItem(page === item.id)} onClick={() => setPage(item.id)}>
-              <span style={{ fontSize: 14 }}>{item.icon}</span><span>{item.label}</span>
+              <span style={{ fontSize: 14 }}>{item.icon}</span>
+              <span style={{ flex: 1 }}>{item.label}</span>
+              {item.id === 'alerts' && alerts.filter(a => a.type === 'danger').length > 0 && (
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+              )}
             </div>
           ))}
           {role !== 'therapist' && (
@@ -1014,14 +1040,15 @@ export default function Dashboard() {
         {page === 'dashboard' && role === 'admin' && (
           <div>
             <div style={{ marginBottom: 24 }}>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Good morning, {userName}</h1>
-              <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}>Wednesday, June 4, 2025 · Dargei Beis · {total} students</p>
+              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>{getGreeting(new Date().getHours())}, {userName} 👋</h1>
+              <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}><LiveClock /> · Dargei Beis · {total} students</p>
             </div>
             {unknown > 0 && (
-              <div style={{ background: '#fef2f2', border: '2px solid #dc2626', borderRadius: 10, padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 24 }}>❓</span>
-                <div><div style={{ fontWeight: 800, color: '#dc2626', fontSize: 14 }}>{unknown} student{unknown > 1 ? 's' : ''} with unknown location!</div><div style={{ fontSize: 12, color: '#dc2626' }}>Please locate immediately</div></div>
-                <button onClick={() => setDrillDown({ title: '❓ Location Unknown', students: students.filter(s=>s.status==='unknown') })} style={{ ...S.btn('danger'), marginLeft: 'auto' }}>View</button>
+              <div style={{ background: '#fef2f2', border: '2px solid #dc2626', borderRadius: 10, padding: '20px', marginBottom: 16, textAlign: 'center' }}>
+                <div style={{ fontSize: 32, marginBottom: 6 }}>❓</div>
+                <div style={{ fontWeight: 900, color: '#dc2626', fontSize: 22 }}>{unknown} student{unknown > 1 ? 's' : ''} with unknown location!</div>
+                <div style={{ fontSize: 16, color: '#dc2626', marginTop: 4, fontWeight: 600 }}>Please locate immediately</div>
+                <button onClick={() => setDrillDown({ title: '❓ Location Unknown', students: students.filter(s=>s.status==='unknown') })} style={{ ...S.btn('danger'), marginTop: 12, padding: '8px 24px', fontSize: 14 }}>View Students</button>
               </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
@@ -1169,7 +1196,13 @@ export default function Dashboard() {
                     <div style={{ display: 'flex', gap: 20, textAlign: 'center' }}>
                       <div><div style={{ fontSize: 17, fontWeight: 800, color: '#d97706' }}>{s.points}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>pts</div></div>
                       <div><div style={{ fontSize: 17, fontWeight: 800, color: s.reminders >= 4 ? '#dc2626' : '#374151' }}>{s.reminders}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>remind.</div></div>
-                      <div><div style={{ fontSize: 17, fontWeight: 800 }}>{s.att.filter(d=>d==='A').length}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>absent</div></div>
+                      <div>
+                        <div style={{ fontSize: 17, fontWeight: 800 }}>{s.att.filter(d=>d==='P').length}/6</div>
+                        <div style={{ fontSize: 10, color: '#9ca3af' }}>days</div>
+                        <div style={{ width: 40, height: 4, background: '#e5e7eb', borderRadius: 2, marginTop: 2 }}>
+                          <div style={{ width: `${Math.round(s.att.filter(d=>d==='P').length/6*100)}%`, height: '100%', background: s.att.filter(d=>d==='P').length >= 5 ? '#16a34a' : s.att.filter(d=>d==='P').length >= 3 ? '#d97706' : '#dc2626', borderRadius: 2 }} />
+                        </div>
+                      </div>
                       <div><div style={{ fontSize: 13, fontWeight: 600 }}>{lastCall ? `${daysSince(lastCall.date)}d` : 'Never'}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>last call</div></div>
                     </div>
                   </div>
