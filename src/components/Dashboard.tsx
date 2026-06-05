@@ -54,6 +54,21 @@ const STAFF = [
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 
+const CLASSES = [
+  { id: 'a', name: 'Dargei Alef', grade: '9th Grade', teacher: 'Rabbi Klein' },
+  { id: 'b', name: 'Dargei Beis', grade: '10th Grade', teacher: 'Rabbi Goldstein' },
+  { id: 'c', name: 'Dargei Gimmel', grade: '11th Grade', teacher: 'Rabbi Ehrnreich' },
+]
+
+const STUDENT_CLASSES = {
+  // Dargei Alef (9th)
+  1: 'a', 2: 'a', 3: 'a', 4: 'a', 5: 'a', 6: 'a', 7: 'a',
+  // Dargei Beis (10th)
+  8: 'b', 9: 'b', 10: 'b', 11: 'b', 12: 'b', 13: 'b', 14: 'b',
+  // Dargei Gimmel (11th)
+  15: 'c', 16: 'c', 17: 'c', 18: 'c', 19: 'c', 20: 'c', 21: 'c',
+}
+
 const SCHEDULE_PERIODS = [
   { id: 1, time: '10:10 - 11:10', subject: 'Period 1', teachers: ['Rabbi Klein', 'Rabbi Goldstein', 'Rabbi Ehrnreich'], type: 'class' },
   { id: 2, time: '11:20 - 12:05', subject: 'Period 2', teachers: ['Rabbi Klein', 'Rabbi Goldstein', 'Rabbi Ehrnreich'], type: 'class' },
@@ -115,6 +130,60 @@ const initialStudents = [
   mkStudent(21, 'Moskowitz Meir Shulem', 65, 0, ['P','P','P','P','P','P'], 'present'),
 ]
 initialStudents.find(s => s.id === 6).classLog = LEVITZ_CLASS_LOG
+
+// Sample class logs for other students
+initialStudents.find(s => s.id === 1).classLog = [
+  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+  { time: '10:50', type: 'out', note: 'Left with Mrs. Goldberg (Speech)', staffId: 's6' },
+  { time: '11:35', type: 'in', note: 'Returned to class', staffId: null },
+  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+]
+initialStudents.find(s => s.id === 3).classLog = [
+  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+  { time: '10:25', type: 'out', note: 'Left with Mrs. Friedman (Counseling)', staffId: 's8' },
+  { time: '11:25', type: 'in', note: 'Returned to class', staffId: null },
+  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+  { time: '14:00', type: 'out', note: 'Location unknown', staffId: null },
+  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+]
+initialStudents.find(s => s.id === 8).classLog = [
+  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+  { time: '11:20', type: 'out', note: 'Left with Mrs. Friedman (Counseling)', staffId: 's8' },
+  { time: '11:50', type: 'in', note: 'Returned to class', staffId: null },
+  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+]
+initialStudents.find(s => s.id === 12).classLog = [
+  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+  { time: '10:30', type: 'out', note: 'Left with Ezriel (BT)', staffId: 's10' },
+  { time: '10:55', type: 'in', note: 'Returned to class', staffId: null },
+  { time: '11:15', type: 'out', note: 'Left with Dovid (BT)', staffId: 's11' },
+  { time: '11:50', type: 'in', note: 'Returned to class', staffId: null },
+  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+]
+initialStudents.find(s => s.id === 14).classLog = [
+  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+  { time: '10:15', type: 'out', note: 'Left with Yitzi Liebowitz (Therapy)', staffId: 's9' },
+  { time: '11:00', type: 'in', note: 'Returned to class', staffId: null },
+  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+]
+initialStudents.find(s => s.id === 18).classLog = [
+  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+  { time: '10:40', type: 'out', note: 'Left with Dovid (BT)', staffId: 's11' },
+  { time: '11:10', type: 'in', note: 'Returned to class', staffId: null },
+  { time: '11:30', type: 'out', note: 'Location unknown', staffId: null },
+  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+]
 
 const statusColor = { present: '#2563eb', absent: '#dc2626', late: '#d97706', therapy: '#7c3aed', 'with-bt': '#0891b2', unknown: '#6b7280', 'not-arrived': '#9ca3af' }
 const statusLabel = { present: 'Present', absent: 'Absent', late: 'Late', therapy: 'In Therapy', 'with-bt': 'With BT', unknown: 'Location Unknown', 'not-arrived': 'Not Arrived' }
@@ -721,12 +790,18 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
 }
 
 function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode }) {
-  const present = students.filter(s => s.status === 'present').length
-  const absent = students.filter(s => s.status === 'absent').length
-  const late = students.filter(s => s.status === 'late').length
-  const inTherapy = students.filter(s => s.status === 'therapy').length
-  const withBT = students.filter(s => s.status === 'with-bt').length
-  const unknown = students.filter(s => s.status === 'unknown').length
+  const [selectedClass, setSelectedClass] = useState(null)
+
+  const classStudents = selectedClass
+    ? students.filter(s => STUDENT_CLASSES[s.id] === selectedClass)
+    : students
+
+  const present = classStudents.filter(s => s.status === 'present').length
+  const absent = classStudents.filter(s => s.status === 'absent').length
+  const late = classStudents.filter(s => s.status === 'late').length
+  const inTherapy = classStudents.filter(s => s.status === 'therapy').length
+  const withBT = classStudents.filter(s => s.status === 'with-bt').length
+  const unknown = classStudents.filter(s => s.status === 'unknown').length
 
   function quickPoints(id, amount) {
     playSound(amount > 0 ? 'positive' : 'negative')
@@ -739,9 +814,33 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Good morning, {userName} 👋</h1>
-        <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}>Dargei Beis · Wednesday, June 4 · {students.length} students</p>
+        <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}>Wednesday, June 4 · {classStudents.length} students</p>
+      </div>
+
+      {/* Class Selection */}
+      <div style={{ ...S.card, marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>👨‍🏫 Which class are you teaching now?</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => setSelectedClass(null)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === null ? '#1a1f36' : '#e5e7eb'}`, background: selectedClass === null ? '#1a1f36' : '#fff', color: selectedClass === null ? '#fff' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            📚 All Classes ({students.length})
+          </button>
+          {CLASSES.map(cls => {
+            const count = students.filter(s => STUDENT_CLASSES[s.id] === cls.id).length
+            const presentCount = students.filter(s => STUDENT_CLASSES[s.id] === cls.id && s.status === 'present').length
+            return (
+              <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === cls.id ? '#2563eb' : '#e5e7eb'}`, background: selectedClass === cls.id ? '#2563eb' : '#fff', color: selectedClass === cls.id ? '#fff' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                🏫 {cls.name} · {cls.grade} ({presentCount}/{count} present)
+              </button>
+            )
+          })}
+        </div>
+        {selectedClass && (
+          <div style={{ marginTop: 10, padding: '8px 12px', background: '#f0f9ff', borderRadius: 6, fontSize: 12, color: '#0369a1', fontWeight: 600 }}>
+            ✅ Showing {CLASSES.find(c=>c.id===selectedClass)?.name} — {classStudents.length} students assigned to you
+          </div>
+        )}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 20 }}>
         {[['Present', present, '#2563eb'],['Absent', absent, '#dc2626'],['Late', late, '#d97706'],['Therapy', inTherapy, '#7c3aed'],['With BT', withBT, '#0891b2'],['Unknown', unknown, '#dc2626']].map(([label, val, color]) => (
@@ -757,7 +856,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
       <div style={{ ...S.card, marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 My Students — Quick Actions</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {students.map((s, i) => {
+          {classStudents.map((s, i) => {
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
             const vip = isVIP(s)
             return (
@@ -1360,6 +1459,31 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+
+            {/* Class summary for admin */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+              {CLASSES.map(cls => {
+                const clsStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
+                const clsPresent = clsStudents.filter(s => s.status === 'present').length
+                const clsAbsent = clsStudents.filter(s => s.status === 'absent').length
+                const clsOut = clsStudents.filter(s => s.status !== 'present' && s.status !== 'absent').length
+                return (
+                  <div key={cls.id} style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', border: '1px solid #e8eaed', display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 8, background: '#1a1f36', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>{cls.id.toUpperCase()}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>{cls.name}</div>
+                      <div style={{ fontSize: 11, color: '#6b7280' }}>{cls.grade} · {cls.teacher}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, textAlign: 'center' }}>
+                      <div><div style={{ fontSize: 18, fontWeight: 800, color: '#2563eb' }}>{clsPresent}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>present</div></div>
+                      <div><div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>{clsAbsent}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>absent</div></div>
+                      <div><div style={{ fontSize: 18, fontWeight: 800, color: '#d97706' }}>{clsOut}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>out</div></div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1fr', gap: 16 }}>
               {/* Column 1: To-Do */}
               <div style={S.card}>
