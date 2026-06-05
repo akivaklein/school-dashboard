@@ -590,6 +590,186 @@ function TherapistDashboard({ students, userName, setSelectedStudent }) {
   )
 }
 
+// ── ATTENDANCE PAGE WITH TOGGLE ──────────────────────────────────────────────
+function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, filteredStudents, openStudent }) {
+  const [leavePopup, setLeavePopup] = useState(null) // { studentId }
+  const [leaveReason, setLeaveReason] = useState('therapy')
+  const [leaveStaffSearch, setLeaveStaffSearch] = useState('')
+  const [leaveStaffId, setLeaveStaffId] = useState('')
+
+  const filteredStaff = leaveStaffSearch.length > 0
+    ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase()) || st.role.toLowerCase().includes(leaveStaffSearch.toLowerCase()))
+    : STAFF
+
+  function handleToggle(s) {
+    if (s.status === 'present') {
+      // Turning off — show popup to pick reason
+      setLeavePopup(s.id)
+      setLeaveReason('therapy')
+      setLeaveStaffSearch('')
+      setLeaveStaffId('')
+    } else {
+      // Turning on — mark present
+      setStudents(prev => prev.map(x => x.id === s.id ? { ...x, status: 'present', withStaff: null } : x))
+    }
+  }
+
+  function confirmLeave() {
+    const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'present', hallway: 'unknown', other: 'unknown' }
+    const newStatus = statusMap[leaveReason] || 'unknown'
+    setStudents(prev => prev.map(x => x.id === leavePopup ? { ...x, status: newStatus, withStaff: leaveStaffId || null } : x))
+    setLeavePopup(null)
+  }
+
+  const leaveStudent = leavePopup ? students.find(s => s.id === leavePopup) : null
+
+  return (
+    <div>
+      {/* Leave Popup */}
+      {leavePopup && leaveStudent && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+            <div style={{ background: '#1a1f36', padding: '16px 20px', color: '#fff' }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>🚪 {leaveStudent.name} is leaving class</div>
+              <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>Select reason for leaving</div>
+            </div>
+            <div style={{ padding: 20 }}>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Reason</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    ['therapy', '🧠 Therapy'],
+                    ['with-bt', '👤 With BT'],
+                    ['menahel', '🎓 Called to Menahel'],
+                    ['hallway', '❓ Location Unknown'],
+                    ['other', '📝 Other'],
+                  ].map(([val, label]) => (
+                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: `2px solid ${leaveReason === val ? '#1a1f36' : '#e5e7eb'}`, cursor: 'pointer', background: leaveReason === val ? '#f4f5f7' : '#fff' }}>
+                      <input type="radio" name="reason" value={val} checked={leaveReason === val} onChange={() => setLeaveReason(val)} />
+                      <span style={{ fontWeight: leaveReason === val ? 700 : 400, fontSize: 14 }}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {(leaveReason === 'therapy' || leaveReason === 'with-bt') && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>With whom? (start typing)</div>
+                  <input
+                    value={leaveStaffSearch}
+                    onChange={e => { setLeaveStaffSearch(e.target.value); setLeaveStaffId('') }}
+                    placeholder="Type staff name..."
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', marginBottom: 6 }}
+                  />
+                  {leaveStaffSearch.length > 0 && (
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                      {filteredStaff.slice(0, 5).map(st => (
+                        <div key={st.id} onClick={() => { setLeaveStaffId(st.id); setLeaveStaffSearch(st.name) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, background: leaveStaffId === st.id ? '#f4f5f7' : '#fff', borderBottom: '1px solid #f4f5f7' }}>
+                          <span style={{ fontWeight: 600 }}>{st.name}</span>
+                          <span style={{ color: '#6b7280', marginLeft: 8, fontSize: 11 }}>{st.role}</span>
+                        </div>
+                      ))}
+                      {filteredStaff.length === 0 && <div style={{ padding: '8px 12px', color: '#9ca3af', fontSize: 13 }}>No staff found</div>}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setLeavePopup(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>
+                <button onClick={confirmLeave} style={{ ...S.btn('primary'), flex: 1 }}>Confirm</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Attendance</h1>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {['all',...Object.keys(statusLabel)].map(f => (
+            <button key={f} onClick={() => setAttFilter(f)} style={{ ...S.btn(attFilter === f ? 'primary' : 'ghost'), padding: '5px 10px', fontSize: 11 }}>{f === 'all' ? 'All' : statusLabel[f] || f}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Toggle grid — clean teacher view */}
+      <div style={{ ...S.card, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>🔄 Live Class Toggle</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          {filteredStudents.map((s, i) => {
+            const inClass = s.status === 'present'
+            const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
+            return (
+              <div key={s.id} style={{ background: inClass ? '#f0fdf4' : s.status === 'unknown' ? '#fef2f2' : '#fafafa', border: `2px solid ${inClass ? '#86efac' : s.status === 'unknown' ? '#fecaca' : '#e8eaed'}`, borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={S.avatar(i, 30)}>{initials(s.name)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
+                    {withStaffObj && <div style={{ fontSize: 10, color: '#0891b2', fontWeight: 600 }}>👤 {withStaffObj.name}</div>}
+                    {!inClass && !withStaffObj && <div style={{ fontSize: 10, color: statusColor[s.status], fontWeight: 600 }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>}
+                  </div>
+                </div>
+                {/* Toggle switch */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, color: inClass ? '#166534' : '#dc2626', fontWeight: 600 }}>{inClass ? 'In Class' : 'Left Class'}</span>
+                  <div onClick={() => role !== 'therapist' && handleToggle(s)} style={{ width: 44, height: 24, borderRadius: 12, background: inClass ? '#16a34a' : '#e5e7eb', position: 'relative', cursor: role !== 'therapist' ? 'pointer' : 'default', transition: 'background 0.2s' }}>
+                    <div style={{ position: 'absolute', top: 2, left: inClass ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Weekly attendance table */}
+      <div style={S.card}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📅 Weekly Attendance Record</div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e8eaed' }}>
+              <th style={{ textAlign: 'left', padding: '10px 12px' }}>Student</th>
+              <th style={{ padding: 8, textAlign: 'center' }}>Status</th>
+              {DAYS.map(d => <th key={d} style={{ padding: 8, textAlign: 'center' }}>{d}</th>)}
+              <th style={{ padding: 8, textAlign: 'center' }}>P</th>
+              <th style={{ padding: 8, textAlign: 'center' }}>A</th>
+              <th style={{ padding: 8, textAlign: 'center' }}>L</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredStudents.map((s, i) => (
+              <tr key={s.id} onClick={() => openStudent(s)} style={{ borderBottom: '1px solid #f4f5f7', background: s.status === 'unknown' ? '#fef2f2' : 'transparent', cursor: 'pointer' }}>
+                <td style={{ padding: '8px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
+                    <span style={{ fontWeight: 500 }}>{s.name}</span>
+                    {isVIP(s) && <span style={{ fontSize: 10 }}>⭐</span>}
+                  </div>
+                </td>
+                <td style={{ padding: 8, textAlign: 'center' }}><span style={S.tag(statusColor[s.status])}>{statusEmoji[s.status]} {statusLabel[s.status]}</span></td>
+                {s.att.map((d, j) => (
+                  <td key={j} style={{ padding: 8, textAlign: 'center' }}>
+                    <span style={{ background: d==='P'?'#dcfce7':d==='A'?'#fee2e2':'#dbeafe', color: d==='P'?'#166534':d==='A'?'#dc2626':'#1d4ed8', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{d}</span>
+                  </td>
+                ))}
+                <td style={{ textAlign: 'center', padding: 8 }}>{s.att.filter(d=>d==='P').length}</td>
+                <td style={{ textAlign: 'center', padding: 8, color: '#dc2626', fontWeight: 600 }}>{s.att.filter(d=>d==='A').length}</td>
+                <td style={{ textAlign: 'center', padding: 8, color: '#d97706', fontWeight: 600 }}>{s.att.filter(d=>d==='L').length}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
@@ -884,42 +1064,7 @@ export default function Dashboard() {
         )}
 
         {page === 'attendance' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Attendance</h1>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {['all',...Object.keys(statusLabel)].map(f => (
-                  <button key={f} onClick={() => setAttFilter(f)} style={{ ...S.btn(attFilter === f ? 'primary' : 'ghost'), padding: '5px 10px', fontSize: 11 }}>{f === 'all' ? 'All' : statusLabel[f] || f}</button>
-                ))}
-              </div>
-            </div>
-            <div style={S.card}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #e8eaed' }}>
-                    <th style={{ textAlign: 'left', padding: '10px 12px' }}>Student</th>
-                    <th style={{ padding: 8, textAlign: 'center' }}>Status</th>
-                    {DAYS.map(d => <th key={d} style={{ padding: 8, textAlign: 'center' }}>{d}</th>)}
-                    <th style={{ padding: 8, textAlign: 'center' }}>P</th><th style={{ padding: 8, textAlign: 'center' }}>A</th><th style={{ padding: 8, textAlign: 'center' }}>L</th>
-                    {role !== 'therapist' && <th style={{ padding: 8, textAlign: 'center' }}>Update</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredStudents.map((s, i) => (
-                    <tr key={s.id} style={{ borderBottom: '1px solid #f4f5f7', background: s.status === 'unknown' ? '#fef2f2' : 'transparent' }}>
-                      <td style={{ padding: '8px 12px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={S.avatar(i, 28)}>{initials(s.name)}</div><span style={{ fontWeight: 500 }}>{s.name}</span>{isVIP(s) && <span style={{ fontSize: 10 }}>⭐</span>}</div></td>
-                      <td style={{ padding: 8, textAlign: 'center' }}><span style={S.tag(statusColor[s.status])}>{statusEmoji[s.status]} {statusLabel[s.status]}</span></td>
-                      {s.att.map((d, j) => (<td key={j} style={{ padding: 8, textAlign: 'center' }}><span style={{ background: d==='P'?'#dcfce7':d==='A'?'#fee2e2':'#dbeafe', color: d==='P'?'#166534':d==='A'?'#dc2626':'#1d4ed8', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{d}</span></td>))}
-                      <td style={{ textAlign: 'center', padding: 8 }}>{s.att.filter(d=>d==='P').length}</td>
-                      <td style={{ textAlign: 'center', padding: 8, color: '#dc2626', fontWeight: 600 }}>{s.att.filter(d=>d==='A').length}</td>
-                      <td style={{ textAlign: 'center', padding: 8, color: '#d97706', fontWeight: 600 }}>{s.att.filter(d=>d==='L').length}</td>
-                      {role !== 'therapist' && (<td style={{ padding: '6px 8px' }}><select value={s.status} onChange={e => updateStatus(s.id, e.target.value)} style={{ padding: '3px 6px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 11 }}>{Object.entries(statusLabel).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <AttendancePage students={students} setStudents={setStudents} role={role} attFilter={attFilter} setAttFilter={setAttFilter} filteredStudents={filteredStudents} openStudent={openStudent} />
         )}
 
         {page === 'schedule' && (
