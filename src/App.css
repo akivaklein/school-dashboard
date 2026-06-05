@@ -182,3 +182,5 @@
     border-right-color: var(--border);
   }
 }
+#root { width: 100%; max-width: 100%; }
+#root { width: 100vw; overflow-x: hidden; }

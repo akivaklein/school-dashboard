@@ -120,11 +120,11 @@ function getImprovement(s) {
 function isVIP(s) { return s.reminders === 0 && s.att.every(d => d === 'P') }
 
 const S = {
-  app: { fontFamily: "'DM Sans','Segoe UI',sans-serif", minHeight: '100vh', background: '#f4f5f7', color: '#1a1a2e' },
+  app: { fontFamily: "'DM Sans','Segoe UI',sans-serif", minHeight: '100vh', background: '#f4f5f7', color: '#1a1a2e', display: 'flex' },
   sidebar: { width: 220, background: '#1a1f36', color: '#fff', display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100 },
   sidebarLogo: { padding: '20px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 8 },
   sidebarItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', cursor: 'pointer', borderRadius: 6, margin: '1px 8px', background: active ? 'rgba(255,255,255,0.12)' : 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.6)', fontSize: 13.5, fontWeight: active ? 600 : 400 }),
-  main: { marginLeft: 220, padding: '28px 32px', minHeight: '100vh' },
+  main: { marginLeft: 220, padding: '24px 100px', minHeight: '100vh', flex: 1, width: 'calc(100% - 220px)', boxSizing: 'border-box' },
   card: { background: '#fff', borderRadius: 10, padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', border: '1px solid #e8eaed' },
   statCard: (color) => ({ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e8eaed', borderTop: `3px solid ${color}` }),
   badge: (color, bg) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, color, background: bg }),
@@ -1052,7 +1052,7 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1fr', gap: 16 }}>
               {/* Column 1: To-Do */}
               <div style={S.card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
