@@ -626,16 +626,91 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
   )
 }
 
-function TeachingMode({ students, setStudents, onExit, isAdmin }) {
+function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = null }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState([])
   const [leavePopup, setLeavePopup] = useState(null)
   const [leaveReason, setLeaveReason] = useState('therapy')
   const [leaveStaffSearch, setLeaveStaffSearch] = useState('')
   const [leaveStaffId, setLeaveStaffId] = useState('')
+  const [selectedClass, setSelectedClass] = useState(initialClass)
 
-  const filtered = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+  // Session + intervals
+  const [sessionActive, setSessionActive] = useState(false)
+  const [sessionStartTime, setSessionStartTime] = useState(null)
+  const [intervalNum, setIntervalNum] = useState(1)
+  const [intervalSeconds, setIntervalSeconds] = useState(0)
+  const INTERVAL_DURATION = 20 * 60 // 20 minutes
+  const [intervalHistory, setIntervalHistory] = useState([])
+  const [intervalReminders, setIntervalReminders] = useState({}) // {studentId: reminders this interval}
+  const [showSummary, setShowSummary] = useState(false)
+
+  // Timer
+  useEffect(() => {
+    if (!sessionActive) return
+    const t = setInterval(() => {
+      setIntervalSeconds(prev => {
+        if (prev + 1 >= INTERVAL_DURATION) {
+          // Auto chime - move to next interval
+          playSound('store')
+          nextInterval()
+          return 0
+        }
+        return prev + 1
+      })
+    }, 1000)
+    return () => clearInterval(t)
+  }, [sessionActive, intervalNum])
+
+  function startSession() {
+    setSessionActive(true)
+    setSessionStartTime(new Date())
+    setIntervalNum(1)
+    setIntervalSeconds(0)
+    setIntervalReminders({})
+    setIntervalHistory([])
+  }
+
+  function nextInterval() {
+    playSound('store')
+    // Save this interval's data
+    setIntervalHistory(prev => [...prev, {
+      interval: intervalNum,
+      reminders: { ...intervalReminders },
+      duration: intervalSeconds
+    }])
+    setIntervalNum(prev => prev + 1)
+    setIntervalSeconds(0)
+    setIntervalReminders({}) // Fresh start - reminders reset
+  }
+
+  function endSession() {
+    // Save last interval
+    setIntervalHistory(prev => [...prev, {
+      interval: intervalNum,
+      reminders: { ...intervalReminders },
+      duration: intervalSeconds
+    }])
+    setSessionActive(false)
+    setShowSummary(true)
+  }
+
+  function addIntervalReminder(studentId) {
+    playSound('negative')
+    setIntervalReminders(prev => ({ ...prev, [studentId]: (prev[studentId] || 0) + 1 }))
+    // Only update total reminders on student if this interval pushes them over
+    setStudents(prev => prev.map(s => s.id === studentId ? {
+      ...s,
+      behaviorLog: [{ label: `Reminder (Interval ${intervalNum})`, points: -1, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 30)
+    } : s))
+  }
+
   const filteredStaff = leaveStaffSearch.length > 0 ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase())) : STAFF
+
+  const classStudents = selectedClass
+    ? students.filter(s => STUDENT_CLASSES[s.id] === selectedClass)
+    : students
+  const filtered = classStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
 
   function toggleSelect(id) { setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]) }
   function applyToSelected(amount, label) {
@@ -649,7 +724,6 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     if (s.status === 'present') {
       setLeavePopup(s.id); setLeaveReason('therapy'); setLeaveStaffSearch(''); setLeaveStaffId('')
-      // log will be added on confirm
     } else {
       setStudents(prev => prev.map(x => x.id === s.id ? {
         ...x, status: 'present', withStaff: null,
@@ -663,7 +737,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'present', unknown: 'unknown', other: 'unknown' }
     const staffObj = leaveStaffId ? STAFF.find(st => st.id === leaveStaffId) : null
-    const note = staffObj ? `Left with ${staffObj.name} (${staffObj.role})` : leaveReason === 'unknown' ? 'Location unknown' : leaveReason === 'menahel' ? 'Called to Menahel' : 'Left class'
+    const note = staffObj ? `Left with ${staffObj.name} (${staffObj.role})` : leaveReason === 'unknown' ? 'Location unknown' : 'Left class'
     setStudents(prev => prev.map(x => x.id === leavePopup ? {
       ...x, status: statusMap[leaveReason] || 'unknown', withStaff: leaveStaffId || null,
       classLog: [...(x.classLog || []), { time: timeStr, type: 'out', note, staffId: leaveStaffId || null }]
@@ -671,17 +745,76 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
     setLeavePopup(null)
   }
 
-  const leaveStudent = leavePopup ? students.find(s => s.id === leavePopup) : null
+  const mins = Math.floor(intervalSeconds / 60)
+  const secs = intervalSeconds % 60
+  const progress = (intervalSeconds / INTERVAL_DURATION) * 100
+
+  // Summary screen
+  if (showSummary) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: '#f4f5f7', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#1a1f36', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>📊 Session Summary</div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <button onClick={() => { setShowSummary(false); setSessionActive(false); setIntervalNum(1); setIntervalSeconds(0); setIntervalHistory([]); setIntervalReminders({}) }} style={S.btn('ghost')}>🔄 New Session</button>
+            <button onClick={onExit} style={S.btn('danger')}>← Exit</button>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${intervalHistory.length}, 1fr)`, gap: 12, marginBottom: 24 }}>
+              {intervalHistory.map((iv, i) => (
+                <div key={i} style={S.card}>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: '#1a1f36' }}>Interval {iv.interval}</div>
+                  <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 10 }}>{Math.floor(iv.duration/60)} min {iv.duration%60} sec</div>
+                  {Object.keys(iv.reminders).length === 0 
+                    ? <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✅ No reminders!</div>
+                    : Object.entries(iv.reminders).map(([id, count]) => {
+                        const s = students.find(x => x.id === parseInt(id))
+                        return <div key={id} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid #f4f5f7' }}><span style={{ fontWeight: 600 }}>{s?.name}</span>: <span style={{ color: '#dc2626', fontWeight: 700 }}>{count} ⚠️</span></div>
+                      })
+                  }
+                </div>
+              ))}
+            </div>
+            <div style={S.card}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>🏆 Student Performance Across Intervals</div>
+              {filtered.map((s, i) => {
+                const totalReminders = intervalHistory.reduce((acc, iv) => acc + (iv.reminders[s.id] || 0), 0)
+                const cleanIntervals = intervalHistory.filter(iv => !iv.reminders[s.id]).length
+                return (
+                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #f4f5f7' }}>
+                    <div style={S.avatar(i, 30)}>{initials(s.name)}</div>
+                    <div style={{ flex: 1, fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {intervalHistory.map((iv, j) => (
+                        <div key={j} style={{ width: 28, height: 28, borderRadius: 6, background: iv.reminders[s.id] ? '#fee2e2' : '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: iv.reminders[s.id] ? '#dc2626' : '#16a34a' }}>
+                          {iv.reminders[s.id] ? iv.reminders[s.id] : '✓'}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 12, color: totalReminders === 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
+                      {totalReminders === 0 ? '⭐ Perfect' : `${totalReminders} total`}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#f4f5f7', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
 
       {/* Leave popup */}
-      {leavePopup && leaveStudent && (
+      {leavePopup && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#fff', borderRadius: 14, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
             <div style={{ background: '#1a1f36', padding: '14px 20px', color: '#fff' }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>🚪 {leaveStudent.name} is leaving class</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>🚪 {students.find(s=>s.id===leavePopup)?.name} is leaving class</div>
             </div>
             <div style={{ padding: 18 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Reason</div>
@@ -718,40 +851,71 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
         </div>
       )}
 
-      <div style={{ background: '#1a1f36', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{isAdmin ? '🎓 School-Wide Mode' : '🏫 Teaching Mode'}</div>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." style={{ padding: '7px 12px', borderRadius: 6, border: 'none', fontSize: 13, width: 220, background: 'rgba(255,255,255,0.15)', color: '#fff' }} />
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{filtered.filter(s => s.status === 'present').length}/{filtered.length} in class</div>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-          <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={S.btn('ghost')}>✅ All Present</button>
-          <button onClick={() => setSelected(filtered.map(s => s.id))} style={S.btn('ghost')}>☑ Select All</button>
-          <button onClick={() => setSelected([])} style={S.btn('ghost')}>✕ Clear</button>
-          <button onClick={onExit} style={S.btn('danger')}>← Exit</button>
+      {/* Header */}
+      <div style={{ background: '#1a1f36', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{isAdmin ? '🎓 School-Wide Mode' : '🏫 Teaching Mode'}</div>
+
+        {/* Class selector */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setSelectedClass(null)} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${selectedClass === null ? '#fff' : 'rgba(255,255,255,0.3)'}`, background: selectedClass === null ? '#fff' : 'transparent', color: selectedClass === null ? '#1a1f36' : '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>All</button>
+          {CLASSES.map(cls => (
+            <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${selectedClass === cls.id ? '#fff' : 'rgba(255,255,255,0.3)'}`, background: selectedClass === cls.id ? '#fff' : 'transparent', color: selectedClass === cls.id ? '#1a1f36' : '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{cls.name}</button>
+          ))}
+        </div>
+
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ padding: '6px 10px', borderRadius: 6, border: 'none', fontSize: 12, width: 160, background: 'rgba(255,255,255,0.15)', color: '#fff' }} />
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{filtered.filter(s=>s.status==='present').length}/{filtered.length} in class</div>
+
+        {/* Session controls */}
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
+          {!sessionActive ? (
+            <button onClick={startSession} style={{ ...S.btn('success'), padding: '6px 16px', fontSize: 13 }}>▶ Start Class</button>
+          ) : (
+            <>
+              {/* Timer */}
+              <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 14px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>Interval {intervalNum}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: progress > 80 ? '#fbbf24' : '#fff', fontFamily: 'monospace' }}>{String(mins).padStart(2,'0')}:{String(secs).padStart(2,'0')}</div>
+              </div>
+              {/* Progress bar */}
+              <div style={{ width: 100, height: 6, background: 'rgba(255,255,255,0.2)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${progress}%`, height: '100%', background: progress > 80 ? '#fbbf24' : '#22c55e', transition: 'width 1s' }} />
+              </div>
+              <button onClick={nextInterval} style={{ ...S.btn('ghost'), padding: '6px 14px', fontSize: 12 }}>🔔 Chime</button>
+              <button onClick={endSession} style={{ ...S.btn('danger'), padding: '6px 14px', fontSize: 12 }}>⏹ End Session</button>
+            </>
+          )}
+          <button onClick={() => setSelected(filtered.map(s => s.id))} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11 }}>☑ All</button>
+          <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11 }}>✅ All Present</button>
+          <button onClick={onExit} style={{ ...S.btn('danger'), padding: '5px 10px', fontSize: 11 }}>← Exit</button>
         </div>
       </div>
 
       {selected.length > 0 && (
-        <div style={{ background: '#fff', borderBottom: '1px solid #e8eaed', padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid #e8eaed', padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1f36' }}>{selected.length} selected:</div>
-          {BEHAVIORS_POSITIVE.map(b => <button key={b.id} onClick={() => applyToSelected(b.points, b.label)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+{b.points} {b.label}</button>)}
-          {BEHAVIORS_NEGATIVE.map(b => <button key={b.id} onClick={() => applyToSelected(b.points, b.label)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{b.points} {b.label}</button>)}
-          <button onClick={() => applyToSelected(10, 'Bonus')} style={{ ...S.btn('success'), padding: '4px 12px', fontSize: 12 }}>+10</button>
-          <button onClick={() => applyToSelected(-10, 'Deduction')} style={{ ...S.btn('danger'), padding: '4px 12px', fontSize: 12 }}>-10</button>
+          {BEHAVIORS_POSITIVE.map(b => <button key={b.id} onClick={() => applyToSelected(b.points, b.label)} style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+{b.points} {b.label}</button>)}
+          {BEHAVIORS_NEGATIVE.map(b => <button key={b.id} onClick={() => applyToSelected(b.points, b.label)} style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{b.points} {b.label}</button>)}
+          <button onClick={() => applyToSelected(10, 'Bonus')} style={{ ...S.btn('success'), padding: '3px 10px', fontSize: 11 }}>+10</button>
+          <button onClick={() => setSelected([])} style={{ ...S.btn('ghost'), padding: '3px 10px', fontSize: 11 }}>✕ Clear</button>
         </div>
       )}
 
-      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
           {filtered.map((s, i) => {
             const isSelected = selected.includes(s.id)
             const vip = isVIP(s)
             const inClass = s.status === 'present'
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
+            const thisIntervalReminders = intervalReminders[s.id] || 0
             return (
               <div key={s.id} style={{ background: vip ? '#fefce8' : inClass ? '#fff' : '#fef2f2', border: `2px solid ${isSelected ? '#1a1f36' : vip ? '#ca8a04' : inClass ? '#e8eaed' : '#fecaca'}`, borderRadius: 10, padding: '12px', position: 'relative' }}>
                 {vip && <div style={{ position: 'absolute', top: 8, right: 8, fontSize: 13 }}>⭐</div>}
+                {sessionActive && thisIntervalReminders > 0 && (
+                  <div style={{ position: 'absolute', top: 8, left: 8, background: '#dc2626', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>⚠️ {thisIntervalReminders}</div>
+                )}
 
-                {/* Name + select */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }} onClick={() => toggleSelect(s.id)}>
                   <div style={{ ...S.avatar(i, 32), outline: isSelected ? '3px solid #1a1f36' : 'none' }}>{initials(s.name)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -760,129 +924,22 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
                   </div>
                 </div>
 
-                {/* Points + reminders */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                   <span style={S.badge('#92400e', '#fef3c7')}>{s.points} pts</span>
                   {s.reminders > 0 && <span style={S.badge('#dc2626', '#fee2e2')}>⚠️ {s.reminders}</span>}
                 </div>
 
-                {/* Quick points */}
                 <div style={{ display: 'flex', gap: 3, marginBottom: 8 }} onClick={e => e.stopPropagation()}>
                   <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points+2, behaviorLog: [{label:'+2', points:2, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
                   <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points+5, behaviorLog: [{label:'+5', points:5, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
-                  <button onClick={() => { playSound('negative'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: Math.max(0,x.points-1), reminders: x.reminders+1, behaviorLog: [{label:'Reminder', points:-1, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
+                  <button onClick={() => addIntervalReminder(s.id)} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
                 </div>
 
-                {/* Toggle switch */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #f4f5f7' }} onClick={e => e.stopPropagation()}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: inClass ? '#166534' : '#dc2626' }}>{inClass ? '✅ In Class' : '🚪 Left Class'}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: inClass ? '#166534' : '#dc2626' }}>{inClass ? '✅ In Class' : '🚪 Left'}</span>
                   <div onClick={() => handleToggle(s)} style={{ width: 40, height: 22, borderRadius: 11, background: inClass ? '#16a34a' : '#d1d5db', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                     <div style={{ position: 'absolute', top: 2, left: inClass ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                   </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode }) {
-  const [selectedClass, setSelectedClass] = useState(null)
-
-  const classStudents = selectedClass
-    ? students.filter(s => STUDENT_CLASSES[s.id] === selectedClass)
-    : students
-
-  const present = classStudents.filter(s => s.status === 'present').length
-  const absent = classStudents.filter(s => s.status === 'absent').length
-  const late = classStudents.filter(s => s.status === 'late').length
-  const inTherapy = classStudents.filter(s => s.status === 'therapy').length
-  const withBT = classStudents.filter(s => s.status === 'with-bt').length
-  const unknown = classStudents.filter(s => s.status === 'unknown').length
-
-  function quickPoints(id, amount) {
-    playSound(amount > 0 ? 'positive' : 'negative')
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount), behaviorLog: [{ label: amount > 0 ? `+${amount} pts` : `${amount} pts`, points: amount, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
-  }
-  function quickReminder(id) {
-    playSound('negative')
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, reminders: s.reminders + 1, behaviorLog: [{ label: 'Reminder', points: -1, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
-  }
-
-  return (
-    <div>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Good morning, {userName} 👋</h1>
-        <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}>Wednesday, June 4 · {classStudents.length} students</p>
-      </div>
-
-      {/* Class Selection */}
-      <div style={{ ...S.card, marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>👨‍🏫 Which class are you teaching now?</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setSelectedClass(null)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === null ? '#1a1f36' : '#e5e7eb'}`, background: selectedClass === null ? '#1a1f36' : '#fff', color: selectedClass === null ? '#fff' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            📚 All Classes ({students.length})
-          </button>
-          {CLASSES.map(cls => {
-            const count = students.filter(s => STUDENT_CLASSES[s.id] === cls.id).length
-            const presentCount = students.filter(s => STUDENT_CLASSES[s.id] === cls.id && s.status === 'present').length
-            return (
-              <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === cls.id ? '#2563eb' : '#e5e7eb'}`, background: selectedClass === cls.id ? '#2563eb' : '#fff', color: selectedClass === cls.id ? '#fff' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                🏫 {cls.name} · {cls.grade} ({presentCount}/{count} present)
-              </button>
-            )
-          })}
-        </div>
-        {selectedClass && (
-          <div style={{ marginTop: 10, padding: '8px 12px', background: '#f0f9ff', borderRadius: 6, fontSize: 12, color: '#0369a1', fontWeight: 600 }}>
-            ✅ Showing {CLASSES.find(c=>c.id===selectedClass)?.name} — {classStudents.length} students assigned to you
-          </div>
-        )}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 20 }}>
-        {[['Present', present, '#2563eb'],['Absent', absent, '#dc2626'],['Late', late, '#d97706'],['Therapy', inTherapy, '#7c3aed'],['With BT', withBT, '#0891b2'],['Unknown', unknown, '#dc2626']].map(([label, val, color]) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e8eaed', textAlign: 'center', borderTop: `3px solid ${color}` }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color }}>{val}</div>
-            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>{label}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ marginBottom: 20 }}>
-        <button onClick={() => setTeachingMode(true)} style={{ ...S.btn('primary'), padding: '10px 20px', fontSize: 14 }}>🏫 Enter Teaching Mode</button>
-      </div>
-      <div style={{ ...S.card, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 My Students — Quick Actions</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {classStudents.map((s, i) => {
-            const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
-            const vip = isVIP(s)
-            return (
-              <div key={s.id} style={{ background: vip ? '#fefce8' : s.status === 'unknown' ? '#fef2f2' : '#fafafa', border: `1px solid ${vip ? '#ca8a04' : s.status === 'unknown' ? '#fecaca' : '#e8eaed'}`, borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => setSelectedStudent(s)}>
-                  <div style={S.avatar(i, 34)}>{initials(s.name)}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</span>
-                      {vip && <span style={{ fontSize: 10 }}>⭐</span>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
-                      <span style={{ ...S.tag(statusColor[s.status]), fontSize: 10 }}>{statusEmoji[s.status]} {statusLabel[s.status]}</span>
-                      {withStaffObj && <span style={{ fontSize: 10, color: '#0891b2', fontWeight: 600 }}>👤 {withStaffObj.name}</span>}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={S.badge('#92400e', '#fef3c7')}>{s.points} pts</span>
-                  {s.reminders > 0 && <span style={S.badge('#dc2626', '#fee2e2')}>⚠️ {s.reminders}</span>}
-                </div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button onClick={() => quickPoints(s.id, 2)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
-                  <button onClick={() => quickPoints(s.id, 5)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
-                  <button onClick={() => quickPoints(s.id, 10)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+10</button>
-                  <button onClick={() => quickReminder(s.id)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
                 </div>
               </div>
             )
