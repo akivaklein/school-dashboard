@@ -408,25 +408,94 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
 function TeachingMode({ students, setStudents, onExit, isAdmin }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState([])
+  const [leavePopup, setLeavePopup] = useState(null)
+  const [leaveReason, setLeaveReason] = useState('therapy')
+  const [leaveStaffSearch, setLeaveStaffSearch] = useState('')
+  const [leaveStaffId, setLeaveStaffId] = useState('')
+
   const filtered = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+  const filteredStaff = leaveStaffSearch.length > 0 ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase())) : STAFF
+
   function toggleSelect(id) { setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]) }
   function applyToSelected(amount, label) {
     playSound(amount > 0 ? 'positive' : 'negative')
     setStudents(prev => prev.map(s => selected.includes(s.id) ? { ...s, points: Math.max(0, s.points + amount), reminders: amount < 0 ? s.reminders + 1 : s.reminders, behaviorLog: [{ label, points: amount, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
     setSelected([])
   }
+
+  function handleToggle(s) {
+    if (s.status === 'present') {
+      setLeavePopup(s.id); setLeaveReason('therapy'); setLeaveStaffSearch(''); setLeaveStaffId('')
+    } else {
+      setStudents(prev => prev.map(x => x.id === s.id ? { ...x, status: 'present', withStaff: null } : x))
+    }
+  }
+
+  function confirmLeave() {
+    const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'present', unknown: 'unknown', other: 'unknown' }
+    setStudents(prev => prev.map(x => x.id === leavePopup ? { ...x, status: statusMap[leaveReason] || 'unknown', withStaff: leaveStaffId || null } : x))
+    setLeavePopup(null)
+  }
+
+  const leaveStudent = leavePopup ? students.find(s => s.id === leavePopup) : null
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#f4f5f7', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
+
+      {/* Leave popup */}
+      {leavePopup && leaveStudent && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+            <div style={{ background: '#1a1f36', padding: '14px 20px', color: '#fff' }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>🚪 {leaveStudent.name} is leaving class</div>
+            </div>
+            <div style={{ padding: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Reason</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                {[['therapy','🧠 Therapy'],['with-bt','👤 With BT'],['menahel','🎓 Called to Menahel'],['unknown','❓ Location Unknown'],['other','📝 Other']].map(([val, label]) => (
+                  <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, border: `2px solid ${leaveReason === val ? '#1a1f36' : '#e5e7eb'}`, cursor: 'pointer', background: leaveReason === val ? '#f4f5f7' : '#fff' }}>
+                    <input type="radio" name="reason" value={val} checked={leaveReason === val} onChange={() => setLeaveReason(val)} />
+                    <span style={{ fontWeight: leaveReason === val ? 700 : 400, fontSize: 13 }}>{label}</span>
+                  </label>
+                ))}
+              </div>
+              {(leaveReason === 'therapy' || leaveReason === 'with-bt') && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>With whom?</div>
+                  <input value={leaveStaffSearch} onChange={e => { setLeaveStaffSearch(e.target.value); setLeaveStaffId('') }} placeholder="Start typing name..." style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', marginBottom: 4 }} />
+                  {leaveStaffSearch.length > 0 && (
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                      {filteredStaff.slice(0, 5).map(st => (
+                        <div key={st.id} onClick={() => { setLeaveStaffId(st.id); setLeaveStaffSearch(st.name) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, background: leaveStaffId === st.id ? '#f4f5f7' : '#fff', borderBottom: '1px solid #f4f5f7', display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontWeight: 600 }}>{st.name}</span>
+                          <span style={{ color: '#6b7280', fontSize: 11 }}>{st.role}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setLeavePopup(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>
+                <button onClick={confirmLeave} style={{ ...S.btn('primary'), flex: 1 }}>Confirm</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ background: '#1a1f36', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{isAdmin ? '🎓 School-Wide Mode' : '🏫 Teaching Mode'}</div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." style={{ padding: '7px 12px', borderRadius: 6, border: 'none', fontSize: 13, width: 220, background: 'rgba(255,255,255,0.15)', color: '#fff' }} />
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{filtered.length} students</div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{filtered.filter(s => s.status === 'present').length}/{filtered.length} in class</div>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+          <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={S.btn('ghost')}>✅ All Present</button>
           <button onClick={() => setSelected(filtered.map(s => s.id))} style={S.btn('ghost')}>☑ Select All</button>
           <button onClick={() => setSelected([])} style={S.btn('ghost')}>✕ Clear</button>
           <button onClick={onExit} style={S.btn('danger')}>← Exit</button>
         </div>
       </div>
+
       {selected.length > 0 && (
         <div style={{ background: '#fff', borderBottom: '1px solid #e8eaed', padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1f36' }}>{selected.length} selected:</div>
@@ -436,27 +505,46 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
           <button onClick={() => applyToSelected(-10, 'Deduction')} style={{ ...S.btn('danger'), padding: '4px 12px', fontSize: 12 }}>-10</button>
         </div>
       )}
+
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
           {filtered.map((s, i) => {
             const isSelected = selected.includes(s.id)
             const vip = isVIP(s)
+            const inClass = s.status === 'present'
+            const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
             return (
-              <div key={s.id} style={{ background: vip ? '#fefce8' : '#fff', border: `2px solid ${isSelected ? '#1a1f36' : vip ? '#ca8a04' : '#e8eaed'}`, borderRadius: 10, padding: '12px', cursor: 'pointer', position: 'relative' }} onClick={() => toggleSelect(s.id)}>
-                {isSelected && <div style={{ position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: '50%', background: '#1a1f36', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>✓</div>}
-                {vip && !isSelected && <div style={{ position: 'absolute', top: 8, right: 8, fontSize: 14 }}>⭐</div>}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <div style={S.avatar(i, 34)}>{initials(s.name)}</div>
-                  <div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}</div><span style={{ ...S.tag(statusColor[s.status]), fontSize: 10 }}>{statusEmoji[s.status]}</span></div>
+              <div key={s.id} style={{ background: vip ? '#fefce8' : inClass ? '#fff' : '#fef2f2', border: `2px solid ${isSelected ? '#1a1f36' : vip ? '#ca8a04' : inClass ? '#e8eaed' : '#fecaca'}`, borderRadius: 10, padding: '12px', position: 'relative' }}>
+                {vip && <div style={{ position: 'absolute', top: 8, right: 8, fontSize: 13 }}>⭐</div>}
+
+                {/* Name + select */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }} onClick={() => toggleSelect(s.id)}>
+                  <div style={{ ...S.avatar(i, 32), outline: isSelected ? '3px solid #1a1f36' : 'none' }}>{initials(s.name)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
+                    {withStaffObj ? <div style={{ fontSize: 10, color: '#0891b2', fontWeight: 600 }}>👤 {withStaffObj.name}</div> : <span style={{ ...S.tag(statusColor[s.status]), fontSize: 10 }}>{statusEmoji[s.status]}</span>}
+                  </div>
                 </div>
+
+                {/* Points + reminders */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                   <span style={S.badge('#92400e', '#fef3c7')}>{s.points} pts</span>
                   {s.reminders > 0 && <span style={S.badge('#dc2626', '#fee2e2')}>⚠️ {s.reminders}</span>}
                 </div>
-                <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
+
+                {/* Quick points */}
+                <div style={{ display: 'flex', gap: 3, marginBottom: 8 }} onClick={e => e.stopPropagation()}>
                   <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points+2, behaviorLog: [{label:'+2', points:2, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
                   <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points+5, behaviorLog: [{label:'+5', points:5, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
                   <button onClick={() => { playSound('negative'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: Math.max(0,x.points-1), reminders: x.reminders+1, behaviorLog: [{label:'Reminder', points:-1, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
+                </div>
+
+                {/* Toggle switch */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #f4f5f7' }} onClick={e => e.stopPropagation()}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: inClass ? '#166534' : '#dc2626' }}>{inClass ? '✅ In Class' : '🚪 Left Class'}</span>
+                  <div onClick={() => handleToggle(s)} style={{ width: 40, height: 22, borderRadius: 11, background: inClass ? '#16a34a' : '#d1d5db', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                    <div style={{ position: 'absolute', top: 2, left: inClass ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                  </div>
                 </div>
               </div>
             )
