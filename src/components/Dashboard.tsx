@@ -50,23 +50,32 @@ const STAFF = [
   { id: 's9', name: 'Yitzi Liebowitz', role: 'Therapist' },
   { id: 's10', name: 'Ezriel', role: 'BT' },
   { id: 's11', name: 'Dovid', role: 'BT' },
+  { id: 's12', name: 'Rabbi Lefkowitz', role: 'Teacher' },
+  { id: 's13', name: 'Rabbi Ambush', role: 'Teacher' },
 ]
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+
+const TEACHER_CLASS_MAP = {
+  'Rabbi Klein': 'a',
+  'Rabbi Goldstein': 'b',
+  'Rabbi Ehrnreich': 'c',
+  'Rabbi Ambush': 'd',
+  'Rabbi Lefkowitz': 'a',
+}
 
 const CLASSES = [
   { id: 'a', name: 'Dargei Alef', grade: '9th Grade', teacher: 'Rabbi Klein' },
   { id: 'b', name: 'Dargei Beis', grade: '10th Grade', teacher: 'Rabbi Goldstein' },
   { id: 'c', name: 'Dargei Gimmel', grade: '11th Grade', teacher: 'Rabbi Ehrnreich' },
+  { id: 'd', name: 'Dargei Daled', grade: '12th Grade', teacher: 'Rabbi Ambush' },
 ]
 
 const STUDENT_CLASSES = {
-  // Dargei Alef (9th)
   1: 'a', 2: 'a', 3: 'a', 4: 'a', 5: 'a', 6: 'a', 7: 'a',
-  // Dargei Beis (10th)
   8: 'b', 9: 'b', 10: 'b', 11: 'b', 12: 'b', 13: 'b', 14: 'b',
-  // Dargei Gimmel (11th)
   15: 'c', 16: 'c', 17: 'c', 18: 'c', 19: 'c', 20: 'c', 21: 'c',
+  22: 'd', 23: 'd', 24: 'd', 25: 'd', 26: 'd', 27: 'd', 28: 'd',
 }
 
 const SCHEDULE_PERIODS = [
@@ -95,6 +104,93 @@ const mkStudent = (id, name, points, reminders, att, status, withStaff = null, s
 })
 
 // Sample class log for Levitz Avrohom
+// ── HISTORICAL TRACKING DATA (sample data for demo) ──────────────────────────
+function makeDay(daysAgo, inMins, outMins, staffName, staffId) {
+  const d = new Date()
+  d.setDate(d.getDate() - daysAgo)
+  // Skip Saturdays (6)
+  if (d.getDay() === 6) d.setDate(d.getDate() - 1)
+  return { date: d.toISOString().slice(0,10), inMins, outMins, staffName, staffId, pct: Math.round(inMins/(inMins+outMins)*100) }
+}
+
+const HISTORICAL_DATA = {
+  6: [ // Levitz Avrohom
+    makeDay(0, 45, 70, 'Yitzi + Ezriel', 's9'),
+    makeDay(1, 110, 5, 'Ezriel', 's10'),
+    makeDay(2, 85, 30, 'Yitzi Liebowitz', 's9'),
+    makeDay(3, 95, 20, 'Mrs. Goldberg', 's6'),
+    makeDay(4, 70, 45, 'Ezriel', 's10'),
+    makeDay(7, 100, 15, 'Yitzi Liebowitz', 's9'),
+    makeDay(8, 80, 35, 'Dovid', 's11'),
+    makeDay(9, 90, 25, 'Ezriel', 's10'),
+    makeDay(14, 65, 50, 'Yitzi Liebowitz', 's9'),
+    makeDay(15, 105, 10, 'Mrs. Goldberg', 's6'),
+    makeDay(20, 75, 40, 'Ezriel', 's10'),
+    makeDay(25, 55, 60, 'Yitzi Liebowitz', 's9'),
+    makeDay(35, 80, 35, 'Ezriel', 's10'),
+    makeDay(45, 90, 25, 'Yitzi Liebowitz', 's9'),
+    makeDay(60, 70, 45, 'Mrs. Goldberg', 's6'),
+    makeDay(90, 85, 30, 'Ezriel', 's10'),
+    makeDay(120, 95, 20, 'Yitzi Liebowitz', 's9'),
+  ],
+  1: [ // Bloom Yair
+    makeDay(0, 60, 45, 'Mrs. Goldberg', 's6'),
+    makeDay(1, 95, 20, 'Mrs. Goldberg', 's6'),
+    makeDay(2, 100, 15, 'Mrs. Goldberg', 's6'),
+    makeDay(3, 80, 35, 'Mrs. Goldberg', 's6'),
+    makeDay(7, 90, 25, 'Mrs. Goldberg', 's6'),
+    makeDay(8, 70, 45, 'Mrs. Goldberg', 's6'),
+    makeDay(14, 85, 30, 'Mrs. Goldberg', 's6'),
+    makeDay(21, 75, 40, 'Mrs. Goldberg', 's6'),
+    makeDay(30, 95, 20, 'Mrs. Goldberg', 's6'),
+    makeDay(60, 80, 35, 'Mrs. Goldberg', 's6'),
+    makeDay(90, 90, 25, 'Mrs. Goldberg', 's6'),
+  ],
+  3: [ // Haddad Moshe Chaim
+    makeDay(0, 30, 85, 'Mrs. Friedman', 's8'),
+    makeDay(1, 55, 60, 'Mrs. Friedman', 's8'),
+    makeDay(2, 80, 35, 'Mrs. Friedman', 's8'),
+    makeDay(3, 40, 75, 'Mrs. Friedman', 's8'),
+    makeDay(7, 65, 50, 'Mrs. Friedman', 's8'),
+    makeDay(14, 45, 70, 'Mrs. Friedman', 's8'),
+    makeDay(21, 70, 45, 'Mrs. Friedman', 's8'),
+    makeDay(30, 55, 60, 'Mrs. Friedman', 's8'),
+    makeDay(60, 60, 55, 'Mrs. Friedman', 's8'),
+  ],
+  12: [ // Ettlinger Moshe
+    makeDay(0, 50, 65, 'Ezriel + Dovid', 's10'),
+    makeDay(1, 85, 30, 'Dovid', 's11'),
+    makeDay(2, 70, 45, 'Ezriel', 's10'),
+    makeDay(3, 90, 25, 'Dovid', 's11'),
+    makeDay(7, 60, 55, 'Ezriel', 's10'),
+    makeDay(14, 75, 40, 'Dovid', 's11'),
+    makeDay(21, 80, 35, 'Ezriel', 's10'),
+    makeDay(30, 65, 50, 'Dovid', 's11'),
+  ],
+  14: [ // Feltman Daniel
+    makeDay(0, 35, 80, 'Yitzi Liebowitz', 's9'),
+    makeDay(1, 50, 65, 'Yitzi Liebowitz', 's9'),
+    makeDay(2, 75, 40, 'Yitzi Liebowitz', 's9'),
+    makeDay(3, 60, 55, 'Yitzi Liebowitz', 's9'),
+    makeDay(7, 80, 35, 'Yitzi Liebowitz', 's9'),
+    makeDay(14, 45, 70, 'Yitzi Liebowitz', 's9'),
+    makeDay(21, 70, 45, 'Yitzi Liebowitz', 's9'),
+    makeDay(30, 55, 60, 'Yitzi Liebowitz', 's9'),
+    makeDay(60, 65, 50, 'Yitzi Liebowitz', 's9'),
+    makeDay(90, 80, 35, 'Yitzi Liebowitz', 's9'),
+  ],
+  18: [ // Reich Nathan
+    makeDay(0, 55, 60, 'Dovid', 's11'),
+    makeDay(1, 80, 35, 'Dovid', 's11'),
+    makeDay(2, 65, 50, 'Dovid', 's11'),
+    makeDay(3, 90, 25, 'Dovid', 's11'),
+    makeDay(7, 70, 45, 'Dovid', 's11'),
+    makeDay(14, 85, 30, 'Dovid', 's11'),
+    makeDay(21, 60, 55, 'Dovid', 's11'),
+    makeDay(30, 75, 40, 'Dovid', 's11'),
+  ],
+}
+
 const LEVITZ_CLASS_LOG = [
   { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
   { time: '10:35', type: 'out', note: 'Pulled out by Yitzi Liebowitz', staffId: 's9' },
@@ -128,6 +224,13 @@ const initialStudents = [
   mkStudent(19, 'Teitelbaum Binyamin', 75, 0, ['P','P','P','P','P','P'], 'present'),
   mkStudent(20, 'Yanni Shimon', 40, 2, ['P','P','A','P','P','P'], 'present'),
   mkStudent(21, 'Moskowitz Meir Shulem', 65, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(22, 'Goldberg Chaim', 50, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(23, 'Lieberman Yehoshua', 60, 1, ['P','P','P','P','L','P'], 'present'),
+  mkStudent(24, 'Veksler Aron', 45, 2, ['P','A','P','P','P','P'], 'present'),
+  mkStudent(25, 'Shein Dovi', 70, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(26, 'Jakobi Aharon', 35, 3, ['L','P','P','A','P','P'], 'present'),
+  mkStudent(27, 'Stern Aaron', 80, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(28, 'Sigman Shmuel', 55, 1, ['P','P','L','P','P','P'], 'present'),
 ]
 initialStudents.find(s => s.id === 6).classLog = LEVITZ_CLASS_LOG
 
@@ -292,6 +395,8 @@ function LoginPage({ onLogin }) {
     { role: 'admin', name: 'Rabbi Abramowitz', email: 'rabramowitz@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Klein', email: 'rklein@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Goldstein', email: 'rgoldstein@hadranacademy.org' },
+    { role: 'teacher', name: 'Rabbi Lefkowitz', email: 'rlefkowitz@hadranacademy.org' },
+    { role: 'teacher', name: 'Rabbi Ambush', email: 'rambush@hadranacademy.org' },
     { role: 'therapist', name: 'Yitzi Liebowitz', email: 'yliebowitz@hadranacademy.org' },
     { role: 'therapist', name: 'Mrs. Goldberg', email: 'mgoldberg@hadranacademy.org' },
   ]
@@ -347,6 +452,145 @@ function LoginPage({ onLogin }) {
           <div style={{ color: '#9ca3af', fontSize: 12, textAlign: 'center', marginTop: 20 }}>Need help? Contact admin@hadranacademy.org</div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── TRACKING TAB COMPONENT ────────────────────────────────────────────────────
+function TrackingTab({ s, students }) {
+  const [period, setPeriod] = useState('today')
+  const student = students.find(x => x.id === s.id) || s
+  const histData = HISTORICAL_DATA[student.id] || []
+
+  const filterData = () => {
+    const now = new Date()
+    const today = now.toISOString().slice(0,10)
+    switch(period) {
+      case 'today': return histData.filter(d => d.date === today).length > 0 ? histData.filter(d => d.date === today) : histData.slice(0,1)
+      case 'week': {
+        const weekAgo = new Date(now - 7*86400000).toISOString().slice(0,10)
+        return histData.filter(d => d.date >= weekAgo)
+      }
+      case 'month': {
+        const monthAgo = new Date(now - 30*86400000).toISOString().slice(0,10)
+        return histData.filter(d => d.date >= monthAgo)
+      }
+      case 'thismonth': return histData.filter(d => d.date.startsWith(now.toISOString().slice(0,7)))
+      case 'year': return histData.filter(d => d.date.startsWith(new Date().getFullYear().toString()))
+      default: return histData
+    }
+  }
+
+  const data = filterData()
+  const totalIn = data.reduce((acc, d) => acc + d.inMins, 0)
+  const totalOut = data.reduce((acc, d) => acc + d.outMins, 0)
+  const avgPct = data.length > 0 ? Math.round(totalIn / (totalIn + totalOut) * 100) : 0
+  const pctColor = avgPct >= 70 ? '#16a34a' : avgPct >= 50 ? '#d97706' : '#dc2626'
+
+  // Staff time breakdown
+  const staffTime = {}
+  data.forEach(d => { if (d.staffName) staffTime[d.staffName] = (staffTime[d.staffName] || 0) + d.outMins })
+
+  const periods = [
+    { id: 'today', label: 'Today' },
+    { id: 'week', label: 'This Week' },
+    { id: 'month', label: 'Last 30 Days' },
+    { id: 'thismonth', label: 'This Month' },
+    { id: 'year', label: 'This Year' },
+    { id: 'all', label: 'All Time' },
+  ]
+
+  if (histData.length === 0) {
+    return (
+      <div style={{ ...S.card, textAlign: 'center', color: '#9ca3af', padding: '3rem' }}>
+        No class tracking data yet for this student.
+        <br/><span style={{ fontSize: 12 }}>Data records automatically when teacher uses the Teaching Mode toggle.</span>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Period selector */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+        {periods.map(p => (
+          <button key={p.id} onClick={() => setPeriod(p.id)} style={{ padding: '6px 12px', borderRadius: 6, border: `2px solid ${period === p.id ? '#1a1f36' : '#e5e7eb'}`, background: period === p.id ? '#1a1f36' : '#fff', color: period === p.id ? '#fff' : '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{p.label}</button>
+        ))}
+      </div>
+
+      {data.length === 0 ? (
+        <div style={{ ...S.card, textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>No data for this period</div>
+      ) : (
+        <>
+          {/* Summary stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #16a34a' }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a' }}>{totalIn} min</div>
+              <div style={{ fontSize: 11, color: '#6b7280' }}>In Class</div>
+            </div>
+            <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #dc2626' }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#dc2626' }}>{totalOut} min</div>
+              <div style={{ fontSize: 11, color: '#6b7280' }}>Out of Class</div>
+            </div>
+            <div style={{ ...S.card, textAlign: 'center', borderTop: `3px solid ${pctColor}` }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: pctColor }}>{avgPct}%</div>
+              <div style={{ fontSize: 11, color: '#6b7280' }}>Avg In Class</div>
+            </div>
+            <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #7c3aed' }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed' }}>{data.length}</div>
+              <div style={{ fontSize: 11, color: '#6b7280' }}>Days Tracked</div>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ ...S.card, marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Overall Time Split</div>
+            <div style={{ height: 16, borderRadius: 8, overflow: 'hidden', display: 'flex', marginBottom: 6 }}>
+              <div style={{ width: `${avgPct}%`, background: '#16a34a' }} />
+              <div style={{ flex: 1, background: '#fca5a5' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>🟢 In class: {avgPct}%</span>
+              <span style={{ color: '#dc2626', fontWeight: 600 }}>🔴 Out: {100-avgPct}%</span>
+            </div>
+          </div>
+
+          {/* Time with staff */}
+          {Object.keys(staffTime).length > 0 && (
+            <div style={{ ...S.card, marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>👤 Time Out — By Staff Member</div>
+              {Object.entries(staffTime).sort((a,b) => b[1]-a[1]).map(([name, mins]) => (
+                <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #f4f5f7' }}>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>👤 {name}</span>
+                  <div style={{ width: 120, height: 6, background: '#f4f5f7', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.min(100, mins/totalOut*100)}%`, height: '100%', background: '#7c3aed', borderRadius: 3 }} />
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', minWidth: 50, textAlign: 'right' }}>{mins} min</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Daily breakdown */}
+          <div style={S.card}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>📅 Daily Breakdown</div>
+            {data.map((d, i) => {
+              const color = d.pct >= 70 ? '#16a34a' : d.pct >= 50 ? '#d97706' : '#dc2626'
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #f4f5f7' }}>
+                  <div style={{ minWidth: 80, fontSize: 12, color: '#6b7280', fontWeight: 500 }}>{d.date}</div>
+                  <div style={{ flex: 1, height: 8, background: '#f4f5f7', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${d.pct}%`, height: '100%', background: color, borderRadius: 4 }} />
+                  </div>
+                  <div style={{ minWidth: 36, fontSize: 12, fontWeight: 800, color, textAlign: 'right' }}>{d.pct}%</div>
+                  <div style={{ minWidth: 80, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>{d.inMins}m in / {d.outMins}m out</div>
+                  {d.staffName && <div style={{ fontSize: 11, color: '#7c3aed', minWidth: 80 }}>👤 {d.staffName}</div>}
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -453,110 +697,7 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
             </div>
           )}
           {tab === 'tracking' && (
-            <div>
-              {s.classLog.length === 0 ? (
-                <div style={{ ...S.card, textAlign: 'center', color: '#9ca3af', padding: '3rem' }}>
-                  No class tracking data yet.<br/>
-                  <span style={{ fontSize: 12 }}>Data is recorded automatically when teacher uses Teaching Mode toggle.</span>
-                </div>
-              ) : (() => {
-                // Calculate time segments
-                const segments = []
-                let totalInClass = 0
-                let totalOut = 0
-                const staffTime = {}
-
-                for (let i = 0; i < s.classLog.length; i++) {
-                  const curr = s.classLog[i]
-                  const next = s.classLog[i + 1]
-                  if (!next) break
-
-                  const [ch, cm] = curr.time.split(':').map(Number)
-                  const [nh, nm] = next.time.split(':').map(Number)
-                  const mins = (nh * 60 + nm) - (ch * 60 + cm)
-
-                  if (curr.type === 'in') {
-                    totalInClass += mins
-                    segments.push({ from: curr.time, to: next.time, mins, type: 'in', note: curr.note })
-                  } else if (curr.type === 'out') {
-                    totalOut += mins
-                    const staffObj = curr.staffId ? STAFF.find(st => st.id === curr.staffId) : null
-                    if (staffObj) staffTime[staffObj.name] = (staffTime[staffObj.name] || 0) + mins
-                    segments.push({ from: curr.time, to: next.time, mins, type: 'out', note: curr.note, staff: staffObj?.name })
-                  }
-                }
-
-                const totalMins = totalInClass + totalOut
-                const pct = totalMins > 0 ? Math.round(totalInClass / totalMins * 100) : 0
-
-                return (
-                  <div>
-                    {/* Summary */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
-                      <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #16a34a' }}>
-                        <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a' }}>{totalInClass} min</div>
-                        <div style={{ fontSize: 12, color: '#6b7280' }}>In Class</div>
-                      </div>
-                      <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #dc2626' }}>
-                        <div style={{ fontSize: 28, fontWeight: 800, color: '#dc2626' }}>{totalOut} min</div>
-                        <div style={{ fontSize: 12, color: '#6b7280' }}>Out of Class</div>
-                      </div>
-                      <div style={{ ...S.card, textAlign: 'center', borderTop: `3px solid ${pct >= 70 ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626'}` }}>
-                        <div style={{ fontSize: 28, fontWeight: 800, color: pct >= 70 ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626' }}>{pct}%</div>
-                        <div style={{ fontSize: 12, color: '#6b7280' }}>Time in Class</div>
-                      </div>
-                    </div>
-
-                    {/* Progress bar */}
-                    <div style={{ ...S.card, marginBottom: 14 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Time Breakdown</div>
-                      <div style={{ height: 20, borderRadius: 10, overflow: 'hidden', display: 'flex', marginBottom: 8 }}>
-                        <div style={{ width: `${pct}%`, background: '#16a34a', transition: 'width 0.5s' }} />
-                        <div style={{ width: `${100-pct}%`, background: '#fca5a5' }} />
-                      </div>
-                      <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
-                        <span style={{ color: '#16a34a', fontWeight: 600 }}>🟢 In class: {pct}%</span>
-                        <span style={{ color: '#dc2626', fontWeight: 600 }}>🔴 Out: {100-pct}%</span>
-                      </div>
-                    </div>
-
-                    {/* Time with each staff */}
-                    {Object.keys(staffTime).length > 0 && (
-                      <div style={{ ...S.card, marginBottom: 14 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Time With Each Staff Member</div>
-                        {Object.entries(staffTime).map(([name, mins]) => (
-                          <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f4f5f7', fontSize: 13 }}>
-                            <span>👤 {name}</span>
-                            <span style={{ fontWeight: 700, color: '#7c3aed' }}>{mins} min</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Event timeline */}
-                    <div style={S.card}>
-                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>📋 Today's Timeline</div>
-                      {s.classLog.map((ev, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #f4f5f7' }}>
-                          <div style={{ width: 44, fontSize: 12, fontWeight: 700, color: '#6b7280', flexShrink: 0 }}>{ev.time}</div>
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: ev.type === 'in' ? '#16a34a' : ev.type === 'out' ? '#dc2626' : '#9ca3af', flexShrink: 0 }} />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, fontWeight: 500, color: ev.type === 'in' ? '#166534' : ev.type === 'out' ? '#dc2626' : '#6b7280' }}>{ev.note}</div>
-                          </div>
-                          {i < s.classLog.length - 1 && (() => {
-                            const [ch, cm] = ev.time.split(':').map(Number)
-                            const next = s.classLog[i+1]
-                            const [nh, nm] = next.time.split(':').map(Number)
-                            const mins = (nh * 60 + nm) - (ch * 60 + cm)
-                            return <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>{mins} min</div>
-                          })()}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
+            <TrackingTab s={s} students={students} />
           )}
 
           {tab === 'behavior' && (
@@ -950,6 +1091,106 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
   )
 }
 
+function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null }) {
+  const [selectedClass, setSelectedClass] = useState(initialClass)
+
+  const classStudents = selectedClass
+    ? students.filter(s => STUDENT_CLASSES[s.id] === selectedClass)
+    : students
+
+  const present = classStudents.filter(s => s.status === 'present').length
+  const absent = classStudents.filter(s => s.status === 'absent').length
+  const late = classStudents.filter(s => s.status === 'late').length
+  const inTherapy = classStudents.filter(s => s.status === 'therapy').length
+  const withBT = classStudents.filter(s => s.status === 'with-bt').length
+  const unknown = classStudents.filter(s => s.status === 'unknown').length
+
+  function quickPoints(id, amount) {
+    playSound(amount > 0 ? 'positive' : 'negative')
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount), behaviorLog: [{ label: amount > 0 ? `+${amount} pts` : `${amount} pts`, points: amount, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
+  }
+  function quickReminder(id) {
+    playSound('negative')
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, reminders: s.reminders + 1, behaviorLog: [{ label: 'Reminder', points: -1, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Good morning, {userName} 👋</h1>
+        <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}>{classStudents.length} students</p>
+      </div>
+
+      {/* Class Selection */}
+      <div style={{ ...S.card, marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>👨‍🏫 Which class are you teaching now?</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => setSelectedClass(null)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === null ? '#1a1f36' : '#e5e7eb'}`, background: selectedClass === null ? '#1a1f36' : '#fff', color: selectedClass === null ? '#fff' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            📚 All Classes ({students.length})
+          </button>
+          {CLASSES.map(cls => {
+            const count = students.filter(s => STUDENT_CLASSES[s.id] === cls.id).length
+            const presentCount = students.filter(s => STUDENT_CLASSES[s.id] === cls.id && s.status === 'present').length
+            return (
+              <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === cls.id ? '#2563eb' : '#e5e7eb'}`, background: selectedClass === cls.id ? '#2563eb' : '#fff', color: selectedClass === cls.id ? '#fff' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                🏫 {cls.name} ({presentCount}/{count})
+              </button>
+            )
+          })}
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <button onClick={() => setTeachingMode(true)} style={{ ...S.btn('primary'), padding: '8px 20px', fontSize: 13 }}>▶ Start Class Session</button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 20 }}>
+        {[['Present', present, '#2563eb'],['Absent', absent, '#dc2626'],['Late', late, '#d97706'],['Therapy', inTherapy, '#7c3aed'],['With BT', withBT, '#0891b2'],['Unknown', unknown, '#dc2626']].map(([label, val, color]) => (
+          <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e8eaed', textAlign: 'center', borderTop: `3px solid ${color}` }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color }}>{val}</div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Student cards */}
+      <div style={S.card}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 {selectedClass ? CLASSES.find(c=>c.id===selectedClass)?.name : 'All Students'} — Quick Actions</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          {classStudents.map((s, i) => {
+            const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
+            const vip = isVIP(s)
+            return (
+              <div key={s.id} style={{ background: vip ? '#fefce8' : s.status === 'unknown' ? '#fef2f2' : '#fafafa', border: `1px solid ${vip ? '#ca8a04' : s.status === 'unknown' ? '#fecaca' : '#e8eaed'}`, borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => setSelectedStudent(s)}>
+                  <div style={S.avatar(i, 34)}>{initials(s.name)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}{vip && ' ⭐'}</div>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                      <span style={{ ...S.tag(statusColor[s.status]), fontSize: 10 }}>{statusEmoji[s.status]}</span>
+                      {withStaffObj && <span style={{ fontSize: 10, color: '#0891b2', fontWeight: 600 }}>👤 {withStaffObj.name}</span>}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={S.badge('#92400e', '#fef3c7')}>{s.points} pts</span>
+                  {s.reminders > 0 && <span style={S.badge('#dc2626', '#fee2e2')}>⚠️ {s.reminders}</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button onClick={() => quickPoints(s.id, 2)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
+                  <button onClick={() => quickPoints(s.id, 5)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
+                  <button onClick={() => quickPoints(s.id, 10)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#166534', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+10</button>
+                  <button onClick={() => quickReminder(s.id)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TherapistDashboard({ students, userName, setSelectedStudent }) {
   const myStudents = students.filter(s => s.services.length > 0)
   return (
@@ -1329,6 +1570,7 @@ export default function Dashboard() {
   const [attFilter, setAttFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [teachingMode, setTeachingMode] = useState(false)
+  const [teacherClass, setTeacherClass] = useState(null)
   const [drillDown, setDrillDown] = useState(null)
   const [todos, setTodos] = useState([
     { id: 1, date: '2025-06-10', time: '10:20 AM', text: 'Tour for Friedman family', category: 'meeting', done: false },
@@ -1344,7 +1586,16 @@ export default function Dashboard() {
   const [newTodoCategory, setNewTodoCategory] = useState('general')
   const [newTodoTime, setNewTodoTime] = useState('')
 
-  function handleLogin(r, name) { setRole(r); setUserName(name); setLoggedIn(true); setPage('dashboard') }
+  function handleLogin(r, name) { 
+    setRole(r)
+    setUserName(name)
+    setLoggedIn(true)
+    setPage('dashboard')
+    if (r === 'teacher') {
+      const cls = TEACHER_CLASS_MAP[name] || null
+      setTeacherClass(cls)
+    }
+  }
   function openStudent(s, tab = 'overview') { setSelectedStudent(s); setSelectedStudentTab(tab) }
   function updateStatus(id, status) { setStudents(prev => prev.map(s => s.id === id ? { ...s, status } : s)) }
   function addPoints(id, amount) { playSound(amount > 0 ? 'positive' : 'negative'); setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount) } : s)) }
@@ -1470,7 +1721,7 @@ export default function Dashboard() {
           {search && <button onClick={() => setSearch('')} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 12 }}>✕</button>}
         </div>
 
-        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={students} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} />}
+        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={students} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} />}
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={students} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
 
         {page === 'dashboard' && role === 'admin' && (
