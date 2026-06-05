@@ -1044,11 +1044,12 @@ export default function Dashboard() {
               <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}><LiveClock /> · Dargei Beis · {total} students</p>
             </div>
             {unknown > 0 && (
-              <div style={{ background: '#fef2f2', border: '2px solid #dc2626', borderRadius: 10, padding: '20px', marginBottom: 16, textAlign: 'center' }}>
-                <div style={{ fontSize: 32, marginBottom: 6 }}>❓</div>
-                <div style={{ fontWeight: 900, color: '#dc2626', fontSize: 22 }}>{unknown} student{unknown > 1 ? 's' : ''} with unknown location!</div>
-                <div style={{ fontSize: 16, color: '#dc2626', marginTop: 4, fontWeight: 600 }}>Please locate immediately</div>
-                <button onClick={() => setDrillDown({ title: '❓ Location Unknown', students: students.filter(s=>s.status==='unknown') })} style={{ ...S.btn('danger'), marginTop: 12, padding: '8px 24px', fontSize: 14 }}>View Students</button>
+              <div style={{ background: '#fef2f2', border: '2px solid #dc2626', borderRadius: 10, padding: '14px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{ fontWeight: 900, color: '#dc2626', fontSize: 20 }}>❓ {unknown} student{unknown > 1 ? 's' : ''} with unknown location! </span>
+                  <span style={{ fontSize: 15, color: '#dc2626', fontWeight: 600 }}>Please locate immediately</span>
+                </div>
+                <button onClick={() => setDrillDown({ title: '❓ Location Unknown', students: students.filter(s=>s.status==='unknown') })} style={{ ...S.btn('danger'), padding: '6px 18px', fontSize: 13, flexShrink: 0 }}>View</button>
               </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
