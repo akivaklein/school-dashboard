@@ -605,6 +605,19 @@ export default function Dashboard() {
   const [search, setSearch] = useState('')
   const [teachingMode, setTeachingMode] = useState(false)
   const [drillDown, setDrillDown] = useState(null)
+  const [todos, setTodos] = useState([
+    { id: 1, date: '2025-06-10', time: '10:20 AM', text: 'Tour for Friedman family', category: 'meeting', done: false },
+    { id: 2, date: '2025-06-10', time: '12:30 PM', text: 'Interview with Moshe Braver', category: 'meeting', done: false },
+    { id: 3, date: '2025-06-10', time: '', text: 'Announce: bus will leave 5 min earlier starting tomorrow morning', category: 'announcement', done: false },
+    { id: 4, date: '2025-06-10', time: '', text: 'Conversation with Zevi about changing levels', category: 'general', done: false },
+    { id: 5, date: '2025-06-10', time: '', text: "Call Moshe Chaim's parents — plan for him to come on time", category: 'call', done: false },
+    { id: 6, date: '2025-06-10', time: '', text: 'IEP meeting coming up soon — make appointment', category: 'appointment', done: false },
+    { id: 7, date: '2025-06-10', time: '', text: 'Schedule meeting with Rabbi Ambush — topic: general', category: 'meeting', done: false },
+    { id: 8, date: '2025-06-10', time: '', text: 'Make appointment by Rav for 10th grade farher', category: 'appointment', done: false },
+  ])
+  const [newTodo, setNewTodo] = useState('')
+  const [newTodoCategory, setNewTodoCategory] = useState('general')
+  const [newTodoTime, setNewTodoTime] = useState('')
 
   function handleLogin(r, name) { setRole(r); setUserName(name); setLoggedIn(true); setPage('dashboard') }
   function openStudent(s, tab = 'overview') { setSelectedStudent(s); setSelectedStudentTab(tab) }
@@ -660,6 +673,7 @@ export default function Dashboard() {
     { id: 'store', label: 'Token Store', icon: '🛍' },
     { id: 'alerts', label: `Alerts (${alerts.length})`, icon: '🔔' },
     { id: 'calls', label: 'Parent Calls', icon: '📞' },
+    { id: 'todo', label: 'To-Do List', icon: '📋' },
   ]
   const teacherNav = [
     { id: 'dashboard', label: 'My Class', icon: '🏫' },
@@ -1072,6 +1086,67 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {page === 'todo' && role === 'admin' && (
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 18 }}>📋 To-Do List</h1>
+            {/* Add new */}
+            <div style={{ ...S.card, marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Add New Task</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input value={newTodo} onChange={e => setNewTodo(e.target.value)} placeholder="Task description..." onKeyDown={e => { if (e.key === 'Enter' && newTodo.trim()) { setTodos(prev => [...prev, { id: Date.now(), date: new Date().toISOString().slice(0,10), time: newTodoTime, text: newTodo, category: newTodoCategory, done: false }]); setNewTodo(''); setNewTodoTime('') } }} style={{ flex: 1, padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, minWidth: 200 }} />
+                <input value={newTodoTime} onChange={e => setNewTodoTime(e.target.value)} placeholder="Time (e.g. 10:30 AM)" style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, width: 160 }} />
+                <select value={newTodoCategory} onChange={e => setNewTodoCategory(e.target.value)} style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }}>
+                  <option value="general">General</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="call">Phone Call</option>
+                  <option value="announcement">Announcement</option>
+                  <option value="appointment">Appointment</option>
+                </select>
+                <button onClick={() => { if (!newTodo.trim()) return; setTodos(prev => [...prev, { id: Date.now(), date: new Date().toISOString().slice(0,10), time: newTodoTime, text: newTodo, category: newTodoCategory, done: false }]); setNewTodo(''); setNewTodoTime('') }} style={S.btn('primary')}>+ Add</button>
+              </div>
+            </div>
+
+            {/* Todo list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Pending */}
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Pending ({todos.filter(t => !t.done).length})</div>
+              {todos.filter(t => !t.done).map(todo => {
+                const catColors = { meeting: ['#5b21b6','#f5f3ff'], call: ['#166534','#dcfce7'], announcement: ['#92400e','#fef3c7'], appointment: ['#1d4ed8','#dbeafe'], general: ['#374151','#f4f5f7'] }
+                const [cc, cb] = catColors[todo.category] || catColors.general
+                return (
+                  <div key={todo.id} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px' }}>
+                    <input type="checkbox" checked={todo.done} onChange={() => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, done: true } : t))} style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{todo.text}</div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: '#6b7280' }}>📅 {todo.date}{todo.time ? ` · ${todo.time}` : ''}</span>
+                        <span style={S.badge(cc, cb)}>{todo.category}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => setTodos(prev => prev.filter(t => t.id !== todo.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16 }}>✕</button>
+                  </div>
+                )
+              })}
+              {todos.filter(t => !t.done).length === 0 && <div style={{ ...S.card, textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>All done! ✅</div>}
+
+              {/* Done */}
+              {todos.filter(t => t.done).length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '16px 0 8px' }}>Completed ({todos.filter(t => t.done).length})</div>
+                  {todos.filter(t => t.done).map(todo => (
+                    <div key={todo.id} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px', opacity: 0.5 }}>
+                      <input type="checkbox" checked={todo.done} onChange={() => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, done: false } : t))} style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }} />
+                      <div style={{ flex: 1, textDecoration: 'line-through', fontSize: 13, color: '#6b7280' }}>{todo.text}</div>
+                      <button onClick={() => setTodos(prev => prev.filter(t => t.id !== todo.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
 
       {drillDown && <DrillDown title={drillDown.title} students={drillDown.students} onClose={() => setDrillDown(null)} onSelectStudent={s => { openStudent(s); setDrillDown(null) }} />}
