@@ -75,8 +75,21 @@ const THERAPY_SCHEDULE = [
 const mkStudent = (id, name, points, reminders, att, status, withStaff = null, services = [], parentCalls = [], notes = [], iep = false, iepDetails = '', detention = false) => ({
   id, name, points, reminders, lastWeekReminders: reminders + Math.floor(Math.random() * 3),
   att, breakfast: att.map(() => Math.random() > 0.3 ? 'Y' : 'N'),
-  detention, status, withStaff, services, parentCalls, notes, behaviorLog: [], iep, iepDetails
+  detention, status, withStaff, services, parentCalls, notes, behaviorLog: [], iep, iepDetails,
+  classLog: []
 })
+
+// Sample class log for Levitz Avrohom
+const LEVITZ_CLASS_LOG = [
+  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+  { time: '10:35', type: 'out', note: 'Pulled out by Yitzi Liebowitz', staffId: 's9' },
+  { time: '11:15', type: 'in', note: 'Returned to class', staffId: null },
+  { time: '11:20', type: 'out', note: 'Left with Ezriel (BT)', staffId: 's10' },
+  { time: '11:55', type: 'in', note: 'Returned to class', staffId: null },
+  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+]
 
 const initialStudents = [
   mkStudent(1, 'Bloom Yair', 45, 2, ['P','P','L','L','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Klein',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Klein',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
@@ -101,6 +114,7 @@ const initialStudents = [
   mkStudent(20, 'Yanni Shimon', 40, 2, ['P','P','A','P','P','P'], 'present'),
   mkStudent(21, 'Moskowitz Meir Shulem', 65, 0, ['P','P','P','P','P','P'], 'present'),
 ]
+initialStudents.find(s => s.id === 6).classLog = LEVITZ_CLASS_LOG
 
 const statusColor = { present: '#2563eb', absent: '#dc2626', late: '#d97706', therapy: '#7c3aed', 'with-bt': '#0891b2', unknown: '#6b7280', 'not-arrived': '#9ca3af' }
 const statusLabel = { present: 'Present', absent: 'Absent', late: 'Late', therapy: 'In Therapy', 'with-bt': 'With BT', unknown: 'Location Unknown', 'not-arrived': 'Not Arrived' }
@@ -146,7 +160,7 @@ const S = {
   sidebar: { width: 220, background: '#1a1f36', color: '#fff', display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100 },
   sidebarLogo: { padding: '20px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 8 },
   sidebarItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', cursor: 'pointer', borderRadius: 6, margin: '1px 8px', background: active ? 'rgba(255,255,255,0.12)' : 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.6)', fontSize: 13.5, fontWeight: active ? 600 : 400 }),
-  main: { marginLeft: 220, padding: '24px 140px', minHeight: '100vh', flex: 1, width: 'calc(100% - 220px)', boxSizing: 'border-box' },
+  main: { marginLeft: 220, padding: '32px 120px 32px 36px', minHeight: '100vh', flex: 1, width: 'calc(100% - 220px)', boxSizing: 'border-box' },
   card: { background: '#fff', borderRadius: 10, padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', border: '1px solid #e8eaed' },
   statCard: (color) => ({ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e8eaed', borderTop: `3px solid ${color}` }),
   badge: (color, bg) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, color, background: bg }),
@@ -305,7 +319,7 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', fontSize: 14 }}>✕</button>
         </div>
         <div style={{ display: 'flex', borderBottom: '1px solid #e8eaed', padding: '0 24px', background: '#fafafa' }}>
-          {['overview','attendance','behavior','therapy','calls','notes'].map(t => (
+          {['overview','attendance','tracking','behavior','therapy','calls','notes'].map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t ? 700 : 400, borderBottom: tab === t ? '2px solid #1a1f36' : '2px solid transparent', color: tab === t ? '#1a1f36' : '#6b7280', textTransform: 'capitalize' }}>{t}</button>
           ))}
         </div>
@@ -360,6 +374,113 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
               </table>
             </div>
           )}
+          {tab === 'tracking' && (
+            <div>
+              {s.classLog.length === 0 ? (
+                <div style={{ ...S.card, textAlign: 'center', color: '#9ca3af', padding: '3rem' }}>
+                  No class tracking data yet.<br/>
+                  <span style={{ fontSize: 12 }}>Data is recorded automatically when teacher uses Teaching Mode toggle.</span>
+                </div>
+              ) : (() => {
+                // Calculate time segments
+                const segments = []
+                let totalInClass = 0
+                let totalOut = 0
+                const staffTime = {}
+
+                for (let i = 0; i < s.classLog.length; i++) {
+                  const curr = s.classLog[i]
+                  const next = s.classLog[i + 1]
+                  if (!next) break
+
+                  const [ch, cm] = curr.time.split(':').map(Number)
+                  const [nh, nm] = next.time.split(':').map(Number)
+                  const mins = (nh * 60 + nm) - (ch * 60 + cm)
+
+                  if (curr.type === 'in') {
+                    totalInClass += mins
+                    segments.push({ from: curr.time, to: next.time, mins, type: 'in', note: curr.note })
+                  } else if (curr.type === 'out') {
+                    totalOut += mins
+                    const staffObj = curr.staffId ? STAFF.find(st => st.id === curr.staffId) : null
+                    if (staffObj) staffTime[staffObj.name] = (staffTime[staffObj.name] || 0) + mins
+                    segments.push({ from: curr.time, to: next.time, mins, type: 'out', note: curr.note, staff: staffObj?.name })
+                  }
+                }
+
+                const totalMins = totalInClass + totalOut
+                const pct = totalMins > 0 ? Math.round(totalInClass / totalMins * 100) : 0
+
+                return (
+                  <div>
+                    {/* Summary */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                      <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #16a34a' }}>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a' }}>{totalInClass} min</div>
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>In Class</div>
+                      </div>
+                      <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #dc2626' }}>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: '#dc2626' }}>{totalOut} min</div>
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>Out of Class</div>
+                      </div>
+                      <div style={{ ...S.card, textAlign: 'center', borderTop: `3px solid ${pct >= 70 ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626'}` }}>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: pct >= 70 ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626' }}>{pct}%</div>
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>Time in Class</div>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div style={{ ...S.card, marginBottom: 14 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Time Breakdown</div>
+                      <div style={{ height: 20, borderRadius: 10, overflow: 'hidden', display: 'flex', marginBottom: 8 }}>
+                        <div style={{ width: `${pct}%`, background: '#16a34a', transition: 'width 0.5s' }} />
+                        <div style={{ width: `${100-pct}%`, background: '#fca5a5' }} />
+                      </div>
+                      <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
+                        <span style={{ color: '#16a34a', fontWeight: 600 }}>🟢 In class: {pct}%</span>
+                        <span style={{ color: '#dc2626', fontWeight: 600 }}>🔴 Out: {100-pct}%</span>
+                      </div>
+                    </div>
+
+                    {/* Time with each staff */}
+                    {Object.keys(staffTime).length > 0 && (
+                      <div style={{ ...S.card, marginBottom: 14 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Time With Each Staff Member</div>
+                        {Object.entries(staffTime).map(([name, mins]) => (
+                          <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f4f5f7', fontSize: 13 }}>
+                            <span>👤 {name}</span>
+                            <span style={{ fontWeight: 700, color: '#7c3aed' }}>{mins} min</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Event timeline */}
+                    <div style={S.card}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>📋 Today's Timeline</div>
+                      {s.classLog.map((ev, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #f4f5f7' }}>
+                          <div style={{ width: 44, fontSize: 12, fontWeight: 700, color: '#6b7280', flexShrink: 0 }}>{ev.time}</div>
+                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: ev.type === 'in' ? '#16a34a' : ev.type === 'out' ? '#dc2626' : '#9ca3af', flexShrink: 0 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: ev.type === 'in' ? '#166534' : ev.type === 'out' ? '#dc2626' : '#6b7280' }}>{ev.note}</div>
+                          </div>
+                          {i < s.classLog.length - 1 && (() => {
+                            const [ch, cm] = ev.time.split(':').map(Number)
+                            const next = s.classLog[i+1]
+                            const [nh, nm] = next.time.split(':').map(Number)
+                            const mins = (nh * 60 + nm) - (ch * 60 + cm)
+                            return <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>{mins} min</div>
+                          })()}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
           {tab === 'behavior' && (
             <div>
               <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
@@ -446,16 +567,29 @@ function TeachingMode({ students, setStudents, onExit, isAdmin }) {
   }
 
   function handleToggle(s) {
+    const now = new Date()
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     if (s.status === 'present') {
       setLeavePopup(s.id); setLeaveReason('therapy'); setLeaveStaffSearch(''); setLeaveStaffId('')
+      // log will be added on confirm
     } else {
-      setStudents(prev => prev.map(x => x.id === s.id ? { ...x, status: 'present', withStaff: null } : x))
+      setStudents(prev => prev.map(x => x.id === s.id ? {
+        ...x, status: 'present', withStaff: null,
+        classLog: [...(x.classLog || []), { time: timeStr, type: 'in', note: 'Returned to class', staffId: null }]
+      } : x))
     }
   }
 
   function confirmLeave() {
+    const now = new Date()
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'present', unknown: 'unknown', other: 'unknown' }
-    setStudents(prev => prev.map(x => x.id === leavePopup ? { ...x, status: statusMap[leaveReason] || 'unknown', withStaff: leaveStaffId || null } : x))
+    const staffObj = leaveStaffId ? STAFF.find(st => st.id === leaveStaffId) : null
+    const note = staffObj ? `Left with ${staffObj.name} (${staffObj.role})` : leaveReason === 'unknown' ? 'Location unknown' : leaveReason === 'menahel' ? 'Called to Menahel' : 'Left class'
+    setStudents(prev => prev.map(x => x.id === leavePopup ? {
+      ...x, status: statusMap[leaveReason] || 'unknown', withStaff: leaveStaffId || null,
+      classLog: [...(x.classLog || []), { time: timeStr, type: 'out', note, staffId: leaveStaffId || null }]
+    } : x))
     setLeavePopup(null)
   }
 
@@ -1029,6 +1163,7 @@ export default function Dashboard() {
       </div>
 
       <div style={S.main}>
+        <div style={{ maxWidth: 1100, marginLeft: 'auto', marginRight: 'auto' }}>
         <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search students..." style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid #e8eaed', fontSize: 13, width: 260, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} />
           {search && <button onClick={() => setSearch('')} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 12 }}>✕</button>}
@@ -1441,6 +1576,8 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+      </div>
 
       </div>
 
