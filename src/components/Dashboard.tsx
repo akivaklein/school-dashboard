@@ -100,7 +100,17 @@ const mkStudent = (id, name, points, reminders, att, status, withStaff = null, s
   id, name, points, reminders, lastWeekReminders: reminders + Math.floor(Math.random() * 3),
   att, breakfast: att.map(() => Math.random() > 0.3 ? 'Y' : 'N'),
   detention, status, withStaff, services, parentCalls, notes, behaviorLog: [], iep, iepDetails,
-  classLog: []
+  classLog: [],
+  lateDetails: null, // { timeArrived, reason, note }
+  family: {
+    fatherName: '', fatherPhone: '', fatherEmail: '',
+    motherName: '', motherPhone: '', motherEmail: '',
+    address: '', emergencyContact: '', emergencyPhone: ''
+  },
+  medical: {
+    allergies: [], medications: [], conditions: [],
+    doctorName: '', doctorPhone: '', lastPhysical: '', notes: ''
+  }
 })
 
 // Sample class log for Levitz Avrohom
@@ -204,25 +214,25 @@ const LEVITZ_CLASS_LOG = [
 
 const initialStudents = [
   mkStudent(1, 'Bloom Yair', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Klein',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Klein',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
-  mkStudent(2, 'Friedlander Zev', 80, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(2, 'Friedlander Zev', 80, 0, ['P','P','P','P','P','P'], 'late'),
   mkStudent(3, 'Haddad Moshe Chaim', 60, 3, ['P','L','A','P','P','P'], 'therapy', 's8', [{staffId:'s8',type:'Counseling',hrs:3}], [{date:'2025-06-01',staff:'Rabbi Klein',notes:'Left voicemail',duration:'2 min'}]),
-  mkStudent(4, 'Hayon David', 95, 0, ['P','P','P','P','P','P'], 'present', null, [], [], [{date:'2025-06-02',author:'Rabbi Klein',text:'Excellent week.'}]),
+  mkStudent(4, 'Hayon David', 95, 0, ['P','P','P','P','P','P'], 'with-bt', 's10', [], [], [{date:'2025-06-02',author:'Rabbi Klein',text:'Excellent week.'}]),
   mkStudent(5, 'Karman Yitzchok', 20, 5, ['A','A','A','P','P','P'], 'absent'),
   mkStudent(6, 'Levitz Avrohom', 70, 1, ['P','P','P','L','P','P'], 'with-bt', 's10', [{staffId:'s7',type:'OT',hrs:2}], [{date:'2025-05-20',staff:'Rabbi Klein',notes:'General check-in',duration:'5 min'}], [], true, 'OT IEP - sensory processing'),
   mkStudent(7, 'Rosenfeld Yehuda', 55, 6, ['P','P','P','P','A','P'], 'late', null, [], [], [], false, '', true),
   mkStudent(8, 'Schwartz Moishe Michael', 40, 2, ['L','LE','L','L','P','P'], 'present', null, [{staffId:'s8',type:'Counseling',hrs:0.5}]),
   mkStudent(9, 'Simon Eliyahu', 65, 0, ['P','P','P','P','P','P'], 'unknown'),
   mkStudent(10, 'Berkowitz Avraham', 55, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(11, 'Dinowitz Shmuel', 70, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(11, 'Dinowitz Shmuel', 70, 0, ['P','P','P','P','P','A'], 'absent'),
   mkStudent(12, 'Ettlinger Moshe', 30, 4, ['LE','P','P','A','P','P'], 'present'),
-  mkStudent(13, 'Feldman Shraga', 85, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(13, 'Feldman Shraga', 85, 0, ['P','P','P','P','P','P'], 'therapy', 's6'),
   mkStudent(14, 'Feltman Daniel', 45, 2, ['P','A','P','P','L','P'], 'therapy', 's9', [{staffId:'s9',type:'Therapy',hrs:2}]),
-  mkStudent(15, 'Gantz Tzvi', 60, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(15, 'Gantz Tzvi', 60, 0, ['P','P','P','P','P','P'], 'unknown'),
   mkStudent(16, 'Hickson Shlomo', 25, 5, ['A','A','P','P','P','P'], 'absent'),
   mkStudent(17, 'Mezei Yehuda', 90, 0, ['P','P','P','P','P','P'], 'present'),
   mkStudent(18, 'Reich Nathan', 50, 3, ['P','L','P','P','A','P'], 'with-bt', 's11'),
   mkStudent(19, 'Teitelbaum Binyamin', 75, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(20, 'Yanni Shimon', 40, 2, ['P','P','A','P','P','P'], 'present'),
+  mkStudent(20, 'Yanni Shimon', 40, 2, ['P','P','A','P','P','P'], 'late'),
   mkStudent(21, 'Moskowitz Meir Shulem', 65, 0, ['P','P','P','P','P','P'], 'present'),
   mkStudent(22, 'Goldberg Chaim', 50, 0, ['P','P','P','P','P','P'], 'present'),
   mkStudent(23, 'Lieberman Yehoshua', 60, 1, ['P','P','P','P','L','P'], 'present'),
@@ -233,6 +243,44 @@ const initialStudents = [
   mkStudent(28, 'Sigman Shmuel', 55, 1, ['P','P','L','P','P','P'], 'present'),
 ]
 initialStudents.find(s => s.id === 6).classLog = LEVITZ_CLASS_LOG
+
+// Sample family & medical data
+initialStudents.find(s => s.id === 6).family = {
+  fatherName: 'Moshe Levitz', fatherPhone: '718-555-0101', fatherEmail: 'mlevitz@email.com',
+  motherName: 'Rivka Levitz', motherPhone: '718-555-0102', motherEmail: 'rlevitz@email.com',
+  address: '1423 54th St, Brooklyn NY 11219',
+  emergencyContact: 'Moshe Levitz (Father)', emergencyPhone: '718-555-0101'
+}
+initialStudents.find(s => s.id === 6).medical = {
+  allergies: [{ name: 'Penicillin', severity: 'severe' }, { name: 'Tree nuts', severity: 'moderate' }],
+  medications: [{ name: 'Ritalin', dosage: '10mg', frequency: 'Daily morning' }],
+  conditions: ['ADHD', 'Sensory Processing Disorder'],
+  doctorName: 'Dr. Shmuel Katz', doctorPhone: '718-555-9876', lastPhysical: '2025-09-15', notes: 'Needs sensory breaks. Has OT IEP.'
+}
+initialStudents.find(s => s.id === 1).family = {
+  fatherName: 'Yisrael Bloom', fatherPhone: '718-555-0201', fatherEmail: 'ybloom@email.com',
+  motherName: 'Chana Bloom', motherPhone: '718-555-0202', motherEmail: '',
+  address: '1567 48th St, Brooklyn NY 11219',
+  emergencyContact: 'Yisrael Bloom (Father)', emergencyPhone: '718-555-0201'
+}
+initialStudents.find(s => s.id === 1).medical = {
+  allergies: [{ name: 'Shellfish', severity: 'mild' }],
+  medications: [],
+  conditions: ['Speech delay'],
+  doctorName: 'Dr. Rachel Stern', doctorPhone: '718-555-8765', lastPhysical: '2025-08-20', notes: 'Speech therapy twice weekly.'
+}
+initialStudents.find(s => s.id === 3).family = {
+  fatherName: 'Yaakov Haddad', fatherPhone: '718-555-0301', fatherEmail: 'yhaddad@email.com',
+  motherName: 'Leah Haddad', motherPhone: '718-555-0302', motherEmail: 'lhaddad@email.com',
+  address: '892 Ocean Pkwy, Brooklyn NY 11230',
+  emergencyContact: 'Yaakov Haddad (Father)', emergencyPhone: '718-555-0301'
+}
+initialStudents.find(s => s.id === 3).medical = {
+  allergies: [{ name: 'Latex', severity: 'moderate' }, { name: 'Bee stings', severity: 'severe' }],
+  medications: [{ name: 'EpiPen', dosage: '0.3mg', frequency: 'As needed' }, { name: 'Prozac', dosage: '10mg', frequency: 'Daily' }],
+  conditions: ['Anxiety', 'Bee sting allergy - carries EpiPen'],
+  doctorName: 'Dr. Avigdor Weiss', doctorPhone: '718-555-7654', lastPhysical: '2025-10-01', notes: 'EpiPen in office at all times. Counseling weekly.'
+}
 
 // Sample class logs for other students
 initialStudents.find(s => s.id === 1).classLog = [
@@ -459,6 +507,7 @@ function LoginPage({ onLogin }) {
 // ── TRACKING TAB COMPONENT ────────────────────────────────────────────────────
 function TrackingTab({ s, students }) {
   const [period, setPeriod] = useState('today')
+  const [drillType, setDrillType] = useState(null) // 'in', 'out', or a date string
   const student = students.find(x => x.id === s.id) || s
   const histData = HISTORICAL_DATA[student.id] || []
 
@@ -467,14 +516,8 @@ function TrackingTab({ s, students }) {
     const today = now.toISOString().slice(0,10)
     switch(period) {
       case 'today': return histData.filter(d => d.date === today).length > 0 ? histData.filter(d => d.date === today) : histData.slice(0,1)
-      case 'week': {
-        const weekAgo = new Date(now - 7*86400000).toISOString().slice(0,10)
-        return histData.filter(d => d.date >= weekAgo)
-      }
-      case 'month': {
-        const monthAgo = new Date(now - 30*86400000).toISOString().slice(0,10)
-        return histData.filter(d => d.date >= monthAgo)
-      }
+      case 'week': { const weekAgo = new Date(now - 7*86400000).toISOString().slice(0,10); return histData.filter(d => d.date >= weekAgo) }
+      case 'month': { const monthAgo = new Date(now - 30*86400000).toISOString().slice(0,10); return histData.filter(d => d.date >= monthAgo) }
       case 'thismonth': return histData.filter(d => d.date.startsWith(now.toISOString().slice(0,7)))
       case 'year': return histData.filter(d => d.date.startsWith(new Date().getFullYear().toString()))
       default: return histData
@@ -486,8 +529,6 @@ function TrackingTab({ s, students }) {
   const totalOut = data.reduce((acc, d) => acc + d.outMins, 0)
   const avgPct = data.length > 0 ? Math.round(totalIn / (totalIn + totalOut) * 100) : 0
   const pctColor = avgPct >= 70 ? '#16a34a' : avgPct >= 50 ? '#d97706' : '#dc2626'
-
-  // Staff time breakdown
   const staffTime = {}
   data.forEach(d => { if (d.staffName) staffTime[d.staffName] = (staffTime[d.staffName] || 0) + d.outMins })
 
@@ -509,8 +550,137 @@ function TrackingTab({ s, students }) {
     )
   }
 
+  // Drill-down popup
+  const DrillDownPopup = () => {
+    if (!drillType) return null
+    const isDateDrill = drillType !== 'in' && drillType !== 'out'
+    const isIn = drillType === 'in'
+
+    if (isDateDrill) {
+      // Show specific day breakdown
+      const dayData = histData.find(d => d.date === drillType) || data[0]
+      const dayName = dayData ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(dayData.date).getDay()] : ''
+      const todayLog = student.classLog || []
+      return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 520, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ background: '#1a1f36', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>📅 {dayName} {drillType} — {student.name}</div>
+              <button onClick={() => setDrillType(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 26, height: 26, borderRadius: '50%', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+              {dayData && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+                    <div style={{ background: '#f0fdf4', borderRadius: 8, padding: '10px', textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 800, color: '#16a34a' }}>{dayData.inMins}m</div><div style={{ fontSize: 11, color: '#16a34a' }}>In Class</div></div>
+                    <div style={{ background: '#fef2f2', borderRadius: 8, padding: '10px', textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 800, color: '#dc2626' }}>{dayData.outMins}m</div><div style={{ fontSize: 11, color: '#dc2626' }}>Out</div></div>
+                    <div style={{ background: '#f4f5f7', borderRadius: 8, padding: '10px', textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 800, color: dayData.pct >= 70 ? '#16a34a' : '#d97706' }}>{dayData.pct}%</div><div style={{ fontSize: 11, color: '#6b7280' }}>In Class</div></div>
+                  </div>
+                  {dayData.staffName && <div style={{ background: '#f5f3ff', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>👤 Out with: <strong>{dayData.staffName}</strong></div>}
+                  {todayLog.length > 0 && (
+                    <>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Timeline:</div>
+                      {todayLog.map((ev, i) => {
+                        const staffObj = ev.staffId ? STAFF.find(st => st.id === ev.staffId) : null
+                        const period = SCHEDULE_PERIODS.find(p => { if (p.type !== 'class') return false; const [sh, sm] = p.time.split(' - ')[0].split(':').map(Number); const [eh, em] = p.time.split(' - ')[1].split(':').map(Number); const [ch, cm] = ev.time.split(':').map(Number); return (ch*60+cm) >= (sh*60+sm) && (ch*60+cm) <= (eh*60+em) })
+                        return (
+                          <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid #f4f5f7', alignItems: 'flex-start' }}>
+                            <span style={{ fontSize: 12, color: '#6b7280', minWidth: 44 }}>{ev.time}</span>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: ev.type === 'in' ? '#16a34a' : '#dc2626', marginTop: 3, flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: ev.type === 'in' ? '#166534' : '#dc2626' }}>{ev.note}</div>
+                              {period && <div style={{ fontSize: 11, color: '#6b7280' }}>📚 {period.subject} · {period.teachers[0]}</div>}
+                              {staffObj && <div style={{ fontSize: 11, color: '#7c3aed' }}>👤 {staffObj.name} — {staffObj.role}</div>}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )
+    }
+    const title = isIn ? '✅ Time In Class' : '🚪 Time Out of Class'
+
+    // Build per-day, per-period breakdown from classLog + histData
+    const breakdownData = data.map(d => ({
+      date: d.date,
+      mins: isIn ? d.inMins : d.outMins,
+      staff: isIn ? null : d.staffName,
+      pct: d.pct
+    }))
+
+    // For today's log breakdown by actual events
+    const todayLog = student.classLog || []
+    const hasDetailedLog = period === 'today' && todayLog.length > 0
+
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 560, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+          <div style={{ background: isIn ? '#166534' : '#dc2626', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{title} — {student.name}</div>
+            <button onClick={() => setDrillType(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 26, height: 26, borderRadius: '50%', cursor: 'pointer', fontSize: 13 }}>✕</button>
+          </div>
+          <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: isIn ? '#166534' : '#dc2626', marginBottom: 12 }}>
+              Total: {isIn ? totalIn : totalOut} min across {data.length} day{data.length !== 1 ? 's' : ''}
+            </div>
+
+            {/* Detailed log for today */}
+            {hasDetailedLog && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8, textTransform: 'uppercase' }}>Today's Timeline</div>
+                {todayLog.filter(e => isIn ? e.type === 'in' : e.type === 'out').map((ev, i) => {
+                  const next = todayLog[todayLog.indexOf(ev) + 1]
+                  const staffObj = ev.staffId ? STAFF.find(st => st.id === ev.staffId) : null
+                  const [ch, cm] = ev.time.split(':').map(Number)
+                  const mins = next ? (() => { const [nh, nm] = next.time.split(':').map(Number); return (nh*60+nm)-(ch*60+cm) })() : null
+                  // Find which class period this falls in
+                  const period = SCHEDULE_PERIODS.find(p => {
+                    const [sh, sm] = p.time.split(' - ')[0].split(':').map(Number)
+                    const [eh, em] = p.time.split(' - ')[1].split(':').map(Number)
+                    return p.type === 'class' && (ch*60+cm) >= (sh*60+sm) && (ch*60+cm) <= (eh*60+em)
+                  })
+                  return (
+                    <div key={i} style={{ background: isIn ? '#f0fdf4' : '#fef2f2', borderRadius: 8, padding: '10px 14px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{ev.time} — {ev.note}</div>
+                        {period && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>📚 {period.subject} · {period.teachers[0]}</div>}
+                        {staffObj && <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 2 }}>👤 {staffObj.name} — {staffObj.role}</div>}
+                      </div>
+                      {mins !== null && <div style={{ fontWeight: 700, fontSize: 14, color: isIn ? '#16a34a' : '#dc2626' }}>{mins} min</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Per-day breakdown */}
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8, textTransform: 'uppercase' }}>By Day</div>
+            {breakdownData.map((d, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #f4f5f7' }}>
+                <div style={{ minWidth: 80, fontSize: 12, color: '#6b7280' }}>{d.date}</div>
+                <div style={{ flex: 1, height: 6, background: '#f4f5f7', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(100, d.mins/120*100)}%`, height: '100%', background: isIn ? '#16a34a' : '#dc2626' }} />
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: isIn ? '#16a34a' : '#dc2626', minWidth: 50, textAlign: 'right' }}>{d.mins} min</div>
+                {!isIn && d.staff && <div style={{ fontSize: 11, color: '#7c3aed', minWidth: 80 }}>👤 {d.staff}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
+      {drillType && <DrillDownPopup />}
+
       {/* Period selector */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
         {periods.map(p => (
@@ -522,22 +692,24 @@ function TrackingTab({ s, students }) {
         <div style={{ ...S.card, textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>No data for this period</div>
       ) : (
         <>
-          {/* Summary stats */}
+          {/* Clickable summary stats */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
-            <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #16a34a' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a' }}>{totalIn} min</div>
+            <div onClick={() => setDrillType('in')} style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #16a34a', cursor: 'pointer', transition: 'transform 0.15s' }} onMouseEnter={e => e.currentTarget.style.transform='translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform='none'}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#16a34a' }}>{totalIn} min</div>
               <div style={{ fontSize: 11, color: '#6b7280' }}>In Class</div>
+              <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>click for details →</div>
             </div>
-            <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #dc2626' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#dc2626' }}>{totalOut} min</div>
+            <div onClick={() => setDrillType('out')} style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #dc2626', cursor: 'pointer', transition: 'transform 0.15s' }} onMouseEnter={e => e.currentTarget.style.transform='translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform='none'}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#dc2626' }}>{totalOut} min</div>
               <div style={{ fontSize: 11, color: '#6b7280' }}>Out of Class</div>
+              <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>click for details →</div>
             </div>
             <div style={{ ...S.card, textAlign: 'center', borderTop: `3px solid ${pctColor}` }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: pctColor }}>{avgPct}%</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: pctColor }}>{avgPct}%</div>
               <div style={{ fontSize: 11, color: '#6b7280' }}>Avg In Class</div>
             </div>
             <div style={{ ...S.card, textAlign: 'center', borderTop: '3px solid #7c3aed' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed' }}>{data.length}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#7c3aed' }}>{data.length}</div>
               <div style={{ fontSize: 11, color: '#6b7280' }}>Days Tracked</div>
             </div>
           </div>
@@ -555,7 +727,7 @@ function TrackingTab({ s, students }) {
             </div>
           </div>
 
-          {/* Time with staff */}
+          {/* Staff time */}
           {Object.keys(staffTime).length > 0 && (
             <div style={{ ...S.card, marginBottom: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>👤 Time Out — By Staff Member</div>
@@ -571,26 +743,94 @@ function TrackingTab({ s, students }) {
             </div>
           )}
 
-          {/* Daily breakdown */}
+          {/* Daily breakdown — clickable rows */}
           <div style={S.card}>
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>📅 Daily Breakdown</div>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>📅 Daily Breakdown <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>(click any day for details)</span></div>
             {data.map((d, i) => {
               const color = d.pct >= 70 ? '#16a34a' : d.pct >= 50 ? '#d97706' : '#dc2626'
+              const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d.date).getDay()]
+              // Find which teacher was teaching that day based on day of week
+              const dayIdx = new Date(d.date).getDay()
+              const periodTeachers = SCHEDULE_PERIODS.filter(p => p.type === 'class').map(p => p.teachers[0]).filter(Boolean)
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #f4f5f7' }}>
-                  <div style={{ minWidth: 80, fontSize: 12, color: '#6b7280', fontWeight: 500 }}>{d.date}</div>
+                <div key={i} onClick={() => setDrillType(d.date)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f4f5f7', cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <div style={{ minWidth: 100, fontSize: 12, fontWeight: 500 }}>
+                    <span style={{ fontWeight: 800, color: '#374151' }}>{dayName}</span>
+                    <span style={{ color: '#6b7280', marginLeft: 4 }}>{d.date}</span>
+                  </div>
                   <div style={{ flex: 1, height: 8, background: '#f4f5f7', borderRadius: 4, overflow: 'hidden' }}>
                     <div style={{ width: `${d.pct}%`, height: '100%', background: color, borderRadius: 4 }} />
                   </div>
-                  <div style={{ minWidth: 36, fontSize: 12, fontWeight: 800, color, textAlign: 'right' }}>{d.pct}%</div>
-                  <div style={{ minWidth: 80, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>{d.inMins}m in / {d.outMins}m out</div>
-                  {d.staffName && <div style={{ fontSize: 11, color: '#7c3aed', minWidth: 80 }}>👤 {d.staffName}</div>}
+                  <div style={{ minWidth: 36, fontSize: 13, fontWeight: 800, color, textAlign: 'right' }}>{d.pct}%</div>
+                  <div style={{ minWidth: 110, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>
+                    <span style={{ color: '#16a34a', fontWeight: 600 }}>{d.inMins}m</span> in / <span style={{ color: '#dc2626', fontWeight: 600 }}>{d.outMins}m</span> out
+                  </div>
+                  {d.staffName && <div style={{ fontSize: 11, color: '#7c3aed', minWidth: 90 }}>👤 {d.staffName}</div>}
+                  <span style={{ fontSize: 10, color: '#9ca3af' }}>→</span>
                 </div>
               )
             })}
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function FamilyEditorPopup({ s, setStudents }) {
+  const [open, setOpen] = useState(false)
+  const [f, setF] = useState(s.family || {})
+  function save() { setStudents(prev => prev.map(x => x.id === s.id ? { ...x, family: f } : x)); setOpen(false) }
+  return (
+    <>
+      <button onClick={() => setOpen(true)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>✏️ Edit Family Info</button>
+      {open && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+            <div style={{ background: '#1a1f36', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>✏️ Edit Family Info — {s.name}</div>
+              <button onClick={() => setOpen(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 26, height: 26, borderRadius: '50%', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ padding: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                {[['fatherName','Father Name'],['fatherPhone','Father Phone'],['fatherEmail','Father Email'],['motherName','Mother Name'],['motherPhone','Mother Phone'],['motherEmail','Mother Email']].map(([key, label]) => (
+                  <input key={key} placeholder={label} value={f[key]||''} onChange={e => setF(prev => ({...prev, [key]: e.target.value}))} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                ))}
+              </div>
+              <input placeholder="Home Address" value={f.address||''} onChange={e => setF(prev => ({...prev, address: e.target.value}))} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', marginBottom: 8 }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                <input placeholder="Emergency Contact" value={f.emergencyContact||''} onChange={e => setF(prev => ({...prev, emergencyContact: e.target.value}))} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                <input placeholder="Emergency Phone" value={f.emergencyPhone||''} onChange={e => setF(prev => ({...prev, emergencyPhone: e.target.value}))} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setOpen(false)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>
+                <button onClick={save} style={{ ...S.btn('primary'), flex: 1 }}>💾 Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function FamilyEditor({ s, setStudents }) {
+  const [f, setF] = useState(s.family || {})
+  function save() { setStudents(prev => prev.map(x => x.id === s.id ? { ...x, family: f } : x)) }
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Edit Family Info</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {[['fatherName','Father Name'],['fatherPhone','Father Phone'],['fatherEmail','Father Email'],['motherName','Mother Name'],['motherPhone','Mother Phone'],['motherEmail','Mother Email']].map(([key, label]) => (
+          <input key={key} placeholder={label} value={f[key]||''} onChange={e => setF(prev => ({...prev, [key]: e.target.value}))} style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 12, boxSizing: 'border-box' }} />
+        ))}
+        <input placeholder="Home Address" value={f.address||''} onChange={e => setF(prev => ({...prev, address: e.target.value}))} style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 12, gridColumn: 'span 2', boxSizing: 'border-box' }} />
+        <input placeholder="Emergency Contact" value={f.emergencyContact||''} onChange={e => setF(prev => ({...prev, emergencyContact: e.target.value}))} style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 12, boxSizing: 'border-box' }} />
+        <input placeholder="Emergency Phone" value={f.emergencyPhone||''} onChange={e => setF(prev => ({...prev, emergencyPhone: e.target.value}))} style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 12, boxSizing: 'border-box' }} />
+      </div>
+      <button onClick={save} style={{ ...S.btn('primary'), marginTop: 8, padding: '6px 14px', fontSize: 12 }}>Save</button>
     </div>
   )
 }
@@ -636,7 +876,7 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', fontSize: 14 }}>✕</button>
         </div>
         <div style={{ display: 'flex', borderBottom: '1px solid #e8eaed', padding: '0 24px', background: '#fafafa' }}>
-          {['overview','attendance','tracking','behavior','therapy','calls','notes'].map(t => (
+          {['overview','attendance','tracking','behavior','therapy','calls','notes','info'].map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t ? 700 : 400, borderBottom: tab === t ? '2px solid #1a1f36' : '2px solid transparent', color: tab === t ? '#1a1f36' : '#6b7280', textTransform: 'capitalize' }}>{t}</button>
           ))}
         </div>
@@ -758,6 +998,84 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
               <div style={{ marginTop: 14, borderTop: '1px solid #e8eaed', paddingTop: 14 }}>
                 <textarea placeholder="Add a note..." value={noteText} onChange={e => setNoteText(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', marginBottom: 8, fontSize: 13, minHeight: 70, boxSizing: 'border-box', resize: 'vertical' }} />
                 <button onClick={addNote} style={S.btn('primary')}>Add Note</button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'info' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Allergies alert */}
+              {s.medical?.allergies?.length > 0 && (
+                <div style={{ background: '#fef2f2', border: '2px solid #dc2626', borderRadius: 10, padding: '14px 18px' }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: '#dc2626', marginBottom: 8 }}>⚠️ ALLERGIES</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {s.medical.allergies.map((a, i) => (
+                      <span key={i} style={{ padding: '4px 12px', borderRadius: 20, fontWeight: 700, fontSize: 12, background: a.severity === 'severe' ? '#dc2626' : a.severity === 'moderate' ? '#d97706' : '#6b7280', color: '#fff' }}>
+                        {a.name} — {a.severity}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Family */}
+              <div style={S.card}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: '#1a1f36' }}>👨‍👩‍👦 Family & Contact</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {[
+                    ['Father', s.family?.fatherName, s.family?.fatherPhone, s.family?.fatherEmail],
+                    ['Mother', s.family?.motherName, s.family?.motherPhone, s.family?.motherEmail],
+                  ].map(([label, name, phone, email]) => (
+                    <div key={label} style={{ background: '#f4f5f7', borderRadius: 8, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase' }}>{label}</div>
+                      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{name || '—'}</div>
+                      {phone && <div style={{ fontSize: 13, color: '#2563eb' }}>📞 {phone}</div>}
+                      {email && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>✉️ {email}</div>}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {s.family?.address && <div style={{ fontSize: 13, color: '#374151' }}>🏠 {s.family.address}</div>}
+                  {s.family?.emergencyContact && <div style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>🚨 Emergency: {s.family.emergencyContact} · {s.family.emergencyPhone}</div>}
+                </div>
+                {role === 'admin' && (
+                  <div style={{ marginTop: 12, borderTop: '1px solid #e8eaed', paddingTop: 12 }}>
+                    <FamilyEditorPopup s={s} setStudents={setStudents} />
+                  </div>
+                )}
+              </div>
+
+              {/* Medical */}
+              <div style={S.card}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: '#1a1f36' }}>🏥 Medical Information</div>
+                {s.medical?.medications?.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6, textTransform: 'uppercase' }}>💊 Medications</div>
+                    {s.medical.medications.map((m, i) => (
+                      <div key={i} style={{ background: '#f0f9ff', borderRadius: 6, padding: '8px 12px', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontWeight: 700, fontSize: 13 }}>{m.name}</span>
+                          <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 8 }}>{m.dosage}</span>
+                        </div>
+                        <span style={{ fontSize: 11, color: '#0369a1', fontWeight: 600 }}>{m.frequency}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {s.medical?.conditions?.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6, textTransform: 'uppercase' }}>📋 Conditions</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {s.medical.conditions.map((c, i) => <span key={i} style={S.badge('#5b21b6', '#f5f3ff')}>{c}</span>)}
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {s.medical?.doctorName && <div style={{ background: '#f4f5f7', borderRadius: 8, padding: '10px 12px' }}><div style={{ fontSize: 11, color: '#6b7280', marginBottom: 3 }}>DOCTOR</div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.medical.doctorName}</div>{s.medical.doctorPhone && <div style={{ fontSize: 12, color: '#2563eb' }}>📞 {s.medical.doctorPhone}</div>}</div>}
+                  {s.medical?.lastPhysical && <div style={{ background: '#f4f5f7', borderRadius: 8, padding: '10px 12px' }}><div style={{ fontSize: 11, color: '#6b7280', marginBottom: 3 }}>LAST PHYSICAL</div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.medical.lastPhysical}</div></div>}
+                </div>
+                {s.medical?.notes && <div style={{ marginTop: 10, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>📝 {s.medical.notes}</div>}
               </div>
             </div>
           )}
@@ -1091,7 +1409,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
   )
 }
 
-function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null }) {
+function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown }) {
   const [selectedClass, setSelectedClass] = useState(initialClass)
 
   const classStudents = selectedClass
@@ -1145,8 +1463,18 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 20 }}>
-        {[['Present', present, '#2563eb'],['Absent', absent, '#dc2626'],['Late', late, '#d97706'],['Therapy', inTherapy, '#7c3aed'],['With BT', withBT, '#0891b2'],['Unknown', unknown, '#dc2626']].map(([label, val, color]) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e8eaed', textAlign: 'center', borderTop: `3px solid ${color}` }}>
+        {[
+          ['Present', present, '#2563eb', classStudents.filter(s=>s.status==='present')],
+          ['Absent', absent, '#dc2626', classStudents.filter(s=>s.status==='absent')],
+          ['Late', late, '#d97706', classStudents.filter(s=>s.status==='late')],
+          ['Therapy', inTherapy, '#7c3aed', classStudents.filter(s=>s.status==='therapy')],
+          ['With BT', withBT, '#0891b2', classStudents.filter(s=>s.status==='with-bt')],
+          ['Unknown', unknown, '#dc2626', classStudents.filter(s=>s.status==='unknown')],
+        ].map(([label, val, color, filtered]) => (
+          <div key={label} onClick={() => (filtered as any[]).length > 0 && setDrillDown({ title: `${label}`, students: filtered as any[] })}
+            style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e8eaed', textAlign: 'center', borderTop: `3px solid ${color}`, cursor: (filtered as any[]).length > 0 ? 'pointer' : 'default' }}
+            onMouseEnter={e => { if ((filtered as any[]).length > 0) (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)' }}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.boxShadow = 'none'}>
             <div style={{ fontSize: 28, fontWeight: 800, color }}>{val}</div>
             <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>{label}</div>
           </div>
@@ -1300,56 +1628,59 @@ function WeeklyRecord({ students, filteredStudents, openStudent }) {
       )}
 
       {view === 'class' && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #e8eaed' }}>
-              <th style={{ textAlign: 'left', padding: '10px 12px' }}>Student</th>
-              {DAYS.map(d => <th key={d} style={{ padding: 8, textAlign: 'center' }}>{d}</th>)}
-              <th style={{ padding: 8, textAlign: 'center' }}>Avg %</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredStudents.map((s, i) => {
-              const hasLog = s.classLog && s.classLog.length > 0
-              const avgPct = hasLog ? (() => {
-                let totalIn = 0, totalOut = 0
-                for (let k = 0; k < s.classLog.length - 1; k++) {
-                  const curr = s.classLog[k]; const next = s.classLog[k+1]
-                  const [ch,cm] = curr.time.split(':').map(Number)
-                  const [nh,nm] = next.time.split(':').map(Number)
-                  const mins = (nh*60+nm)-(ch*60+cm)
-                  if (curr.type === 'in') totalIn += mins; else totalOut += mins
-                }
-                return totalIn + totalOut > 0 ? Math.round(totalIn/(totalIn+totalOut)*100) : null
-              })() : null
-
-              return (
-                <tr key={s.id} onClick={() => openStudent(s, 'tracking')} style={{ borderBottom: '1px solid #f4f5f7', cursor: 'pointer' }}>
-                  <td style={{ padding: '8px 12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={S.avatar(i, 26)}>{initials(s.name)}</div>
-                      <span style={{ fontWeight: 500 }}>{s.name}</span>
-                    </div>
-                  </td>
-                  {DAYS.map((d, j) => (
-                    <td key={j} style={{ padding: 8, textAlign: 'center' }}>
-                      {j === new Date().getDay() && avgPct !== null ? (
-                        <span style={{ background: avgPct >= 70 ? '#dcfce7' : avgPct >= 50 ? '#fef3c7' : '#fee2e2', color: avgPct >= 70 ? '#166534' : avgPct >= 50 ? '#92400e' : '#dc2626', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{avgPct}%</span>
-                      ) : (
-                        <span style={{ color: '#d1d5db', fontSize: 11 }}>—</span>
-                      )}
-                    </td>
-                  ))}
-                  <td style={{ textAlign: 'center', padding: 8 }}>
-                    {avgPct !== null ? (
-                      <span style={{ fontWeight: 700, color: avgPct >= 70 ? '#16a34a' : avgPct >= 50 ? '#d97706' : '#dc2626' }}>{avgPct}%</span>
-                    ) : <span style={{ color: '#9ca3af', fontSize: 11 }}>No data</span>}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <div>
+          {CLASSES.map(cls => {
+            const clsStudents = filteredStudents.filter(s => STUDENT_CLASSES[s.id] === cls.id)
+            if (clsStudents.length === 0) return null
+            return (
+              <div key={cls.id} style={{ marginBottom: 20 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#1a1f36', marginBottom: 8, padding: '6px 10px', background: '#f4f5f7', borderRadius: 6 }}>
+                  🏫 {cls.name} — {cls.grade} · {cls.teacher}
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e8eaed' }}>
+                      <th style={{ textAlign: 'left', padding: '8px 12px' }}>Student</th>
+                      {DAYS.map(d => <th key={d} style={{ padding: 6, textAlign: 'center' }}>{d}</th>)}
+                      <th style={{ padding: 6, textAlign: 'center' }}>Avg %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clsStudents.map((s, i) => {
+                      const histData = HISTORICAL_DATA[s.id] || []
+                      const avgPct = histData.length > 0 ? Math.round(histData.reduce((acc,d) => acc+d.pct, 0) / histData.length) : null
+                      return (
+                        <tr key={s.id} onClick={() => openStudent(s, 'tracking')} style={{ borderBottom: '1px solid #f4f5f7', cursor: 'pointer' }}>
+                          <td style={{ padding: '7px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={S.avatar(i, 24)}>{initials(s.name)}</div>
+                              <span style={{ fontWeight: 500 }}>{s.name}</span>
+                            </div>
+                          </td>
+                          {DAYS.map((d, j) => {
+                            const dayData = histData.find(h => new Date(h.date).getDay() === j)
+                            return (
+                              <td key={j} style={{ padding: 6, textAlign: 'center' }}>
+                                {dayData ? (
+                                  <span style={{ background: dayData.pct >= 70 ? '#dcfce7' : dayData.pct >= 50 ? '#fef3c7' : '#fee2e2', color: dayData.pct >= 70 ? '#166534' : dayData.pct >= 50 ? '#92400e' : '#dc2626', padding: '2px 5px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>{dayData.pct}%</span>
+                                ) : <span style={{ color: '#d1d5db', fontSize: 10 }}>—</span>}
+                              </td>
+                            )
+                          })}
+                          <td style={{ textAlign: 'center', padding: 6 }}>
+                            {avgPct !== null ? (
+                              <span style={{ fontWeight: 700, fontSize: 12, color: avgPct >= 70 ? '#16a34a' : avgPct >= 50 ? '#d97706' : '#dc2626' }}>{avgPct}%</span>
+                            ) : <span style={{ color: '#9ca3af', fontSize: 10 }}>No data</span>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )
@@ -1361,7 +1692,38 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
   const [leaveReason, setLeaveReason] = useState('therapy')
   const [leaveStaffSearch, setLeaveStaffSearch] = useState('')
   const [leaveStaffId, setLeaveStaffId] = useState('')
-  const [dailyView, setDailyView] = useState('daily') // 'daily' or 'class'
+  const [dailyView, setDailyView] = useState('daily')
+  const [collapsed, setCollapsed] = useState(false)
+  const [undoStack, setUndoStack] = useState([])
+  const [latePopup, setLatePopup] = useState(null) // studentId
+  const [lateTime, setLateTime] = useState('')
+  const [lateReason, setLateReason] = useState('no-reason')
+  const [lateNote, setLateNote] = useState('')
+
+  function updateDailyStatus(id, status) {
+    // Save to undo stack first
+    const prev = students.find(s => s.id === id)
+    setUndoStack(u => [...u.slice(-9), { id, dailyStatus: prev?.dailyStatus || 'present', lateDetails: prev?.lateDetails || null }])
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, dailyStatus: status } : s))
+    if (status === 'late') {
+      setLatePopup(id)
+      setLateTime('')
+      setLateReason('no-reason')
+      setLateNote('')
+    }
+  }
+
+  function confirmLate() {
+    setStudents(prev => prev.map(s => s.id === latePopup ? { ...s, lateDetails: { timeArrived: lateTime, reason: lateReason, note: lateNote } } : s))
+    setLatePopup(null)
+  }
+
+  function undo() {
+    if (undoStack.length === 0) return
+    const last = undoStack[undoStack.length - 1]
+    setStudents(prev => prev.map(s => s.id === last.id ? { ...s, dailyStatus: last.dailyStatus, lateDetails: last.lateDetails } : s))
+    setUndoStack(u => u.slice(0, -1))
+  } // 'daily' or 'class'
 
   const filteredStaff = leaveStaffSearch.length > 0
     ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase()) || st.role.toLowerCase().includes(leaveStaffSearch.toLowerCase()))
@@ -1391,6 +1753,43 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
 
   return (
     <div>
+      {/* Late Details Popup */}
+      {latePopup && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+            <div style={{ background: '#d97706', padding: '14px 20px', color: '#fff' }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>⏰ {students.find(s=>s.id===latePopup)?.name} — Late Details</div>
+              <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Optional — fill in what you know</div>
+            </div>
+            <div style={{ padding: 18 }}>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Time Arrived</div>
+                <input type="time" value={lateTime} onChange={e => setLateTime(e.target.value)} style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Reason</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[['no-reason','❓ No reason given'],['parent-called','📞 Parent called ahead'],['sick','🤒 Sick / not feeling well'],['transport','🚌 Transportation issue'],['appointment','🏥 Doctor appointment'],['other','📝 Other']].map(([val, label]) => (
+                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, border: `2px solid ${lateReason === val ? '#d97706' : '#e5e7eb'}`, cursor: 'pointer', background: lateReason === val ? '#fffbeb' : '#fff' }}>
+                      <input type="radio" name="lateReason" value={val} checked={lateReason === val} onChange={() => setLateReason(val)} />
+                      <span style={{ fontWeight: lateReason === val ? 700 : 400, fontSize: 13 }}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Note (optional)</div>
+                <input value={lateNote} onChange={e => setLateNote(e.target.value)} placeholder="e.g. Father called at 9am, said coming by 10..." style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setLatePopup(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Skip</button>
+                <button onClick={confirmLate} style={{ ...S.btn('primary'), flex: 1 }}>Save Details</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Leave Popup */}
       {leavePopup && leaveStudent && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1462,53 +1861,64 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
       {/* DAILY CHECK-IN */}
       {dailyView === 'daily' && (
         <div style={S.card}>
+          {/* Summary on TOP - clickable */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+            {[
+              ['✅ Present', students.filter(s=>(s.dailyStatus||'present')==='present').length, '#16a34a', 'present'],
+              ['❌ Absent', students.filter(s=>s.dailyStatus==='absent').length, '#dc2626', 'absent'],
+              ['⏰ Late', students.filter(s=>s.dailyStatus==='late').length, '#d97706', 'late'],
+              ['🚪 Left Early', students.filter(s=>s.dailyStatus==='left-early').length, '#7c3aed', 'left-early'],
+            ].map(([label, val, color, status]) => (
+              <div key={label} onClick={() => { const filtered = students.filter(s => (s.dailyStatus||'present') === status); if (filtered.length > 0) { /* drill down */ } }} style={{ textAlign: 'center', background: '#f4f5f7', borderRadius: 8, padding: '12px', cursor: 'pointer', border: `2px solid transparent` }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.border = `2px solid ${color}` }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.border = '2px solid transparent' }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color }}>{val}</div>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>📅 Daily Attendance — Who came to Yeshiva today?</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, dailyStatus: 'present' })))} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>📅 Who came to Yeshiva today?</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>↩️ Undo</button>}
+              <button onClick={() => setCollapsed(c => !c)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>{collapsed ? '⬇️ Expand All' : '⬆️ Collapse All'}</button>
+              <button onClick={() => { setUndoStack(u => [...u.slice(-9), ...students.map(s => ({ id: s.id, dailyStatus: s.dailyStatus||'present', lateDetails: s.lateDetails||null }))]); setStudents(prev => prev.map(s => ({ ...s, dailyStatus: 'present', lateDetails: null }))) }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: collapsed ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: 10 }}>
             {students.map((s, i) => {
               const daily = s.dailyStatus || 'present'
               const colors = { present: '#16a34a', absent: '#dc2626', late: '#d97706', 'left-early': '#7c3aed' }
               const labels = { present: '✅ Present', absent: '❌ Absent', late: '⏰ Late', 'left-early': '🚪 Left Early' }
               return (
-                <div key={s.id} style={{ background: '#fafafa', border: '1px solid #e8eaed', borderRadius: 10, padding: '12px 14px', borderLeft: `4px solid ${colors[daily]}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                    <div style={S.avatar(i, 32)}>{initials(s.name)}</div>
+                <div key={s.id} style={{ background: '#fafafa', border: `1px solid ${daily !== 'present' ? colors[daily]+'40' : '#e8eaed'}`, borderLeft: `4px solid ${colors[daily]}`, borderRadius: 10, padding: collapsed ? '10px 12px' : '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: collapsed ? 0 : 8 }}>
+                    <div style={S.avatar(i, 30)}>{initials(s.name)}</div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>{s.name}</div>
+                      <div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}</div>
                       <div style={{ fontSize: 11, color: colors[daily], fontWeight: 600 }}>{labels[daily]}</div>
+                      {daily === 'late' && s.lateDetails?.timeArrived && (
+                        <div style={{ fontSize: 10, color: '#6b7280' }}>⏰ {s.lateDetails.timeArrived}{s.lateDetails.note ? ` · ${s.lateDetails.note}` : ''}</div>
+                      )}
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                    {[['present','✅ Present'],['absent','❌ Absent'],['late','⏰ Late'],['left-early','🚪 Left Early']].map(([val, label]) => (
-                      <button key={val} onClick={() => setStudents(prev => prev.map(x => x.id === s.id ? { ...x, dailyStatus: val } : x))}
-                        style={{ padding: '4px 6px', borderRadius: 5, border: `1px solid ${daily === val ? colors[val] : '#e5e7eb'}`, background: daily === val ? colors[val] + '20' : '#fff', color: daily === val ? colors[val] : '#6b7280', fontSize: 10, fontWeight: daily === val ? 700 : 400, cursor: 'pointer' }}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  {!collapsed && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                      {[['present','✅ Present'],['absent','❌ Absent'],['late','⏰ Late'],['left-early','🚪 Left Early']].map(([val, label]) => (
+                        <button key={val} onClick={() => updateDailyStatus(s.id, val)}
+                          style={{ padding: '4px 6px', borderRadius: 5, border: `1px solid ${daily === val ? colors[val] : '#e5e7eb'}`, background: daily === val ? colors[val] + '20' : '#fff', color: daily === val ? colors[val] : '#6b7280', fontSize: 10, fontWeight: daily === val ? 700 : 400, cursor: 'pointer' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
           </div>
 
           {/* Summary */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid #e8eaed' }}>
-            {[
-              ['✅ Present', students.filter(s=>(s.dailyStatus||'present')==='present').length, '#16a34a'],
-              ['❌ Absent', students.filter(s=>s.dailyStatus==='absent').length, '#dc2626'],
-              ['⏰ Late', students.filter(s=>s.dailyStatus==='late').length, '#d97706'],
-              ['🚪 Left Early', students.filter(s=>s.dailyStatus==='left-early').length, '#7c3aed'],
-            ].map(([label, val, color]) => (
-              <div key={label} style={{ textAlign: 'center', background: '#f4f5f7', borderRadius: 8, padding: '10px' }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color }}>{val}</div>
-                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -1572,6 +1982,13 @@ export default function Dashboard() {
   const [teachingMode, setTeachingMode] = useState(false)
   const [teacherClass, setTeacherClass] = useState(null)
   const [drillDown, setDrillDown] = useState(null)
+  const [intakeList, setIntakeList] = useState([
+    { id: 1, name: 'Moshe Friedman', dob: '2012-03-15', currentSchool: 'Yeshiva Ohr Torah', shul: 'Khal Avreichim', heardAbout: 'Rabbi Klein', fatherName: 'Avraham Friedman', fatherPhone: '718-555-1234', motherName: 'Rivka', motherMaiden: 'Schwartz', motherPhone: '718-555-1235', address: '1234 56th St Brooklyn NY', status: 'interviewed', diagnoses: ['ADHD', 'Anxiety'], issues: 'Difficulty focusing in large groups. Responds well 1-on-1.', interviewNotes: 'Very bright boy. Strong in Gemara. Needs structured environment.', scores: { math: 3, reading: 4, comprehension: 3, social: 2, behavior: 3 }, documents: [{ name: 'Assessment_Friedman.pdf', date: '2025-11-10' }] },
+    { id: 2, name: 'Yosef Stern', dob: '2011-07-22', currentSchool: 'Mesivta Beis Shraga', shul: 'Young Israel', heardAbout: 'Parent referral', fatherName: 'Shmuel Stern', fatherPhone: '718-555-5678', motherName: 'Chana', motherMaiden: 'Goldberg', motherPhone: '718-555-5679', address: '567 Ave J Brooklyn NY', status: 'applicant', diagnoses: [], issues: '', interviewNotes: '', scores: { math: 0, reading: 0, comprehension: 0, social: 0, behavior: 0 }, documents: [] },
+    { id: 3, name: 'Dovid Katz', dob: '2012-11-05', currentSchool: 'Talmud Torah Ohel Moshe', shul: 'Bobov', heardAbout: 'Website', fatherName: 'Pinchas Katz', fatherPhone: '718-555-9012', motherName: 'Sara', motherMaiden: 'Weiss', motherPhone: '718-555-9013', address: '890 48th St Brooklyn NY', status: 'accepted', diagnoses: ['Dyslexia'], issues: 'Reading difficulties. Math strong.', interviewNotes: 'Warm personality. Will fit well socially.', scores: { math: 4, reading: 2, comprehension: 2, social: 4, behavior: 4 }, documents: [{ name: 'Psych_Eval_Katz.pdf', date: '2025-10-15' }, { name: 'IEP_Katz.pdf', date: '2025-10-15' }] },
+  ])
+  const [selectedIntake, setSelectedIntake] = useState(null)
+  const [intakeTab, setIntakeTab] = useState('info')
   const [todos, setTodos] = useState([
     { id: 1, date: '2025-06-10', time: '10:20 AM', text: 'Tour for Friedman family', category: 'meeting', done: false },
     { id: 2, date: '2025-06-10', time: '12:30 PM', text: 'Interview with Moshe Braver', category: 'meeting', done: false },
@@ -1643,6 +2060,7 @@ export default function Dashboard() {
   const adminNav = [
     { id: 'dashboard', label: 'Dashboard', icon: '▦' },
     { id: 'students', label: 'All Students', icon: '👥' },
+    { id: 'intake', label: 'Intake / Admissions', icon: '📋' },
     { id: 'attendance', label: 'Attendance', icon: '📅' },
     { id: 'schedule', label: 'Schedule', icon: '🗓️' },
     { id: 'behavior', label: 'Behavior & Points', icon: '⭐' },
@@ -1717,11 +2135,28 @@ export default function Dashboard() {
       <div style={S.main}>
         <div style={{ maxWidth: 1100, marginLeft: 'auto', marginRight: 'auto' }}>
         <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search students..." style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid #e8eaed', fontSize: 13, width: 260, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} />
-          {search && <button onClick={() => setSearch('')} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 12 }}>✕</button>}
+          <div style={{ position: 'relative' }}>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search students..." style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid #e8eaed', fontSize: 13, width: 260, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} />
+            {search && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, width: 300, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
+                {searchedStudents.slice(0,6).map((s,i) => (
+                  <div key={s.id} onClick={() => { openStudent(s); setSearch('') }} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f4f5f7', display: 'flex', alignItems: 'center', gap: 10 }}
+                    onMouseEnter={e => e.currentTarget.style.background='#f4f5f7'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                    <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                      <div style={{ fontSize: 11, color: statusColor[s.status] }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>
+                    </div>
+                  </div>
+                ))}
+                {searchedStudents.length === 0 && <div style={{ padding: '12px 14px', color: '#9ca3af', fontSize: 13 }}>No students found</div>}
+                <div onClick={() => setSearch('')} style={{ padding: '8px 14px', fontSize: 11, color: '#9ca3af', cursor: 'pointer', textAlign: 'center', borderTop: '1px solid #f4f5f7' }}>✕ Close</div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={students} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} />}
+        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={students} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} setDrillDown={setDrillDown} />}
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={students} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
 
         {page === 'dashboard' && role === 'admin' && (
@@ -1769,23 +2204,36 @@ export default function Dashboard() {
             </div>
 
             {/* Class summary for admin */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
               {CLASSES.map(cls => {
                 const clsStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
                 const clsPresent = clsStudents.filter(s => s.status === 'present').length
                 const clsAbsent = clsStudents.filter(s => s.status === 'absent').length
                 const clsOut = clsStudents.filter(s => s.status !== 'present' && s.status !== 'absent').length
                 return (
-                  <div key={cls.id} style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', border: '1px solid #e8eaed', display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: '#1a1f36', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>{cls.id.toUpperCase()}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>{cls.name}</div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>{cls.grade} · {cls.teacher}</div>
+                  <div key={cls.id} onClick={() => setDrillDown({ title: `🏫 ${cls.name} — All Students`, students: clsStudents })} style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', border: '1px solid #e8eaed', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.boxShadow = 'none'}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 8, background: '#1a1f36', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>{cls.id.toUpperCase()}</div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{cls.name}</div>
+                        <div style={{ fontSize: 11, color: '#6b7280' }}>{cls.grade}</div>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 12, textAlign: 'center' }}>
-                      <div><div style={{ fontSize: 18, fontWeight: 800, color: '#2563eb' }}>{clsPresent}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>present</div></div>
-                      <div><div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>{clsAbsent}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>absent</div></div>
-                      <div><div style={{ fontSize: 18, fontWeight: 800, color: '#d97706' }}>{clsOut}</div><div style={{ fontSize: 10, color: '#9ca3af' }}>out</div></div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                      <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `✅ ${cls.name} — Present`, students: clsStudents.filter(s=>s.status==='present') }) }} style={{ textAlign: 'center', background: '#f0fdf4', borderRadius: 6, padding: '6px', cursor: 'pointer' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{clsPresent}</div>
+                        <div style={{ fontSize: 10, color: '#16a34a' }}>present</div>
+                      </div>
+                      <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `❌ ${cls.name} — Absent`, students: clsStudents.filter(s=>s.status==='absent') }) }} style={{ textAlign: 'center', background: '#fef2f2', borderRadius: 6, padding: '6px', cursor: 'pointer' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>{clsAbsent}</div>
+                        <div style={{ fontSize: 10, color: '#dc2626' }}>absent</div>
+                      </div>
+                      <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `🚶 ${cls.name} — Out`, students: clsStudents.filter(s=>s.status!=='present'&&s.status!=='absent') }) }} style={{ textAlign: 'center', background: '#fffbeb', borderRadius: 6, padding: '6px', cursor: 'pointer' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#d97706' }}>{clsOut}</div>
+                        <div style={{ fontSize: 10, color: '#d97706' }}>out</div>
+                      </div>
                     </div>
                   </div>
                 )
@@ -2077,10 +2525,33 @@ export default function Dashboard() {
 
         {page === 'alerts' && (
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 18 }}>All Alerts ({alerts.length})</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>All Alerts ({alerts.length})</h1>
+              <input
+                placeholder="🔍 Search by name or type (detention, absent...)"
+                id="alertSearch"
+                onChange={e => {
+                  const v = e.target.value.toLowerCase()
+                  document.querySelectorAll('.alert-row').forEach((el: any) => {
+                    el.style.display = !v || el.dataset.search?.includes(v) ? '' : 'none'
+                  })
+                }}
+                style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #e8eaed', fontSize: 13, width: 320, background: '#fff' }}
+              />
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {alerts.length === 0 && <div style={{ ...S.card, textAlign: 'center', color: '#9ca3af', padding: '3rem' }}>No alerts ✅</div>}
-              {alerts.map((a, i) => (<div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) openStudent(s, 'behavior') }} style={{ background: a.type === 'danger' ? '#fef2f2' : a.type === 'warn' ? '#fffbeb' : '#eff6ff', border: `1px solid ${a.type === 'danger' ? '#fecaca' : a.type === 'warn' ? '#fde68a' : '#bfdbfe'}`, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}><div><div style={{ fontWeight: 700, fontSize: 13 }}>{a.student}</div><div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{a.msg}</div></div><span style={{ fontSize: 12, color: '#9ca3af' }}>View →</span></div>))}
+              {alerts.map((a, i) => (
+                <div key={i} className="alert-row" data-search={`${a.student.toLowerCase()} ${a.msg.toLowerCase()}`}
+                  onClick={() => { const s = students.find(x => x.id === a.id); if (s) openStudent(s, 'behavior') }}
+                  style={{ background: a.type === 'danger' ? '#fef2f2' : a.type === 'warn' ? '#fffbeb' : '#eff6ff', border: `1px solid ${a.type === 'danger' ? '#fecaca' : a.type === 'warn' ? '#fde68a' : '#bfdbfe'}`, borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{a.student}</div>
+                    <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{a.msg}</div>
+                  </div>
+                  <span style={{ fontSize: 12, color: '#9ca3af' }}>View →</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -2091,6 +2562,246 @@ export default function Dashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {students.map((s, i) => { const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null; const days = lastCall ? daysSince(lastCall.date) : 999; return (<div key={s.id} onClick={() => openStudent(s, 'calls')} style={{ ...S.card, cursor: 'pointer', borderLeft: `3px solid ${days > 14 ? '#f97316' : '#16a34a'}`, padding: '14px 18px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}><div style={S.avatar(i, 32)}>{initials(s.name)}</div><div><div style={{ fontWeight: 700, fontSize: 13 }}>{s.name}</div><div style={{ fontSize: 11, color: days > 14 ? '#ea580c' : '#16a34a', fontWeight: 600 }}>{lastCall ? `Last call: ${days} days ago` : '⚠️ Never called'}</div></div><div style={{ marginLeft: 'auto', fontSize: 11, color: '#9ca3af' }}>{s.parentCalls.length} calls</div></div>{lastCall && <div style={{ fontSize: 12, color: '#6b7280', background: '#f4f5f7', borderRadius: 6, padding: '6px 10px' }}>{lastCall.notes}</div>}</div>) })}
             </div>
+          </div>
+        )}
+
+        {page === 'intake' && role === 'admin' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>📋 Intake / Admissions</h1>
+              <button onClick={() => {
+                const newApp = { id: Date.now(), name: 'New Applicant', dob: '', currentSchool: '', shul: '', heardAbout: '', fatherName: '', fatherPhone: '', motherName: '', motherMaiden: '', motherPhone: '', address: '', status: 'applicant', diagnoses: [], issues: '', interviewNotes: '', scores: { math: 0, reading: 0, comprehension: 0, social: 0, behavior: 0 }, documents: [] }
+                setIntakeList(prev => [...prev, newApp])
+                setSelectedIntake(newApp)
+                setIntakeTab('info')
+              }} style={S.btn('primary')}>+ New Applicant</button>
+            </div>
+
+            {selectedIntake ? (
+              // ── INTAKE PROFILE ──
+              <div>
+                <button onClick={() => setSelectedIntake(null)} style={{ ...S.btn('ghost'), marginBottom: 16 }}>← Back to list</button>
+                <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', border: '1px solid #e8eaed' }}>
+                  {/* Header */}
+                  <div style={{ background: '#1a1f36', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#374151', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>{initials(selectedIntake.name)}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: '#fff', fontSize: 18, fontWeight: 700 }}>{selectedIntake.name}</div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                        {[['applicant','🔵 Applicant','#3b82f6'],['interviewed','🟡 Interviewed','#f59e0b'],['accepted','🟢 Accepted','#16a34a'],['enrolled','⭐ Enrolled','#854d0e']].map(([val, label, color]) => (
+                          <button key={val} onClick={() => setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, status: val} : x))} style={{ padding: '2px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: selectedIntake.status === val ? color : 'rgba(255,255,255,0.15)', color: '#fff' }}>{label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ color: '#fff', textAlign: 'right' }}>
+                      {selectedIntake.dob && <div style={{ fontSize: 13, opacity: 0.8 }}>Age: {new Date().getFullYear() - new Date(selectedIntake.dob).getFullYear()}</div>}
+                    </div>
+                  </div>
+
+                  {/* Tabs */}
+                  <div style={{ display: 'flex', borderBottom: '1px solid #e8eaed', padding: '0 24px', background: '#fafafa' }}>
+                    {[['info','👤 Info'],['family','👨‍👩‍👦 Family'],['assessment','📊 Assessment'],['documents','📁 Documents']].map(([t, label]) => (
+                      <button key={t} onClick={() => setIntakeTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontWeight: intakeTab === t ? 700 : 400, borderBottom: intakeTab === t ? '2px solid #1a1f36' : '2px solid transparent', color: intakeTab === t ? '#1a1f36' : '#6b7280' }}>{label}</button>
+                    ))}
+                  </div>
+
+                  <div style={{ padding: '20px 24px', background: '#f4f5f7' }}>
+
+                    {intakeTab === 'info' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        <div style={S.card}>
+                          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Basic Information</div>
+                          {[
+                            ['Full Name', 'name', 'text'],
+                            ['Date of Birth', 'dob', 'date'],
+                            ['Current School / Yeshiva', 'currentSchool', 'text'],
+                            ['Shul Affiliated', 'shul', 'text'],
+                            ['How heard about Hadran', 'heardAbout', 'text'],
+                          ].map(([label, key, type]) => (
+                            <div key={key} style={{ marginBottom: 10 }}>
+                              <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+                              <input type={type} value={selectedIntake[key]||''} onChange={e => { setSelectedIntake(prev => ({...prev, [key]: e.target.value})); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, [key]: e.target.value} : x)) }} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                          <div style={S.card}>
+                            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Diagnoses</div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                              {selectedIntake.diagnoses?.map((d, i) => (
+                                <span key={i} style={{ ...S.badge('#5b21b6','#f5f3ff'), display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                  {d}
+                                  <span onClick={() => { const updated = selectedIntake.diagnoses.filter((_,j) => j!==i); setSelectedIntake(prev => ({...prev, diagnoses: updated})); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, diagnoses: updated} : x)) }} style={{ cursor: 'pointer', fontWeight: 700 }}>✕</span>
+                                </span>
+                              ))}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <input id="diagInput" placeholder="Add diagnosis..." style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 12 }} onKeyDown={e => { if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) { const val = (e.target as HTMLInputElement).value.trim(); const updated = [...(selectedIntake.diagnoses||[]), val]; setSelectedIntake(prev => ({...prev, diagnoses: updated})); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, diagnoses: updated} : x)); (e.target as HTMLInputElement).value = '' } }} />
+                            </div>
+                          </div>
+                          <div style={S.card}>
+                            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Issues / Background Notes</div>
+                            <textarea value={selectedIntake.issues||''} onChange={e => { setSelectedIntake(prev => ({...prev, issues: e.target.value})); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, issues: e.target.value} : x)) }} placeholder="Known issues, background..." style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 80, boxSizing: 'border-box', resize: 'vertical' }} />
+                          </div>
+                          <div style={S.card}>
+                            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Interview Notes</div>
+                            <textarea value={selectedIntake.interviewNotes||''} onChange={e => { setSelectedIntake(prev => ({...prev, interviewNotes: e.target.value})); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, interviewNotes: e.target.value} : x)) }} placeholder="Notes from intake interview..." style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 80, boxSizing: 'border-box', resize: 'vertical' }} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {intakeTab === 'family' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        {[['Father', 'father'],['Mother', 'mother']].map(([label, prefix]) => (
+                          <div key={prefix} style={S.card}>
+                            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>{label === 'Father' ? '👨' : '👩'} {label}</div>
+                            {[
+                              [`${label} Name`, `${prefix}Name`],
+                              [`${label} Phone`, `${prefix}Phone`],
+                              ...(prefix === 'mother' ? [["Mother's Maiden Name", 'motherMaiden']] : []),
+                            ].map(([lbl, key]) => (
+                              <div key={key} style={{ marginBottom: 10 }}>
+                                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, fontWeight: 600 }}>{lbl}</div>
+                                <input value={selectedIntake[key]||''} onChange={e => { setSelectedIntake(prev => ({...prev, [key]: e.target.value})); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, [key]: e.target.value} : x)) }} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                        <div style={{ ...S.card, gridColumn: 'span 2' }}>
+                          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>🏠 Home Address</div>
+                          <input value={selectedIntake.address||''} onChange={e => { setSelectedIntake(prev => ({...prev, address: e.target.value})); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, address: e.target.value} : x)) }} placeholder="Full address..." style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {intakeTab === 'assessment' && (
+                      <div>
+                        <div style={{ ...S.card, marginBottom: 14 }}>
+                          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>📊 Assessment Scores <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 400 }}>(1 = Below Average, 5 = Excellent)</span></div>
+                          {[
+                            ['Math', 'math', '🔢'],
+                            ['Reading', 'reading', '📖'],
+                            ['Reading Comprehension', 'comprehension', '🧠'],
+                            ['Social Skills', 'social', '👥'],
+                            ['Behavior', 'behavior', '⭐'],
+                          ].map(([label, key, icon]) => {
+                            const val = selectedIntake.scores?.[key] || 0
+                            const color = val >= 4 ? '#16a34a' : val >= 3 ? '#d97706' : val > 0 ? '#dc2626' : '#9ca3af'
+                            return (
+                              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+                                <div style={{ width: 160, fontSize: 13, fontWeight: 600 }}>{icon} {label}</div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  {[1,2,3,4,5].map(n => (
+                                    <button key={n} onClick={() => { const updated = {...(selectedIntake.scores||{}), [key]: n}; setSelectedIntake(prev => ({...prev, scores: updated})); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, scores: updated} : x)) }} style={{ width: 36, height: 36, borderRadius: 8, border: `2px solid ${val >= n ? color : '#e5e7eb'}`, background: val >= n ? color : '#fff', color: val >= n ? '#fff' : '#9ca3af', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{n}</button>
+                                  ))}
+                                </div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color, minWidth: 60 }}>
+                                  {val === 0 ? '—' : val === 1 ? 'Below Avg' : val === 2 ? 'Developing' : val === 3 ? 'Average' : val === 4 ? 'Above Avg' : 'Excellent'}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {/* Radar chart visual */}
+                        {Object.values(selectedIntake.scores||{}).some(v => v > 0) && (
+                          <div style={S.card}>
+                            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Score Summary</div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              {[['Math','math'],['Reading','reading'],['Comprehension','comprehension'],['Social','social'],['Behavior','behavior']].map(([label, key]) => {
+                                const val = selectedIntake.scores?.[key] || 0
+                                const pct = val / 5 * 100
+                                const color = val >= 4 ? '#16a34a' : val >= 3 ? '#d97706' : val > 0 ? '#dc2626' : '#e5e7eb'
+                                return (
+                                  <div key={key} style={{ flex: 1, textAlign: 'center' }}>
+                                    <div style={{ height: 80, background: '#f4f5f7', borderRadius: 6, overflow: 'hidden', display: 'flex', alignItems: 'flex-end', marginBottom: 4 }}>
+                                      <div style={{ width: '100%', height: `${pct}%`, background: color, borderRadius: '4px 4px 0 0', transition: 'height 0.3s' }} />
+                                    </div>
+                                    <div style={{ fontSize: 10, color: '#6b7280' }}>{label}</div>
+                                    <div style={{ fontSize: 14, fontWeight: 800, color }}>{val || '—'}</div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {intakeTab === 'documents' && (
+                      <div style={S.card}>
+                        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📁 Documents & Assessments</div>
+                        {selectedIntake.documents?.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, marginBottom: 16 }}>No documents uploaded yet.</div>}
+                        {selectedIntake.documents?.map((doc, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#f4f5f7', borderRadius: 8, marginBottom: 8 }}>
+                            <span style={{ fontSize: 20 }}>📄</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600, fontSize: 13 }}>{doc.name}</div>
+                              <div style={{ fontSize: 11, color: '#6b7280' }}>Uploaded: {doc.date}</div>
+                            </div>
+                            <button onClick={() => { const updated = selectedIntake.documents.filter((_,j) => j!==i); setSelectedIntake(prev => ({...prev, documents: updated})); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, documents: updated} : x)) }} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 13 }}>🗑️</button>
+                          </div>
+                        ))}
+                        <div style={{ marginTop: 14, borderTop: '1px solid #e8eaed', paddingTop: 14 }}>
+                          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>Upload a document (file name saved for demo — real uploads need database)</div>
+                          <input type="file" accept=".pdf,.doc,.docx,.jpg,.png" onChange={e => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              const newDoc = { name: file.name, date: new Date().toISOString().slice(0,10) }
+                              const updated = [...(selectedIntake.documents||[]), newDoc]
+                              setSelectedIntake(prev => ({...prev, documents: updated}))
+                              setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, documents: updated} : x))
+                              e.target.value = ''
+                            }
+                          }} style={{ fontSize: 13 }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // ── INTAKE LIST ──
+              <div>
+                {/* Status filter */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                  {[['all','All'],['applicant','🔵 Applicant'],['interviewed','🟡 Interviewed'],['accepted','🟢 Accepted'],['enrolled','⭐ Enrolled']].map(([val, label]) => (
+                    <button key={val} onClick={() => {}} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>{label} {val !== 'all' ? `(${intakeList.filter(x => x.status === val).length})` : `(${intakeList.length})`}</button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                  {intakeList.map((app, i) => {
+                    const age = app.dob ? new Date().getFullYear() - new Date(app.dob).getFullYear() : null
+                    const statusColors = { applicant: '#3b82f6', interviewed: '#f59e0b', accepted: '#16a34a', enrolled: '#854d0e' }
+                    const statusLabels = { applicant: '🔵 Applicant', interviewed: '🟡 Interviewed', accepted: '🟢 Accepted', enrolled: '⭐ Enrolled' }
+                    const avgScore = Object.values(app.scores||{}).filter(v => v > 0).length > 0 ? Math.round(Object.values(app.scores).filter(v => v > 0).reduce((a,b) => a+b, 0) / Object.values(app.scores).filter(v => v > 0).length * 10) / 10 : null
+                    return (
+                      <div key={app.id} onClick={() => { setSelectedIntake(app); setIntakeTab('info') }} style={{ ...S.card, cursor: 'pointer', borderLeft: `4px solid ${statusColors[app.status] || '#9ca3af'}` }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.07)'}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: AVATAR_COLORS[i % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>{initials(app.name)}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>{app.name}</div>
+                            <div style={{ fontSize: 11, color: '#6b7280' }}>{age ? `Age ${age}` : ''}{app.currentSchool ? ` · ${app.currentSchool}` : ''}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                          <span style={{ background: statusColors[app.status] + '20', color: statusColors[app.status], padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{statusLabels[app.status]}</span>
+                          <div style={{ display: 'flex', gap: 6, fontSize: 11, color: '#6b7280' }}>
+                            {app.diagnoses?.length > 0 && <span>📋 {app.diagnoses.length} diag.</span>}
+                            {app.documents?.length > 0 && <span>📁 {app.documents.length} docs</span>}
+                            {avgScore && <span style={{ fontWeight: 700, color: avgScore >= 4 ? '#16a34a' : avgScore >= 3 ? '#d97706' : '#dc2626' }}>⭐ {avgScore}/5</span>}
+                          </div>
+                        </div>
+                        {app.shul && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>🕍 {app.shul}</div>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
