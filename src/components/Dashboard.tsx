@@ -38,6 +38,29 @@ const STORE_ITEMS = [
   { id: 6, name: 'Fresh Cookie', cost: 30, emoji: '🍪', vip: true },
 ]
 
+
+const SKILL_RATINGS = ['Weak', 'Developing', 'Good', 'Great']
+const RATING_SCORE = { Weak: 1, Developing: 2, Good: 3, Great: 4 }
+const ACADEMIC_AREAS = {
+  'Rabbi Abowitz': {
+    Math: ['2-digit', '3-digit'],
+    Reading: ['Decoding', 'Fluency', 'Comprehension'],
+    Writing: ['Grammar', 'Writing Project'],
+  },
+  'Rabbi Abramowitz': {
+    Math: ['2-digit', '3-digit'],
+    Reading: ['Decoding', 'Fluency', 'Comprehension'],
+    Writing: ['Grammar', 'Writing Project'],
+  }
+}
+const DEFAULT_ACADEMIC_TEACHER = 'Rabbi Abowitz'
+function academicPct(score) { return score.maxScore ? Math.round((score.score / score.maxScore) * 100) : null }
+function academicDisplay(score) { return score.scoreType === 'rating' ? score.rating : `${score.score}/${score.maxScore} (${academicPct(score)}%)` }
+function academicStatusFromPct(pct) { if (pct === null || pct === undefined) return 'Missing'; if (pct >= 90) return 'Excellent'; if (pct >= 80) return 'Doing Well'; if (pct >= 70) return 'Watch'; return 'Needs Support' }
+function academicStatusFromRating(rating) { return rating === 'Great' ? 'Excellent' : rating === 'Good' ? 'Doing Well' : rating === 'Developing' ? 'Watch' : 'Needs Support' }
+function academicStatus(score) { return score.scoreType === 'rating' ? academicStatusFromRating(score.rating) : academicStatusFromPct(academicPct(score)) }
+function academicStatusColor(status) { return status === 'Excellent' ? '#166534' : status === 'Doing Well' ? '#2563eb' : status === 'Watch' ? '#d97706' : status === 'Needs Support' ? '#dc2626' : '#6b7280' }
+
 const STAFF = [
   { id: 's1', name: 'Rabbi Baum', role: 'Menahel' },
   { id: 's2', name: 'Rabbi Ehrnreich', role: 'Sgan Menahel' },
@@ -52,6 +75,7 @@ const STAFF = [
   { id: 's11', name: 'Dovid', role: 'BT' },
   { id: 's12', name: 'Rabbi Lefkowitz', role: 'Teacher' },
   { id: 's13', name: 'Rabbi Ambush', role: 'Teacher' },
+  { id: 's14', name: 'Rabbi Abowitz', role: 'Teacher' },
 ]
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -62,6 +86,8 @@ const TEACHER_CLASS_MAP = {
   'Rabbi Ehrnreich': 'c',
   'Rabbi Ambush': 'd',
   'Rabbi Lefkowitz': 'a',
+  'Rabbi Abowitz': 'a',
+  'Rabbi Abramowitz': 'a',
 }
 
 const CLASSES = [
@@ -99,7 +125,7 @@ const THERAPY_SCHEDULE = [
 const mkStudent = (id, name, points, reminders, att, status, withStaff = null, services = [], parentCalls = [], notes = [], iep = false, iepDetails = '', detention = false) => ({
   id, name, points, reminders, lastWeekReminders: reminders + Math.floor(Math.random() * 3),
   att, breakfast: att.map(() => Math.random() > 0.3 ? 'Y' : 'N'),
-  detention, status, withStaff, services, parentCalls, notes, behaviorLog: [], iep, iepDetails,
+  detention, status, withStaff, services, parentCalls, notes, behaviorLog: [], testScores: [], iep, iepDetails,
   classLog: [],
   lateDetails: null, // { timeArrived, reason, note }
   family: {
@@ -244,6 +270,25 @@ const initialStudents = [
 ]
 initialStudents.find(s => s.id === 6).classLog = LEVITZ_CLASS_LOG
 
+// Sample academic/test score data
+initialStudents.find(s => s.id === 1).testScores = [
+  { id:'ts1', teacher:'Rabbi Abowitz', subject:'Math', skill:'2-digit', assessmentName:'Addition Quiz', date:'2026-01-07', scoreType:'points', score:18, maxScore:20, rating:null, notes:'Strong with regrouping.' },
+  { id:'ts2', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Decoding', assessmentName:'January Reading Check', date:'2026-01-08', scoreType:'rating', score:null, maxScore:null, rating:'Good', notes:'Reads most words accurately.' },
+  { id:'ts3', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Fluency', assessmentName:'Fluency Observation', date:'2026-01-09', scoreType:'rating', score:null, maxScore:null, rating:'Developing', notes:'Needs smoother pacing.' },
+]
+initialStudents.find(s => s.id === 3).testScores = [
+  { id:'ts4', teacher:'Rabbi Abowitz', subject:'Math', skill:'3-digit', assessmentName:'Subtraction Quiz', date:'2026-01-07', scoreType:'points', score:14, maxScore:20, rating:null, notes:'Needs review with borrowing.' },
+  { id:'ts5', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Comprehension', assessmentName:'Story Questions', date:'2026-01-08', scoreType:'rating', score:null, maxScore:null, rating:'Weak', notes:'Needs support answering in full sentences.' },
+]
+initialStudents.find(s => s.id === 6).testScores = [
+  { id:'ts6', teacher:'Rabbi Abowitz', subject:'Math', skill:'2-digit', assessmentName:'Addition Quiz', date:'2026-01-07', scoreType:'points', score:16, maxScore:20, rating:null, notes:'Good effort.' },
+  { id:'ts7', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Fluency', assessmentName:'Fluency Observation', date:'2026-01-09', scoreType:'rating', score:null, maxScore:null, rating:'Good', notes:'Much more confident.' },
+]
+initialStudents.find(s => s.id === 7).testScores = [
+  { id:'ts8', teacher:'Rabbi Abowitz', subject:'Math', skill:'3-digit', assessmentName:'Subtraction Quiz', date:'2026-01-07', scoreType:'points', score:19, maxScore:20, rating:null, notes:'Excellent accuracy.' },
+  { id:'ts9', teacher:'Rabbi Abowitz', subject:'Writing', skill:'Writing Project', assessmentName:'Personal Narrative', date:'2026-01-10', scoreType:'rating', score:null, maxScore:null, rating:'Great', notes:'Clear ideas and structure.' },
+]
+
 // Realistic daily check-in statuses
 initialStudents.find(s => s.id === 5).dailyStatus = 'absent'   // Karman Yitzchok
 initialStudents.find(s => s.id === 7).dailyStatus = 'late'     // Rosenfeld Yehuda
@@ -386,20 +431,20 @@ function getImprovement(s) {
 function isVIP(s) { return s.reminders === 0 && s.att.every(d => d === 'P') }
 
 const S = {
-  app: { fontFamily: "'DM Sans','Segoe UI',sans-serif", minHeight: '100vh', background: '#f4f5f7', color: '#1a1a2e', display: 'flex' },
-  sidebar: { width: 220, background: '#1a1f36', color: '#fff', display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100 },
-  sidebarLogo: { padding: '20px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 8 },
-  sidebarItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', cursor: 'pointer', borderRadius: 6, margin: '1px 8px', background: active ? 'rgba(255,255,255,0.12)' : 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.6)', fontSize: 13.5, fontWeight: active ? 600 : 400 }),
-  main: { marginLeft: 220, padding: '32px 120px 32px 36px', minHeight: '100vh', flex: 1, width: 'calc(100% - 220px)', boxSizing: 'border-box' },
-  card: { background: '#fff', borderRadius: 10, padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', border: '1px solid #e8eaed' },
-  statCard: (color) => ({ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e8eaed', borderTop: `3px solid ${color}` }),
-  badge: (color, bg) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, color, background: bg }),
+  app: { fontFamily: "'Inter','DM Sans','Segoe UI',sans-serif", minHeight: '100vh', background: '#f7f8fb', color: '#172033', display: 'flex', letterSpacing: '-0.01em' },
+  sidebar: { width: 232, background: '#111827', color: '#fff', display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, boxShadow: '8px 0 24px rgba(15,23,42,0.08)' },
+  sidebarLogo: { padding: '22px 18px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 10 },
+  sidebarItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', borderRadius: 10, margin: '3px 10px', background: active ? '#ffffff' : 'transparent', color: active ? '#111827' : 'rgba(255,255,255,0.68)', fontSize: 13.5, fontWeight: active ? 700 : 500, transition: 'background 0.15s, color 0.15s, transform 0.15s' }),
+  main: { marginLeft: 232, padding: '34px 72px 40px 40px', minHeight: '100vh', flex: 1, width: 'calc(100% - 232px)', boxSizing: 'border-box' },
+  card: { background: '#fff', borderRadius: 16, padding: '22px', boxShadow: '0 8px 24px rgba(15,23,42,0.045)', border: '1px solid #e6eaf0' },
+  statCard: (color) => ({ background: '#fff', borderRadius: 16, padding: '18px 20px', boxShadow: '0 8px 24px rgba(15,23,42,0.045)', border: '1px solid #e6eaf0', borderLeft: `4px solid ${color}` }),
+  badge: (color, bg) => ({ display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, color, background: bg }),
   btn: (variant) => {
-    const map = { primary: ['#1a1f36','#fff'], danger: ['#dc2626','#fff'], ghost: ['#f4f5f7','#374151'], success: ['#166534','#fff'], purple: ['#5b21b6','#fff'], gold: ['#854d0e','#fef9c3'] }
-    return { padding: '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, background: map[variant][0], color: map[variant][1] }
+    const map = { primary: ['#111827','#fff'], danger: ['#dc2626','#fff'], ghost: ['#eef2f7','#374151'], success: ['#166534','#fff'], purple: ['#5b21b6','#fff'], gold: ['#854d0e','#fef9c3'] }
+    return { padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, background: map[variant][0], color: map[variant][1], transition: 'transform 0.15s, box-shadow 0.15s' }
   },
-  tag: (color) => ({ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: color + '15', color, border: `1px solid ${color}30` }),
-  avatar: (idx, size = 36) => ({ width: size, height: size, borderRadius: '50%', background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size > 30 ? 13 : 10, flexShrink: 0 }),
+  tag: (color) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: color + '12', color, border: `1px solid ${color}25` }),
+  avatar: (idx, size = 36) => ({ width: size, height: size, borderRadius: '50%', background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: size > 30 ? 13 : 10, flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.18)' }),
 }
 
 function DrillDown({ title, students, onClose, onSelectStudent }) {
@@ -455,6 +500,7 @@ function LoginPage({ onLogin }) {
     { role: 'teacher', name: 'Rabbi Goldstein', email: 'rgoldstein@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Lefkowitz', email: 'rlefkowitz@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Ambush', email: 'rambush@hadranacademy.org' },
+    { role: 'teacher', name: 'Rabbi Abowitz', email: 'rabowitz@hadranacademy.org' },
     { role: 'therapist', name: 'Yitzi Liebowitz', email: 'yliebowitz@hadranacademy.org' },
     { role: 'therapist', name: 'Mrs. Goldberg', email: 'mgoldberg@hadranacademy.org' },
   ]
@@ -891,7 +937,173 @@ function FamilyEditor({ s, setStudents }) {
   )
 }
 
-function StudentProfile({ student, students, setStudents, onClose, role, defaultTab = 'overview' }) {
+
+function StudentScoresTab({ student, students, setStudents, role, userName }) {
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ teacher: userName?.startsWith('Rabbi') ? userName : DEFAULT_ACADEMIC_TEACHER, subject: 'Math', skill: '2-digit', assessmentName: '', date: new Date().toISOString().slice(0,10), scoreType: 'points', score: '', maxScore: '100', rating: 'Good', notes: '' })
+  const s = students.find(x => x.id === student.id) || student
+  const scores = s.testScores || []
+  const numeric = scores.filter(x => x.scoreType !== 'rating' && x.maxScore)
+  const avg = numeric.length ? Math.round(numeric.reduce((acc, x) => acc + academicPct(x), 0) / numeric.length) : null
+  const subjectOptions = Object.keys(ACADEMIC_AREAS[form.teacher] || ACADEMIC_AREAS[DEFAULT_ACADEMIC_TEACHER])
+  const skillOptions = (ACADEMIC_AREAS[form.teacher]?.[form.subject] || ACADEMIC_AREAS[DEFAULT_ACADEMIC_TEACHER]?.[form.subject] || [])
+  function updateForm(key, val) {
+    setForm(prev => {
+      const next = { ...prev, [key]: val }
+      if (key === 'teacher') {
+        const firstSubject = Object.keys(ACADEMIC_AREAS[val] || ACADEMIC_AREAS[DEFAULT_ACADEMIC_TEACHER])[0]
+        next.subject = firstSubject
+        next.skill = (ACADEMIC_AREAS[val] || ACADEMIC_AREAS[DEFAULT_ACADEMIC_TEACHER])[firstSubject][0]
+      }
+      if (key === 'subject') next.skill = (ACADEMIC_AREAS[next.teacher]?.[val] || ACADEMIC_AREAS[DEFAULT_ACADEMIC_TEACHER]?.[val] || ['General'])[0]
+      return next
+    })
+  }
+  function addScore() {
+    if (!form.assessmentName.trim()) return alert('Add an assessment name')
+    if (form.scoreType === 'points' && (!form.score || !form.maxScore)) return alert('Add score and max score')
+    const entry = {
+      id: `ts${Date.now()}`,
+      teacher: form.teacher,
+      subject: form.subject,
+      skill: form.skill,
+      assessmentName: form.assessmentName,
+      date: form.date,
+      scoreType: form.scoreType,
+      score: form.scoreType === 'points' ? Number(form.score) : null,
+      maxScore: form.scoreType === 'points' ? Number(form.maxScore) : null,
+      rating: form.scoreType === 'rating' ? form.rating : null,
+      notes: form.notes,
+    }
+    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, testScores: [entry, ...(x.testScores || [])] } : x))
+    setShowAdd(false)
+    setForm(prev => ({ ...prev, assessmentName: '', score: '', notes: '' }))
+  }
+  const bySubject = ['Math','Reading','Writing'].map(subject => {
+    const items = scores.filter(x => x.subject === subject)
+    const nums = items.filter(x => x.scoreType !== 'rating' && x.maxScore)
+    const ratings = items.filter(x => x.scoreType === 'rating')
+    const subjAvg = nums.length ? Math.round(nums.reduce((acc,x)=>acc+academicPct(x),0)/nums.length) : null
+    const ratingAvg = ratings.length ? Math.round(ratings.reduce((acc,x)=>acc+(RATING_SCORE[x.rating]||0),0)/ratings.length*10)/10 : null
+    return { subject, count: items.length, subjAvg, ratingAvg }
+  })
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        <div style={S.card}><div style={{ fontSize: 11, color: '#6b7280' }}>Numeric Avg</div><div style={{ fontSize: 24, fontWeight: 900, color: '#14144a' }}>{avg !== null ? `${avg}%` : '—'}</div></div>
+        <div style={S.card}><div style={{ fontSize: 11, color: '#6b7280' }}>Scores</div><div style={{ fontSize: 24, fontWeight: 900, color: '#14144a' }}>{scores.length}</div></div>
+        <div style={S.card}><div style={{ fontSize: 11, color: '#6b7280' }}>Ratings</div><div style={{ fontSize: 24, fontWeight: 900, color: '#14144a' }}>{scores.filter(x=>x.scoreType==='rating').length}</div></div>
+        <button onClick={() => setShowAdd(true)} style={{ ...S.btn('primary'), borderRadius: 10 }}>+ Add Score</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        {bySubject.map(x => <div key={x.subject} style={S.card}><div style={{ fontWeight: 800, fontSize: 13 }}>{x.subject}</div><div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>{x.count} entries</div><div style={{ fontSize: 18, fontWeight: 900, color: '#14144a', marginTop: 6 }}>{x.subjAvg !== null ? `${x.subjAvg}%` : x.ratingAvg ? `${x.ratingAvg}/4 rating` : '—'}</div></div>)}
+      </div>
+      <div style={S.card}>
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 12 }}>Test Scores & Skill Ratings</div>
+        {scores.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13 }}>No academic scores yet.</div>}
+        {scores.map(score => {
+          const status = academicStatus(score)
+          return <div key={score.id} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 0.8fr 0.7fr', gap: 12, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #f0f1f6' }}>
+            <div><div style={{ fontWeight: 800, fontSize: 13 }}>{score.assessmentName}</div><div style={{ fontSize: 11, color: '#6b7280' }}>{score.date} · {score.teacher}</div></div>
+            <div><div style={{ fontSize: 13, fontWeight: 700 }}>{score.subject}</div><div style={{ fontSize: 11, color: '#6b7280' }}>{score.skill}</div></div>
+            <div style={{ fontWeight: 900, color: '#14144a' }}>{academicDisplay(score)}</div>
+            <div><span style={S.badge(academicStatusColor(status), academicStatusColor(status)+'15')}>{status}</span></div>
+            {score.notes && <div style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', background: '#fafafa', borderRadius: 8, padding: '8px 10px' }}>{score.notes}</div>}
+          </div>
+        })}
+      </div>
+      {showAdd && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, boxShadow: '0 24px 80px rgba(15,23,42,0.28)', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #eef0f7', display: 'flex', justifyContent: 'space-between' }}><div style={{ fontWeight: 900, color: '#14144a' }}>Add Score — {s.name}</div><button onClick={() => setShowAdd(false)} style={{ border:'none', background:'#f4f5f8', borderRadius:'50%', width:30, height:30, cursor:'pointer' }}>×</button></div>
+            <div style={{ padding: 18, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <select value={form.teacher} onChange={e=>updateForm('teacher', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}><option>Rabbi Abowitz</option><option>Rabbi Abramowitz</option></select>
+              <input type="date" value={form.date} onChange={e=>updateForm('date', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
+              <select value={form.subject} onChange={e=>updateForm('subject', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{subjectOptions.map(x=><option key={x}>{x}</option>)}</select>
+              <select value={form.skill} onChange={e=>updateForm('skill', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{skillOptions.map(x=><option key={x}>{x}</option>)}</select>
+              <input placeholder="Assessment name" value={form.assessmentName} onChange={e=>updateForm('assessmentName', e.target.value)} style={{ gridColumn:'1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
+              <select value={form.scoreType} onChange={e=>updateForm('scoreType', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="points">Number score</option><option value="rating">Skill rating</option></select>
+              {form.scoreType === 'rating' ? <select value={form.rating} onChange={e=>updateForm('rating', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{SKILL_RATINGS.map(x=><option key={x}>{x}</option>)}</select> : <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}><input placeholder="Score" value={form.score} onChange={e=>updateForm('score', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} /><input placeholder="Max" value={form.maxScore} onChange={e=>updateForm('maxScore', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} /></div>}
+              <textarea placeholder="Notes" value={form.notes} onChange={e=>updateForm('notes', e.target.value)} style={{ gridColumn:'1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8, minHeight:70 }} />
+              <button onClick={addScore} style={{ ...S.btn('primary'), gridColumn:'1 / -1', padding: 12 }}>Save Score</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AcademicsPage({ students, setStudents, role, userName, teacherClass, openStudent }) {
+  const [classFilter, setClassFilter] = useState(role === 'teacher' && teacherClass ? teacherClass : 'all')
+  const [subjectFilter, setSubjectFilter] = useState('all')
+  const [skillFilter, setSkillFilter] = useState('all')
+  const [teacherFilter, setTeacherFilter] = useState(role === 'teacher' ? userName : 'all')
+  const [addStudentId, setAddStudentId] = useState(null)
+  const visibleStudents = students.filter(s => classFilter === 'all' || STUDENT_CLASSES[s.id] === classFilter)
+  const allScores = visibleStudents.flatMap(s => (s.testScores || []).map(score => ({ ...score, studentId: s.id, studentName: s.name }))).filter(score => (teacherFilter === 'all' || score.teacher === teacherFilter) && (subjectFilter === 'all' || score.subject === subjectFilter) && (skillFilter === 'all' || score.skill === skillFilter))
+  const numericScores = allScores.filter(x => x.scoreType !== 'rating' && x.maxScore)
+  const classAvg = numericScores.length ? Math.round(numericScores.reduce((acc, x) => acc + academicPct(x), 0) / numericScores.length) : null
+  const latestByStudent = visibleStudents.map(st => {
+    const scores = (st.testScores || []).filter(score => (teacherFilter === 'all' || score.teacher === teacherFilter) && (subjectFilter === 'all' || score.subject === subjectFilter) && (skillFilter === 'all' || score.skill === skillFilter)).sort((a,b)=>b.date.localeCompare(a.date))
+    const nums = scores.filter(x=>x.scoreType !== 'rating' && x.maxScore)
+    const avg = nums.length ? Math.round(nums.reduce((acc,x)=>acc+academicPct(x),0)/nums.length) : null
+    const latest = scores[0]
+    return { student: st, scores, latest, avg, status: latest ? academicStatus(latest) : 'Missing' }
+  })
+  const statusCounts = { Excellent: 0, 'Doing Well': 0, Watch: 0, 'Needs Support': 0, Missing: 0 }
+  latestByStudent.forEach(row => { statusCounts[row.status] = (statusCounts[row.status] || 0) + 1 })
+  const ratingCounts = { Weak: 0, Developing: 0, Good: 0, Great: 0 }
+  allScores.filter(x=>x.scoreType==='rating').forEach(x => { ratingCounts[x.rating] = (ratingCounts[x.rating] || 0) + 1 })
+  const subjects = ['all','Math','Reading','Writing']
+  const skills = ['all', ...new Set(Object.values(ACADEMIC_AREAS).flatMap(area => Object.values(area).flat()))]
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18 }}>
+        <div><h1 style={{ fontSize:22, fontWeight:900, color:'#14144a', margin:'0 0 6px' }}>Academics</h1><div style={{ fontSize:13, color:'#7b7f9a' }}>Class view for test scores and skill ratings</div></div>
+      </div>
+      <div style={{ ...S.card, marginBottom:16, display:'grid', gridTemplateColumns: role === 'admin' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap:10 }}>
+        {role === 'admin' && <select value={teacherFilter} onChange={e=>setTeacherFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="all">All teachers</option><option>Rabbi Abowitz</option><option>Rabbi Abramowitz</option></select>}
+        <select value={classFilter} onChange={e=>setClassFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="all">All classes</option>{CLASSES.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        <select value={subjectFilter} onChange={e=>{setSubjectFilter(e.target.value); setSkillFilter('all')}} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{subjects.map(x=><option key={x} value={x}>{x === 'all' ? 'All subjects' : x}</option>)}</select>
+        <select value={skillFilter} onChange={e=>setSkillFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{skills.filter(x=> subjectFilter==='all' || x==='all' || Object.values(ACADEMIC_AREAS).some(area => (area[subjectFilter] || []).includes(x))).map(x=><option key={x} value={x}>{x === 'all' ? 'All skills' : x}</option>)}</select>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:12, marginBottom:16 }}>
+        <div style={S.card}><div style={{ fontSize:11, color:'#6b7280' }}>Class Avg</div><div style={{ fontSize:26, fontWeight:900, color:'#14144a' }}>{classAvg !== null ? `${classAvg}%` : '—'}</div></div>
+        <div style={S.card}><div style={{ fontSize:11, color:'#6b7280' }}>Doing Well+</div><div style={{ fontSize:26, fontWeight:900, color:'#166534' }}>{statusCounts.Excellent + statusCounts['Doing Well']}</div></div>
+        <div style={S.card}><div style={{ fontSize:11, color:'#6b7280' }}>Needs Support</div><div style={{ fontSize:26, fontWeight:900, color:'#dc2626' }}>{statusCounts['Needs Support']}</div></div>
+        <div style={S.card}><div style={{ fontSize:11, color:'#6b7280' }}>Watch</div><div style={{ fontSize:26, fontWeight:900, color:'#d97706' }}>{statusCounts.Watch}</div></div>
+        <div style={S.card}><div style={{ fontSize:11, color:'#6b7280' }}>Missing</div><div style={{ fontSize:26, fontWeight:900, color:'#6b7280' }}>{statusCounts.Missing}</div></div>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'1.3fr 0.7fr', gap:16 }}>
+        <div style={S.card}>
+          <div style={{ fontWeight:900, fontSize:15, marginBottom:12 }}>Class Student View</div>
+          {latestByStudent.map(row => <div key={row.student.id} style={{ display:'grid', gridTemplateColumns:'1.2fr 0.6fr 1.2fr 0.8fr 0.7fr', gap:12, alignItems:'center', padding:'11px 0', borderTop:'1px solid #f0f1f6' }}>
+            <div onClick={()=>openStudent(row.student, 'testScores')} style={{ cursor:'pointer' }}><div style={{ fontWeight:850, fontSize:13 }}>{row.student.name}</div><div style={{ fontSize:11, color:'#6b7280' }}>{CLASSES.find(c=>c.id===STUDENT_CLASSES[row.student.id])?.name}</div></div>
+            <div style={{ fontWeight:900, color:'#14144a' }}>{row.avg !== null ? `${row.avg}%` : '—'}</div>
+            <div>{row.latest ? <><div style={{ fontWeight:750, fontSize:12 }}>{row.latest.assessmentName}</div><div style={{ fontSize:11, color:'#6b7280' }}>{row.latest.subject} · {row.latest.skill}</div></> : <span style={{ color:'#9ca3af', fontSize:12 }}>No scores</span>}</div>
+            <div>{row.latest ? academicDisplay(row.latest) : '—'}</div>
+            <div><span style={S.badge(academicStatusColor(row.status), academicStatusColor(row.status)+'15')}>{row.status}</span></div>
+          </div>)}
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <div style={S.card}>
+            <div style={{ fontWeight:900, fontSize:15, marginBottom:12 }}>Rating Breakdown</div>
+            {SKILL_RATINGS.map(r => <div key={r} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderTop:'1px solid #f0f1f6' }}><span style={{ fontSize:13 }}>{r}</span><strong>{ratingCounts[r]}</strong></div>)}
+          </div>
+          <div style={S.card}>
+            <div style={{ fontWeight:900, fontSize:15, marginBottom:12 }}>Add Score</div>
+            <select value={addStudentId || ''} onChange={e=>setAddStudentId(Number(e.target.value))} style={{ width:'100%', padding:10, border:'1px solid #e5e7eb', borderRadius:8, marginBottom:10 }}><option value="">Choose student</option>{visibleStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+            <button disabled={!addStudentId} onClick={()=>{ const st = students.find(s=>s.id===addStudentId); if (st) openStudent(st, 'testScores') }} style={{ ...S.btn(addStudentId ? 'primary' : 'ghost'), width:'100%' }}>Open Student Scores</button>
+            <div style={{ fontSize:11, color:'#8b90aa', marginTop:10 }}>Scores are added inside the student profile so each boy keeps a full academic history.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StudentProfile({ student, students, setStudents, onClose, role, userName = '', defaultTab = 'overview' }) {
   const [tab, setTab] = useState(defaultTab)
   const [noteText, setNoteText] = useState('')
   const [callNotes, setCallNotes] = useState('')
@@ -932,7 +1144,7 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', fontSize: 14 }}>✕</button>
         </div>
         <div style={{ display: 'flex', borderBottom: '1px solid #e8eaed', padding: '0 24px', background: '#fafafa' }}>
-          {['overview','attendance','tracking','behavior','therapy','calls','notes','info'].map(t => (
+          {['overview','attendance','tracking','behavior','therapy','testScores','calls','notes','info'].map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t ? 700 : 400, borderBottom: tab === t ? '2px solid #1a1f36' : '2px solid transparent', color: tab === t ? '#1a1f36' : '#6b7280', textTransform: 'capitalize' }}>{t}</button>
           ))}
         </div>
@@ -1022,6 +1234,10 @@ function StudentProfile({ student, students, setStudents, onClose, role, default
               })}
             </div>
           )}
+          {tab === 'testScores' && (
+            <StudentScoresTab student={s} students={students} setStudents={setStudents} role={role} userName={userName} />
+          )}
+
           {tab === 'calls' && (
             <div style={S.card}>
               <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>📞 Parent Call Log</div>
@@ -2113,6 +2329,8 @@ export default function Dashboard() {
   const [teachingMode, setTeachingMode] = useState(false)
   const [teacherClass, setTeacherClass] = useState(null)
   const [drillDown, setDrillDown] = useState(null)
+  const [showUnknownPopup, setShowUnknownPopup] = useState(false)
+  const [unknownNotes, setUnknownNotes] = useState({})
   const [intakeList, setIntakeList] = useState([
     { id: 1, name: 'Moshe Friedman', dob: '2012-03-15', currentSchool: 'Yeshiva Ohr Torah', shul: 'Khal Avreichim', heardAbout: 'Rabbi Klein', fatherName: 'Avraham Friedman', fatherPhone: '718-555-1234', motherName: 'Rivka', motherMaiden: 'Schwartz', motherPhone: '718-555-1235', address: '1234 56th St Brooklyn NY', status: 'interviewed', diagnoses: ['ADHD', 'Anxiety'], issues: 'Difficulty focusing in large groups. Responds well 1-on-1.', interviewNotes: 'Very bright boy. Strong in Gemara. Needs structured environment.', scores: { math: 3, reading: 4, comprehension: 3, social: 2, behavior: 3 }, documents: [{ name: 'Assessment_Friedman.pdf', date: '2025-11-10' }] },
     { id: 2, name: 'Yosef Stern', dob: '2011-07-22', currentSchool: 'Mesivta Beis Shraga', shul: 'Young Israel', heardAbout: 'Parent referral', fatherName: 'Shmuel Stern', fatherPhone: '718-555-5678', motherName: 'Chana', motherMaiden: 'Goldberg', motherPhone: '718-555-5679', address: '567 Ave J Brooklyn NY', status: 'applicant', diagnoses: [], issues: '', interviewNotes: '', scores: { math: 0, reading: 0, comprehension: 0, social: 0, behavior: 0 }, documents: [] },
@@ -2172,6 +2390,23 @@ export default function Dashboard() {
     playSound('store'); setStudents(prev => prev.map(x => x.id === studentId ? { ...x, points: x.points - cost } : x)); alert(`${s.name} redeemed: ${itemName}!`)
   }
 
+  function updateUnknownLocation(studentId, newStatus, label) {
+    const note = (unknownNotes[studentId] || '').trim()
+    const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s
+      const logNote = `Location updated from Unknown to ${label}.${note ? ` Note: ${note}` : ''}`
+      return {
+        ...s,
+        status: newStatus === 'left-early' ? 'absent' : newStatus,
+        dailyStatus: newStatus === 'absent' ? 'absent' : newStatus === 'left-early' ? 'left-early' : s.dailyStatus,
+        classLog: [...(s.classLog || []), { time, type: 'status-update', note: logNote, staffId: null }]
+      }
+    }))
+    setUnknownNotes(prev => ({ ...prev, [studentId]: '' }))
+    if (students.filter(s => s.status === 'unknown' && s.id !== studentId).length === 0) setShowUnknownPopup(false)
+  }
+
   if (!loggedIn) return <LoginPage onLogin={handleLogin} />
   if (teachingMode) return <TeachingMode students={students} setStudents={setStudents} onExit={() => setTeachingMode(false)} isAdmin={role === 'admin'} />
 
@@ -2183,6 +2418,16 @@ export default function Dashboard() {
   const unknown = students.filter(s => s.status === 'unknown').length
   const notArrived = students.filter(s => s.status === 'not-arrived').length
   const total = students.length
+  const cameTodayStudents = students.filter(s => (s.dailyStatus || 'present') !== 'absent')
+  const cameToday = cameTodayStudents.length
+  const stillInYeshivaStudents = students.filter(s => (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early')
+  const stillInYeshiva = stillInYeshivaStudents.length
+  const inClassroomsStudents = students.filter(s => s.status === 'present')
+  const inClassrooms = inClassroomsStudents.length
+  const lateStudents = students.filter(s => s.status === 'late')
+  const leftEarlyStudents = students.filter(s => s.dailyStatus === 'left-early')
+  const absentTodayStudents = students.filter(s => (s.dailyStatus || 'present') === 'absent')
+  const cameTodayRate = Math.round(cameToday / total * 100)
   const improved = students.filter(s => s.reminders < s.lastWeekReminders).length
   const needsAttention = students.filter(s => s.reminders > s.lastWeekReminders).length
   const vipStudents = students.filter(s => isVIP(s))
@@ -2206,29 +2451,31 @@ export default function Dashboard() {
   })
 
   const adminNav = [
-    { id: 'dashboard', label: 'Dashboard', icon: '▦' },
-    { id: 'students', label: 'All Students', icon: '👥' },
-    { id: 'intake', label: 'Intake / Admissions', icon: '📋' },
-    { id: 'attendance', label: 'Attendance', icon: '📅' },
-    { id: 'schedule', label: 'Schedule', icon: '🗓️' },
-    { id: 'behavior', label: 'Behavior & Points', icon: '⭐' },
-    { id: 'store', label: 'Token Store', icon: '🛍' },
-    { id: 'alerts', label: `Alerts (${alerts.length})`, icon: '🔔' },
-    { id: 'calls', label: 'Parent Calls', icon: '📞' },
-    { id: 'todo', label: 'To-Do List', icon: '📋' },
+    { id: 'dashboard', label: 'Dashboard', icon: 'DB' },
+    { id: 'students', label: 'All Students', icon: 'ST' },
+    { id: 'intake', label: 'Intake / Admissions', icon: 'IN' },
+    { id: 'attendance', label: 'Attendance', icon: 'AT' },
+    { id: 'academics', label: 'Academics', icon: 'AC' },
+    { id: 'schedule', label: 'Schedule', icon: 'SC' },
+    { id: 'behavior', label: 'Behavior & Points', icon: 'BP' },
+    { id: 'store', label: 'Token Store', icon: 'TS' },
+    { id: 'alerts', label: `Alerts (${alerts.length})`, icon: 'AL' },
+    { id: 'calls', label: 'Parent Calls', icon: 'PC' },
+    { id: 'todo', label: 'To-Do List', icon: 'TD' },
   ]
   const teacherNav = [
-    { id: 'dashboard', label: 'My Class', icon: '🏫' },
-    { id: 'attendance', label: 'Attendance', icon: '📅' },
-    { id: 'schedule', label: 'Schedule', icon: '🗓️' },
-    { id: 'behavior', label: 'Behavior & Points', icon: '⭐' },
-    { id: 'store', label: 'Token Store', icon: '🛍' },
-    { id: 'alerts', label: `Alerts (${alerts.length})`, icon: '🔔' },
+    { id: 'dashboard', label: 'My Class', icon: 'MC' },
+    { id: 'attendance', label: 'Attendance', icon: 'AT' },
+    { id: 'academics', label: 'Academics', icon: 'AC' },
+    { id: 'schedule', label: 'Schedule', icon: 'SC' },
+    { id: 'behavior', label: 'Behavior & Points', icon: 'BP' },
+    { id: 'store', label: 'Token Store', icon: 'TS' },
+    { id: 'alerts', label: `Alerts (${alerts.length})`, icon: 'AL' },
   ]
   const therapistNav = [
-    { id: 'dashboard', label: 'My Students', icon: '🧠' },
-    { id: 'schedule', label: 'Schedule', icon: '🗓️' },
-    { id: 'students', label: 'All Students', icon: '👥' },
+    { id: 'dashboard', label: 'My Students', icon: 'MS' },
+    { id: 'schedule', label: 'Schedule', icon: 'SC' },
+    { id: 'students', label: 'All Students', icon: 'ST' },
   ]
 
   const navItems = role === 'admin' ? adminNav : role === 'teacher' ? teacherNav : therapistNav
@@ -2238,9 +2485,9 @@ export default function Dashboard() {
   function ClickCard({ label, val, color, sub, filterStudents, goToPage = null }) {
     return (
       <div onClick={() => { if (goToPage) setPage(goToPage); else if (filterStudents) setDrillDown({ title: label, students: filterStudents }) }}
-        style={{ background: '#fff', borderRadius: 10, padding: '18px 20px', border: '1px solid #e8eaed', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: (filterStudents || goToPage) ? 'pointer' : 'default', transition: 'box-shadow 0.15s, transform 0.15s' }}
-        onMouseEnter={e => { if (filterStudents || goToPage) { e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
-        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'none' }}>
+        style={{ background: '#fff', borderRadius: 16, padding: '18px 20px', border: '1px solid #e6eaf0', borderLeft: `4px solid ${color}`, boxShadow: '0 8px 24px rgba(15,23,42,0.045)', cursor: (filterStudents || goToPage) ? 'pointer' : 'default', transition: 'box-shadow 0.15s, transform 0.15s' }}
+        onMouseEnter={e => { if (filterStudents || goToPage) { e.currentTarget.style.boxShadow = '0 14px 34px rgba(15,23,42,0.10)'; e.currentTarget.style.transform = 'translateY(-2px)' } }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(15,23,42,0.045)'; e.currentTarget.style.transform = 'none' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, fontWeight: 500 }}>{label}</div>
           {(filterStudents || goToPage) && <span style={{ fontSize: 10, color: '#9ca3af' }}>click →</span>}
@@ -2255,13 +2502,18 @@ export default function Dashboard() {
     <div style={S.app}>
       <div style={S.sidebar}>
         <div style={S.sidebarLogo}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Hadran Academy</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 3 }}>{role === 'admin' ? 'Menahel Portal' : role === 'teacher' ? 'Teacher Portal' : 'Therapist Portal'}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#fff', color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13 }}>HA</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 850, color: '#fff', letterSpacing: '-0.02em' }}>Hadran Academy</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 3 }}>{role === 'admin' ? 'Menahel Portal' : role === 'teacher' ? 'Teacher Portal' : 'Therapist Portal'}</div>
+            </div>
+          </div>
         </div>
         <div style={{ flex: 1, paddingTop: 4 }}>
           {navItems.map(item => (
             <div key={item.id} style={S.sidebarItem(page === item.id)} onClick={() => setPage(item.id)}>
-              <span style={{ fontSize: 14 }}>{item.icon}</span>
+              <span style={{ width: 26, height: 26, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 850, letterSpacing: '0.03em', background: page === item.id ? '#111827' : 'rgba(255,255,255,0.08)', color: page === item.id ? '#fff' : 'rgba(255,255,255,0.72)', flexShrink: 0 }}>{item.icon}</span>
               <span style={{ flex: 1 }}>{item.label}</span>
               {item.id === 'alerts' && alerts.filter(a => a.type === 'danger').length > 0 && (
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
@@ -2270,7 +2522,7 @@ export default function Dashboard() {
           ))}
           {role !== 'therapist' && (
             <div onClick={() => setTeachingMode(true)} style={{ ...S.sidebarItem(false), background: 'rgba(255,255,255,0.08)', margin: '8px 8px 2px', border: '1px solid rgba(255,255,255,0.15)' }}>
-              <span>{role === 'admin' ? '🎓' : '🏫'}</span><span>{role === 'admin' ? 'School-Wide Mode' : 'Teaching Mode'}</span>
+              <span style={{ width: 26, height: 26, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 850, background: 'rgba(255,255,255,0.12)' }}>{role === 'admin' ? 'SW' : 'TM'}</span><span>{role === 'admin' ? 'School-Wide Mode' : 'Teaching Mode'}</span>
             </div>
           )}
         </div>
@@ -2281,10 +2533,10 @@ export default function Dashboard() {
       </div>
 
       <div style={S.main}>
-        <div style={{ maxWidth: 1100, marginLeft: 'auto', marginRight: 'auto' }}>
-        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto' }}>
+        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
           <div style={{ position: 'relative' }}>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search students..." style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid #e8eaed', fontSize: 13, width: 260, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #e1e7ef', fontSize: 13, width: 280, background: '#fff', boxShadow: '0 8px 24px rgba(15,23,42,0.045)', outline: 'none' }} />
             {search && (
               <div style={{ position: 'absolute', top: '100%', left: 0, width: 300, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
                 {searchedStudents.slice(0,6).map((s,i) => (
@@ -2308,170 +2560,211 @@ export default function Dashboard() {
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={students} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
 
         {page === 'dashboard' && role === 'admin' && (
-          <div>
-            <div style={{ marginBottom: 24 }}>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>{getGreeting(new Date().getHours())}, {userName} 👋</h1>
-              <p style={{ color: '#6b7280', margin: '4px 0 0', fontSize: 13 }}><LiveClock /> · Dargei Beis · {total} students</p>
+          <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+            <div style={{ marginBottom: 28 }}>
+              <h1 style={{ fontSize: 24, fontWeight: 850, margin: 0, letterSpacing: '-0.03em', color: '#14144a' }}>Dashboard</h1>
+              <p style={{ color: '#7b7f9a', margin: '7px 0 0', fontSize: 13 }}><LiveClock /> · {getGreeting(new Date().getHours())}, {userName} · {total} students</p>
             </div>
+
             {unknown > 0 && (
-              <div style={{ background: '#fef2f2', border: '2px solid #dc2626', borderRadius: 10, padding: '14px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                <div style={{ textAlign: 'center' }}>
-                  <span style={{ fontWeight: 900, color: '#dc2626', fontSize: 20 }}>❓ {unknown} student{unknown > 1 ? 's' : ''} with unknown location! </span>
-                  <span style={{ fontSize: 15, color: '#dc2626', fontWeight: 600 }}>Please locate immediately</span>
+              <div style={{ background: '#fff7f7', border: '1px solid #ffd1d1', borderRadius: 16, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: '0 12px 32px rgba(220,38,38,0.06)' }}>
+                <div>
+                  <div style={{ fontWeight: 850, color: '#dc2626', fontSize: 15 }}>{unknown} student{unknown > 1 ? 's' : ''} with unknown location</div>
+                  <div style={{ fontSize: 12, color: '#991b1b', marginTop: 3 }}>Please locate immediately and update the student status.</div>
                 </div>
-                <button onClick={() => setDrillDown({ title: '❓ Location Unknown', students: students.filter(s=>s.status==='unknown') })} style={{ ...S.btn('danger'), padding: '6px 18px', fontSize: 13, flexShrink: 0 }}>View</button>
+                <button onClick={() => setShowUnknownPopup(true)} style={{ ...S.btn('danger'), padding: '9px 18px', fontSize: 13, flexShrink: 0 }}>Update locations</button>
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
-              <ClickCard label="Total" val={total} color="#1a1f36" sub="enrolled" filterStudents={students} />
-              <ClickCard label="Present" val={present} color="#2563eb" sub={`${Math.round(present/total*100)}%`} filterStudents={students.filter(s=>s.status==='present')} />
-              <ClickCard label="Absent" val={absent} color="#dc2626" sub="not in school" filterStudents={students.filter(s=>s.status==='absent')} />
-              <ClickCard label="⭐ VIP" val={vipStudents.length} color="#854d0e" sub="perfect week" filterStudents={vipStudents} />
-              <ClickCard label="Urgent" val={urgentStudents.length} color="#dc2626" sub="require action" goToPage="alerts" />
-              <ClickCard label="Calls Due" val={callsDueStudents.length} color="#d97706" sub="not called" goToPage="calls" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-              {[
-                { label: 'Late Today', val: late, color: '#d97706', icon: '⏰', filter: students.filter(s=>s.status==='late') },
-                { label: 'In Therapy', val: inTherapy, color: '#7c3aed', icon: '🧠', filter: students.filter(s=>s.status==='therapy') },
-                { label: 'With BT', val: withBT, color: '#0891b2', icon: '👤', filter: students.filter(s=>s.status==='with-bt') },
-                { label: '❓ Unknown', val: unknown, color: '#dc2626', icon: '❓', filter: students.filter(s=>s.status==='unknown') },
-              ].map(stat => (
-                <div key={stat.label} onClick={() => stat.filter.length > 0 && setDrillDown({ title: stat.label, students: stat.filter })}
-                  style={{ background: stat.label === '❓ Unknown' && unknown > 0 ? '#fef2f2' : '#fff', borderRadius: 10, padding: '14px 18px', border: `1px solid ${stat.label === '❓ Unknown' && unknown > 0 ? '#fecaca' : '#e8eaed'}`, display: 'flex', alignItems: 'center', gap: 14, cursor: stat.filter.length > 0 ? 'pointer' : 'default', transition: 'box-shadow 0.15s' }}
-                  onMouseEnter={e => { if (stat.filter.length > 0) e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)' }}
-                  onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-                  <div style={{ fontSize: 28 }}>{stat.icon}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: stat.color }}>{stat.val}</div>
-                    <div style={{ fontSize: 11, color: '#6b7280' }}>{stat.label}</div>
-                  </div>
-                  {stat.filter.length > 0 && <span style={{ fontSize: 10, color: '#9ca3af' }}>→</span>}
-                </div>
-              ))}
-            </div>
 
-            {/* Class summary for admin */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-              {CLASSES.map(cls => {
-                const clsStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
-                const clsPresent = clsStudents.filter(s => s.status === 'present').length
-                const clsAbsent = clsStudents.filter(s => s.status === 'absent').length
-                const clsOut = clsStudents.filter(s => s.status !== 'present' && s.status !== 'absent').length
-                return (
-                  <div key={cls.id} onClick={() => setDrillDown({ title: `🏫 ${cls.name} — All Students`, students: clsStudents })} style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', border: '1px solid #e8eaed', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.boxShadow = 'none'}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 8, background: '#1a1f36', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>{cls.id.toUpperCase()}</div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 13 }}>{cls.name}</div>
-                        <div style={{ fontSize: 11, color: '#6b7280' }}>{cls.grade}</div>
-                      </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', gap: 24, marginBottom: 26 }}>
+              <div style={{ ...S.card, borderRadius: 4, padding: 28, minHeight: 310, boxShadow: '0 12px 34px rgba(20,20,74,0.035)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 15, color: '#14144a', fontWeight: 850 }}>Attendance</div>
+                    <div style={{ fontSize: 12, color: '#8b90aa', marginTop: 4 }}>Today’s attendance and live location summary</div>
+                  </div>
+                  <button onClick={() => setPage('attendance')} style={{ background: '#eef2ff', color: '#4f46e5', border: 'none', borderRadius: 14, padding: '7px 12px', fontSize: 11, fontWeight: 750, cursor: 'pointer' }}>Open Attendance</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px', gap: 24, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 2 }}>
+                      <div style={{ fontSize: 38, fontWeight: 900, color: '#14144a', letterSpacing: '-0.04em' }}>{cameToday}</div>
+                      <div style={{ fontSize: 12, color: '#7b7f9a' }}>/ {total} came today</div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
-                      <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `✅ ${cls.name} — Present`, students: clsStudents.filter(s=>s.status==='present') }) }} style={{ textAlign: 'center', background: '#f0fdf4', borderRadius: 6, padding: '6px', cursor: 'pointer' }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{clsPresent}</div>
-                        <div style={{ fontSize: 10, color: '#16a34a' }}>present</div>
-                      </div>
-                      <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `❌ ${cls.name} — Absent`, students: clsStudents.filter(s=>s.status==='absent') }) }} style={{ textAlign: 'center', background: '#fef2f2', borderRadius: 6, padding: '6px', cursor: 'pointer' }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>{clsAbsent}</div>
-                        <div style={{ fontSize: 10, color: '#dc2626' }}>absent</div>
-                      </div>
-                      <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `🚶 ${cls.name} — Out`, students: clsStudents.filter(s=>s.status!=='present'&&s.status!=='absent') }) }} style={{ textAlign: 'center', background: '#fffbeb', borderRadius: 6, padding: '6px', cursor: 'pointer' }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#d97706' }}>{clsOut}</div>
-                        <div style={{ fontSize: 10, color: '#d97706' }}>out</div>
-                      </div>
+                    <div style={{ fontSize: 12, color: '#8b90aa', marginBottom: 12 }}>{total} boys enrolled total</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 18 }}>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: '#14144a' }}>{stillInYeshiva}</div>
+                      <div style={{ fontSize: 12, color: '#7b7f9a' }}>still in yeshiva now</div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                      {[
+                        { label: 'In classrooms', val: inClassrooms, color: '#14144a', filter: inClassroomsStudents },
+                        { label: 'Late', val: late, color: '#f97316', filter: lateStudents },
+                        { label: 'Therapy', val: inTherapy, color: '#4f46e5', filter: students.filter(s=>s.status==='therapy') },
+                        { label: 'With BT', val: withBT, color: '#0ea5e9', filter: students.filter(s=>s.status==='with-bt') },
+                        { label: 'Unknown', val: unknown, color: '#ef4444', filter: students.filter(s=>s.status==='unknown'), unknownAction: true },
+                        { label: 'Left early', val: leftEarlyStudents.length, color: '#64748b', filter: leftEarlyStudents },
+                        { label: 'Absent', val: absentTodayStudents.length, color: '#ef4444', filter: absentTodayStudents },
+                      ].map(x => (
+                        <div key={x.label} onClick={() => x.unknownAction ? setShowUnknownPopup(true) : setDrillDown({ title: x.label, students: x.filter })} style={{ background: x.unknownAction && x.val > 0 ? '#fff7f7' : '#fafbff', border: `1px solid ${x.unknownAction && x.val > 0 ? '#ffd1d1' : '#eef0f7'}`, borderLeft: `3px solid ${x.color}`, borderRadius: 4, padding: '10px 12px', cursor: 'pointer' }}>
+                          <div style={{ fontSize: 20, fontWeight: 900, color: x.color }}>{x.val}</div>
+                          <div style={{ fontSize: 10, color: '#8b90aa', marginTop: 2 }}>{x.label}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr 1fr', gap: 16 }}>
-              {/* Column 1: To-Do */}
-              <div style={S.card}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>📋 Today's To-Do</div>
-                  <button onClick={() => setPage('todo')} style={{ fontSize: 11, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>View all →</button>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflow: 'auto' }}>
-                  {todos.filter(t => !t.done).map(todo => (
-                    <div key={todo.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 10px', background: '#fafafa', borderRadius: 8, border: '1px solid #e8eaed' }}>
-                      <input type="checkbox" checked={todo.done} onChange={() => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, done: true } : t))} style={{ marginTop: 2, cursor: 'pointer', flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 500 }}>{todo.text}</div>
-                        {todo.time && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>🕐 {todo.time}</div>}
-                      </div>
+                  <div style={{ width: 144, height: 144, borderRadius: '50%', background: `conic-gradient(#14144a 0 ${cameToday/total*360}deg, #edf0f7 ${cameToday/total*360}deg 360deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' }}>
+                    <div style={{ width: 98, height: 98, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: '#14144a' }}>{cameTodayRate}%</div>
+                      <div style={{ fontSize: 10, color: '#8b90aa' }}>came today</div>
                     </div>
-                  ))}
-                  {todos.filter(t => !t.done).length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center', padding: '1rem' }}>All done! ✅</div>}
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <input placeholder="Quick add task... (press Enter)" onKeyDown={e => { if (e.key === 'Enter' && e.currentTarget.value.trim()) { setTodos(prev => [...prev, { id: Date.now(), date: new Date().toISOString().slice(0,10), time: '', text: e.currentTarget.value.trim(), category: 'general', done: false }]); e.currentTarget.value = '' } }} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 12, boxSizing: 'border-box' }} />
+                  </div>
                 </div>
               </div>
 
-              {/* Column 2: Weekly Improvement */}
-              <div style={S.card}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📈 Weekly Improvement</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
-                  <div onClick={() => setDrillDown({ title: '📈 Improved', students: students.filter(s=>s.reminders<s.lastWeekReminders) })} style={{ background: '#f0fdf4', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#166534' }}>{improved}</div>
-                    <div style={{ fontSize: 10, color: '#166534', fontWeight: 600 }}>📈 Improved</div>
+              <div style={{ ...S.card, borderRadius: 4, padding: 28, minHeight: 268, boxShadow: '0 12px 34px rgba(20,20,74,0.035)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 15, color: '#14144a', fontWeight: 850 }}>Priority Work</div>
+                    <div style={{ fontSize: 12, color: '#8b90aa', marginTop: 4 }}>The few things that need attention</div>
                   </div>
-                  <div onClick={() => setDrillDown({ title: '📉 Needs Attention', students: students.filter(s=>s.reminders>s.lastWeekReminders) })} style={{ background: '#fef2f2', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#dc2626' }}>{needsAttention}</div>
-                    <div style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>📉 Attention</div>
+                  <button onClick={() => setPage('alerts')} style={{ background: 'transparent', color: '#4f46e5', border: 'none', fontSize: 12, fontWeight: 750, cursor: 'pointer' }}>View all</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18 }}>
+                  <div onClick={() => setPage('alerts')} style={{ background: '#fff7f7', border: '1px solid #ffe0e0', borderRadius: 4, padding: 18, cursor: 'pointer' }}>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: '#ef4444' }}>{urgentStudents.length}</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#14144a', marginTop: 6 }}>Urgent alerts</div>
+                    <div style={{ fontSize: 11, color: '#8b90aa', marginTop: 4 }}>danger and warning items</div>
                   </div>
-                  <div onClick={() => setDrillDown({ title: '⭐ VIP', students: vipStudents })} style={{ background: '#fefce8', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'pointer', border: '1px solid #ca8a04' }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#854d0e' }}>{vipStudents.length}</div>
-                    <div style={{ fontSize: 10, color: '#854d0e', fontWeight: 600 }}>⭐ VIP</div>
+                  <div onClick={() => setPage('calls')} style={{ background: '#fffaf0', border: '1px solid #fdecc8', borderRadius: 4, padding: 18, cursor: 'pointer' }}>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: '#f97316' }}>{callsDueStudents.length}</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#14144a', marginTop: 6 }}>Calls needed</div>
+                    <div style={{ fontSize: 11, color: '#8b90aa', marginTop: 4 }}>parent follow-ups</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflow: 'auto' }}>
-                  {students.filter(s => s.reminders >= 4 || s.reminders > s.lastWeekReminders).slice(0, 5).map((s, i) => {
-                    const imp = getImprovement(s)
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {alerts.filter(a => a.type === 'danger').slice(0, 3).map((a, i) => (
+                    <div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) openStudent(s, 'behavior') }} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderTop: i === 0 ? '1px solid #f0f1f6' : 'none', cursor: 'pointer' }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: '#14144a' }}>{a.student}</div>
+                        <div style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>{a.msg.replace('❓ ', '').replace(' — please locate immediately!', '')}</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#4f46e5', fontWeight: 800 }}>Open</div>
+                    </div>
+                  ))}
+                  {alerts.filter(a => a.type === 'danger').length === 0 && <div style={{ color: '#8b90aa', fontSize: 12, paddingTop: 8 }}>No urgent alerts right now.</div>}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, marginBottom: 26 }}>
+              <div style={{ ...S.card, borderRadius: 4, padding: 28, boxShadow: '0 12px 34px rgba(20,20,74,0.035)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18 }}>
+                  <div>
+                    <div style={{ fontSize: 15, color: '#14144a', fontWeight: 850 }}>Classes</div>
+                    <div style={{ fontSize: 12, color: '#8b90aa', marginTop: 4 }}>Large class cards with quick status counts</div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+                  {CLASSES.map(cls => {
+                    const clsStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
+                    const clsPresent = clsStudents.filter(s => s.status === 'present').length
+                    const clsAbsent = clsStudents.filter(s => s.status === 'absent').length
+                    const clsOut = clsStudents.filter(s => s.status !== 'present' && s.status !== 'absent').length
+                    const clsPct = Math.round(clsPresent / clsStudents.length * 100)
                     return (
-                      <div key={s.id} onClick={() => openStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#fafafa', borderRadius: 6, cursor: 'pointer' }}>
-                        <div style={S.avatar(i, 26)}>{initials(s.name)}</div>
-                        <div style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{s.name}</div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: imp.color }}>{imp.icon}</span>
+                      <div key={cls.id} onClick={() => setDrillDown({ title: `${cls.name} — All Students`, students: clsStudents })} style={{ background: '#fafbff', border: '1px solid #eef0f7', borderRadius: 4, padding: 20, cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <div style={{ fontSize: 15, fontWeight: 850, color: '#14144a' }}>{cls.name}</div>
+                            <div style={{ fontSize: 11, color: '#8b90aa', marginTop: 4 }}>{cls.grade} · {cls.teacher}</div>
+                            <div style={{ fontSize: 11, color: '#4f46e5', fontWeight: 800, marginTop: 7 }}>{clsPct}% currently in</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 28, lineHeight: 1, fontWeight: 900, color: '#14144a' }}>{clsStudents.length}</div>
+                            <div style={{ fontSize: 10, color: '#8b90aa', marginTop: 4 }}>students</div>
+                          </div>
+                        </div>
+                        <div style={{ marginTop: 18, height: 6, background: '#edf0f7', borderRadius: 99, overflow: 'hidden' }}>
+                          <div style={{ width: `${clsPct}%`, height: '100%', background: '#14144a', borderRadius: 99 }} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 18 }}>
+                          <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `${cls.name} — Present`, students: clsStudents.filter(s=>s.status==='present') }) }}>
+                            <div style={{ fontSize: 18, color: '#14144a', fontWeight: 850 }}>{clsPresent}</div>
+                            <div style={{ fontSize: 10, color: '#8b90aa' }}>Present</div>
+                          </div>
+                          <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `${cls.name} — Absent`, students: clsStudents.filter(s=>s.status==='absent') }) }}>
+                            <div style={{ fontSize: 18, color: '#ef4444', fontWeight: 850 }}>{clsAbsent}</div>
+                            <div style={{ fontSize: 10, color: '#8b90aa' }}>Absent</div>
+                          </div>
+                          <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `${cls.name} — Out`, students: clsStudents.filter(s=>s.status!=='present'&&s.status!=='absent') }) }}>
+                            <div style={{ fontSize: 18, color: '#f97316', fontWeight: 850 }}>{clsOut}</div>
+                            <div style={{ fontSize: 10, color: '#8b90aa' }}>Out</div>
+                          </div>
+                        </div>
                       </div>
                     )
                   })}
                 </div>
               </div>
 
-              {/* Column 3: Urgent Alerts + Calls stacked */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ ...S.card, flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>🔔 Urgent Alerts</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 150, overflow: 'auto' }}>
-                    {alerts.filter(a => a.type === 'danger').slice(0, 4).map((a, i) => (
-                      <div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) openStudent(s, 'behavior') }} style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>
-                        <div style={{ fontWeight: 600, fontSize: 12 }}>{a.student}</div>
-                        <div style={{ fontSize: 11, color: '#dc2626', marginTop: 1 }}>{a.msg}</div>
-                      </div>
-                    ))}
-                    {alerts.filter(a => a.type === 'danger').length === 0 && <div style={{ color: '#9ca3af', fontSize: 12, textAlign: 'center', padding: '0.5rem' }}>No urgent alerts ✅</div>}
+              <div style={{ ...S.card, borderRadius: 4, padding: 28, boxShadow: '0 12px 34px rgba(20,20,74,0.035)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18 }}>
+                  <div>
+                    <div style={{ fontSize: 15, color: '#14144a', fontWeight: 850 }}>Weekly Progress</div>
+                    <div style={{ fontSize: 12, color: '#8b90aa', marginTop: 4 }}>Behavior trends</div>
                   </div>
                 </div>
-                <div style={{ ...S.card, flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>📞 Calls Needed</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 150, overflow: 'auto' }}>
-                    {callsDueStudents.slice(0, 5).map((s, i) => {
-                      const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null
-                      const days = lastCall ? daysSince(lastCall.date) : 999
-                      return (
-                        <div key={s.id} onClick={() => openStudent(s, 'calls')} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>
-                          <div style={S.avatar(i, 24)}>{initials(s.name)}</div>
-                          <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 11 }}>{s.name}</div><div style={{ fontSize: 10, color: '#92400e' }}>{lastCall ? `${days}d ago` : 'Never'}</div></div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 22 }}>
+                  <div onClick={() => setDrillDown({ title: 'Improved', students: students.filter(s=>s.reminders<s.lastWeekReminders) })} style={{ background: '#f4fbf7', borderRadius: 4, padding: 14, cursor: 'pointer' }}>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: '#15803d' }}>{improved}</div>
+                    <div style={{ fontSize: 10, color: '#7b7f9a', marginTop: 4 }}>Improved</div>
+                  </div>
+                  <div onClick={() => setDrillDown({ title: 'Needs Attention', students: students.filter(s=>s.reminders>s.lastWeekReminders) })} style={{ background: '#fff7f7', borderRadius: 4, padding: 14, cursor: 'pointer' }}>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: '#ef4444' }}>{needsAttention}</div>
+                    <div style={{ fontSize: 10, color: '#7b7f9a', marginTop: 4 }}>Attention</div>
+                  </div>
+                  <div onClick={() => setDrillDown({ title: 'VIP', students: vipStudents })} style={{ background: '#fffaf0', borderRadius: 4, padding: 14, cursor: 'pointer' }}>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: '#f97316' }}>{vipStudents.length}</div>
+                    <div style={{ fontSize: 10, color: '#7b7f9a', marginTop: 4 }}>VIP</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {students.filter(s => s.reminders >= 4 || s.reminders > s.lastWeekReminders).slice(0, 5).map((s, i) => {
+                    const imp = getImprovement(s)
+                    return (
+                      <div key={s.id} onClick={() => openStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderTop: i === 0 ? '1px solid #f0f1f6' : 'none', cursor: 'pointer' }}>
+                        <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: '#14144a' }}>{s.name}</div>
+                          <div style={{ fontSize: 10, color: '#8b90aa', marginTop: 2 }}>{imp.label}</div>
                         </div>
-                      )
-                    })}
-                  </div>
+                        <div style={{ fontSize: 12, fontWeight: 850, color: imp.color }}>{s.reminders}</div>
+                      </div>
+                    )
+                  })}
                 </div>
+              </div>
+            </div>
+
+            <div style={{ ...S.card, borderRadius: 4, padding: 28, boxShadow: '0 12px 34px rgba(20,20,74,0.035)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 15, color: '#14144a', fontWeight: 850 }}>Today’s To-Do</div>
+                  <div style={{ fontSize: 12, color: '#8b90aa', marginTop: 4 }}>A cleaner work queue instead of several small widgets</div>
+                </div>
+                <button onClick={() => setPage('todo')} style={{ background: '#eef2ff', color: '#4f46e5', border: 'none', borderRadius: 14, padding: '7px 12px', fontSize: 11, fontWeight: 750, cursor: 'pointer' }}>View all</button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                {todos.filter(t => !t.done).slice(0, 6).map(todo => (
+                  <div key={todo.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', background: '#fafbff', borderRadius: 4, border: '1px solid #eef0f7' }}>
+                    <input type="checkbox" checked={todo.done} onChange={() => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, done: true } : t))} style={{ marginTop: 2, cursor: 'pointer', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 750, color: '#14144a' }}>{todo.text}</div>
+                      {todo.time && <div style={{ fontSize: 11, color: '#8b90aa', marginTop: 4 }}>{todo.time}</div>}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -2523,6 +2816,10 @@ export default function Dashboard() {
 
         {page === 'attendance' && (
           <AttendancePage students={students} setStudents={setStudents} role={role} attFilter={attFilter} setAttFilter={setAttFilter} filteredStudents={filteredStudents} openStudent={openStudent} />
+        )}
+
+        {page === 'academics' && (
+          <AcademicsPage students={students} setStudents={setStudents} role={role} userName={userName} teacherClass={teacherClass} openStudent={openStudent} />
         )}
 
         {page === 'schedule' && (
@@ -3196,8 +3493,46 @@ export default function Dashboard() {
 
       </div>
 
+      {showUnknownPopup && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 760, maxHeight: '84vh', overflow: 'hidden', boxShadow: '0 24px 80px rgba(15,23,42,0.28)' }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid #eef0f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: '#14144a' }}>Update Unknown Locations</div>
+                <div style={{ fontSize: 12, color: '#8b90aa', marginTop: 4 }}>Mark each located boy and add an optional note.</div>
+              </div>
+              <button onClick={() => setShowUnknownPopup(false)} style={{ border: 'none', background: '#f4f5f8', color: '#14144a', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', fontWeight: 900 }}>×</button>
+            </div>
+            <div style={{ padding: 18, overflow: 'auto', maxHeight: '68vh' }}>
+              {students.filter(s => s.status === 'unknown').length === 0 && (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#8b90aa' }}>No unknown locations right now.</div>
+              )}
+              {students.filter(s => s.status === 'unknown').map((s, i) => (
+                <div key={s.id} style={{ border: '1px solid #eef0f7', borderRadius: 12, padding: 16, marginBottom: 12, background: '#fafbff' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <div style={S.avatar(i, 36)}>{initials(s.name)}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: '#14144a' }}>{s.name}</div>
+                      <div style={{ fontSize: 12, color: '#ef4444', marginTop: 2 }}>Location unknown</div>
+                    </div>
+                  </div>
+                  <input value={unknownNotes[s.id] || ''} onChange={e => setUnknownNotes(prev => ({ ...prev, [s.id]: e.target.value }))} placeholder="Optional note, for example: found by office with Rabbi Baum" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #e1e7ef', borderRadius: 10, fontSize: 13, marginBottom: 12, outline: 'none' }} />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <button onClick={() => updateUnknownLocation(s.id, 'present', 'In Classroom')} style={S.btn('primary')}>Mark In Classroom</button>
+                    <button onClick={() => updateUnknownLocation(s.id, 'therapy', 'Therapy')} style={S.btn('purple')}>Mark Therapy</button>
+                    <button onClick={() => updateUnknownLocation(s.id, 'with-bt', 'With BT')} style={{ ...S.btn('ghost'), color: '#0369a1' }}>Mark With BT</button>
+                    <button onClick={() => updateUnknownLocation(s.id, 'absent', 'Absent')} style={{ ...S.btn('ghost'), color: '#dc2626' }}>Mark Absent</button>
+                    <button onClick={() => updateUnknownLocation(s.id, 'left-early', 'Left Early')} style={{ ...S.btn('ghost'), color: '#64748b' }}>Mark Left Early</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {drillDown && <DrillDown title={drillDown.title} students={drillDown.students} onClose={() => setDrillDown(null)} onSelectStudent={s => { openStudent(s); setDrillDown(null) }} />}
-      {selectedStudent && <StudentProfile student={selectedStudent} students={students} setStudents={setStudents} onClose={() => setSelectedStudent(null)} role={role} defaultTab={selectedStudentTab} />}
+      {selectedStudent && <StudentProfile student={selectedStudent} students={students} setStudents={setStudents} onClose={() => setSelectedStudent(null)} role={role} userName={userName} defaultTab={selectedStudentTab} />}
     </div>
   )
 }
