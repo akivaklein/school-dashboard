@@ -432,9 +432,9 @@ function isVIP(s) { return s.reminders === 0 && s.att.every(d => d === 'P') }
 
 const S = {
   app: { fontFamily: "'Inter','DM Sans','Segoe UI',sans-serif", minHeight: '100vh', background: '#f7f8fb', color: '#172033', display: 'flex', letterSpacing: '-0.01em' },
-  sidebar: { width: 232, background: '#111827', color: '#fff', display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, boxShadow: '8px 0 24px rgba(15,23,42,0.08)' },
-  sidebarLogo: { padding: '22px 18px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 10 },
-  sidebarItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', borderRadius: 10, margin: '3px 10px', background: active ? '#ffffff' : 'transparent', color: active ? '#111827' : 'rgba(255,255,255,0.68)', fontSize: 13.5, fontWeight: active ? 700 : 500, transition: 'background 0.15s, color 0.15s, transform 0.15s' }),
+  sidebar: { width: 232, background: '#111827', color: '#fff', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, overflowY: 'auto', overflowX: 'hidden', boxShadow: '8px 0 24px rgba(15,23,42,0.08)' },
+  sidebarLogo: { padding: '22px 18px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 10, flexShrink: 0 },
+  sidebarItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', borderRadius: 10, margin: '3px 10px', background: active ? '#ffffff' : 'transparent', color: active ? '#111827' : 'rgba(255,255,255,0.68)', fontSize: 13.5, fontWeight: active ? 700 : 500, transition: 'background 0.15s, color 0.15s, transform 0.15s', flexShrink: 0 }),
   main: { marginLeft: 232, padding: '34px 72px 40px 40px', minHeight: '100vh', flex: 1, width: 'calc(100% - 232px)', boxSizing: 'border-box' },
   card: { background: '#fff', borderRadius: 16, padding: '22px', boxShadow: '0 8px 24px rgba(15,23,42,0.045)', border: '1px solid #e6eaf0' },
   statCard: (color) => ({ background: '#fff', borderRadius: 16, padding: '18px 20px', boxShadow: '0 8px 24px rgba(15,23,42,0.045)', border: '1px solid #e6eaf0', borderLeft: `4px solid ${color}` }),
@@ -2526,9 +2526,24 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-        <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{userName}</div>
-          <button onClick={() => setLoggedIn(false)} style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← Logout</button>
+        <div style={{ marginTop: 'auto', padding: '14px 16px 18px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 8 }}>{userName}</div>
+          <button
+            onClick={() => setLoggedIn(false)}
+            style={{
+              fontSize: 12,
+              color: 'rgba(255,255,255,0.78)',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              cursor: 'pointer',
+              padding: '8px 10px',
+              borderRadius: 8,
+              width: '100%',
+              textAlign: 'left'
+            }}
+          >
+            ← Logout
+          </button>
         </div>
       </div>
 
