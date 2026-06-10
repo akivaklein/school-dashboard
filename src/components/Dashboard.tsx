@@ -138,6 +138,7 @@ function studentDivision(student) {
 }
 
 function getUserAccess(name, role) {
+  if (role === 'store') return { divisions: ['yeshiva_ketana', 'mesivta'], canManageStore: false }
   const bothDivisions = ['Rabbi Baum', 'Rabbi Fried', 'Rabbi Lefkowitz', 'Rabbi Weiss']
   if (bothDivisions.includes(name)) return { divisions: ['yeshiva_ketana', 'mesivta'], canManageStore: true }
   if (name === 'Rabbi Hillel') return { divisions: ['mesivta'], canManageStore: true }
@@ -630,6 +631,7 @@ function LoginPage({ onLogin }) {
     { role: 'admin', name: 'Rabbi Fried', email: 'rfried@hadranacademy.org' },
     { role: 'admin', name: 'Rabbi Blau', email: 'rblau@hadranacademy.org' },
     { role: 'admin', name: 'Rabbi Abramowitz', email: 'rabramowitz@hadranacademy.org' },
+    { role: 'store', name: 'Canteen Register', email: 'register@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Klein', email: 'rklein@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Schults', email: 'rschults@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Schimborski', email: 'rschimborski@hadranacademy.org' },
@@ -681,8 +683,8 @@ function LoginPage({ onLogin }) {
 
           <div style={{ marginBottom: 22 }}>
             <div style={loginLabelStyle}>Sign in as</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-              {[['admin','Admin'],['teacher','Teacher'],['therapist','Therapist']].map(([r, label]) => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
+              {[['admin','Admin'],['teacher','Teacher'],['therapist','Therapist'],['store','Canteen']].map(([r, label]) => (
                 <button key={r} onClick={() => setRole(r)} style={{ padding: '11px 8px', borderRadius: 12, border: `1px solid ${role === r ? '#172033' : '#d8dee9'}`, background: role === r ? '#172033' : '#f8fafc', color: role === r ? '#fff' : '#475569', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', boxShadow: role === r ? '0 8px 18px rgba(15,23,42,0.16)' : 'none' }}>{label}</button>
               ))}
             </div>
@@ -1438,7 +1440,7 @@ function StudentProfile({ student, students, setStudents, onClose, role, userNam
                   <div style={{ fontSize: 13, color: '#334155' }}>{c.notes}</div>
                 </div>
               ))}
-              {role !== 'therapist' && (
+              {role !== 'therapist' && role !== 'store' && (
                 <div style={{ marginTop: 14, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
                   <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>Log a new call</div>
                   <input placeholder="Staff name" value={callStaff} onChange={e => setCallStaff(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', marginBottom: 8, fontSize: 13, boxSizing: 'border-box' }} />
@@ -2555,6 +2557,7 @@ export default function Dashboard() {
   const [selectedStudentTab, setSelectedStudentTab] = useState('overview')
   const [storeStudent, setStoreStudent] = useState(null)
   const [storeItems, setStoreItems] = useState(STORE_ITEMS)
+  const [purchaseLog, setPurchaseLog] = useState([])
   const [showStoreManager, setShowStoreManager] = useState(false)
   const [newStoreItem, setNewStoreItem] = useState({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', vip: false })
   const [behaviorStudent, setBehaviorStudent] = useState(null)
@@ -2608,7 +2611,7 @@ export default function Dashboard() {
     setUserName(name)
     setDivisionView(defaultDivisionView(access))
     setLoggedIn(true)
-    setPage('dashboard')
+    setPage(r === 'store' ? 'store' : 'dashboard')
     if (r === 'teacher') {
       const cls = TEACHER_CLASS_MAP[name] || null
       setTeacherClass(cls)
@@ -2632,6 +2635,16 @@ export default function Dashboard() {
     playSound('store')
     setStudents(prev => prev.map(x => x.id === studentId ? { ...x, points: x.points - item.cost } : x))
     setStoreItems(prev => prev.map(x => x.id === item.id ? { ...x, stock: Math.max(0, (x.stock || 0) - 1) } : x))
+    setPurchaseLog(prev => [{
+      id: Date.now(),
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      studentId: s.id,
+      studentName: s.name,
+      itemName: item.name,
+      cost: item.cost,
+      staff: userName || 'Register',
+      division: studentDivision(s),
+    }, ...prev].slice(0, 25))
     alert(`${s.name} redeemed: ${item.name}!`)
   }
 
@@ -2771,8 +2784,11 @@ export default function Dashboard() {
     { id: 'schedule', label: 'Schedule', icon: 'SC' },
     { id: 'students', label: 'All Students', icon: 'ST' },
   ]
+  const storeNav = [
+    { id: 'store', label: 'Token Store', icon: 'TS' },
+  ]
 
-  const navItems = role === 'admin' ? adminNav : role === 'teacher' ? teacherNav : therapistNav
+  const navItems = role === 'admin' ? adminNav : role === 'teacher' ? teacherNav : role === 'store' ? storeNav : therapistNav
   const searchedStudents = search ? visibleStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
 
@@ -2800,7 +2816,7 @@ export default function Dashboard() {
             <div style={{ width: 34, height: 34, borderRadius: 10, background: '#fff', color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>HA</div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}>Hadran Academy</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 3 }}>{role === 'admin' ? 'Menahel Portal' : role === 'teacher' ? 'Teacher Portal' : 'Therapist Portal'}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 3 }}>{role === 'admin' ? 'Menahel Portal' : role === 'teacher' ? 'Teacher Portal' : role === 'store' ? 'Canteen Register' : 'Therapist Portal'}</div>
             </div>
           </div>
         </div>
@@ -2814,7 +2830,7 @@ export default function Dashboard() {
               )}
             </div>
           ))}
-          {role !== 'therapist' && (
+          {role !== 'therapist' && role !== 'store' && (
             <div onClick={() => setTeachingMode(true)} style={{ ...S.sidebarItem(false), background: 'rgba(148,163,184,0.08)', margin: '8px 8px 2px', border: '1px solid rgba(255,255,255,0.15)' }}>
               <span style={{ width: 26, height: 26, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.12)' }}>{role === 'admin' ? 'SW' : 'TM'}</span><span>{role === 'admin' ? 'School-Wide Mode' : 'Teaching Mode'}</span>
             </div>
@@ -3356,6 +3372,31 @@ export default function Dashboard() {
                 </>
               )
             })()}
+
+            <div style={{ ...S.card, marginBottom: 18 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>Recent Store Activity</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Tracks today’s redemptions while this demo session is open.</div>
+                </div>
+                <span style={S.badge('#475569', '#f1f5f9')}>{purchaseLog.length} purchases</span>
+              </div>
+              {purchaseLog.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: 13, padding: '10px 0' }}>No purchases yet today.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {purchaseLog.slice(0, 6).map(log => (
+                    <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '80px 1.2fr 1.2fr 70px 1fr', gap: 10, alignItems: 'center', padding: '9px 10px', border: '1px solid #e7edf3', borderRadius: 10, background: '#fbfdff', fontSize: 12 }}>
+                      <span style={{ color: '#64748b' }}>{log.time}</span>
+                      <span style={{ fontWeight: 600, color: '#1f2937' }}>{log.studentName}</span>
+                      <span>{log.itemName}</span>
+                      <span style={{ fontWeight: 700, color: '#7a633a' }}>{log.cost} pts</span>
+                      <span style={{ color: '#64748b', textAlign: 'right' }}>{log.staff}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Select a student</div>
