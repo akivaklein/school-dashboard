@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-
+import { supabase } from '../supabaseClient'
 function playSound(type) {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -1117,7 +1117,42 @@ function StudentProfile({ student, students, setStudents, onClose, role, userNam
   const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null
   const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
 
-  function addNote() { if (!noteText.trim()) return; setStudents(prev => prev.map(x => x.id === s.id ? { ...x, notes: [...x.notes, { date: new Date().toISOString().slice(0,10), author: callStaff, text: noteText }] } : x)); setNoteText('') }
+  async function addNote() {
+    if (!noteText.trim()) return
+
+    const newNote = {
+      date: new Date().toISOString().slice(0, 10),
+      author: callStaff || userName || 'Staff',
+      text: noteText.trim(),
+    }
+
+    const { error } = await supabase
+      .from('student_notes')
+      .insert([
+        {
+          student_id: s.id,
+          student_name: s.name,
+          note: newNote.text,
+          author: newNote.author,
+        },
+      ])
+
+    if (error) {
+      console.error('Error saving student note:', error)
+      alert('Could not save note. Check console.')
+      return
+    }
+
+    setStudents(prev =>
+      prev.map(x =>
+        x.id === s.id
+          ? { ...x, notes: [...(x.notes || []), newNote] }
+          : x
+      )
+    )
+
+    setNoteText('')
+  }
   function addCall() { if (!callNotes.trim()) return; setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: [...x.parentCalls, { date: new Date().toISOString().slice(0,10), staff: callStaff, notes: callNotes, duration: callDuration }] } : x)); setCallNotes(''); setCallDuration('') }
 
   return (
@@ -2319,6 +2354,47 @@ export default function Dashboard() {
   const [userName, setUserName] = useState('')
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState(initialStudents)
+
+  useEffect(() => {
+    async function loadStudentNotes() {
+      const { data, error } = await supabase
+        .from('student_notes')
+        .select('*')
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        console.error('Error loading student notes:', error)
+        return
+      }
+
+      if (!data || data.length === 0) return
+
+      setStudents(prev =>
+        prev.map(student => {
+          const savedNotes = data
+            .filter(note => note.student_id === student.id)
+            .map(note => ({
+              date: note.created_at ? note.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+              author: note.author || 'Staff',
+              text: note.note,
+            }))
+
+          if (savedNotes.length === 0) return student
+
+          const existingNotes = student.notes || []
+          const existingKeys = new Set(existingNotes.map(note => `${note.date}|${note.author}|${note.text}`))
+          const newSavedNotes = savedNotes.filter(note => !existingKeys.has(`${note.date}|${note.author}|${note.text}`))
+
+          return {
+            ...student,
+            notes: [...existingNotes, ...newSavedNotes],
+          }
+        })
+      )
+    }
+
+    loadStudentNotes()
+  }, [])
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [selectedStudentTab, setSelectedStudentTab] = useState('overview')
   const [storeStudent, setStoreStudent] = useState(null)
@@ -2580,7 +2656,6 @@ export default function Dashboard() {
               <h1 style={{ fontSize: 24, fontWeight: 850, margin: 0, letterSpacing: '-0.03em', color: '#14144a' }}>Dashboard</h1>
               <p style={{ color: '#7b7f9a', margin: '7px 0 0', fontSize: 13 }}><LiveClock /> · {getGreeting(new Date().getHours())}, {userName} · {total} students</p>
             </div>
-
             {unknown > 0 && (
               <div style={{ background: '#fff7f7', border: '1px solid #ffd1d1', borderRadius: 16, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: '0 12px 32px rgba(220,38,38,0.06)' }}>
                 <div>
