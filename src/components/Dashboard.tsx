@@ -30,16 +30,86 @@ const BEHAVIORS_NEGATIVE = [
 ]
 
 const STORE_ITEMS = [
-  { id: 1, name: "Reisman's Brownie Bar", cost: 20, emoji: '🍫', vip: false, stock: 18, lowStockAt: 6 },
-  { id: 2, name: "Klein's Ice Cream Cone", cost: 25, emoji: '🍦', vip: false, stock: 24, lowStockAt: 8 },
-  { id: 3, name: "Klein's Ice Cream Sandwich", cost: 25, emoji: '🍨', vip: false, stock: 20, lowStockAt: 8 },
-  { id: 4, name: 'Paskesz Sour Belts', cost: 18, emoji: '🍬', vip: false, stock: 32, lowStockAt: 10 },
-  { id: 5, name: 'Paskesz Lollycones', cost: 15, emoji: '🍭', vip: false, stock: 28, lowStockAt: 10 },
-  { id: 6, name: 'Gatorade Berry', cost: 30, emoji: '🧃', vip: false, stock: 16, lowStockAt: 6 },
-  { id: 7, name: 'Gatorade Lemon Lime', cost: 30, emoji: '🧃', vip: false, stock: 14, lowStockAt: 6 },
-  { id: 8, name: 'Slush Cup', cost: 15, emoji: '🧊', vip: false, stock: 26, lowStockAt: 8 },
-  { id: 9, name: 'Pizza Slice', cost: 50, emoji: '🍕', vip: true, stock: 10, lowStockAt: 4 },
-  { id: 10, name: 'Fresh Cookie', cost: 30, emoji: '🍪', vip: true, stock: 22, lowStockAt: 8 },
+  // Drinks
+  { id: 1, name: 'Water Bottle', cost: 8, emoji: '💧', category: 'drinks', vip: false, stock: 48, lowStockAt: 12, imageUrl: '' },
+  { id: 2, name: 'Gatorade Berry', cost: 30, emoji: '🧃', category: 'drinks', vip: false, stock: 16, lowStockAt: 6, imageUrl: '' },
+  { id: 3, name: 'Gatorade Lemon Lime', cost: 30, emoji: '🧃', category: 'drinks', vip: false, stock: 14, lowStockAt: 6, imageUrl: '' },
+  { id: 4, name: 'Apple Juice Box', cost: 18, emoji: '🧃', category: 'drinks', vip: false, stock: 24, lowStockAt: 8, imageUrl: '' },
+  { id: 5, name: 'Orange Juice Box', cost: 18, emoji: '🧃', category: 'drinks', vip: false, stock: 20, lowStockAt: 8, imageUrl: '' },
+  { id: 6, name: 'Seltzer Can', cost: 15, emoji: '🥤', category: 'drinks', vip: false, stock: 30, lowStockAt: 10, imageUrl: '' },
+  { id: 7, name: 'Snapple Peach', cost: 35, emoji: '🥤', category: 'drinks', vip: false, stock: 12, lowStockAt: 5, imageUrl: '' },
+
+  // Food
+  { id: 20, name: 'Pizza Slice', cost: 50, emoji: '🍕', category: 'food', vip: true, stock: 10, lowStockAt: 4, imageUrl: '' },
+  { id: 21, name: 'Bagel with Cream Cheese', cost: 35, emoji: '🥯', category: 'food', vip: false, stock: 16, lowStockAt: 5, imageUrl: '' },
+  { id: 22, name: 'Plain Bagel', cost: 25, emoji: '🥯', category: 'food', vip: false, stock: 20, lowStockAt: 6, imageUrl: '' },
+  { id: 23, name: 'Tuna Sandwich', cost: 55, emoji: '🥪', category: 'food', vip: true, stock: 8, lowStockAt: 3, imageUrl: '' },
+  { id: 24, name: 'Egg Salad Sandwich', cost: 50, emoji: '🥪', category: 'food', vip: true, stock: 8, lowStockAt: 3, imageUrl: '' },
+  { id: 25, name: 'Hot Pretzel', cost: 28, emoji: '🥨', category: 'food', vip: false, stock: 18, lowStockAt: 6, imageUrl: '' },
+  { id: 26, name: 'French Fries Cup', cost: 45, emoji: '🍟', category: 'food', vip: true, stock: 10, lowStockAt: 4, imageUrl: '' },
+  { id: 27, name: 'Knish', cost: 40, emoji: '🥟', category: 'food', vip: false, stock: 12, lowStockAt: 4, imageUrl: '' },
+
+  // Nosh
+  { id: 40, name: 'Paskesz Sour Belts', cost: 18, emoji: '🍬', category: 'nosh', vip: false, stock: 32, lowStockAt: 10, imageUrl: '' },
+  { id: 41, name: 'Paskesz Lollycones', cost: 15, emoji: '🍭', category: 'nosh', vip: false, stock: 28, lowStockAt: 10, imageUrl: '' },
+  { id: 42, name: 'Sour Sticks', cost: 15, emoji: '🍬', category: 'nosh', vip: false, stock: 34, lowStockAt: 10, imageUrl: '' },
+  { id: 43, name: 'Fruit Slices Candy', cost: 18, emoji: '🍬', category: 'nosh', vip: false, stock: 24, lowStockAt: 8, imageUrl: '' },
+  { id: 44, name: 'Chocolate Bar', cost: 22, emoji: '🍫', category: 'nosh', vip: false, stock: 20, lowStockAt: 8, imageUrl: '' },
+  { id: 45, name: 'Klik Chocolate Bag', cost: 25, emoji: '🍫', category: 'nosh', vip: false, stock: 16, lowStockAt: 6, imageUrl: '' },
+  { id: 46, name: 'Mike and Ike Box', cost: 20, emoji: '🍬', category: 'nosh', vip: false, stock: 22, lowStockAt: 8, imageUrl: '' },
+  { id: 47, name: 'Sour Punch Bites', cost: 22, emoji: '🍬', category: 'nosh', vip: false, stock: 18, lowStockAt: 6, imageUrl: '' },
+
+  // Cookies / cakes
+  { id: 60, name: "Reisman's Brownie Bar", cost: 20, emoji: '🍫', category: 'cookies', vip: false, stock: 18, lowStockAt: 6, imageUrl: '' },
+  { id: 61, name: 'Chocolate Chip Cookie', cost: 20, emoji: '🍪', category: 'cookies', vip: false, stock: 30, lowStockAt: 10, imageUrl: '' },
+  { id: 62, name: 'Fresh Cookie', cost: 30, emoji: '🍪', category: 'cookies', vip: true, stock: 22, lowStockAt: 8, imageUrl: '' },
+  { id: 63, name: 'Mini Muffin Pack', cost: 25, emoji: '🧁', category: 'cookies', vip: false, stock: 18, lowStockAt: 6, imageUrl: '' },
+  { id: 64, name: 'Cupcake', cost: 30, emoji: '🧁', category: 'cookies', vip: false, stock: 14, lowStockAt: 5, imageUrl: '' },
+  { id: 65, name: 'Wafer Bar', cost: 18, emoji: '🍫', category: 'cookies', vip: false, stock: 26, lowStockAt: 8, imageUrl: '' },
+  { id: 66, name: 'Chocolate Rugelach', cost: 28, emoji: '🥐', category: 'cookies', vip: false, stock: 16, lowStockAt: 6, imageUrl: '' },
+
+  // Snacks
+  { id: 80, name: 'Pretzel Bag', cost: 15, emoji: '🥨', category: 'snacks', vip: false, stock: 36, lowStockAt: 10, imageUrl: '' },
+  { id: 81, name: 'Popcorn Bag', cost: 15, emoji: '🍿', category: 'snacks', vip: false, stock: 30, lowStockAt: 10, imageUrl: '' },
+  { id: 82, name: 'Potato Chips', cost: 18, emoji: '🥔', category: 'snacks', vip: false, stock: 28, lowStockAt: 10, imageUrl: '' },
+  { id: 83, name: 'BBQ Chips', cost: 18, emoji: '🥔', category: 'snacks', vip: false, stock: 24, lowStockAt: 8, imageUrl: '' },
+  { id: 84, name: 'Onion Rings Snack', cost: 18, emoji: '⭕', category: 'snacks', vip: false, stock: 22, lowStockAt: 8, imageUrl: '' },
+  { id: 85, name: 'Bamba Bag', cost: 18, emoji: '🥜', category: 'snacks', vip: false, stock: 20, lowStockAt: 8, imageUrl: '' },
+  { id: 86, name: 'Corn Chips', cost: 18, emoji: '🌽', category: 'snacks', vip: false, stock: 22, lowStockAt: 8, imageUrl: '' },
+  { id: 87, name: 'Granola Bar', cost: 16, emoji: '▰', category: 'snacks', vip: false, stock: 24, lowStockAt: 8, imageUrl: '' },
+
+  // Ices / ice cream
+  { id: 100, name: "Klein's Ice Cream Cone", cost: 25, emoji: '🍦', category: 'ices', vip: false, stock: 24, lowStockAt: 8, imageUrl: '' },
+  { id: 101, name: "Klein's Ice Cream Sandwich", cost: 25, emoji: '🍨', category: 'ices', vip: false, stock: 20, lowStockAt: 8, imageUrl: '' },
+  { id: 102, name: 'Ice Cream Bar', cost: 25, emoji: '🍧', category: 'ices', vip: false, stock: 18, lowStockAt: 6, imageUrl: '' },
+  { id: 103, name: 'Icy Cup', cost: 12, emoji: '🧊', category: 'ices', vip: false, stock: 40, lowStockAt: 12, imageUrl: '' },
+  { id: 104, name: 'Slush Cup', cost: 15, emoji: '🧊', category: 'ices', vip: false, stock: 26, lowStockAt: 8, imageUrl: '' },
+  { id: 105, name: 'Freeze Pop', cost: 10, emoji: '🧊', category: 'ices', vip: false, stock: 50, lowStockAt: 15, imageUrl: '' },
+
+  // Uploaded product images
+  { id: 120, name: 'Shufra Wafer Rolls Hazelnut Cream', cost: 35, emoji: '🍪', category: 'cookies', vip: true, stock: 14, lowStockAt: 5, imageUrl: '/store-items/store-items/shufra-wafer-rolls-hazelnut.jpeg' },
+  { id: 121, name: 'Shufra Filled Twist Bites Strawberry', cost: 35, emoji: '🍬', category: 'nosh', vip: true, stock: 12, lowStockAt: 4, imageUrl: '/store-items/store-items/shufra-filled-twist-bites-strawberry.jpg' },
+  { id: 122, name: 'Gross & Co Nut Crunch Mini Chocolate Bars', cost: 35, emoji: '🍫', category: 'nosh', vip: true, stock: 12, lowStockAt: 4, imageUrl: '/store-items/store-items/gross-nut-crunch.jpg' },
+  { id: 123, name: 'Gross & Co Chocolate Crema Caramel', cost: 30, emoji: '🍫', category: 'nosh', vip: true, stock: 10, lowStockAt: 4, imageUrl: '/store-items/store-items/gross-chocolate-crema-caramel.png' },
+  { id: 124, name: 'Gross & Co Chocolate Leaves Hazelnuts', cost: 30, emoji: '🍫', category: 'nosh', vip: false, stock: 14, lowStockAt: 5, imageUrl: '/store-items/store-items/gross-chocolate-leaves-hazelnut.jpg' },
+  { id: 125, name: 'Shufra Snow Flakes Talafel', cost: 18, emoji: '▰', category: 'snacks', vip: false, stock: 24, lowStockAt: 8, imageUrl: '/store-items/store-items/shufra-snow-flakes-talafel.jpg' },
+  { id: 126, name: 'Shufra Snow Flakes Onion', cost: 18, emoji: '▰', category: 'snacks', vip: false, stock: 24, lowStockAt: 8, imageUrl: '/store-items/store-items/shufra-snow-flakes-onion.png' },
+  { id: 127, name: 'Shufra Pretzels Shapes', cost: 18, emoji: '🥨', category: 'snacks', vip: false, stock: 30, lowStockAt: 10, imageUrl: '/store-items/store-items/shufra-pretzels-shapes.jpg' },
+  { id: 128, name: 'Shufra Pretzels Mini', cost: 18, emoji: '🥨', category: 'snacks', vip: false, stock: 30, lowStockAt: 10, imageUrl: '/store-items/store-items/shufra-pretzels-mini.jpg' },
+  { id: 129, name: 'Gesher Snak Pak Ketchup', cost: 18, emoji: '▰', category: 'snacks', vip: false, stock: 24, lowStockAt: 8, imageUrl: '/store-items/store-items/gesher-snak-pak-ketchup.png' },
+  { id: 130, name: 'Gesher Snak Pak Hot & Spicy', cost: 18, emoji: '▰', category: 'snacks', vip: false, stock: 24, lowStockAt: 8, imageUrl: '/store-items/store-items/gesher-snak-pak-hot-spicy.png' },
+  { id: 131, name: 'Beigel Beigel Sesame Sticks', cost: 20, emoji: '🥨', category: 'snacks', vip: false, stock: 22, lowStockAt: 8, imageUrl: '/store-items/store-items/beigel-sesame-sticks.png' },
+  { id: 132, name: 'Beigel Beigel Thin Pretzel Sticks', cost: 20, emoji: '🥨', category: 'snacks', vip: false, stock: 22, lowStockAt: 8, imageUrl: '/store-items/store-items/beigel-thin-pretzel-sticks.png' },
+]
+
+const STORE_CATEGORY_OPTIONS = [
+  { key: 'all', label: 'All' },
+  { key: 'drinks', label: 'Drinks' },
+  { key: 'food', label: 'Food' },
+  { key: 'nosh', label: 'Nosh' },
+  { key: 'cookies', label: 'Cookies' },
+  { key: 'snacks', label: 'Snacks' },
+  { key: 'ices', label: 'Ices / Ice Cream' },
 ]
 
 
@@ -2896,6 +2966,8 @@ export default function Dashboard() {
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [selectedStudentTab, setSelectedStudentTab] = useState('overview')
   const [storeStudent, setStoreStudent] = useState(null)
+  const [storeCategoryFilter, setStoreCategoryFilter] = useState('all')
+  const [storeItemSearch, setStoreItemSearch] = useState('')
   const [storeItems, setStoreItems] = useState(STORE_ITEMS)
   const [purchaseLog, setPurchaseLog] = useState([])
   const [showStoreManager, setShowStoreManager] = useState(false)
@@ -3755,7 +3827,7 @@ export default function Dashboard() {
                         const vip = isVIP(s)
                         const active = storeStudent === s.id
                         return (
-                          <button key={s.id} onClick={() => setStoreStudent(s.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, width: '100%', padding: '5px 7px', borderRadius: 8, border: `1px solid ${active ? '#334155' : vip ? '#d6b75d' : '#e2e8f0'}`, cursor: 'pointer', fontSize: 11, fontWeight: active ? 700 : 500, background: active ? '#334155' : vip ? '#fffaf0' : '#fbfdff', color: active ? '#fff' : '#334155', textAlign: 'left' }}>
+                          <button key={s.id} onClick={() => setStoreStudent(storeStudent === s.id ? null : s.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, width: '100%', padding: '5px 7px', borderRadius: 8, border: `1px solid ${active ? '#334155' : vip ? '#d6b75d' : '#e2e8f0'}`, cursor: 'pointer', fontSize: 11, fontWeight: active ? 700 : 500, background: active ? '#334155' : vip ? '#fffaf0' : '#fbfdff', color: active ? '#fff' : '#334155', textAlign: 'left', display: storeStudent && !active ? 'none' : 'flex' }}>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vip && '⭐ '}{s.name}</span>
                             <span style={{ color: active ? 'rgba(255,255,255,0.75)' : '#7a633a', fontWeight: 700, flexShrink: 0 }}>{s.points}</span>
                           </button>
@@ -3778,6 +3850,12 @@ export default function Dashboard() {
                 if (s.points < item.cost) return 'Need more points'
                 return ''
               }
+              const visibleStoreItems = storeItems.filter(item => {
+                const matchesCategory = storeCategoryFilter === 'all' || (item.category || 'nosh') === storeCategoryFilter
+                const q = storeItemSearch.trim().toLowerCase()
+                const matchesSearch = !q || item.name.toLowerCase().includes(q) || (item.category || '').toLowerCase().includes(q)
+                return matchesCategory && matchesSearch
+              })
               return (
                 <div>
                   <div style={{ ...S.card, marginBottom: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3789,9 +3867,50 @@ export default function Dashboard() {
                     </div>
                     {s ? <div style={S.badge('#7a633a', '#f7f1e8')}>{s.points || 0} pts</div> : <div style={S.badge('#64748b', '#f1f5f9')}>{storeItems.length} items</div>}
                   </div>
+
+                  <div style={{ ...S.card, marginBottom: 12, padding: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 260px) 1fr', gap: 10, alignItems: 'center' }}>
+                      <input
+                        value={storeItemSearch}
+                        onChange={e => setStoreItemSearch(e.target.value)}
+                        placeholder="Search item..."
+                        style={{ padding: '9px 11px', borderRadius: 10, border: '1px solid #d8dee9', fontSize: 13, outline: 'none' }}
+                      />
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {STORE_CATEGORY_OPTIONS.map(cat => {
+                          const active = storeCategoryFilter === cat.key
+                          const count = cat.key === 'all' ? storeItems.length : storeItems.filter(item => (item.category || 'nosh') === cat.key).length
+                          return (
+                            <button
+                              key={cat.key}
+                              onClick={() => setStoreCategoryFilter(cat.key)}
+                              style={{
+                                padding: '7px 10px',
+                                borderRadius: 999,
+                                border: `1px solid ${active ? '#334155' : '#d8dee9'}`,
+                                background: active ? '#334155' : '#fff',
+                                color: active ? '#fff' : '#334155',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {cat.label} <span style={{ opacity: active ? 0.75 : 0.55 }}>{count}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    {storeStudent && (
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 8 }}>
+                        Student list is collapsed. Click the selected student name again to choose a different student.
+                      </div>
+                    )}
+                  </div>
+
                   {vip && <div style={{ background: '#fefce8', border: '2px solid #ca8a04', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ fontSize: 24 }}>⭐</span><div><div style={{ fontWeight: 700, color: '#854d0e' }}>VIP Student — VIP items included when in stock and affordable</div></div></div>}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
-                    {storeItems.map(item => {
+                    {visibleStoreItems.map(item => {
                       const unavailableReason = getStoreUnavailableReason(item)
                       const unavailable = !!unavailableReason
                       const disabled = !s || unavailable
@@ -3800,8 +3919,15 @@ export default function Dashboard() {
                         <div key={item.id} style={{ ...S.card, textAlign: 'center', opacity: dimUnavailable ? 0.48 : 1, position: 'relative', filter: dimUnavailable ? 'grayscale(1)' : 'none', boxShadow: dimUnavailable ? '0 6px 18px rgba(15,23,42,0.03)' : S.card.boxShadow }}>
                           {item.vip && <div style={{ position: 'absolute', top: 8, right: 8, background: dimUnavailable ? '#94a3b8' : '#7a633a', color: '#fff', padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>VIP</div>}
                           {dimUnavailable && <div style={{ position: 'absolute', top: 8, left: 8, background: '#e5e7eb', color: '#64748b', padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{unavailableReason}</div>}
-                          <div style={{ fontSize: 34, marginBottom: 8 }}>{item.emoji}</div>
+                          <div style={{ height: 48, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {item.imageUrl ? (
+                              <img src={item.imageUrl} alt={item.name} style={{ maxWidth: 72, maxHeight: 48, objectFit: 'contain', borderRadius: 8 }} />
+                            ) : (
+                              <span style={{ fontSize: 34 }}>{item.emoji}</span>
+                            )}
+                          </div>
                           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{item.name}</div>
+                          <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{STORE_CATEGORY_OPTIONS.find(c => c.key === (item.category || 'nosh'))?.label || 'Nosh'}</div>
                           <div style={{ color: dimUnavailable ? '#64748b' : '#9a6a2a', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{item.cost} pts</div>
                           <div style={{ fontSize: 11, color: dimUnavailable ? '#64748b' : item.stock <= item.lowStockAt ? '#9a6a2a' : '#64748b', marginBottom: 10 }}>
                             {`${item.stock} left${item.stock <= item.lowStockAt && item.stock > 0 ? ' · Low stock' : ''}`}
