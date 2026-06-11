@@ -3164,6 +3164,7 @@ export default function Dashboard() {
     { id: 15, name: 'Shmuel Meisels', dob: '2013-03-08', currentSchool: 'Yeshiva Ketana Chasdei Torah', shul: 'Toldos Aharon', heardAbout: 'Parent referral', fatherName: 'Yoel Meisels', fatherPhone: '718-555-2311', motherName: 'Ruchy', motherMaiden: 'Deutsch', motherPhone: '718-555-2312', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'tour-completed', tourDate: '2026-06-07', tourBy: 'Rabbi Fried', interviewDate: '', nextStep: 'Schedule assessment', diagnoses: [], issues: 'Could be a fit for Rabbi Schimborski group.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
   ]))
   const [selectedIntake, setSelectedIntake] = useState(null)
+  const [openIntakeDoc, setOpenIntakeDoc] = useState(null)
   const [intakeTab, setIntakeTab] = useState('info')
   const [intakeSection, setIntakeSection] = useState('pre') // 'pre' or 'applicants'
   const [intakeApplicantFilter, setIntakeApplicantFilter] = useState('all')
@@ -4394,7 +4395,22 @@ export default function Dashboard() {
             {selectedIntake ? (
               // ── INTAKE PROFILE ──
               <div>
-                <button onClick={() => setSelectedIntake(null)} style={{ ...S.btn('ghost'), marginBottom: 16 }}>← Back to list</button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 }}>
+                  <button onClick={() => setSelectedIntake(null)} style={S.btn('ghost')}>← Back to list</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {(() => {
+                      const idx = intakeList.findIndex(x => x.id === selectedIntake.id)
+                      const prev = idx > 0 ? intakeList[idx - 1] : null
+                      const next = idx >= 0 && idx < intakeList.length - 1 ? intakeList[idx + 1] : null
+                      return (
+                        <>
+                          <button disabled={!prev} onClick={() => prev && setSelectedIntake(prev)} style={{ ...S.btn('ghost'), opacity: prev ? 1 : 0.45, cursor: prev ? 'pointer' : 'not-allowed' }}>← Previous Applicant</button>
+                          <button disabled={!next} onClick={() => next && setSelectedIntake(next)} style={{ ...S.btn('primary'), opacity: next ? 1 : 0.45, cursor: next ? 'pointer' : 'not-allowed' }}>Next Applicant →</button>
+                        </>
+                      )
+                    })()}
+                  </div>
+                </div>
                 <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', border: '1px solid #e2e8f0' }}>
                   {/* Header */}
                   <div style={{ background: '#0f172a', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -4430,6 +4446,76 @@ export default function Dashboard() {
                   </div>
 
                   <div style={{ padding: '20px 24px', background: '#f8fafc' }}>
+
+                    {openIntakeDoc && (
+                      <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                        <div style={{ width: 'min(760px, 96vw)', maxHeight: '88vh', overflow: 'auto', background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', border: '1px solid #e2e8f0' }}>
+                          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: 16 }}>{openIntakeDoc.label}</div>
+                              <div style={{ fontSize: 12, color: '#64748b' }}>{selectedIntake.name} · Intake File Preview</div>
+                            </div>
+                            <button onClick={() => setOpenIntakeDoc(null)} style={{ border: 'none', background: '#e2e8f0', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', fontWeight: 700 }}>Close</button>
+                          </div>
+
+                          <div style={{ padding: 22 }}>
+                            <div style={{ border: '1px solid #cbd5e1', borderRadius: 10, padding: 24, background: '#fff' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #0f172a', paddingBottom: 12, marginBottom: 18 }}>
+                                <div>
+                                  <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a' }}>Hadran Academy</div>
+                                  <div style={{ fontSize: 12, color: '#64748b' }}>Admissions / Intake Office</div>
+                                </div>
+                                <div style={{ textAlign: 'right', fontSize: 12, color: '#334155' }}>
+                                  <div><b>File:</b> {openIntakeDoc.fileName}</div>
+                                  <div><b>Received:</b> {openIntakeDoc.receivedDate}</div>
+                                  <div><b>Status:</b> Verified</div>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+                                <div style={{ padding: 12, background: '#f8fafc', borderRadius: 8 }}>
+                                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>STUDENT</div>
+                                  <div style={{ fontWeight: 800 }}>{selectedIntake.name}</div>
+                                </div>
+                                <div style={{ padding: 12, background: '#f8fafc', borderRadius: 8 }}>
+                                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>PROGRAM</div>
+                                  <div style={{ fontWeight: 800 }}>{selectedIntake.program === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Mesivta'}</div>
+                                </div>
+                                <div style={{ padding: 12, background: '#f8fafc', borderRadius: 8 }}>
+                                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>FATHER</div>
+                                  <div style={{ fontWeight: 800 }}>{selectedIntake.fatherName || 'On file'}</div>
+                                </div>
+                                <div style={{ padding: 12, background: '#f8fafc', borderRadius: 8 }}>
+                                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>CURRENT SCHOOL</div>
+                                  <div style={{ fontWeight: 800 }}>{selectedIntake.currentSchool || 'On file'}</div>
+                                </div>
+                              </div>
+
+                              <div style={{ fontWeight: 800, marginBottom: 8 }}>Document Notes</div>
+                              <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 14 }}>
+                                This is a demo preview for <b>{openIntakeDoc.label}</b>. In the live system, this button would open the actual uploaded PDF or image from secure storage. For the presentation, it shows that the office can click a checklist item and immediately review the file without leaving the applicant profile.
+                              </div>
+
+                              <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div style={{ padding: 12, border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>REVIEWED BY</div>
+                                  <div style={{ fontWeight: 800 }}>{openIntakeDoc.reviewedBy}</div>
+                                </div>
+                                <div style={{ padding: 12, border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>OFFICE ACTION</div>
+                                  <div style={{ fontWeight: 800 }}>{openIntakeDoc.action}</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 14 }}>
+                              <button onClick={() => window.print()} style={S.btn('ghost')}>Print Preview</button>
+                              <button onClick={() => setOpenIntakeDoc(null)} style={S.btn('primary')}>Done Reviewing</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {intakeTab === 'info' && (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -4608,7 +4694,7 @@ export default function Dashboard() {
                           ].map(([key, label]) => {
                             const checked = !!selectedIntake.requiredDocsComplete?.[key]
                             return (
-                              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: checked ? '#eef4f0' : '#fff', border: `1px solid ${checked ? '#b9d7c2' : '#e5e7eb'}`, marginBottom: 7, cursor: 'pointer' }}>
+                              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: checked ? '#eef4f0' : '#fff', border: `1px solid ${checked ? '#b9d7c2' : '#e5e7eb'}`, marginBottom: 7 }}>
                                 <input type="checkbox" checked={checked} onChange={() => {
                                   const updatedDocs = { ...(selectedIntake.requiredDocsComplete || {}), [key]: !checked }
                                   setSelectedIntake(prev => ({ ...prev, requiredDocsComplete: updatedDocs }))
@@ -4616,7 +4702,17 @@ export default function Dashboard() {
                                 }} />
                                 <span style={{ flex: 1, fontSize: 13, fontWeight: checked ? 700 : 500, color: checked ? '#2f5d3b' : '#334155' }}>{label}</span>
                                 <span style={{ fontSize: 11, color: checked ? '#2f5d3b' : '#94a3b8' }}>{checked ? 'Received' : 'Missing'}</span>
-                              </label>
+                                <button disabled={!checked} onClick={() => checked && setOpenIntakeDoc({
+                                  key,
+                                  label,
+                                  fileName: `${selectedIntake.name.replaceAll(' ', '_')}_${label.replaceAll(' ', '_').replaceAll('/', '-')}.pdf`,
+                                  receivedDate: selectedIntake.decisionDate || selectedIntake.tourDate || '2026-06-12',
+                                  reviewedBy: selectedIntake.approvedBy || 'Eli Bloom',
+                                  action: key === 'iepEvaluation' ? 'Route to placement review' : key === 'tuitionPaperwork' ? 'Send to office billing file' : 'Filed in admissions packet'
+                                })} style={{ padding: '5px 9px', borderRadius: 7, border: '1px solid #cbd5e1', background: checked ? '#fff' : '#f1f5f9', color: checked ? '#0f172a' : '#94a3b8', cursor: checked ? 'pointer' : 'not-allowed', fontSize: 11, fontWeight: 700 }}>
+                                  Open File
+                                </button>
+                              </div>
                             )
                           })}
                         </div>
