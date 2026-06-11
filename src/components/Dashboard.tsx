@@ -2571,13 +2571,26 @@ export default function Dashboard() {
   const [showUnknownPopup, setShowUnknownPopup] = useState(false)
   const [unknownNotes, setUnknownNotes] = useState({})
   const [intakeList, setIntakeList] = useState([
-    { id: 1, name: 'Moshe Friedman', dob: '2012-03-15', currentSchool: 'Yeshiva Ohr Torah', shul: 'Khal Avreichim', heardAbout: 'Rabbi Klein', fatherName: 'Avraham Friedman', fatherPhone: '718-555-1234', motherName: 'Rivka', motherMaiden: 'Schwartz', motherPhone: '718-555-1235', address: '1234 56th St Brooklyn NY', status: 'interviewed', diagnoses: ['ADHD', 'Anxiety'], issues: 'Difficulty focusing in large groups. Responds well 1-on-1.', interviewNotes: 'Very bright boy. Strong in Gemara. Needs structured environment.', scores: { tefillah: 4, kriah: 3, gemaraReading: 4, gemaraTranslation: 3, gemaraComprehension: 3, rashiScript: 3, mathAddition: 4, mathSubtraction: 3, mathMultiplication: 2, mathDivision: 2, englishReading: 4, readingComprehension: 3, writingSkills: 3, spellingVocabulary: 3 }, placements: { tefillah: 'independent', kriah: 'developing', gemaraReading: 'independent', gemaraTranslation: 'developing', gemaraComprehension: 'developing', rashiScript: 'developing', mathAddition: 'independent', mathSubtraction: 'developing', mathMultiplication: 'foundational', mathDivision: 'foundational', englishReading: 'independent', readingComprehension: 'developing', writingSkills: 'developing', spellingVocabulary: 'developing' }, documents: [{ name: 'Assessment_Friedman.pdf', date: '2025-11-10' }] },
-    { id: 2, name: 'Yosef Stern', dob: '2011-07-22', currentSchool: 'Mesivta Beis Shraga', shul: 'Young Israel', heardAbout: 'Parent referral', fatherName: 'Shmuel Stern', fatherPhone: '718-555-5678', motherName: 'Chana', motherMaiden: 'Goldberg', motherPhone: '718-555-5679', address: '567 Ave J Brooklyn NY', status: 'applicant', diagnoses: [], issues: '', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-    { id: 3, name: 'Dovid Katz', dob: '2012-11-05', currentSchool: 'Talmud Torah Ohel Moshe', shul: 'Bobov', heardAbout: 'Website', fatherName: 'Pinchas Katz', fatherPhone: '718-555-9012', motherName: 'Sara', motherMaiden: 'Weiss', motherPhone: '718-555-9013', address: '890 48th St Brooklyn NY', status: 'accepted', diagnoses: ['Dyslexia'], issues: 'Reading difficulties. Math strong.', interviewNotes: 'Warm personality. Will fit well socially.', scores: { tefillah: 4, kriah: 2, gemaraReading: 3, gemaraTranslation: 2, gemaraComprehension: 2, rashiScript: 2, mathAddition: 4, mathSubtraction: 4, mathMultiplication: 4, mathDivision: 3, englishReading: 2, readingComprehension: 2, writingSkills: 3, spellingVocabulary: 2 }, placements: { tefillah: 'independent', kriah: 'foundational', gemaraReading: 'developing', gemaraTranslation: 'foundational', gemaraComprehension: 'foundational', rashiScript: 'foundational', mathAddition: 'independent', mathSubtraction: 'independent', mathMultiplication: 'independent', mathDivision: 'developing', englishReading: 'foundational', readingComprehension: 'foundational', writingSkills: 'developing', spellingVocabulary: 'foundational' }, documents: [{ name: 'Psych_Eval_Katz.pdf', date: '2025-10-15' }, { name: 'IEP_Katz.pdf', date: '2025-10-15' }] },
+    { id: 1, name: 'Moshe Friedman', dob: '2012-03-15', currentSchool: 'Yeshiva Ohr Torah', shul: 'Khal Avreichim', heardAbout: 'Rabbi Klein', fatherName: 'Avraham Friedman', fatherPhone: '718-555-1234', motherName: 'Rivka', motherMaiden: 'Schwartz', motherPhone: '718-555-1235', address: '1234 56th St Brooklyn NY', program: 'mesivta', status: 'interviewed', tourDate: '2026-05-28', interviewDate: '2026-06-04', nextStep: 'Admissions team decision', diagnoses: ['ADHD', 'Anxiety'], issues: 'Difficulty focusing in large groups. Responds well 1-on-1.', interviewNotes: 'Very bright boy. Strong in Gemara. Needs structured environment.', scores: { tefillah: 4, kriah: 3, gemaraReading: 4, gemaraTranslation: 3, gemaraComprehension: 3, rashiScript: 3, mathAddition: 4, mathSubtraction: 3, mathMultiplication: 2, mathDivision: 2, englishReading: 4, readingComprehension: 3, writingSkills: 3, spellingVocabulary: 3 }, placements: { tefillah: 'independent', kriah: 'developing', gemaraReading: 'independent', gemaraTranslation: 'developing', gemaraComprehension: 'developing', rashiScript: 'developing', mathAddition: 'independent', mathSubtraction: 'developing', mathMultiplication: 'foundational', mathDivision: 'foundational', englishReading: 'independent', readingComprehension: 'developing', writingSkills: 'developing', spellingVocabulary: 'developing' }, documents: [{ name: 'Assessment_Friedman.pdf', date: '2025-11-10' }] },
+    { id: 2, name: 'Yosef Stern', dob: '2011-07-22', currentSchool: 'Mesivta Beis Shraga', shul: 'Young Israel', heardAbout: 'Parent referral', fatherName: 'Shmuel Stern', fatherPhone: '718-555-5678', motherName: 'Chana', motherMaiden: 'Goldberg', motherPhone: '718-555-5679', address: '567 Ave J Brooklyn NY', program: 'mesivta', status: 'applicant', tourDate: '', interviewDate: '', nextStep: 'Schedule tour', diagnoses: [], issues: '', interviewNotes: '', scores: {}, placements: {}, documents: [] },
+    { id: 3, name: 'Dovid Katz', dob: '2012-11-05', currentSchool: 'Talmud Torah Ohel Moshe', shul: 'Bobov', heardAbout: 'Website', fatherName: 'Pinchas Katz', fatherPhone: '718-555-9012', motherName: 'Sara', motherMaiden: 'Weiss', motherPhone: '718-555-9013', address: '890 48th St Brooklyn NY', program: 'mesivta', status: 'accepted', tourDate: '2026-05-22', interviewDate: '2026-05-30', nextStep: 'Collect enrollment forms', diagnoses: ['Dyslexia'], issues: 'Reading difficulties. Math strong.', interviewNotes: 'Warm personality. Will fit well socially.', scores: { tefillah: 4, kriah: 2, gemaraReading: 3, gemaraTranslation: 2, gemaraComprehension: 2, rashiScript: 2, mathAddition: 4, mathSubtraction: 4, mathMultiplication: 4, mathDivision: 3, englishReading: 2, readingComprehension: 2, writingSkills: 3, spellingVocabulary: 2 }, placements: { tefillah: 'independent', kriah: 'foundational', gemaraReading: 'developing', gemaraTranslation: 'foundational', gemaraComprehension: 'foundational', rashiScript: 'foundational', mathAddition: 'independent', mathSubtraction: 'independent', mathMultiplication: 'independent', mathDivision: 'developing', englishReading: 'foundational', readingComprehension: 'foundational', writingSkills: 'developing', spellingVocabulary: 'foundational' }, documents: [{ name: 'Psych_Eval_Katz.pdf', date: '2025-10-15' }, { name: 'IEP_Katz.pdf', date: '2025-10-15' }] },
+    { id: 4, name: 'Ari Goldstein', dob: '2012-05-11', currentSchool: 'Yeshiva Darchei Torah', shul: 'Agudas Yisroel', heardAbout: 'Parent referral', fatherName: 'Yehuda Goldstein', fatherPhone: '718-555-2201', motherName: 'Miriam', motherMaiden: 'Klein', motherPhone: '718-555-2202', address: 'Brooklyn NY', program: 'mesivta', status: 'tour-completed', tourDate: '2026-06-06', interviewDate: '', nextStep: 'Schedule interview', diagnoses: ['ADHD'], issues: 'Needs smaller class setting and clear structure.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
+    { id: 5, name: 'Shimon Adler', dob: '2011-12-02', currentSchool: 'Torah Vodaath', shul: 'Bnei Torah', heardAbout: 'Current parent', fatherName: 'Mordechai Adler', fatherPhone: '718-555-2211', motherName: 'Esther', motherMaiden: 'Landau', motherPhone: '718-555-2212', address: 'Brooklyn NY', program: 'mesivta', status: 'interview-scheduled', tourDate: '2026-06-02', interviewDate: '2026-06-13', nextStep: 'Prepare interview packet', diagnoses: [], issues: 'Family looking for a calmer class environment.', interviewNotes: '', scores: {}, placements: {}, documents: [{ name: 'Report_Card_Adler.pdf', date: '2026-06-01' }] },
+    { id: 6, name: 'Mendy Rosen', dob: '2012-01-19', currentSchool: 'Yeshiva Ohr Yitzchok', shul: 'Satmar', heardAbout: 'Website', fatherName: 'Eliyahu Rosen', fatherPhone: '718-555-2221', motherName: 'Baila', motherMaiden: 'Fried', motherPhone: '718-555-2222', address: 'Brooklyn NY', program: 'mesivta', status: 'tour-scheduled', tourDate: '2026-06-17', interviewDate: '', nextStep: 'Tour scheduled', diagnoses: ['Language delay'], issues: 'Parent reports expressive language difficulty.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
+    { id: 7, name: 'Yehuda Mandel', dob: '2012-09-07', currentSchool: 'Talmud Torah Imrei Chaim', shul: 'Viznitz', heardAbout: 'Therapist referral', fatherName: 'Chaim Mandel', fatherPhone: '718-555-2231', motherName: 'Gitty', motherMaiden: 'Weinberger', motherPhone: '718-555-2232', address: 'Brooklyn NY', program: 'mesivta', status: 'applicant', tourDate: '', interviewDate: '', nextStep: 'Call family to schedule tour', diagnoses: ['Anxiety'], issues: 'May need gradual transition and predictable schedule.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
+    { id: 8, name: 'Chaim Weber', dob: '2011-10-23', currentSchool: 'Mesivta Ohr Naftali', shul: 'Belz', heardAbout: 'Rabbi Fried', fatherName: 'Noach Weber', fatherPhone: '718-555-2241', motherName: 'Devorah', motherMaiden: 'Stern', motherPhone: '718-555-2242', address: 'Brooklyn NY', program: 'mesivta', status: 'enrolled', tourDate: '2026-05-12', interviewDate: '2026-05-19', nextStep: 'Add to September roster', diagnoses: [], issues: 'Strong candidate. Parents completed enrollment packet.', interviewNotes: 'Good fit socially and academically.', scores: {}, placements: {}, documents: [{ name: 'Enrollment_Weber.pdf', date: '2026-05-25' }] },
+    { id: 9, name: 'Bentzion Levy', dob: '2013-02-14', currentSchool: 'Yeshiva Ketana Ohr Moshe', shul: 'Bobov', heardAbout: 'Parent referral', fatherName: 'Aharon Levy', fatherPhone: '718-555-2251', motherName: 'Malka', motherMaiden: 'Berger', motherPhone: '718-555-2252', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'tour-completed', tourDate: '2026-06-05', interviewDate: '', nextStep: 'Schedule assessment', diagnoses: [], issues: 'Needs 8th grade placement review.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
+    { id: 10, name: 'Moshe Braver', dob: '2013-06-30', currentSchool: 'Talmud Torah Nachlas Yakov', shul: 'Skver', heardAbout: 'Phone inquiry', fatherName: 'Yitzchok Braver', fatherPhone: '718-555-2261', motherName: 'Suri', motherMaiden: 'Katz', motherPhone: '718-555-2262', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'interviewed', tourDate: '2026-06-03', interviewDate: '2026-06-10', nextStep: 'Review assessment scores', diagnoses: ['Dyslexia'], issues: 'Reading support needed. Very motivated.', interviewNotes: 'Pleasant, cooperative, needs kriah support.', scores: { kriah: 2, englishReading: 3, mathAddition: 4 }, placements: { kriah: 'foundational', englishReading: 'developing', mathAddition: 'independent' }, documents: [{ name: 'Reading_Report_Braver.pdf', date: '2026-06-10' }] },
+    { id: 11, name: 'Yitzi Kleinman', dob: '2013-08-03', currentSchool: 'Yeshiva Tiferes Shmuel', shul: 'Pupa', heardAbout: 'Rabbi Schults', fatherName: 'Shloime Kleinman', fatherPhone: '718-555-2271', motherName: 'Chaya', motherMaiden: 'Heller', motherPhone: '718-555-2272', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'accepted', tourDate: '2026-05-29', interviewDate: '2026-06-06', nextStep: 'Confirm transportation', diagnoses: [], issues: 'Good fit for YK Alef.', interviewNotes: 'Quiet but engaged.', scores: {}, placements: {}, documents: [{ name: 'Acceptance_Kleinman.pdf', date: '2026-06-08' }] },
+    { id: 12, name: 'Noach Halpern', dob: '2013-11-17', currentSchool: 'Cheder Toras Emes', shul: 'Ger', heardAbout: 'Website', fatherName: 'Meir Halpern', fatherPhone: '718-555-2281', motherName: 'Rochel', motherMaiden: 'Feld', motherPhone: '718-555-2282', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'applicant', tourDate: '', interviewDate: '', nextStep: 'Send application checklist', diagnoses: ['Speech delay'], issues: 'Speech services requested by parent.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
+    { id: 13, name: 'Dovid Neustadt', dob: '2012-04-22', currentSchool: 'Mesivta Bais Dovid', shul: 'Stolin', heardAbout: 'Rabbi Weiss', fatherName: 'Hershel Neustadt', fatherPhone: '718-555-2291', motherName: 'Frady', motherMaiden: 'Pollak', motherPhone: '718-555-2292', address: 'Brooklyn NY', program: 'mesivta', status: 'interview-scheduled', tourDate: '2026-06-04', interviewDate: '2026-06-18', nextStep: 'Collect teacher report', diagnoses: ['ADHD'], issues: 'Needs executive-function support.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
+    { id: 14, name: 'Eliezer Gross', dob: '2011-05-27', currentSchool: 'Yeshiva Beis Aharon', shul: 'Karlin', heardAbout: 'Current parent', fatherName: 'Yakov Gross', fatherPhone: '718-555-2301', motherName: 'Hindy', motherMaiden: 'Fischer', motherPhone: '718-555-2302', address: 'Brooklyn NY', program: 'mesivta', status: 'tour-scheduled', tourDate: '2026-06-20', interviewDate: '', nextStep: 'Tour scheduled', diagnoses: [], issues: 'Parents want smaller setting.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
+    { id: 15, name: 'Shmuel Meisels', dob: '2013-03-08', currentSchool: 'Yeshiva Ketana Chasdei Torah', shul: 'Toldos Aharon', heardAbout: 'Parent referral', fatherName: 'Yoel Meisels', fatherPhone: '718-555-2311', motherName: 'Ruchy', motherMaiden: 'Deutsch', motherPhone: '718-555-2312', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'tour-completed', tourDate: '2026-06-07', interviewDate: '', nextStep: 'Schedule assessment', diagnoses: [], issues: 'Could be a fit for Rabbi Schimborski group.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
   ])
   const [selectedIntake, setSelectedIntake] = useState(null)
   const [intakeTab, setIntakeTab] = useState('info')
   const [intakeSection, setIntakeSection] = useState('pre') // 'pre' or 'applicants'
+  const [intakeApplicantFilter, setIntakeApplicantFilter] = useState('all')
   const [preIntakeList, setPreIntakeList] = useState([
     { id: 1, name: 'Menachem Goldstein', phone: '718-555-1001', program: 'mesivta', status: 'call-back', callNotes: 'Mother called, very interested. Son is currently in Oholei Torah.', tourDate: '', tourTime: '', interviewDate: '', interviewTime: '', followUpNotes: '' },
     { id: 2, name: 'Yaakov Rosenberg', phone: '718-555-1002', program: 'mesivta', status: 'call-back', callNotes: 'Father left message, needs callback.', tourDate: '', tourTime: '', interviewDate: '', interviewTime: '', followUpNotes: '' },
@@ -3559,7 +3572,7 @@ export default function Dashboard() {
               <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>📋 Intake / Admissions</h1>
               {intakeSection === 'applicants' && !selectedIntake && (
                 <button onClick={() => {
-                  const newApp = { id: Date.now(), name: 'New Applicant', dob: '', currentSchool: '', shul: '', heardAbout: '', fatherName: '', fatherPhone: '', motherName: '', motherMaiden: '', motherPhone: '', address: '', status: 'applicant', diagnoses: [], issues: '', interviewNotes: '', scores: {}, placements: {}, documents: [] }
+                  const newApp = { id: Date.now(), name: 'New Applicant', dob: '', currentSchool: '', shul: '', heardAbout: '', fatherName: '', fatherPhone: '', motherName: '', motherMaiden: '', motherPhone: '', address: '', program: divisionView === 'yeshiva_ketana' ? 'yeshiva-ketana' : 'mesivta', status: 'applicant', tourDate: '', interviewDate: '', nextStep: 'Schedule tour', diagnoses: [], issues: '', interviewNotes: '', scores: {}, placements: {}, documents: [] }
                   setIntakeList(prev => [...prev, newApp])
                   setSelectedIntake(newApp)
                   setIntakeTab('info')
@@ -3677,7 +3690,7 @@ export default function Dashboard() {
                           <button key={val} onClick={() => {
                             if (val === 'move-to-applicant') {
                               // Move to applicants list
-                              const newApp = { id: Date.now(), name: selectedPreIntake.name, dob: '', currentSchool: '', shul: '', heardAbout: 'Pre-intake lead', fatherName: '', fatherPhone: selectedPreIntake.phone, motherName: '', motherMaiden: '', motherPhone: '', address: '', status: 'applicant', diagnoses: [], issues: selectedPreIntake.callNotes, interviewNotes: '', scores: {}, placements: {}, documents: [] }
+                              const newApp = { id: Date.now(), name: selectedPreIntake.name, dob: '', currentSchool: '', shul: '', heardAbout: 'Pre-intake lead', fatherName: '', fatherPhone: selectedPreIntake.phone, motherName: '', motherMaiden: '', motherPhone: '', address: '', program: selectedPreIntake.program || 'mesivta', status: selectedPreIntake.status === 'tour-scheduled' ? 'tour-scheduled' : selectedPreIntake.status === 'interview-scheduled' ? 'interview-scheduled' : selectedPreIntake.status === 'needs-interview-time' ? 'tour-completed' : 'applicant', tourDate: selectedPreIntake.tourDate || '', interviewDate: selectedPreIntake.interviewDate || '', nextStep: selectedPreIntake.status === 'interview-scheduled' ? 'Prepare interview packet' : selectedPreIntake.status === 'needs-interview-time' ? 'Schedule interview' : selectedPreIntake.status === 'tour-scheduled' ? 'Tour scheduled' : 'Schedule tour', diagnoses: [], issues: selectedPreIntake.callNotes, interviewNotes: '', scores: {}, placements: {}, documents: [] }
                               setIntakeList(prev => [...prev, newApp])
                               setPreIntakeList(prev => prev.filter(x => x.id !== selectedPreIntake.id))
                               setSelectedPreIntake(null)
@@ -3753,8 +3766,8 @@ export default function Dashboard() {
                     <div style={{ flex: 1 }}>
                       <div style={{ color: '#fff', fontSize: 18, fontWeight: 700 }}>{selectedIntake.name}</div>
                       <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                        {[['applicant','🔵 Applicant','#3b82f6'],['interviewed','🟡 Interviewed','#f59e0b'],['accepted','🟢 Accepted','#56765f'],['enrolled','⭐ Enrolled','#854d0e']].map(([val, label, color]) => (
-                          <button key={val} onClick={() => setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, status: val} : x))} style={{ padding: '2px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: selectedIntake.status === val ? color : 'rgba(255,255,255,0.15)', color: '#fff' }}>{label}</button>
+                        {[['applicant','Applied','#4f6687'],['tour-scheduled','Tour Set','#5b6f95'],['tour-completed','Tour Done','#56765f'],['interview-scheduled','Interview Set','#7a633a'],['interviewed','Interviewed','#9a6a2a'],['accepted','Accepted','#56765f'],['enrolled','Enrolled','#334155']].map(([val, label, color]) => (
+                          <button key={val} onClick={() => { setSelectedIntake(prev => ({ ...prev, status: val })); setIntakeList(prev => prev.map(x => x.id === selectedIntake.id ? {...x, status: val} : x)) }} style={{ padding: '2px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: selectedIntake.status === val ? color : 'rgba(255,255,255,0.15)', color: '#fff' }}>{label}</button>
                         ))}
                       </div>
                     </div>
@@ -3965,43 +3978,106 @@ export default function Dashboard() {
             ) : (
               // ── INTAKE LIST ──
               <div>
-                {/* Status filter */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                  {[['all','All'],['applicant','🔵 Applicant'],['interviewed','🟡 Interviewed'],['accepted','🟢 Accepted'],['enrolled','⭐ Enrolled']].map(([val, label]) => (
-                    <button key={val} onClick={() => {}} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>{label} {val !== 'all' ? `(${intakeList.filter(x => x.status === val).length})` : `(${intakeList.length})`}</button>
-                  ))}
-                </div>
+                {(() => {
+                  const admissionStages = [
+                    { key: 'applicant', label: 'Applied', color: '#4f6687' },
+                    { key: 'tour-scheduled', label: 'Tour Scheduled', color: '#5b6f95' },
+                    { key: 'tour-completed', label: 'Tour Completed', color: '#56765f' },
+                    { key: 'interview-scheduled', label: 'Interview Scheduled', color: '#7a633a' },
+                    { key: 'interviewed', label: 'Interviewed', color: '#9a6a2a' },
+                    { key: 'accepted', label: 'Accepted', color: '#56765f' },
+                    { key: 'enrolled', label: 'Enrolled', color: '#334155' },
+                  ]
+                  const statusMeta = Object.fromEntries(admissionStages.map(stage => [stage.key, stage]))
+                  const stageIndex = (status) => Math.max(0, admissionStages.findIndex(stage => stage.key === status))
+                  const applicantCounts = admissionStages.reduce((acc, stage) => ({ ...acc, [stage.key]: intakeList.filter(x => x.status === stage.key).length }), {})
+                  const filteredApplicants = intakeApplicantFilter === 'all' ? intakeList : intakeList.filter(x => x.status === intakeApplicantFilter)
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                  {intakeList.map((app, i) => {
-                    const age = app.dob ? new Date().getFullYear() - new Date(app.dob).getFullYear() : null
-                    const statusColors = { applicant: '#3b82f6', interviewed: '#f59e0b', accepted: '#56765f', enrolled: '#854d0e' }
-                    const statusLabels = { applicant: '🔵 Applicant', interviewed: '🟡 Interviewed', accepted: '🟢 Accepted', enrolled: '⭐ Enrolled' }
-                    const scoreVals = Object.values(app.scores || {}).filter(v => typeof v === 'number' && v > 0); const avgScore = scoreVals.length > 0 ? Math.round(scoreVals.reduce((a,b) => a+b, 0) / scoreVals.length * 10) / 10 : null
-                    return (
-                      <div key={app.id} onClick={() => { setSelectedIntake(app); setIntakeTab('info') }} style={{ ...S.card, cursor: 'pointer', borderLeft: `4px solid ${statusColors[app.status] || '#94a3b8'}` }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.07)'}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: AVATAR_COLORS[i % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>{initials(app.name)}</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 700, fontSize: 14 }}>{app.name}</div>
-                            <div style={{ fontSize: 11, color: '#64748b' }}>{age ? `Age ${age}` : ''}{app.currentSchool ? ` · ${app.currentSchool}` : ''}</div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                          <span style={{ background: statusColors[app.status] + '20', color: statusColors[app.status], padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{statusLabels[app.status]}</span>
-                          <div style={{ display: 'flex', gap: 6, fontSize: 11, color: '#64748b' }}>
-                            {app.diagnoses?.length > 0 && <span>📋 {app.diagnoses.length} diag.</span>}
-                            {app.documents?.length > 0 && <span>📁 {app.documents.length} docs</span>}
-                            {avgScore && <span style={{ fontWeight: 700, color: avgScore >= 4 ? '#56765f' : avgScore >= 3 ? '#9a6a2a' : '#9f1239' }}>⭐ {avgScore}/5</span>}
-                          </div>
-                        </div>
-                        {app.shul && <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>🕍 {app.shul}</div>}
+                  return (
+                    <>
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                        {[['all','All', intakeList.length], ...admissionStages.map(stage => [stage.key, stage.label, applicantCounts[stage.key] || 0])].map(([val, label, count]) => {
+                          const active = intakeApplicantFilter === String(val)
+                          return (
+                            <button key={String(val)} onClick={() => setIntakeApplicantFilter(String(val))} style={{ padding: '7px 12px', borderRadius: 9, border: `1px solid ${active ? '#334155' : '#d8dee9'}`, background: active ? '#172033' : '#ffffff', color: active ? '#ffffff' : '#334155', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                              {label} <span style={{ marginLeft: 6, opacity: active ? 0.78 : 0.65 }}>{count}</span>
+                            </button>
+                          )
+                        })}
                       </div>
-                    )
-                  })}
-                </div>
+
+                      <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,1.35fr) 130px minmax(220px,1.25fr) minmax(210px,1.2fr) 72px', gap: 12, padding: '12px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          <div>Applicant</div>
+                          <div>Division</div>
+                          <div>Where Up To</div>
+                          <div>Next Step</div>
+                          <div></div>
+                        </div>
+
+                        {filteredApplicants.map((app, i) => {
+                          const age = app.dob ? new Date().getFullYear() - new Date(app.dob).getFullYear() : null
+                          const meta = statusMeta[app.status] || statusMeta.applicant
+                          const activeStage = stageIndex(app.status)
+                          const scoreVals = Object.values(app.scores || {}).filter(v => typeof v === 'number' && v > 0)
+                          const avgScore = scoreVals.length > 0 ? Math.round(scoreVals.reduce((a,b) => a+b, 0) / scoreVals.length * 10) / 10 : null
+                          const programLabel = app.program === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Mesivta'
+                          const nextStep = app.nextStep || (app.status === 'applicant' ? 'Schedule tour' : app.status === 'tour-scheduled' ? 'Complete tour' : app.status === 'tour-completed' ? 'Schedule interview' : app.status === 'interview-scheduled' ? 'Complete interview' : app.status === 'interviewed' ? 'Admissions decision' : app.status === 'accepted' ? 'Enrollment packet' : 'Add to roster')
+
+                          return (
+                            <div key={app.id} onClick={() => { setSelectedIntake(app); setIntakeTab('info') }} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,1.35fr) 130px minmax(220px,1.25fr) minmax(210px,1.2fr) 72px', gap: 12, alignItems: 'center', padding: '13px 16px', borderBottom: i === filteredApplicants.length - 1 ? 'none' : '1px solid #edf2f7', cursor: 'pointer', background: '#ffffff' }}
+                              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#fbfdff'}
+                              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#ffffff'}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                                <div style={{ width: 34, height: 34, borderRadius: '50%', background: AVATAR_COLORS[i % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{initials(app.name)}</div>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontWeight: 700, fontSize: 13.5, color: '#172033' }}>{app.name}</div>
+                                  <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{age ? `Age ${age}` : 'Age not entered'}{app.currentSchool ? ` · ${app.currentSchool}` : ''}</div>
+                                  <div style={{ display: 'flex', gap: 7, marginTop: 4, color: '#64748b', fontSize: 10.5 }}>
+                                    {app.diagnoses?.length > 0 && <span>📋 {app.diagnoses.length} diag.</span>}
+                                    {app.documents?.length > 0 && <span>📁 {app.documents.length} docs</span>}
+                                    {avgScore && <span style={{ fontWeight: 700, color: avgScore >= 4 ? '#56765f' : avgScore >= 3 ? '#9a6a2a' : '#9f1239' }}>⭐ {avgScore}/5</span>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <span style={{ ...S.badge(programLabel === 'Mesivta' ? '#4f6687' : '#56765f', programLabel === 'Mesivta' ? '#edf2f7' : '#eef4f0'), fontWeight: 600 }}>{programLabel}</span>
+                                {app.shul && <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 5 }}>🕍 {app.shul}</div>}
+                              </div>
+
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
+                                  <span style={{ fontSize: 12.5, fontWeight: 700, color: meta.color }}>{meta.label}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  {admissionStages.map((stage, idx) => (
+                                    <span key={stage.key} title={stage.label} style={{ height: 6, flex: 1, maxWidth: 34, borderRadius: 999, background: idx <= activeStage ? stage.color : '#e2e8f0', opacity: idx <= activeStage ? 0.92 : 1 }} />
+                                  ))}
+                                </div>
+                                <div style={{ display: 'flex', gap: 10, marginTop: 5, fontSize: 10.5, color: '#64748b' }}>
+                                  {app.tourDate && <span>Tour: {app.tourDate}</span>}
+                                  {app.interviewDate && <span>Interview: {app.interviewDate}</span>}
+                                </div>
+                              </div>
+
+                              <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.35 }}>
+                                {nextStep}
+                              </div>
+
+                              <div style={{ color: '#64748b', fontSize: 12, textAlign: 'right' }}>View →</div>
+                            </div>
+                          )
+                        })}
+
+                        {filteredApplicants.length === 0 && (
+                          <div style={{ padding: '36px 18px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No applicants in this stage.</div>
+                        )}
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             )}
             </div>
