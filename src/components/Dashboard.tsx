@@ -3718,6 +3718,7 @@ export default function Dashboard() {
     { id: 'dashboard', label: 'Dashboard', icon: 'DB' },
     { id: 'students', label: 'All Students', icon: 'ST' },
     { id: 'intake', label: 'Intake / Admissions', icon: 'IN' },
+    { id: 'therapists', label: 'Therapist Assignments', icon: 'TH' },
     { id: 'attendance', label: 'Attendance', icon: 'AT' },
     { id: 'academics', label: 'Academics', icon: 'AC' },
     { id: 'schedule', label: 'Schedule', icon: 'SC' },
@@ -3966,25 +3967,27 @@ export default function Dashboard() {
         )}
 
 
-        {page === 'dashboard' && role === 'admin' && (
-          <details style={{ maxWidth: 1180, margin: '0 auto 16px', ...S.card, padding: 0, overflow: 'hidden' }}>
-            <summary style={{ listStyle: 'none', cursor: 'pointer', padding: '18px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#172033' }}>Therapist Assignments</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>Assign boys to therapists. Therapists see only their own caseload on login.</div>
+        {page === 'therapists' && role === 'admin' && (
+          <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+            <div style={{ ...S.card, marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: '#172033' }}>Therapist Assignments</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Assign boys to therapists. Therapists see only their own caseload on login.</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {THERAPIST_OPTIONS.map(t => (
+                    <span key={t.name} style={{ padding: '8px 12px', borderRadius: 999, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 12, fontWeight: 800, color: '#334155' }}>
+                      {t.name}: {students.filter(s => s.assignedTherapist === t.name).length}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                {THERAPIST_OPTIONS.map(t => (
-                  <span key={t.name} style={{ padding: '8px 12px', borderRadius: 999, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 12, fontWeight: 800, color: '#334155' }}>
-                    {t.name}: {students.filter(s => s.assignedTherapist === t.name).length}
-                  </span>
-                ))}
-              </div>
-            </summary>
+            </div>
 
-            <div style={{ padding: '0 22px 22px' }}>
+            <div style={S.card}>
               <div style={{ display: 'grid', gap: 8 }}>
-                {students.slice(0, 24).map(stu => (
+                {students.map(stu => (
                   <div key={stu.id} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1.4fr', gap: 10, alignItems: 'center', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#fff' }}>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 13 }}>{stu.name}</div>
@@ -4017,7 +4020,7 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
-          </details>
+          </div>
         )}
 
 
