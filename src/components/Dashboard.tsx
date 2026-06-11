@@ -114,6 +114,356 @@ const STORE_CATEGORY_OPTIONS = [
 
 
 
+
+
+
+function openAttendanceReportWindow({ rows, view, selectedStudent, filters }) {
+  const escapeHtml = value => String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+
+  const today = new Date().toLocaleDateString()
+
+  const statusLabel = status => ({
+    present: 'Present',
+    absent: 'Absent',
+    late: 'Late',
+    'left-early': 'Left Early'
+  }[status] || status || 'Unknown')
+
+  const title =
+    view === 'student' && selectedStudent
+      ? `${selectedStudent.name} Attendance History`
+      : view === 'last7'
+        ? 'Last 7 School Days Attendance Report'
+        : 'Daily Attendance Report'
+
+  const present = rows.filter(s => ['present','late','left-early'].includes(s.lastStatus)).length
+  const absent = rows.filter(s => s.lastStatus === 'absent').length
+  const late = rows.filter(s => s.lastStatus === 'late').length
+  const leftEarly = rows.filter(s => s.lastStatus === 'left-early').length
+
+  const studentHistoryHtml = selectedStudent ? `
+    <h2>${escapeHtml(selectedStudent.name)} History</h2>
+    <div class="summary-grid">
+      <div><b>${selectedStudent.cameToYeshivaDays}</b><span>Came to Yeshiva</span></div>
+      <div><b>${selectedStudent.absentDays}</b><span>Absent</span></div>
+      <div><b>${selectedStudent.lateDays}</b><span>Late</span></div>
+      <div><b>${selectedStudent.leftEarlyDays}</b><span>Left Early</span></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Status</th>
+          <th>Time</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${selectedStudent.history.map(day => `
+          <tr>
+            <td>${escapeHtml(day.label)}</td>
+            <td><b>${escapeHtml(statusLabel(day.status))}</b></td>
+            <td>${escapeHtml(day.arrived || day.left || '—')}</td>
+            <td>${escapeHtml(day.note)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : ''
+
+  const tableHtml = `
+    <table>
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Division</th>
+          <th>Class</th>
+          <th>Today</th>
+          <th>Came Last 7</th>
+          <th>Absent</th>
+          <th>Late</th>
+          <th>Left Early</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(stu => `
+          <tr>
+            <td><b>${escapeHtml(stu.name)}</b></td>
+            <td>${escapeHtml(stu.division === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Mesivta')}</td>
+            <td>${escapeHtml(stu.className)}</td>
+            <td>${escapeHtml(statusLabel(stu.lastStatus))}</td>
+            <td>${escapeHtml(stu.cameToYeshivaDays)}/7</td>
+            <td>${escapeHtml(stu.absentDays)}</td>
+            <td>${escapeHtml(stu.lateDays)}</td>
+            <td>${escapeHtml(stu.leftEarlyDays)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `
+
+  const html = `
+<!doctype html>
+<html>
+<head>
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      color: #172033;
+      margin: 36px;
+      background: #fff;
+    }
+    .header {
+      border-bottom: 3px solid #172033;
+      padding-bottom: 14px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+    h2 {
+      margin-top: 28px;
+      font-size: 18px;
+    }
+    .muted {
+      color: #64748b;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .summary-grid div {
+      border: 1px solid #dbe3ee;
+      border-radius: 10px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+    .summary-grid b {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+    .summary-grid span {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .filters {
+      border: 1px solid #dbe3ee;
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      font-size: 13px;
+      color: #334155;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      background: #f1f5f9;
+      border: 1px solid #dbe3ee;
+      padding: 9px;
+      font-size: 12px;
+      color: #475569;
+      text-transform: uppercase;
+    }
+    td {
+      border: 1px solid #dbe3ee;
+      padding: 9px;
+    }
+    .actions {
+      margin: 18px 0;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    button {
+      padding: 9px 14px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    @media print {
+      .actions { display: none; }
+      body { margin: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>${escapeHtml(title)}</h1>
+      <div class="muted">Hadran Academy · Generated ${escapeHtml(today)}</div>
+    </div>
+    <div class="muted">
+      Report View: <b>${escapeHtml(view)}</b><br/>
+      Students Shown: <b>${rows.length}</b>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button onclick="window.print()">Print This Report</button>
+    <button onclick="window.close()">Close</button>
+  </div>
+
+  <div class="summary-grid">
+    <div><b>${present}</b><span>Came to Yeshiva</span></div>
+    <div><b>${absent}</b><span>Absent</span></div>
+    <div><b>${late}</b><span>Late</span></div>
+    <div><b>${leftEarly}</b><span>Left Early</span></div>
+  </div>
+
+  <div class="filters">
+    <b>Filters:</b>
+    Division: ${escapeHtml(filters.division)} ·
+    Class: ${escapeHtml(filters.className)} ·
+    Status: ${escapeHtml(filters.status)} ·
+    Search: ${escapeHtml(filters.search || 'None')}
+  </div>
+
+  ${view === 'student' && selectedStudent ? studentHistoryHtml : tableHtml}
+</body>
+</html>
+`
+
+  const win = window.open('', '_blank')
+  if (!win) {
+    alert('Please allow popups to generate the report.')
+    return
+  }
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
+}
+
+
+
+function enrichTherapistAssignments(students) {
+  const therapistCycle = ['Shelly Wagschal', 'Aryeh Schechter', 'Tzvi Malks', '', '', 'Shelly Wagschal', '', 'Aryeh Schechter']
+  const serviceCycle = [
+    ['Counseling', 'Weekly check-in'],
+    ['OT', 'Fine motor / regulation'],
+    ['Reading Support', 'Kriah / fluency support'],
+    [],
+    [],
+    ['Counseling', 'Social-emotional support'],
+    [],
+    ['OT', 'Sensory support']
+  ]
+
+  return students.map((student, index) => ({
+    ...student,
+    assignedTherapist: student.assignedTherapist ?? therapistCycle[index % therapistCycle.length],
+    therapyServices: student.therapyServices ?? serviceCycle[index % serviceCycle.length],
+    therapyFrequency: student.therapyFrequency ?? (therapistCycle[index % therapistCycle.length] ? (index % 2 === 0 ? 'Weekly' : 'Twice weekly') : ''),
+    therapyNotes: student.therapyNotes ?? (therapistCycle[index % therapistCycle.length] ? 'Demo assignment. Therapist can review notes and follow up with office.' : '')
+  }))
+}
+
+
+function buildAttendanceReportRows(students) {
+  const demoDays = [
+    { key: 'today', label: 'Today', offset: 0 },
+    { key: 'yesterday', label: 'Yesterday', offset: 1 },
+    { key: 'twoDays', label: '2 Days Ago', offset: 2 },
+    { key: 'threeDays', label: '3 Days Ago', offset: 3 },
+    { key: 'fourDays', label: '4 Days Ago', offset: 4 },
+    { key: 'fiveDays', label: '5 Days Ago', offset: 5 },
+    { key: 'sixDays', label: '6 Days Ago', offset: 6 },
+  ]
+
+  return students.map((student, index) => {
+    const history = demoDays.map((day, dayIndex) => {
+      let status = 'present'
+      if ((index + dayIndex) % 11 === 0) status = 'absent'
+      if ((index + dayIndex) % 13 === 0) status = 'late'
+      if ((index + dayIndex) % 17 === 0) status = 'left-early'
+      if (day.key === 'today') status = student.dailyStatus || student.status || 'present'
+
+      return {
+        ...day,
+        date: day.offset === 0 ? 'Today' : `${day.offset} school day${day.offset === 1 ? '' : 's'} ago`,
+        status,
+        arrived: status === 'late' ? '9:42 AM' : status === 'absent' ? '' : '8:54 AM',
+        left: status === 'left-early' ? '12:35 PM' : '',
+        note: status === 'absent' ? 'Parent notified office' : status === 'late' ? 'Arrived late' : status === 'left-early' ? 'Dismissed early' : 'Present'
+      }
+    })
+
+    const presentDays = history.filter(x => x.status === 'present' || x.status === 'late' || x.status === 'left-early').length
+    const absentDays = history.filter(x => x.status === 'absent').length
+    const lateDays = history.filter(x => x.status === 'late').length
+    const leftEarlyDays = history.filter(x => x.status === 'left-early').length
+
+    return {
+      ...student,
+      history,
+      presentDays,
+      absentDays,
+      lateDays,
+      leftEarlyDays,
+      cameToYeshivaDays: presentDays,
+      lastStatus: history[0]?.status || 'present'
+    }
+  })
+}
+
+
+function getAdmissionsReport(list) {
+  const docKeys = ['applicationForm','birthCertificate','immunization','iepEvaluation','reportCard','schoolRecords','parentQuestionnaire','tuitionPaperwork','emergencyContacts','medicalAllergies']
+
+  const normalized = list.map(x => {
+    const decision = x.decision || 'No decision yet'
+    const division = x.recommendedDivision || (x.program === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Mesivta')
+    const missingDocs = docKeys.filter(k => !x.requiredDocsComplete?.[k]).length
+    const openFollowUps = (x.followUps || []).filter(t => !t.done).length
+    return { ...x, decision, division, missingDocs, openFollowUps }
+  })
+
+  const accepted = normalized.filter(x => x.decision === 'Accepted' || x.decision === 'Accepted with supports')
+  const acceptedMesivta = accepted.filter(x => x.division === 'Mesivta')
+  const acceptedYK = accepted.filter(x => x.division === 'Yeshiva Ketana')
+  const waitlist = normalized.filter(x => x.decision === 'Waitlist')
+  const needsInfo = normalized.filter(x => x.decision === 'Needs more information')
+  const notFit = normalized.filter(x => x.decision === 'Not a fit')
+  const noDecision = normalized.filter(x => x.decision === 'No decision yet')
+
+  return {
+    accepted,
+    acceptedMesivta,
+    acceptedYK,
+    waitlist,
+    needsInfo,
+    notFit,
+    noDecision,
+    missingDocsTotal: normalized.reduce((sum, x) => sum + x.missingDocs, 0),
+    openFollowUpsTotal: normalized.reduce((sum, x) => sum + x.openFollowUps, 0)
+  }
+}
+
+
 function enrichIntakeDemoData(list) {
   const demoByIndex = [
     {
@@ -311,6 +661,12 @@ const STAFF = [
   { id: 's17', name: 'Eli Bloom', role: 'Admin / Office' },
   { id: 's18', name: 'Zev Reisman', role: 'Admin / Office' },
   { id: 's19', name: 'Eli Stern', role: 'Admin / Office' },
+]
+
+const THERAPIST_OPTIONS = [
+  { name: 'Shelly Wagschal', email: 'swagschal@hadranacademy.org', specialty: 'Support' },
+  { name: 'Aryeh Schechter', email: 'aschechter@hadranacademy.org', specialty: 'Support' },
+  { name: 'Tzvi Malks', email: 'tmalks@hadranacademy.org', specialty: 'Support' },
 ]
 
 const TOUR_STAFF_OPTIONS = ['Rabbi Baum', 'Rabbi Fried']
@@ -859,6 +1215,9 @@ function LoginPage({ onLogin }) {
     { role: 'admin', name: 'Eli Bloom', email: 'ebloom@hadranacademy.org' },
     { role: 'admin', name: 'Zev Reisman', email: 'zreisman@hadranacademy.org' },
     { role: 'admin', name: 'Eli Stern', email: 'estern@hadranacademy.org' },
+    { role: 'therapist', name: 'Shelly Wagschal', email: 'swagschal@hadranacademy.org' },
+    { role: 'therapist', name: 'Aryeh Schechter', email: 'aschechter@hadranacademy.org' },
+    { role: 'therapist', name: 'Tzvi Malks', email: 'tmalks@hadranacademy.org' },
     { role: 'admin', name: 'Rabbi Ehrnreich', email: 'rehrnreich@hadranacademy.org' },
     { role: 'admin', name: 'Rabbi Weiss', email: 'rweiss@hadranacademy.org' },
     { role: 'admin', name: 'Rabbi Hillel', email: 'rhillel@hadranacademy.org' },
@@ -1670,7 +2029,7 @@ function StudentProfile({ student, students, setStudents, onClose, role, userNam
               <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>📞 Parent Call Log</div>
               {s.parentCalls.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16 }}>No calls recorded yet.</div> : s.parentCalls.map((c, i) => (
                 <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontWeight: 600, fontSize: 13 }}>{c.staff}</span><span style={{ color: '#94a3b8', fontSize: 12 }}>{c.date} · {c.duration}</span></div>
+                  <div style={{ displays: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontWeight: 600, fontSize: 13 }}>{c.staff}</span><span style={{ color: '#94a3b8', fontSize: 12 }}>{c.date} · {c.duration}</span></div>
                   <div style={{ fontSize: 13, color: '#334155' }}>{c.notes}</div>
                 </div>
               ))}
@@ -3127,6 +3486,13 @@ export default function Dashboard() {
 
     loadStudentNotes()
   }, [])
+  const [attendanceReportOpen, setAttendanceReportOpen] = useState(false)
+  const [attendanceReportView, setAttendanceReportView] = useState('today')
+  const [attendanceReportDivision, setAttendanceReportDivision] = useState('all')
+  const [attendanceReportClass, setAttendanceReportClass] = useState('all')
+  const [attendanceReportStatus, setAttendanceReportStatus] = useState('all')
+  const [attendanceReportStudentId, setAttendanceReportStudentId] = useState('all')
+  const [attendanceReportSearch, setAttendanceReportSearch] = useState('')
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [selectedStudentTab, setSelectedStudentTab] = useState('overview')
   const [storeStudent, setStoreStudent] = useState(null)
@@ -3292,6 +3658,7 @@ export default function Dashboard() {
   if (teachingMode) return <TeachingMode students={students} setStudents={setStudents} onExit={() => setTeachingMode(false)} isAdmin={role === 'admin'} />
 
   const userAccess = getUserAccess(userName, role)
+  const isOfficeUser = ['Eli Bloom', 'Zev Reisman', 'Eli Stern'].includes(userName)
   const allowedDivisionSet = new Set(userAccess.divisions)
   const visibleStudents = students.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
@@ -3406,7 +3773,7 @@ export default function Dashboard() {
             <div style={{ width: 34, height: 34, borderRadius: 10, background: '#fff', color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>HA</div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}>Hadran Academy</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 3 }}>{role === 'admin' ? 'Menahel Portal' : role === 'teacher' ? 'Teacher Portal' : role === 'store' ? 'Canteen Register' : 'Therapist Portal'}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 3 }}>{role === 'admin' && isOfficeUser ? 'Office Portal' : role === 'admin' ? 'Menahel Portal' : role === 'teacher' ? 'Teacher Portal' : role === 'store' ? 'Canteen Register' : 'Therapist Portal'}</div>
             </div>
           </div>
         </div>
@@ -3481,7 +3848,180 @@ export default function Dashboard() {
         {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} setDrillDown={setDrillDown} />}
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={visibleStudents} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
 
+        {page === 'dashboard' && role === 'admin' && isOfficeUser && (
+          <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+            {(() => {
+              const docKeys = ['applicationForm','birthCertificate','immunization','iepEvaluation','reportCard','schoolRecords','parentQuestionnaire','tuitionPaperwork','emergencyContacts','medicalAllergies']
+              const applicants = intakeList || []
+              const preLeads = preIntakeList || []
+
+              const accepted = applicants.filter(x => ['Accepted','Accepted with supports','accepted','enrolled'].includes(x.decision || x.status))
+              const missingDocApplicants = applicants.filter(x => docKeys.some(k => !x.requiredDocsComplete?.[k]))
+              const openFollowUps = applicants.flatMap(x => (x.followUps || []).filter(t => !t.done).map(t => ({ ...t, applicant: x.name })))
+              const tours = [
+                ...preLeads.filter(x => x.tourDate).map(x => ({ name: x.name, date: x.tourDate, time: x.tourTime, by: x.tourBy || 'Rabbi Baum', type: 'Lead' })),
+                ...applicants.filter(x => x.tourDate).map(x => ({ name: x.name, date: x.tourDate, time: x.tourTime, by: x.tourBy || 'Rabbi Baum', type: 'Applicant' }))
+              ].slice(0, 6)
+
+              const documentsNeeded = missingDocApplicants.reduce((sum, x) => sum + docKeys.filter(k => !x.requiredDocsComplete?.[k]).length, 0)
+              const callsDue = callsDueStudents.slice(0, 5)
+
+              return (
+                <>
+                  <div style={{ marginBottom: 22, background: '#ffffff', borderRadius: 14, padding: '24px 26px', color: '#1f2937', boxShadow: '0 10px 28px rgba(15,23,42,0.045)', border: '1px solid #e4e9f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 18 }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 9 }}>Office Command Desk</div>
+                        <h1 style={{ fontSize: 30, fontWeight: 800, margin: 0, letterSpacing: '-0.045em', color: '#111827' }}>{getGreeting(new Date().getHours())}, {userName}</h1>
+                        <p style={{ color: '#64748b', margin: '9px 0 0', fontSize: 13 }}><LiveClock /> · Admissions, calls, documents, and office follow-ups</p>
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <button onClick={() => { setPage('intake'); setIntakeSection('pre') }} style={S.btn('primary')}>Open Pre-Intake</button>
+                        <button onClick={() => { setPage('intake'); setIntakeSection('applicants') }} style={S.btn('ghost')}>Open Applicants</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, marginBottom: 18 }}>
+                    <ClickCard label="Pre-Intake Leads" val={preLeads.length} color="#334155" sub="calls, tours, early inquiries" goToPage="intake" />
+                    <ClickCard label="Applicants" val={applicants.length} color="#4f6687" sub={`${accepted.length} accepted/enrolled`} goToPage="intake" />
+                    <ClickCard label="Missing Docs" val={documentsNeeded} color="#9a3412" sub={`${missingDocApplicants.length} boys need paperwork`} goToPage="intake" />
+                    <ClickCard label="Open Follow-Ups" val={openFollowUps.length} color="#7c3aed" sub="office tasks still open" goToPage="intake" />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 16, marginBottom: 18 }}>
+                    <div style={S.card}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: '#172033' }}>Admissions Office Work Queue</div>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>What the office should handle next.</div>
+                        </div>
+                        <button onClick={() => setPage('intake')} style={S.btn('ghost')}>Go to Intake</button>
+                      </div>
+
+                      {[
+                        { title: 'Collect missing documents', count: documentsNeeded, note: `${missingDocApplicants.length} applicants have incomplete packets`, page: 'intake' },
+                        { title: 'Follow up with parents', count: openFollowUps.length, note: 'open intake follow-up tasks', page: 'intake' },
+                        { title: 'Parent calls due', count: callsDueStudents.length, note: 'students needing parent contact', page: 'calls' },
+                        { title: 'Store low-stock review', count: storeItems.filter(i => (i.stock || 0) <= (i.lowStockAt || 0)).length, note: 'canteen items below threshold', page: 'store' },
+                      ].map(item => (
+                        <div key={item.title} onClick={() => setPage(item.page)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', marginBottom: 9, cursor: 'pointer' }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: '#172033' }}>{item.count}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 800, fontSize: 13, color: '#172033' }}>{item.title}</div>
+                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{item.note}</div>
+                          </div>
+                          <div style={{ fontSize: 18, color: '#94a3b8' }}>›</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={S.card}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#172033', marginBottom: 4 }}>Upcoming Tours</div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Usually handled by Rabbi Baum or Rabbi Fried.</div>
+
+                      {tours.length === 0 && (
+                        <div style={{ padding: 16, borderRadius: 10, background: '#f8fafc', color: '#64748b', fontSize: 13 }}>No tours scheduled yet.</div>
+                      )}
+
+                      {tours.map(tour => (
+                        <div key={`${tour.name}-${tour.date}-${tour.type}`} style={{ padding: '12px 0', borderBottom: '1px solid #eef2f7' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                            <div style={{ fontWeight: 800, fontSize: 13, color: '#172033' }}>{tour.name}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{tour.type}</div>
+                          </div>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>{tour.date}{tour.time ? ` · ${tour.time}` : ''} · {tour.by}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <div style={S.card}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#172033', marginBottom: 10 }}>Open Intake Follow-Ups</div>
+                      {openFollowUps.slice(0, 6).map(task => (
+                        <div key={`${task.applicant}-${task.id}`} style={{ padding: '10px 0', borderBottom: '1px solid #eef2f7' }}>
+                          <div style={{ fontWeight: 700, fontSize: 13 }}>{task.text}</div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{task.applicant} · Due {task.due || 'no date'} · {task.assigned || 'Office'}</div>
+                        </div>
+                      ))}
+                      {openFollowUps.length === 0 && <div style={{ fontSize: 13, color: '#64748b' }}>No open follow-ups. The office desk is sparkling.</div>}
+                    </div>
+
+                    <div style={S.card}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#172033', marginBottom: 10 }}>Parent Calls Due</div>
+                      {callsDue.map(stu => (
+                        <div key={stu.id} onClick={() => openStudent(stu, 'calls')} style={{ padding: '10px 0', borderBottom: '1px solid #eef2f7', cursor: 'pointer' }}>
+                          <div style={{ fontWeight: 700, fontSize: 13 }}>{stu.name}</div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{stu.className} · parent call follow-up needed</div>
+                        </div>
+                      ))}
+                      {callsDue.length === 0 && <div style={{ fontSize: 13, color: '#64748b' }}>No parent calls due right now.</div>}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        )}
+
+
         {page === 'dashboard' && role === 'admin' && (
+          <details style={{ maxWidth: 1180, margin: '0 auto 16px', ...S.card, padding: 0, overflow: 'hidden' }}>
+            <summary style={{ listStyle: 'none', cursor: 'pointer', padding: '18px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#172033' }}>Therapist Assignments</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>Assign boys to therapists. Therapists see only their own caseload on login.</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {THERAPIST_OPTIONS.map(t => (
+                  <span key={t.name} style={{ padding: '8px 12px', borderRadius: 999, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 12, fontWeight: 800, color: '#334155' }}>
+                    {t.name}: {students.filter(s => s.assignedTherapist === t.name).length}
+                  </span>
+                ))}
+              </div>
+            </summary>
+
+            <div style={{ padding: '0 22px 22px' }}>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {students.slice(0, 24).map(stu => (
+                  <div key={stu.id} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1.4fr', gap: 10, alignItems: 'center', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#fff' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 13 }}>{stu.name}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{stu.className}</div>
+                    </div>
+
+                    <select value={stu.assignedTherapist || ''} onChange={e => {
+                      const therapist = e.target.value
+                      setStudents(prev => prev.map(x => x.id === stu.id ? { ...x, assignedTherapist: therapist } : x))
+                    }} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+                      <option value="">No therapist</option>
+                      {THERAPIST_OPTIONS.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                    </select>
+
+                    <select value={stu.therapyFrequency || ''} onChange={e => {
+                      const frequency = e.target.value
+                      setStudents(prev => prev.map(x => x.id === stu.id ? { ...x, therapyFrequency: frequency } : x))
+                    }} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+                      <option value="">No schedule</option>
+                      <option value="Weekly">Weekly</option>
+                      <option value="Twice weekly">Twice weekly</option>
+                      <option value="As needed">As needed</option>
+                    </select>
+
+                    <input value={stu.therapyNotes || ''} onChange={e => {
+                      const notes = e.target.value
+                      setStudents(prev => prev.map(x => x.id === stu.id ? { ...x, therapyNotes: notes } : x))
+                    }} placeholder="Therapy note..." style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </details>
+        )}
+
+
+        {page === 'dashboard' && role === 'admin' && !isOfficeUser && (
           <div style={{ maxWidth: 1180, margin: '0 auto' }}>
             <div style={{ marginBottom: 26, background: '#ffffff', borderRadius: 14, padding: '26px 28px', color: '#1f2937', boxShadow: '0 10px 28px rgba(15,23,42,0.045)', border: '1px solid #e4e9f0', position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', right: -60, top: -90, width: 240, height: 240, borderRadius: '50%', background: 'rgba(148,163,184,0.08)' }} />
@@ -3768,6 +4308,170 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {page === 'attendance' && (
+          <div style={{ maxWidth: 1180, margin: '0 auto 18px' }}>
+            {(() => {
+              const rows = buildAttendanceReportRows(filteredStudents)
+              const classOptions = [...new Set(rows.map(s => s.className).filter(Boolean))]
+              const filteredRows = rows.filter(s => {
+                const matchesDivision = attendanceReportDivision === 'all' || s.division === attendanceReportDivision
+                const matchesClass = attendanceReportClass === 'all' || s.className === attendanceReportClass
+                const matchesStudent = attendanceReportStudentId === 'all' || String(s.id) === String(attendanceReportStudentId)
+                const q = attendanceReportSearch.trim().toLowerCase()
+                const matchesSearch = !q || s.name.toLowerCase().includes(q) || (s.className || '').toLowerCase().includes(q)
+
+                let matchesStatus = true
+                if (attendanceReportStatus !== 'all') {
+                  if (attendanceReportView === 'student') {
+                    matchesStatus = s.history.some(h => h.status === attendanceReportStatus)
+                  } else {
+                    matchesStatus = s.lastStatus === attendanceReportStatus
+                  }
+                }
+
+                return matchesDivision && matchesClass && matchesStudent && matchesSearch && matchesStatus
+              })
+
+              const presentToday = rows.filter(s => ['present','late','left-early'].includes(s.lastStatus)).length
+              const absentToday = rows.filter(s => s.lastStatus === 'absent').length
+              const lateToday = rows.filter(s => s.lastStatus === 'late').length
+              const leftEarlyToday = rows.filter(s => s.lastStatus === 'left-early').length
+
+              const selectedReportStudent = rows.find(s => String(s.id) === String(attendanceReportStudentId))
+
+              return (
+                <details open={attendanceReportOpen} onToggle={e => setAttendanceReportOpen(e.currentTarget.open)} style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
+                  <summary style={{ listStyle: 'none', cursor: 'pointer', padding: '18px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#172033' }}>Attendance Reports</div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>Click to generate reports by student, class, division, status, or last 7 school days.</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <span style={{ padding: '8px 12px', borderRadius: 999, background: '#eef4f0', border: '1px solid #b9d7c2', fontSize: 12, fontWeight: 800, color: '#20462b' }}>Present: {presentToday}</span>
+                      <span style={{ padding: '8px 12px', borderRadius: 999, background: '#fff1f2', border: '1px solid #fecdd3', fontSize: 12, fontWeight: 800, color: '#9f1239' }}>Absent: {absentToday}</span>
+                      <span style={{ padding: '8px 12px', borderRadius: 999, background: '#fff7ed', border: '1px solid #fed7aa', fontSize: 12, fontWeight: 800, color: '#9a3412' }}>Late: {lateToday}</span>
+                      <span style={{ padding: '8px 12px', borderRadius: 999, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 12, fontWeight: 800, color: '#475569' }}>Left Early: {leftEarlyToday}</span>
+                    </div>
+                  </summary>
+
+                  <div style={{ padding: '0 22px 22px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
+                      <button onClick={() => setAttendanceReportView('today')} style={attendanceReportView === 'today' ? S.btn('primary') : S.btn('ghost')}>Today</button>
+                      <button onClick={() => setAttendanceReportView('last7')} style={attendanceReportView === 'last7' ? S.btn('primary') : S.btn('ghost')}>Last 7 Days</button>
+                      <button onClick={() => setAttendanceReportView('student')} style={attendanceReportView === 'student' ? S.btn('primary') : S.btn('ghost')}>Student History</button>
+                      <button onClick={() => { setAttendanceReportStatus('absent'); setAttendanceReportView('today') }} style={attendanceReportStatus === 'absent' ? S.btn('primary') : S.btn('ghost')}>Absent</button>
+                      <button onClick={() => { setAttendanceReportStatus('late'); setAttendanceReportView('today') }} style={attendanceReportStatus === 'late' ? S.btn('primary') : S.btn('ghost')}>Late</button>
+                      <button onClick={() => { setAttendanceReportStatus('left-early'); setAttendanceReportView('today') }} style={attendanceReportStatus === 'left-early' ? S.btn('primary') : S.btn('ghost')}>Left Early</button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr 1fr 1.2fr', gap: 10, marginBottom: 14 }}>
+                      <input value={attendanceReportSearch} onChange={e => setAttendanceReportSearch(e.target.value)} placeholder="Search student or class..." style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 13 }} />
+
+                      <select value={attendanceReportDivision} onChange={e => setAttendanceReportDivision(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 13 }}>
+                        <option value="all">All divisions</option>
+                        <option value="mesivta">Mesivta</option>
+                        <option value="yeshiva-ketana">Yeshiva Ketana</option>
+                      </select>
+
+                      <select value={attendanceReportClass} onChange={e => setAttendanceReportClass(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 13 }}>
+                        <option value="all">All classes</option>
+                        {classOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+
+                      <select value={attendanceReportStatus} onChange={e => setAttendanceReportStatus(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 13 }}>
+                        <option value="all">All statuses</option>
+                        <option value="present">Present</option>
+                        <option value="absent">Absent</option>
+                        <option value="late">Late</option>
+                        <option value="left-early">Left early</option>
+                      </select>
+
+                      <select value={attendanceReportStudentId} onChange={e => { setAttendanceReportStudentId(e.target.value); if (e.target.value !== 'all') setAttendanceReportView('student') }} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 13 }}>
+                        <option value="all">All students</option>
+                        {rows.map(stu => <option key={stu.id} value={stu.id}>{stu.name}</option>)}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, color: '#475569' }}>
+                        Showing <b>{filteredRows.length}</b> students · View: <b>{attendanceReportView === 'last7' ? 'Last 7 school days' : attendanceReportView === 'student' ? 'Student history' : 'Today'}</b>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => { setAttendanceReportDivision('all'); setAttendanceReportClass('all'); setAttendanceReportStatus('all'); setAttendanceReportStudentId('all'); setAttendanceReportSearch(''); setAttendanceReportView('today') }} style={S.btn('ghost')}>Clear Filters</button>
+                        <button onClick={() => openAttendanceReportWindow({
+                          rows: filteredRows,
+                          view: attendanceReportView,
+                          selectedStudent: selectedReportStudent,
+                          filters: {
+                            division: attendanceReportDivision === 'all' ? 'All divisions' : attendanceReportDivision,
+                            className: attendanceReportClass === 'all' ? 'All classes' : attendanceReportClass,
+                            status: attendanceReportStatus === 'all' ? 'All statuses' : attendanceReportStatus,
+                            search: attendanceReportSearch
+                          }
+                        })} style={S.btn('primary')}>Generate Report</button>
+                      </div>
+                    </div>
+
+                    {attendanceReportView === 'student' && selectedReportStudent && (
+                      <div style={{ marginBottom: 14, padding: 14, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: '#172033', marginBottom: 8 }}>{selectedReportStudent.name} Attendance History</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 12 }}>
+                          <div><b>{selectedReportStudent.cameToYeshivaDays}</b><br/><span style={{ fontSize: 11, color: '#64748b' }}>Came to yeshiva</span></div>
+                          <div><b>{selectedReportStudent.absentDays}</b><br/><span style={{ fontSize: 11, color: '#64748b' }}>Absent</span></div>
+                          <div><b>{selectedReportStudent.lateDays}</b><br/><span style={{ fontSize: 11, color: '#64748b' }}>Late</span></div>
+                          <div><b>{selectedReportStudent.leftEarlyDays}</b><br/><span style={{ fontSize: 11, color: '#64748b' }}>Left early</span></div>
+                        </div>
+                        {selectedReportStudent.history.map(day => (
+                          <div key={day.key} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2fr', gap: 10, padding: '8px 0', borderTop: '1px solid #e2e8f0', fontSize: 13 }}>
+                            <div>{day.label}</div>
+                            <div style={{ fontWeight: 800, color: day.status === 'absent' ? '#9f1239' : day.status === 'late' ? '#9a3412' : day.status === 'left-early' ? '#475569' : '#166534' }}>{day.status}</div>
+                            <div>{day.arrived || day.left || '—'}</div>
+                            <div style={{ color: '#64748b' }}>{day.note}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {attendanceReportView !== 'student' && (
+                      <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>
+                              <th style={{ padding: 10 }}>Student</th>
+                              <th style={{ padding: 10 }}>Division</th>
+                              <th style={{ padding: 10 }}>Class</th>
+                              <th style={{ padding: 10 }}>Today</th>
+                              <th style={{ padding: 10 }}>Came Last 7</th>
+                              <th style={{ padding: 10 }}>Absent</th>
+                              <th style={{ padding: 10 }}>Late</th>
+                              <th style={{ padding: 10 }}>Left Early</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredRows.map(stu => (
+                              <tr key={stu.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: 10, fontWeight: 800 }}>{stu.name}</td>
+                                <td style={{ padding: 10 }}>{stu.division === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Mesivta'}</td>
+                                <td style={{ padding: 10 }}>{stu.className}</td>
+                                <td style={{ padding: 10, fontWeight: 800 }}>{stu.lastStatus}</td>
+                                <td style={{ padding: 10 }}>{stu.cameToYeshivaDays}/7</td>
+                                <td style={{ padding: 10 }}>{stu.absentDays}</td>
+                                <td style={{ padding: 10 }}>{stu.lateDays}</td>
+                                <td style={{ padding: 10 }}>{stu.leftEarlyDays}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </details>
+              )
+            })()}
+          </div>
+        )}
+
 
         {page === 'attendance' && (
           <AttendancePage students={students} setStudents={setStudents} role={role} attFilter={attFilter} setAttFilter={setAttFilter} filteredStudents={filteredStudents} openStudent={openStudent} />
@@ -4392,6 +5096,84 @@ export default function Dashboard() {
             {/* APPLICANTS SECTION */}
             {intakeSection === 'applicants' && (
             <div>
+            
+            {(() => {
+              const report = getAdmissionsReport(intakeList)
+              const nameLine = arr => arr.length ? arr.map(x => x.name).join(', ') : 'None yet'
+              return (
+                <details style={{ ...S.card, marginBottom: 16, padding: 0, overflow: 'hidden' }}>
+                  <summary style={{ listStyle: 'none', cursor: 'pointer', padding: '18px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#172033' }}>Admissions Report</div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
+                        Click to open accepted counts, names, waitlist, missing documents, and follow-ups.
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <span style={{ padding: '8px 12px', borderRadius: 999, background: '#eef4f0', border: '1px solid #b9d7c2', fontSize: 12, fontWeight: 800, color: '#20462b' }}>
+                        Mesivta Accepted: {report.acceptedMesivta.length}
+                      </span>
+                      <span style={{ padding: '8px 12px', borderRadius: 999, background: '#eef4f0', border: '1px solid #b9d7c2', fontSize: 12, fontWeight: 800, color: '#20462b' }}>
+                        YK Accepted: {report.acceptedYK.length}
+                      </span>
+                      <span style={{ padding: '8px 12px', borderRadius: 999, background: '#fff7ed', border: '1px solid #fed7aa', fontSize: 12, fontWeight: 800, color: '#9a3412' }}>
+                        Needs Review: {report.waitlist.length + report.needsInfo.length}
+                      </span>
+                    </div>
+                  </summary>
+
+                  <div style={{ padding: '0 22px 22px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                      <button onClick={() => window.print()} style={S.btn('ghost')}>Print Report</button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
+                      <div style={{ padding: 14, borderRadius: 12, background: '#eef4f0', border: '1px solid #b9d7c2' }}>
+                        <div style={{ fontSize: 11, color: '#2f5d3b', fontWeight: 800 }}>ACCEPTED MESIVTA</div>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: '#20462b' }}>{report.acceptedMesivta.length}</div>
+                      </div>
+                      <div style={{ padding: 14, borderRadius: 12, background: '#eef4f0', border: '1px solid #b9d7c2' }}>
+                        <div style={{ fontSize: 11, color: '#2f5d3b', fontWeight: 800 }}>ACCEPTED YESHIVA KETANA</div>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: '#20462b' }}>{report.acceptedYK.length}</div>
+                      </div>
+                      <div style={{ padding: 14, borderRadius: 12, background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                        <div style={{ fontSize: 11, color: '#9a3412', fontWeight: 800 }}>WAITLIST / NEEDS INFO</div>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: '#7c2d12' }}>{report.waitlist.length + report.needsInfo.length}</div>
+                      </div>
+                      <div style={{ padding: 14, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 11, color: '#475569', fontWeight: 800 }}>OPEN FOLLOW-UPS</div>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: '#172033' }}>{report.openFollowUpsTotal}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div style={{ padding: 14, borderRadius: 12, background: '#fff', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#172033', marginBottom: 8 }}>Accepted Mesivta Boys</div>
+                        <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.45 }}>{nameLine(report.acceptedMesivta)}</div>
+                      </div>
+                      <div style={{ padding: 14, borderRadius: 12, background: '#fff', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#172033', marginBottom: 8 }}>Accepted Yeshiva Ketana Boys</div>
+                        <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.45 }}>{nameLine(report.acceptedYK)}</div>
+                      </div>
+                      <div style={{ padding: 14, borderRadius: 12, background: '#fff', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#172033', marginBottom: 8 }}>Waitlist</div>
+                        <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.45 }}>{nameLine(report.waitlist)}</div>
+                      </div>
+                      <div style={{ padding: 14, borderRadius: 12, background: '#fff', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#172033', marginBottom: 8 }}>Needs More Information</div>
+                        <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.45 }}>{nameLine(report.needsInfo)}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}>
+                      Missing document items across all applicants: <b>{report.missingDocsTotal}</b> · No decision yet: <b>{report.noDecision.length}</b> · Not a fit: <b>{report.notFit.length}</b>
+                    </div>
+                  </div>
+                </details>
+              )
+            })()}
+
             {selectedIntake ? (
               // ── INTAKE PROFILE ──
               <div>
