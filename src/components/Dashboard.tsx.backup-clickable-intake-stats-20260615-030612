@@ -5724,76 +5724,17 @@ export default function Dashboard() {
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
                   {[
-                    ['call-back', '📞 Call Back', preIntakeList.filter(x=>x.status==='call-back').length, '#9f1239'],
-                    ['tour-scheduled', '🏫 Tour Scheduled', preIntakeList.filter(x=>x.status==='tour-scheduled').length, '#4f6687'],
-                    ['interview-scheduled', '📋 Interview Scheduled', preIntakeList.filter(x=>x.status==='interview-scheduled').length, '#56765f'],
-                    ['needs-interview-time', '⏰ Needs Interview Time', preIntakeList.filter(x=>x.status==='needs-interview-time').length, '#9a6a2a'],
-                    [null, '🏥 Mesivta / YK', `${preIntakeList.filter(x=>x.program==='mesivta').length} / ${preIntakeList.filter(x=>x.program==='yeshiva-ketana').length}`, '#6d28d9'],
-                  ].map(([status, label, val, color]) => {
-                    const isClickable = Boolean(status)
-                    return (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => {
-                          if (!status) return
-
-                          const section = document.getElementById(`pre-intake-group-${status}`)
-
-                          if (section) {
-                            section.scrollIntoView({
-                              behavior: 'smooth',
-                              block: 'start'
-                            })
-                          }
-                        }}
-                        style={{
-                          width: '100%',
-                          background: '#fff',
-                          borderRadius: 10,
-                          padding: '14px',
-                          border: '1px solid #e2e8f0',
-                          borderTop: `3px solid ${color}`,
-                          textAlign: 'center',
-                          cursor: isClickable ? 'pointer' : 'default',
-                          fontFamily: 'inherit',
-                          boxShadow: '0 1px 2px rgba(15,23,42,0.02)',
-                          transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease'
-                        }}
-                        onMouseEnter={e => {
-                          if (!isClickable) return
-                          e.currentTarget.style.transform = 'translateY(-2px)'
-                          e.currentTarget.style.boxShadow = '0 7px 18px rgba(15,23,42,0.09)'
-                          e.currentTarget.style.borderColor = color
-                        }}
-                        onMouseLeave={e => {
-                          if (!isClickable) return
-                          e.currentTarget.style.transform = 'translateY(0)'
-                          e.currentTarget.style.boxShadow = '0 1px 2px rgba(15,23,42,0.02)'
-                          e.currentTarget.style.borderColor = '#e2e8f0'
-                          e.currentTarget.style.borderTopColor = color
-                        }}
-                      >
-                        <div style={{ fontSize: 24, fontWeight: 700, color }}>{val}</div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                          {label}
-                        </div>
-
-                        {isClickable && (
-                          <div style={{
-                            fontSize: 9,
-                            color,
-                            marginTop: 6,
-                            fontWeight: 800,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em'
-                          }}>
-                            View students ↓
-                          </div>
-                        )}
-                      </button>
-                    )
-                  })}
+                    ['📞 Call Back', preIntakeList.filter(x=>x.status==='call-back').length, '#9f1239'],
+                    ['🏫 Tour Scheduled', preIntakeList.filter(x=>x.status==='tour-scheduled').length, '#4f6687'],
+                    ['📋 Interview Scheduled', preIntakeList.filter(x=>x.status==='interview-scheduled').length, '#56765f'],
+                    ['⏰ Needs Interview Time', preIntakeList.filter(x=>x.status==='needs-interview-time').length, '#9a6a2a'],
+                    ['🏥 Mesivta / YK', `${preIntakeList.filter(x=>x.program==='mesivta').length} / ${preIntakeList.filter(x=>x.program==='yeshiva-ketana').length}`, '#6d28d9'],
+                  ].map(([label, val, color]) => (
+                    <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e2e8f0', textAlign: 'center', borderTop: `3px solid ${color}` }}>
+                      <div style={{ fontSize: 24, fontWeight: 700, color }}>{val}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{label}</div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Leads list */}
@@ -5807,14 +5748,7 @@ export default function Dashboard() {
                     const group = preIntakeList.filter(x => x.status === status)
                     if (group.length === 0) return null
                     return (
-                      <div
-                        key={status}
-                        id={`pre-intake-group-${status}`}
-                        style={{
-                          scrollMarginTop: 24,
-                          paddingTop: 2
-                        }}
-                      >
+                      <div key={status}>
                         <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 6, textTransform: 'uppercase' }}>{groupLabel} ({group.length})</div>
                         {group.map((lead, i) => (
                           <div key={lead.id} onClick={() => setSelectedPreIntake(lead)}

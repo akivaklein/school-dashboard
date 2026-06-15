@@ -2282,8 +2282,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
         : s
     ))
 
-    // Keep the popup and current students selected so several
-    // behaviors can be recorded in one classroom interaction.
+    closeTeachingActions()
   }
 
   function handleToggle(s) {
@@ -2319,15 +2318,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
   // Summary screen
   if (showSummary) {
     return (
-      <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: '#f4f6f9',
-      zIndex: 200,
-      display: 'flex',
-      flexDirection: 'column',
-      color: '#17243a'
-    }}>
+      <div style={{ position: 'fixed', inset: 0, background: '#f8fafc', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
         <div style={{ background: '#0f172a', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>📊 Session Summary</div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
@@ -2346,7 +2337,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                     ? <div style={{ fontSize: 12, color: '#56765f', fontWeight: 600 }}>✅ No reminders!</div>
                     : Object.entries(iv.reminders).map(([id, count]) => {
                         const s = students.find(x => x.id === parseInt(id))
-                        return <div key={id} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid #f8fafc' }}><span style={{ fontWeight: 600 }}>{s?.name}</span>: <span style={{ color: '#8f3a50', fontWeight: 700 }}>{count} ⚠️</span></div>
+                        return <div key={id} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid #f8fafc' }}><span style={{ fontWeight: 600 }}>{s?.name}</span>: <span style={{ color: '#9f1239', fontWeight: 700 }}>{count} ⚠️</span></div>
                       })
                   }
                 </div>
@@ -2784,347 +2775,64 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
         </div>
       )}
 
-      {/* Teaching Mode Header */}
-      <div style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #dde5ef',
-        boxShadow: '0 5px 20px rgba(26,43,68,0.065)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        flexShrink: 0
-      }}>
-        <div style={{
-          maxWidth: 1660,
-          margin: '0 auto',
-          padding: '13px 24px 11px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 18
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 11,
-            minWidth: 185
-          }}>
-            <div style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              background: 'linear-gradient(145deg, #edf4ff, #ffffff)',
-              border: '1px solid #cddbed',
-              boxShadow: '0 4px 12px rgba(42,79,124,0.09)',
-              display: 'grid',
-              placeItems: 'center'
-            }}>
-              <div style={{
-                fontSize: 20,
-                fontWeight: 900,
-                color: '#2d5b91',
-                lineHeight: 1
-              }}>
-                📖
+      {/* Header */}
+      <div style={{ background: '#0f172a', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{isAdmin ? '🎓 School-Wide Mode' : '🏫 Teaching Mode'}</div>
+
+        {/* Class selector */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setSelectedClass(null)} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${selectedClass === null ? '#fff' : 'rgba(255,255,255,0.3)'}`, background: selectedClass === null ? '#fff' : 'transparent', color: selectedClass === null ? '#0f172a' : '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>All</button>
+          {CLASSES.map(cls => (
+            <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${selectedClass === cls.id ? '#fff' : 'rgba(255,255,255,0.3)'}`, background: selectedClass === cls.id ? '#fff' : 'transparent', color: selectedClass === cls.id ? '#0f172a' : '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{cls.name}</button>
+          ))}
+        </div>
+
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ padding: '6px 10px', borderRadius: 6, border: 'none', fontSize: 12, width: 160, background: 'rgba(255,255,255,0.15)', color: '#fff' }} />
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{filtered.filter(s=>s.status==='present').length}/{filtered.length} in class</div>
+
+        {/* Session controls */}
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
+          {!sessionActive ? (
+            <button onClick={startSession} style={{ ...S.btn('success'), padding: '6px 16px', fontSize: 13 }}>▶ Start Class</button>
+          ) : (
+            <>
+              {/* Timer */}
+              <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 14px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>Interval {intervalNum}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: progress > 80 ? '#fbbf24' : '#fff', fontFamily: 'monospace' }}>{String(mins).padStart(2,'0')}:{String(secs).padStart(2,'0')}</div>
               </div>
-            </div>
-
-            <div>
-              <div style={{
-                fontSize: 16,
-                fontWeight: 900,
-                color: '#17243a',
-                letterSpacing: '-0.02em'
-              }}>
-                {isAdmin ? 'School-Wide Mode' : 'Teaching Mode'}
+              {/* Progress bar */}
+              <div style={{ width: 100, height: 6, background: 'rgba(255,255,255,0.2)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${progress}%`, height: '100%', background: progress > 80 ? '#fbbf24' : '#22c55e', transition: 'width 1s' }} />
               </div>
-              <div
-                dir="rtl"
-                style={{
-                  fontSize: 11,
-                  color: '#4d6f98',
-                  fontWeight: 900,
-                  marginTop: 2,
-                  textAlign: 'left'
-                }}
-              >
-                הדרן
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            flex: 1,
-            minWidth: 0,
-            overflowX: 'auto',
-            paddingBottom: 2
-          }}>
-            <button
-              onClick={() => setSelectedClass(null)}
-              style={{
-                padding: '7px 11px',
-                borderRadius: 9,
-                border: `1px solid ${selectedClass === null ? '#769bd0' : '#d6e0ec'}`,
-                background: selectedClass === null ? '#edf4ff' : '#ffffff',
-                color: selectedClass === null ? '#254f83' : '#58677a',
-                fontSize: 11,
-                fontWeight: 800,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              All
-            </button>
-
-            {CLASSES.map(cls => (
-              <button
-                key={cls.id}
-                onClick={() => setSelectedClass(cls.id)}
-                style={{
-                  padding: '7px 11px',
-                  borderRadius: 9,
-                  border: `1px solid ${selectedClass === cls.id ? '#769bd0' : '#d6e0ec'}`,
-                  background: selectedClass === cls.id ? '#edf4ff' : '#ffffff',
-                  color: selectedClass === cls.id ? '#254f83' : '#58677a',
-                  fontSize: 11,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {cls.name}
-              </button>
-            ))}
-          </div>
-
-          <div style={{
-            position: 'relative',
-            width: 210,
-            flexShrink: 0
-          }}>
-            <span style={{
-              position: 'absolute',
-              left: 11,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#8794a6',
-              fontSize: 13
-            }}>
-              ⌕
-            </span>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search students..."
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '9px 11px 9px 31px',
-                borderRadius: 10,
-                border: '1px solid #d5dfeb',
-                background: '#f7faff',
-                color: '#24344b',
-                fontSize: 12,
-                outline: 'none'
-              }}
-            />
-          </div>
-
-          <div style={{
-            padding: '8px 11px',
-            borderRadius: 10,
-            background: '#f7f9fc',
-            border: '1px solid #dce4ee',
-            textAlign: 'center',
-            flexShrink: 0
-          }}>
-            <div style={{
-              fontSize: 9,
-              color: '#77869a',
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}>
-              In Class
-            </div>
-            <div style={{
-              fontSize: 13,
-              color: '#213a5a',
-              fontWeight: 900,
-              marginTop: 1
-            }}>
-              {filtered.filter(s => s.status === 'present').length}/{filtered.length}
-            </div>
-          </div>
-
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 7,
-            flexShrink: 0
-          }}>
-            {!sessionActive ? (
-              <button
-                onClick={startSession}
-                style={{
-                  padding: '9px 16px',
-                  borderRadius: 10,
-                  border: '1px solid #315f91',
-                  background: '#315f91',
-                  color: '#fff',
-                  fontSize: 12,
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                  boxShadow: '0 5px 14px rgba(49,95,145,0.18)'
-                }}
-              >
-                ▶ Start Class
-              </button>
-            ) : (
-              <>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '7px 11px',
-                  borderRadius: 10,
-                  background: '#f6f9fd',
-                  border: '1px solid #d8e3ef'
-                }}>
-                  <div>
-                    <div style={{ fontSize: 9, color: '#718096', fontWeight: 800 }}>
-                      INTERVAL {intervalNum}
-                    </div>
-                    <div style={{
-                      fontSize: 15,
-                      fontWeight: 900,
-                      color: progress > 80 ? '#9a6a2a' : '#244d7c',
-                      fontFamily: 'monospace'
-                    }}>
-                      {String(mins).padStart(2,'0')}:{String(secs).padStart(2,'0')}
-                    </div>
-                  </div>
-                  <div style={{
-                    width: 65,
-                    height: 5,
-                    borderRadius: 999,
-                    overflow: 'hidden',
-                    background: '#dfe7f0'
-                  }}>
-                    <div style={{
-                      width: `${progress}%`,
-                      height: '100%',
-                      background: progress > 80 ? '#c28a3b' : '#587dae',
-                      transition: 'width 1s'
-                    }} />
-                  </div>
-                </div>
-
-                <button
-                  onClick={nextInterval}
-                  style={{
-                    padding: '9px 12px',
-                    borderRadius: 10,
-                    border: '1px solid #bcd0e8',
-                    background: '#f7fbff',
-                    color: '#315f91',
-                    fontSize: 11,
-                    fontWeight: 900,
-                    cursor: 'pointer'
-                  }}
-                >
-                  🔔 Chime
-                </button>
-
-                <button
-                  onClick={endSession}
-                  style={{
-                    padding: '9px 12px',
-                    borderRadius: 10,
-                    border: '1px solid #e6b9c4',
-                    background: '#fff7f9',
-                    color: '#94344d',
-                    fontSize: 11,
-                    fontWeight: 900,
-                    cursor: 'pointer'
-                  }}
-                >
-                  ⏹ End
-                </button>
-              </>
-            )}
-
-            <button
-              onClick={() => {
-                setSelected(filtered.filter(s => s.status === 'present').map(s => s.id))
-                setShowTeachingActions(true)
-              }}
-              style={{
-                padding: '9px 12px',
-                borderRadius: 10,
-                border: '1px solid #d5dfeb',
-                background: '#ffffff',
-                color: '#44546a',
-                fontSize: 11,
-                fontWeight: 800,
-                cursor: 'pointer'
-              }}
-            >
-              ☑ Select All
-            </button>
-
-            <button
-              onClick={() => setStudents(prev => prev.map(s => ({
-                ...s,
-                status: 'present',
-                withStaff: null
-              })))}
-              style={{
-                padding: '9px 12px',
-                borderRadius: 10,
-                border: '1px solid #cfe0d3',
-                background: '#f4faf6',
-                color: '#466950',
-                fontSize: 11,
-                fontWeight: 800,
-                cursor: 'pointer'
-              }}
-            >
-              ✅ All Present
-            </button>
-
-            <button
-              onClick={onExit}
-              style={{
-                padding: '9px 12px',
-                borderRadius: 10,
-                border: '1px solid #e3c5cc',
-                background: '#fff',
-                color: '#934158',
-                fontSize: 11,
-                fontWeight: 900,
-                cursor: 'pointer'
-              }}
-            >
-              Exit
-            </button>
-          </div>
+              <button onClick={nextInterval} style={{ ...S.btn('ghost'), padding: '6px 14px', fontSize: 12 }}>🔔 Chime</button>
+              <button onClick={endSession} style={{ ...S.btn('danger'), padding: '6px 14px', fontSize: 12 }}>⏹ End Session</button>
+            </>
+          )}
+          <button
+            onClick={() => {
+              setSelected(filtered.filter(s => s.status === 'present').map(s => s.id))
+              setShowTeachingActions(false)
+            }}
+            style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 11, background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1' }}
+          >
+            ☑ Select All In Class
+          </button>
+          <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11 }}>✅ All Present</button>
+          <button onClick={onExit} style={{ ...S.btn('danger'), padding: '5px 10px', fontSize: 11 }}>← Exit</button>
         </div>
       </div>
 
       {selected.length > 0 && (
         <div style={{
-          background: '#f8fbff',
-          borderBottom: '1px solid #dce6f1',
-          padding: '8px 24px',
+          background: '#fff',
+          borderBottom: '1px solid #e2e8f0',
+          padding: '9px 18px',
           display: 'flex',
           alignItems: 'center',
           gap: 10,
           flexWrap: 'wrap',
-          boxShadow: '0 3px 10px rgba(31,52,78,0.035)'
+          boxShadow: '0 3px 10px rgba(15,23,42,0.04)'
         }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#172033' }}>
             Choose action for {selected.length} student{selected.length === 1 ? '' : 's'}
@@ -3178,24 +2886,23 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(29,45,68,0.16)',
+            background: 'rgba(15,23,42,0.38)',
             zIndex: 320,
             display: 'flex',
-            alignItems: 'stretch',
-            justifyContent: 'flex-end',
-            padding: 0
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 18
           }}
         >
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              width: 'min(430px, 94vw)',
-              height: '100%',
-              maxHeight: '100vh',
+              width: 'min(680px, 94vw)',
+              maxHeight: '78vh',
               background: '#fff',
-              borderRadius: '18px 0 0 18px',
-              boxShadow: '-18px 0 55px rgba(28,45,68,0.18)',
-              borderLeft: '1px solid #d7e1ed',
+              borderRadius: 16,
+              boxShadow: '0 26px 80px rgba(15,23,42,0.28)',
+              border: '1px solid #dbe3ee',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column'
@@ -3289,16 +2996,16 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                         padding: '8px 9px',
                         borderRadius: 9,
                         border: isChosen
-                          ? '2px solid #5f84bb'
-                          : '1px solid #d8e0e9',
+                          ? '2px solid #56765f'
+                          : '1px solid #d8dee8',
                         background: isChosen
                           ? '#ffffff'
-                          : '#eef1f5',
+                          : '#e9edf2',
                         color: isChosen
                           ? '#172033'
                           : '#7b8492',
                         boxShadow: isChosen
-                          ? '0 4px 12px rgba(49,91,145,0.14)'
+                          ? '0 4px 12px rgba(47,93,59,0.14)'
                           : 'none',
                         cursor: 'pointer',
                         fontSize: 11,
@@ -3326,7 +3033,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                           height: 17,
                           flexShrink: 0,
                           borderRadius: 999,
-                          background: '#4f76ad',
+                          background: '#56765f',
                           color: '#fff',
                           display: 'grid',
                           placeItems: 'center',
@@ -3453,7 +3160,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
               <div style={{
                 fontSize: 12,
                 fontWeight: 900,
-                color: '#8f3a50',
+                color: '#9f1239',
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
                 marginBottom: 9
@@ -3515,20 +3222,12 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
         </div>
       )}
 
-      <div style={{
-        flex: 1,
-        overflow: 'auto',
-        padding: '18px 30px 34px',
-        background: '#f4f6f9'
-      }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(205px, 1fr))',
-          gap: 13,
-          alignContent: 'start',
-          width: '100%',
-          maxWidth: 1540,
-          margin: '0 auto'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+          gap: 10,
+          alignContent: 'start'
         }}>
           {filtered.map((s, i) => {
             const isSelected = selected.includes(s.id)
@@ -3549,22 +3248,21 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                 key={s.id}
                 onClick={() => toggleSelect(s.id)}
                 style={{
-                  background: isSelected ? '#f3f7ff' : inClass ? '#ffffff' : '#f2f4f7',
-                  opacity: inClass ? 1 : 0.72,
-                  border: `1.5px solid ${isSelected ? '#5d85bf' : inClass ? '#d6e0eb' : '#d6dce4'}`,
+                  background: isSelected ? '#f1f5f9' : inClass ? '#ffffff' : '#f8fafc',
+                  opacity: inClass ? 1 : 0.68,
+                  border: `2px solid ${isSelected ? '#334155' : inClass ? '#dbe3ec' : '#cbd5e1'}`,
                   boxShadow: isSelected
-                    ? '0 9px 24px rgba(47,86,138,0.16)'
+                    ? '0 8px 22px rgba(15,23,42,0.12)'
                     : inClass
-                      ? '0 5px 16px rgba(32,48,70,0.055)'
-                      : '0 3px 10px rgba(32,48,70,0.025)',
-                  borderRadius: 14,
-                  padding: '13px',
+                      ? '0 5px 14px rgba(15,23,42,0.045)'
+                      : '0 3px 10px rgba(15,23,42,0.025)',
+                  borderRadius: 12,
+                  padding: '11px',
                   position: 'relative',
-                  filter: inClass ? 'none' : 'grayscale(0.12)',
+                  filter: inClass ? 'none' : 'grayscale(0.25)',
                   transition: 'background 0.15s, opacity 0.15s, box-shadow 0.15s, border 0.15s, transform 0.15s',
                   cursor: 'pointer',
-                  transform: isSelected ? 'translateY(-2px)' : 'none',
-                  minHeight: 126
+                  transform: isSelected ? 'translateY(-1px)' : 'none'
                 }}
               >
                 {isSelected && (
@@ -3575,7 +3273,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                     width: 20,
                     height: 20,
                     borderRadius: 999,
-                    background: '#3f70b7',
+                    background: '#334155',
                     color: '#fff',
                     display: 'grid',
                     placeItems: 'center',
@@ -3592,11 +3290,11 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <div style={{ ...S.avatar(i, 32), outline: isSelected ? '3px solid #6e91c5' : 'none' }}>
+                  <div style={{ ...S.avatar(i, 32), outline: isSelected ? '3px solid #334155' : 'none' }}>
                     {initials(s.name)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 12.5, color: '#27364c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
                     {withStaffObj ? <div style={{ fontSize: 10, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</div> : <span style={{ ...S.tag(statusColor[s.status]), fontSize: 10 }}>{statusEmoji[s.status]}</span>}
                   </div>
                 </div>
@@ -3606,7 +3304,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                   {s.reminders > 0 && <span style={S.badge('#9f1239', '#fee2e2')}>⚠️ {s.reminders}</span>}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #edf1f5' }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #f8fafc' }} onClick={e => e.stopPropagation()}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <span style={{
                       fontSize: 11,
@@ -5724,76 +5422,17 @@ export default function Dashboard() {
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
                   {[
-                    ['call-back', '📞 Call Back', preIntakeList.filter(x=>x.status==='call-back').length, '#9f1239'],
-                    ['tour-scheduled', '🏫 Tour Scheduled', preIntakeList.filter(x=>x.status==='tour-scheduled').length, '#4f6687'],
-                    ['interview-scheduled', '📋 Interview Scheduled', preIntakeList.filter(x=>x.status==='interview-scheduled').length, '#56765f'],
-                    ['needs-interview-time', '⏰ Needs Interview Time', preIntakeList.filter(x=>x.status==='needs-interview-time').length, '#9a6a2a'],
-                    [null, '🏥 Mesivta / YK', `${preIntakeList.filter(x=>x.program==='mesivta').length} / ${preIntakeList.filter(x=>x.program==='yeshiva-ketana').length}`, '#6d28d9'],
-                  ].map(([status, label, val, color]) => {
-                    const isClickable = Boolean(status)
-                    return (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => {
-                          if (!status) return
-
-                          const section = document.getElementById(`pre-intake-group-${status}`)
-
-                          if (section) {
-                            section.scrollIntoView({
-                              behavior: 'smooth',
-                              block: 'start'
-                            })
-                          }
-                        }}
-                        style={{
-                          width: '100%',
-                          background: '#fff',
-                          borderRadius: 10,
-                          padding: '14px',
-                          border: '1px solid #e2e8f0',
-                          borderTop: `3px solid ${color}`,
-                          textAlign: 'center',
-                          cursor: isClickable ? 'pointer' : 'default',
-                          fontFamily: 'inherit',
-                          boxShadow: '0 1px 2px rgba(15,23,42,0.02)',
-                          transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease'
-                        }}
-                        onMouseEnter={e => {
-                          if (!isClickable) return
-                          e.currentTarget.style.transform = 'translateY(-2px)'
-                          e.currentTarget.style.boxShadow = '0 7px 18px rgba(15,23,42,0.09)'
-                          e.currentTarget.style.borderColor = color
-                        }}
-                        onMouseLeave={e => {
-                          if (!isClickable) return
-                          e.currentTarget.style.transform = 'translateY(0)'
-                          e.currentTarget.style.boxShadow = '0 1px 2px rgba(15,23,42,0.02)'
-                          e.currentTarget.style.borderColor = '#e2e8f0'
-                          e.currentTarget.style.borderTopColor = color
-                        }}
-                      >
-                        <div style={{ fontSize: 24, fontWeight: 700, color }}>{val}</div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                          {label}
-                        </div>
-
-                        {isClickable && (
-                          <div style={{
-                            fontSize: 9,
-                            color,
-                            marginTop: 6,
-                            fontWeight: 800,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em'
-                          }}>
-                            View students ↓
-                          </div>
-                        )}
-                      </button>
-                    )
-                  })}
+                    ['📞 Call Back', preIntakeList.filter(x=>x.status==='call-back').length, '#9f1239'],
+                    ['🏫 Tour Scheduled', preIntakeList.filter(x=>x.status==='tour-scheduled').length, '#4f6687'],
+                    ['📋 Interview Scheduled', preIntakeList.filter(x=>x.status==='interview-scheduled').length, '#56765f'],
+                    ['⏰ Needs Interview Time', preIntakeList.filter(x=>x.status==='needs-interview-time').length, '#9a6a2a'],
+                    ['🏥 Mesivta / YK', `${preIntakeList.filter(x=>x.program==='mesivta').length} / ${preIntakeList.filter(x=>x.program==='yeshiva-ketana').length}`, '#6d28d9'],
+                  ].map(([label, val, color]) => (
+                    <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e2e8f0', textAlign: 'center', borderTop: `3px solid ${color}` }}>
+                      <div style={{ fontSize: 24, fontWeight: 700, color }}>{val}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{label}</div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Leads list */}
@@ -5807,14 +5446,7 @@ export default function Dashboard() {
                     const group = preIntakeList.filter(x => x.status === status)
                     if (group.length === 0) return null
                     return (
-                      <div
-                        key={status}
-                        id={`pre-intake-group-${status}`}
-                        style={{
-                          scrollMarginTop: 24,
-                          paddingTop: 2
-                        }}
-                      >
+                      <div key={status}>
                         <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 6, textTransform: 'uppercase' }}>{groupLabel} ({group.length})</div>
                         {group.map((lead, i) => (
                           <div key={lead.id} onClick={() => setSelectedPreIntake(lead)}
@@ -6765,5 +6397,3 @@ export default function Dashboard() {
     </div>
   )
 }
-
-

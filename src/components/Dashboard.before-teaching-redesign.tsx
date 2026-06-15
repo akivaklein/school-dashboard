@@ -2146,8 +2146,6 @@ function StudentProfile({ student, students, setStudents, onClose, role, userNam
 function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = null }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState([])
-  const [showTeachingActions, setShowTeachingActions] = useState(false)
-  const [actionStudentSearch, setActionStudentSearch] = useState('')
   const [quickActionStudent, setQuickActionStudent] = useState(null)
   const [showBulkActionPanel, setShowBulkActionPanel] = useState(false)
   const [leavePopup, setLeavePopup] = useState(null)
@@ -2237,53 +2235,11 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
     : students
   const filtered = classStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
 
-  function closeTeachingActions() {
-    setSelected([])
-    setActionStudentSearch('')
-    setShowTeachingActions(false)
-  }
-
-  function toggleSelect(id) {
-    setSelected(prev => {
-      const updated = prev.includes(id)
-        ? prev.filter(x => x !== id)
-        : [...prev, id]
-
-      setShowTeachingActions(updated.length > 0)
-
-      if (updated.length === 0) {
-        setActionStudentSearch('')
-      }
-
-      return updated
-    })
-  }
-
+  function toggleSelect(id) { setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]) }
   function applyToSelected(amount, label) {
-    if (selected.length === 0) return
-
     playSound(amount > 0 ? 'positive' : 'negative')
-
-    setStudents(prev => prev.map(s =>
-      selected.includes(s.id)
-        ? {
-            ...s,
-            points: Math.max(0, s.points + amount),
-            reminders: amount < 0 ? s.reminders + 1 : s.reminders,
-            behaviorLog: [
-              {
-                label,
-                points: amount,
-                date: new Date().toISOString().slice(0, 10)
-              },
-              ...s.behaviorLog
-            ].slice(0, 20)
-          }
-        : s
-    ))
-
-    // Keep the popup and current students selected so several
-    // behaviors can be recorded in one classroom interaction.
+    setStudents(prev => prev.map(s => selected.includes(s.id) ? { ...s, points: Math.max(0, s.points + amount), reminders: amount < 0 ? s.reminders + 1 : s.reminders, behaviorLog: [{ label, points: amount, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
+    setSelected([])
   }
 
   function handleToggle(s) {
@@ -2319,15 +2275,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
   // Summary screen
   if (showSummary) {
     return (
-      <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: '#f4f6f9',
-      zIndex: 200,
-      display: 'flex',
-      flexDirection: 'column',
-      color: '#17243a'
-    }}>
+      <div style={{ position: 'fixed', inset: 0, background: '#f8fafc', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
         <div style={{ background: '#0f172a', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>📊 Session Summary</div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
@@ -2346,7 +2294,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                     ? <div style={{ fontSize: 12, color: '#56765f', fontWeight: 600 }}>✅ No reminders!</div>
                     : Object.entries(iv.reminders).map(([id, count]) => {
                         const s = students.find(x => x.id === parseInt(id))
-                        return <div key={id} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid #f8fafc' }}><span style={{ fontWeight: 600 }}>{s?.name}</span>: <span style={{ color: '#8f3a50', fontWeight: 700 }}>{count} ⚠️</span></div>
+                        return <div key={id} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid #f8fafc' }}><span style={{ fontWeight: 600 }}>{s?.name}</span>: <span style={{ color: '#9f1239', fontWeight: 700 }}>{count} ⚠️</span></div>
                       })
                   }
                 </div>
@@ -2784,752 +2732,58 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
         </div>
       )}
 
-      {/* Teaching Mode Header */}
-      <div style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #dde5ef',
-        boxShadow: '0 5px 20px rgba(26,43,68,0.065)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        flexShrink: 0
-      }}>
-        <div style={{
-          maxWidth: 1660,
-          margin: '0 auto',
-          padding: '13px 24px 11px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 18
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 11,
-            minWidth: 185
-          }}>
-            <div style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              background: 'linear-gradient(145deg, #edf4ff, #ffffff)',
-              border: '1px solid #cddbed',
-              boxShadow: '0 4px 12px rgba(42,79,124,0.09)',
-              display: 'grid',
-              placeItems: 'center'
-            }}>
-              <div style={{
-                fontSize: 20,
-                fontWeight: 900,
-                color: '#2d5b91',
-                lineHeight: 1
-              }}>
-                📖
+      {/* Header */}
+      <div style={{ background: '#0f172a', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{isAdmin ? '🎓 School-Wide Mode' : '🏫 Teaching Mode'}</div>
+
+        {/* Class selector */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setSelectedClass(null)} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${selectedClass === null ? '#fff' : 'rgba(255,255,255,0.3)'}`, background: selectedClass === null ? '#fff' : 'transparent', color: selectedClass === null ? '#0f172a' : '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>All</button>
+          {CLASSES.map(cls => (
+            <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${selectedClass === cls.id ? '#fff' : 'rgba(255,255,255,0.3)'}`, background: selectedClass === cls.id ? '#fff' : 'transparent', color: selectedClass === cls.id ? '#0f172a' : '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{cls.name}</button>
+          ))}
+        </div>
+
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ padding: '6px 10px', borderRadius: 6, border: 'none', fontSize: 12, width: 160, background: 'rgba(255,255,255,0.15)', color: '#fff' }} />
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{filtered.filter(s=>s.status==='present').length}/{filtered.length} in class</div>
+
+        {/* Session controls */}
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
+          {!sessionActive ? (
+            <button onClick={startSession} style={{ ...S.btn('success'), padding: '6px 16px', fontSize: 13 }}>▶ Start Class</button>
+          ) : (
+            <>
+              {/* Timer */}
+              <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 14px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>Interval {intervalNum}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: progress > 80 ? '#fbbf24' : '#fff', fontFamily: 'monospace' }}>{String(mins).padStart(2,'0')}:{String(secs).padStart(2,'0')}</div>
               </div>
-            </div>
-
-            <div>
-              <div style={{
-                fontSize: 16,
-                fontWeight: 900,
-                color: '#17243a',
-                letterSpacing: '-0.02em'
-              }}>
-                {isAdmin ? 'School-Wide Mode' : 'Teaching Mode'}
+              {/* Progress bar */}
+              <div style={{ width: 100, height: 6, background: 'rgba(255,255,255,0.2)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${progress}%`, height: '100%', background: progress > 80 ? '#fbbf24' : '#22c55e', transition: 'width 1s' }} />
               </div>
-              <div
-                dir="rtl"
-                style={{
-                  fontSize: 11,
-                  color: '#4d6f98',
-                  fontWeight: 900,
-                  marginTop: 2,
-                  textAlign: 'left'
-                }}
-              >
-                הדרן
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            flex: 1,
-            minWidth: 0,
-            overflowX: 'auto',
-            paddingBottom: 2
-          }}>
-            <button
-              onClick={() => setSelectedClass(null)}
-              style={{
-                padding: '7px 11px',
-                borderRadius: 9,
-                border: `1px solid ${selectedClass === null ? '#769bd0' : '#d6e0ec'}`,
-                background: selectedClass === null ? '#edf4ff' : '#ffffff',
-                color: selectedClass === null ? '#254f83' : '#58677a',
-                fontSize: 11,
-                fontWeight: 800,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              All
-            </button>
-
-            {CLASSES.map(cls => (
-              <button
-                key={cls.id}
-                onClick={() => setSelectedClass(cls.id)}
-                style={{
-                  padding: '7px 11px',
-                  borderRadius: 9,
-                  border: `1px solid ${selectedClass === cls.id ? '#769bd0' : '#d6e0ec'}`,
-                  background: selectedClass === cls.id ? '#edf4ff' : '#ffffff',
-                  color: selectedClass === cls.id ? '#254f83' : '#58677a',
-                  fontSize: 11,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {cls.name}
-              </button>
-            ))}
-          </div>
-
-          <div style={{
-            position: 'relative',
-            width: 210,
-            flexShrink: 0
-          }}>
-            <span style={{
-              position: 'absolute',
-              left: 11,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#8794a6',
-              fontSize: 13
-            }}>
-              ⌕
-            </span>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search students..."
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '9px 11px 9px 31px',
-                borderRadius: 10,
-                border: '1px solid #d5dfeb',
-                background: '#f7faff',
-                color: '#24344b',
-                fontSize: 12,
-                outline: 'none'
-              }}
-            />
-          </div>
-
-          <div style={{
-            padding: '8px 11px',
-            borderRadius: 10,
-            background: '#f7f9fc',
-            border: '1px solid #dce4ee',
-            textAlign: 'center',
-            flexShrink: 0
-          }}>
-            <div style={{
-              fontSize: 9,
-              color: '#77869a',
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}>
-              In Class
-            </div>
-            <div style={{
-              fontSize: 13,
-              color: '#213a5a',
-              fontWeight: 900,
-              marginTop: 1
-            }}>
-              {filtered.filter(s => s.status === 'present').length}/{filtered.length}
-            </div>
-          </div>
-
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 7,
-            flexShrink: 0
-          }}>
-            {!sessionActive ? (
-              <button
-                onClick={startSession}
-                style={{
-                  padding: '9px 16px',
-                  borderRadius: 10,
-                  border: '1px solid #315f91',
-                  background: '#315f91',
-                  color: '#fff',
-                  fontSize: 12,
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                  boxShadow: '0 5px 14px rgba(49,95,145,0.18)'
-                }}
-              >
-                ▶ Start Class
-              </button>
-            ) : (
-              <>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '7px 11px',
-                  borderRadius: 10,
-                  background: '#f6f9fd',
-                  border: '1px solid #d8e3ef'
-                }}>
-                  <div>
-                    <div style={{ fontSize: 9, color: '#718096', fontWeight: 800 }}>
-                      INTERVAL {intervalNum}
-                    </div>
-                    <div style={{
-                      fontSize: 15,
-                      fontWeight: 900,
-                      color: progress > 80 ? '#9a6a2a' : '#244d7c',
-                      fontFamily: 'monospace'
-                    }}>
-                      {String(mins).padStart(2,'0')}:{String(secs).padStart(2,'0')}
-                    </div>
-                  </div>
-                  <div style={{
-                    width: 65,
-                    height: 5,
-                    borderRadius: 999,
-                    overflow: 'hidden',
-                    background: '#dfe7f0'
-                  }}>
-                    <div style={{
-                      width: `${progress}%`,
-                      height: '100%',
-                      background: progress > 80 ? '#c28a3b' : '#587dae',
-                      transition: 'width 1s'
-                    }} />
-                  </div>
-                </div>
-
-                <button
-                  onClick={nextInterval}
-                  style={{
-                    padding: '9px 12px',
-                    borderRadius: 10,
-                    border: '1px solid #bcd0e8',
-                    background: '#f7fbff',
-                    color: '#315f91',
-                    fontSize: 11,
-                    fontWeight: 900,
-                    cursor: 'pointer'
-                  }}
-                >
-                  🔔 Chime
-                </button>
-
-                <button
-                  onClick={endSession}
-                  style={{
-                    padding: '9px 12px',
-                    borderRadius: 10,
-                    border: '1px solid #e6b9c4',
-                    background: '#fff7f9',
-                    color: '#94344d',
-                    fontSize: 11,
-                    fontWeight: 900,
-                    cursor: 'pointer'
-                  }}
-                >
-                  ⏹ End
-                </button>
-              </>
-            )}
-
-            <button
-              onClick={() => {
-                setSelected(filtered.filter(s => s.status === 'present').map(s => s.id))
-                setShowTeachingActions(true)
-              }}
-              style={{
-                padding: '9px 12px',
-                borderRadius: 10,
-                border: '1px solid #d5dfeb',
-                background: '#ffffff',
-                color: '#44546a',
-                fontSize: 11,
-                fontWeight: 800,
-                cursor: 'pointer'
-              }}
-            >
-              ☑ Select All
-            </button>
-
-            <button
-              onClick={() => setStudents(prev => prev.map(s => ({
-                ...s,
-                status: 'present',
-                withStaff: null
-              })))}
-              style={{
-                padding: '9px 12px',
-                borderRadius: 10,
-                border: '1px solid #cfe0d3',
-                background: '#f4faf6',
-                color: '#466950',
-                fontSize: 11,
-                fontWeight: 800,
-                cursor: 'pointer'
-              }}
-            >
-              ✅ All Present
-            </button>
-
-            <button
-              onClick={onExit}
-              style={{
-                padding: '9px 12px',
-                borderRadius: 10,
-                border: '1px solid #e3c5cc',
-                background: '#fff',
-                color: '#934158',
-                fontSize: 11,
-                fontWeight: 900,
-                cursor: 'pointer'
-              }}
-            >
-              Exit
-            </button>
-          </div>
+              <button onClick={nextInterval} style={{ ...S.btn('ghost'), padding: '6px 14px', fontSize: 12 }}>🔔 Chime</button>
+              <button onClick={endSession} style={{ ...S.btn('danger'), padding: '6px 14px', fontSize: 12 }}>⏹ End Session</button>
+            </>
+          )}
+          <button onClick={() => { setSelected(filtered.filter(s => s.status === 'present').map(s => s.id)); setShowBulkActionPanel(true) }} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 11, background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1' }}>☑ Select All In Class</button>
+          <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11 }}>✅ All Present</button>
+          <button onClick={onExit} style={{ ...S.btn('danger'), padding: '5px 10px', fontSize: 11 }}>← Exit</button>
         </div>
       </div>
 
       {selected.length > 0 && (
-        <div style={{
-          background: '#f8fbff',
-          borderBottom: '1px solid #dce6f1',
-          padding: '8px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          flexWrap: 'wrap',
-          boxShadow: '0 3px 10px rgba(31,52,78,0.035)'
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#172033' }}>
-            Choose action for {selected.length} student{selected.length === 1 ? '' : 's'}
-          </div>
-
-          <div style={{
-            display: 'flex',
-            gap: 5,
-            flexWrap: 'wrap',
-            flex: 1,
-            minWidth: 160
-          }}>
-            {selected.slice(0, 5).map(id => {
-              const student = students.find(s => s.id === id)
-              return student ? (
-                <span key={id} style={{
-                  padding: '4px 8px',
-                  borderRadius: 999,
-                  background: '#f1f5f9',
-                  border: '1px solid #dbe3ee',
-                  color: '#334155',
-                  fontSize: 11,
-                  fontWeight: 700
-                }}>
-                  {student.name}
-                </span>
-              ) : null
-            })}
-            {selected.length > 5 && (
-              <span style={{ fontSize: 11, color: '#64748b', padding: '4px 2px' }}>
-                +{selected.length - 5} more
-              </span>
-            )}
-          </div>
-
-          <button
-            onClick={() => {
-              setSelected([])
-              setShowTeachingActions(false)
-            }}
-            style={{ ...S.btn('ghost'), padding: '7px 12px', fontSize: 12 }}
-          >
-            Clear
-          </button>
+        <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{selected.length} selected:</div>
+          {BEHAVIORS_POSITIVE.map(b => <button key={b.id} onClick={() => applyToSelected(b.points, b.label)} style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>+{b.points} {b.label}</button>)}
+          {BEHAVIORS_NEGATIVE.map(b => <button key={b.id} onClick={() => applyToSelected(b.points, b.label)} style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#9f1239', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{b.points} {b.label}</button>)}
+          <button onClick={() => applyToSelected(10, 'Bonus')} style={{ ...S.btn('success'), padding: '3px 10px', fontSize: 11 }}>+10</button>
+          <button onClick={() => setSelected([])} style={{ ...S.btn('ghost'), padding: '3px 10px', fontSize: 11 }}>✕ Clear</button>
         </div>
       )}
 
-      {selected.length > 0 && (
-        <div
-          onClick={closeTeachingActions}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(29,45,68,0.16)',
-            zIndex: 320,
-            display: 'flex',
-            alignItems: 'stretch',
-            justifyContent: 'flex-end',
-            padding: 0
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: 'min(430px, 94vw)',
-              height: '100%',
-              maxHeight: '100vh',
-              background: '#fff',
-              borderRadius: '18px 0 0 18px',
-              boxShadow: '-18px 0 55px rgba(28,45,68,0.18)',
-              borderLeft: '1px solid #d7e1ed',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            <div style={{
-              padding: '15px 18px',
-              borderBottom: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 12,
-              background: '#f8fafc'
-            }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: '#172033' }}>
-                  Class Actions
-                </div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
-                  Apply to {selected.length} selected student{selected.length === 1 ? '' : 's'}
-                </div>
-              </div>
-
-              <button
-                onClick={closeTeachingActions}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  border: '1px solid #d8dee9',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 900,
-                  color: '#475569'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{
-              padding: '12px 18px',
-              borderBottom: '1px solid #eef2f7',
-              background: '#f8fafc'
-            }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 10,
-                marginBottom: 9
-              }}>
-                <div style={{
-                  fontSize: 11,
-                  fontWeight: 900,
-                  color: '#475569',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em'
-                }}>
-                  Select Students
-                </div>
-
-                <div style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  color: selected.length > 0 ? '#365f43' : '#64748b'
-                }}>
-                  {selected.length} selected
-                </div>
-              </div>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
-                gap: 6,
-                maxHeight: 155,
-                overflowY: 'auto',
-                paddingRight: 3
-              }}>
-                {classStudents.map(student => {
-                  const isChosen = selected.includes(student.id)
-
-                  return (
-                    <button
-                      key={student.id}
-                      type="button"
-                      onClick={() => toggleSelect(student.id)}
-                      aria-pressed={isChosen}
-                      style={{
-                        minWidth: 0,
-                        padding: '8px 9px',
-                        borderRadius: 9,
-                        border: isChosen
-                          ? '2px solid #5f84bb'
-                          : '1px solid #d8e0e9',
-                        background: isChosen
-                          ? '#ffffff'
-                          : '#eef1f5',
-                        color: isChosen
-                          ? '#172033'
-                          : '#7b8492',
-                        boxShadow: isChosen
-                          ? '0 4px 12px rgba(49,91,145,0.14)'
-                          : 'none',
-                        cursor: 'pointer',
-                        fontSize: 11,
-                        fontWeight: isChosen ? 900 : 700,
-                        textAlign: 'left',
-                        opacity: isChosen ? 1 : 0.66,
-                        transition: 'all 0.14s ease',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 6
-                      }}
-                    >
-                      <span style={{
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {student.name}
-                      </span>
-
-                      {isChosen && (
-                        <span style={{
-                          width: 17,
-                          height: 17,
-                          flexShrink: 0,
-                          borderRadius: 999,
-                          background: '#4f76ad',
-                          color: '#fff',
-                          display: 'grid',
-                          placeItems: 'center',
-                          fontSize: 10,
-                          fontWeight: 900
-                        }}>
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div style={{
-                marginTop: 8,
-                fontSize: 10.5,
-                color: '#64748b'
-              }}>
-                Bright names will receive the selected action. Click another name to include or remove him.
-              </div>
-            </div>
-
-            <div style={{ overflowY: 'auto', padding: 18 }}>
-              <div style={{
-                fontSize: 12,
-                fontWeight: 900,
-                color: '#334155',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                marginBottom: 9
-              }}>
-                Quick Points
-              </div>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-                gap: 8,
-                marginBottom: 20
-              }}>
-                {[1, 2, 5, 10].map(amount => (
-                  <button
-                    key={amount}
-                    onClick={() => applyToSelected(amount, `Quick +${amount}`)}
-                    style={{
-                      padding: '12px 8px',
-                      borderRadius: 10,
-                      border: '1px solid #b9d7c2',
-                      background: '#f4faf6',
-                      color: '#274c33',
-                      cursor: 'pointer',
-                      fontSize: 14,
-                      fontWeight: 900
-                    }}
-                  >
-                    +{amount}
-                  </button>
-                ))}
-              </div>
-
-              <div style={{
-                fontSize: 12,
-                fontWeight: 900,
-                color: '#2f5d3b',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                marginBottom: 9
-              }}>
-                Praise & Responsibilities
-              </div>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(205px, 1fr))',
-                gap: 8,
-                marginBottom: 20
-              }}>
-                {BEHAVIORS_POSITIVE.map(b => (
-                  <button
-                    key={b.id}
-                    onClick={() => applyToSelected(b.points, b.label)}
-                    style={{
-                      padding: '11px 12px',
-                      borderRadius: 10,
-                      border: '1px solid #b9d7c2',
-                      background: '#f4faf6',
-                      color: '#274c33',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 8
-                    }}
-                  >
-                    <span>{b.label}</span>
-                    <span>+{b.points}</span>
-                  </button>
-                ))}
-
-                <button
-                  onClick={() => applyToSelected(10, 'Bonus')}
-                  style={{
-                    padding: '11px 12px',
-                    borderRadius: 10,
-                    border: '1px solid #b9d7c2',
-                    background: '#eef7f1',
-                    color: '#274c33',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    display: 'flex',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  <span>Bonus</span>
-                  <span>+10</span>
-                </button>
-              </div>
-
-              <div style={{
-                fontSize: 12,
-                fontWeight: 900,
-                color: '#8f3a50',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                marginBottom: 9
-              }}>
-                Behavior Deductions
-              </div>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(205px, 1fr))',
-                gap: 8
-              }}>
-                {BEHAVIORS_NEGATIVE.map(b => (
-                  <button
-                    key={b.id}
-                    onClick={() => applyToSelected(b.points, b.label)}
-                    style={{
-                      padding: '11px 12px',
-                      borderRadius: 10,
-                      border: '1px solid #fecaca',
-                      background: '#fff7f7',
-                      color: '#881337',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 8
-                    }}
-                  >
-                    <span>{b.label}</span>
-                    <span>{b.points}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{
-              padding: '12px 18px',
-              borderTop: '1px solid #e2e8f0',
-              background: '#f8fafc',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 10
-            }}>
-              <div style={{ fontSize: 11, color: '#64748b' }}>
-                The leave-class switch and required reason remain on each student card.
-              </div>
-              <button
-                onClick={closeTeachingActions}
-                style={S.btn('ghost')}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{
-        flex: 1,
-        overflow: 'auto',
-        padding: '18px 30px 34px',
-        background: '#f4f6f9'
-      }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(205px, 1fr))',
-          gap: 13,
-          alignContent: 'start',
-          width: '100%',
-          maxWidth: 1540,
-          margin: '0 auto'
-        }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
           {filtered.map((s, i) => {
             const isSelected = selected.includes(s.id)
             const vip = isVIP(s)
@@ -3545,58 +2799,26 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
               s.status === 'not-arrived' ? 'Not Arrived' :
               'Not In Class'
             return (
-              <div
-                key={s.id}
-                onClick={() => toggleSelect(s.id)}
-                style={{
-                  background: isSelected ? '#f3f7ff' : inClass ? '#ffffff' : '#f2f4f7',
-                  opacity: inClass ? 1 : 0.72,
-                  border: `1.5px solid ${isSelected ? '#5d85bf' : inClass ? '#d6e0eb' : '#d6dce4'}`,
-                  boxShadow: isSelected
-                    ? '0 9px 24px rgba(47,86,138,0.16)'
-                    : inClass
-                      ? '0 5px 16px rgba(32,48,70,0.055)'
-                      : '0 3px 10px rgba(32,48,70,0.025)',
-                  borderRadius: 14,
-                  padding: '13px',
-                  position: 'relative',
-                  filter: inClass ? 'none' : 'grayscale(0.12)',
-                  transition: 'background 0.15s, opacity 0.15s, box-shadow 0.15s, border 0.15s, transform 0.15s',
-                  cursor: 'pointer',
-                  transform: isSelected ? 'translateY(-2px)' : 'none',
-                  minHeight: 126
-                }}
-              >
-                {isSelected && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 7,
-                    right: vip ? 30 : 7,
-                    width: 20,
-                    height: 20,
-                    borderRadius: 999,
-                    background: '#3f70b7',
-                    color: '#fff',
-                    display: 'grid',
-                    placeItems: 'center',
-                    fontSize: 11,
-                    fontWeight: 900,
-                    zIndex: 2
-                  }}>
-                    ✓
-                  </div>
-                )}
+              <div key={s.id} style={{
+                background: inClass ? '#ffffff' : '#f8fafc',
+                opacity: inClass ? 1 : 0.62,
+                border: `1px solid ${isSelected ? '#334155' : inClass ? '#dbe3ec' : '#cbd5e1'}`,
+                boxShadow: inClass ? '0 8px 20px rgba(15,23,42,0.05)' : '0 5px 14px rgba(15,23,42,0.025)',
+                borderRadius: 12,
+                padding: '12px',
+                position: 'relative',
+                filter: inClass ? 'none' : 'grayscale(0.35)',
+                transition: 'background 0.15s, opacity 0.15s, box-shadow 0.15s, border 0.15s',
+              }}>
                 {vip && <div style={{ position: 'absolute', top: 8, right: 8, fontSize: 13 }}>⭐</div>}
                 {sessionActive && thisIntervalReminders > 0 && (
                   <div style={{ position: 'absolute', top: 8, left: 8, background: '#9f1239', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>⚠️ {thisIntervalReminders}</div>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <div style={{ ...S.avatar(i, 32), outline: isSelected ? '3px solid #6e91c5' : 'none' }}>
-                    {initials(s.name)}
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }} onClick={() => setQuickActionStudent(s)}>
+                  <div style={{ ...S.avatar(i, 32), outline: isSelected ? '3px solid #0f172a' : 'none' }}>{initials(s.name)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 12.5, color: '#27364c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
                     {withStaffObj ? <div style={{ fontSize: 10, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</div> : <span style={{ ...S.tag(statusColor[s.status]), fontSize: 10 }}>{statusEmoji[s.status]}</span>}
                   </div>
                 </div>
@@ -3606,7 +2828,13 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                   {s.reminders > 0 && <span style={S.badge('#9f1239', '#fee2e2')}>⚠️ {s.reminders}</span>}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #edf1f5' }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', gap: 3, marginBottom: 8 }} onClick={e => e.stopPropagation()}>
+                  <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points+2, behaviorLog: [{label:'+2', points:2, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
+                  <button onClick={() => { playSound('positive'); setStudents(prev => prev.map(x => x.id === s.id ? {...x, points: x.points+5, behaviorLog: [{label:'+5', points:5, date:new Date().toISOString().slice(0,10)}, ...x.behaviorLog]} : x)) }} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
+                  <button onClick={() => addIntervalReminder(s.id)} style={{ flex: 1, padding: '4px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#9f1239', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #f8fafc' }} onClick={e => e.stopPropagation()}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <span style={{
                       fontSize: 11,
@@ -3619,14 +2847,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                     }}>{inClass ? '✅ In Class' : `□ ${unavailableReason}`}</span>
                     {inClass && s.dailyStatus === 'late' && <button onClick={e => { e.stopPropagation(); setLateClassPopup(s.id); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote('') }} style={{ padding: '2px 6px', borderRadius: 14, border: '1px solid #e8d7b6', background: '#fbf7ef', color: '#8a6428', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>⏰ Arrived Late</button>}
                   </div>
-                  <div
-                    onClick={e => {
-                      e.stopPropagation()
-                      handleToggle(s)
-                    }}
-                    title={inClass ? 'Mark student as leaving class' : 'Return student to class'}
-                    style={{ width: 40, height: 22, borderRadius: 11, background: inClass ? '#56765f' : '#d1d5db', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
-                  >
+                  <div onClick={() => handleToggle(s)} style={{ width: 40, height: 22, borderRadius: 11, background: inClass ? '#56765f' : '#d1d5db', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                     <div style={{ position: 'absolute', top: 2, left: inClass ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                   </div>
                 </div>
@@ -5724,76 +4945,17 @@ export default function Dashboard() {
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
                   {[
-                    ['call-back', '📞 Call Back', preIntakeList.filter(x=>x.status==='call-back').length, '#9f1239'],
-                    ['tour-scheduled', '🏫 Tour Scheduled', preIntakeList.filter(x=>x.status==='tour-scheduled').length, '#4f6687'],
-                    ['interview-scheduled', '📋 Interview Scheduled', preIntakeList.filter(x=>x.status==='interview-scheduled').length, '#56765f'],
-                    ['needs-interview-time', '⏰ Needs Interview Time', preIntakeList.filter(x=>x.status==='needs-interview-time').length, '#9a6a2a'],
-                    [null, '🏥 Mesivta / YK', `${preIntakeList.filter(x=>x.program==='mesivta').length} / ${preIntakeList.filter(x=>x.program==='yeshiva-ketana').length}`, '#6d28d9'],
-                  ].map(([status, label, val, color]) => {
-                    const isClickable = Boolean(status)
-                    return (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => {
-                          if (!status) return
-
-                          const section = document.getElementById(`pre-intake-group-${status}`)
-
-                          if (section) {
-                            section.scrollIntoView({
-                              behavior: 'smooth',
-                              block: 'start'
-                            })
-                          }
-                        }}
-                        style={{
-                          width: '100%',
-                          background: '#fff',
-                          borderRadius: 10,
-                          padding: '14px',
-                          border: '1px solid #e2e8f0',
-                          borderTop: `3px solid ${color}`,
-                          textAlign: 'center',
-                          cursor: isClickable ? 'pointer' : 'default',
-                          fontFamily: 'inherit',
-                          boxShadow: '0 1px 2px rgba(15,23,42,0.02)',
-                          transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease'
-                        }}
-                        onMouseEnter={e => {
-                          if (!isClickable) return
-                          e.currentTarget.style.transform = 'translateY(-2px)'
-                          e.currentTarget.style.boxShadow = '0 7px 18px rgba(15,23,42,0.09)'
-                          e.currentTarget.style.borderColor = color
-                        }}
-                        onMouseLeave={e => {
-                          if (!isClickable) return
-                          e.currentTarget.style.transform = 'translateY(0)'
-                          e.currentTarget.style.boxShadow = '0 1px 2px rgba(15,23,42,0.02)'
-                          e.currentTarget.style.borderColor = '#e2e8f0'
-                          e.currentTarget.style.borderTopColor = color
-                        }}
-                      >
-                        <div style={{ fontSize: 24, fontWeight: 700, color }}>{val}</div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                          {label}
-                        </div>
-
-                        {isClickable && (
-                          <div style={{
-                            fontSize: 9,
-                            color,
-                            marginTop: 6,
-                            fontWeight: 800,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em'
-                          }}>
-                            View students ↓
-                          </div>
-                        )}
-                      </button>
-                    )
-                  })}
+                    ['📞 Call Back', preIntakeList.filter(x=>x.status==='call-back').length, '#9f1239'],
+                    ['🏫 Tour Scheduled', preIntakeList.filter(x=>x.status==='tour-scheduled').length, '#4f6687'],
+                    ['📋 Interview Scheduled', preIntakeList.filter(x=>x.status==='interview-scheduled').length, '#56765f'],
+                    ['⏰ Needs Interview Time', preIntakeList.filter(x=>x.status==='needs-interview-time').length, '#9a6a2a'],
+                    ['🏥 Mesivta / YK', `${preIntakeList.filter(x=>x.program==='mesivta').length} / ${preIntakeList.filter(x=>x.program==='yeshiva-ketana').length}`, '#6d28d9'],
+                  ].map(([label, val, color]) => (
+                    <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e2e8f0', textAlign: 'center', borderTop: `3px solid ${color}` }}>
+                      <div style={{ fontSize: 24, fontWeight: 700, color }}>{val}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{label}</div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Leads list */}
@@ -5807,14 +4969,7 @@ export default function Dashboard() {
                     const group = preIntakeList.filter(x => x.status === status)
                     if (group.length === 0) return null
                     return (
-                      <div
-                        key={status}
-                        id={`pre-intake-group-${status}`}
-                        style={{
-                          scrollMarginTop: 24,
-                          paddingTop: 2
-                        }}
-                      >
+                      <div key={status}>
                         <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 6, textTransform: 'uppercase' }}>{groupLabel} ({group.length})</div>
                         {group.map((lead, i) => (
                           <div key={lead.id} onClick={() => setSelectedPreIntake(lead)}
@@ -6765,5 +5920,3 @@ export default function Dashboard() {
     </div>
   )
 }
-
-
