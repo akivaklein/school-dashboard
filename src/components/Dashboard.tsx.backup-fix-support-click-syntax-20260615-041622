@@ -4386,63 +4386,6 @@ function StudentSupport({
       archived: false
     },
     {
-      id: 'goal-transition-1',
-      studentId: 1,
-      title: 'Smooth morning transition',
-      category: 'Independence / Routine',
-      description: 'Enter class, unpack, and begin morning work with fewer prompts.',
-      target: 'Complete morning routine with no more than two prompts.',
-      nextTarget: 'Start work within five minutes of arrival.',
-      startingLevel: 'Needed frequent adult reminders.',
-      currentLevel: 'Usually begins after two or three prompts.',
-      progressPercent: 62,
-      status: 'Improving',
-      createdBy: 'Rabbi Schults',
-      createdByRole: 'Yeshiva Ketana Rebbe',
-      assignedTo: 'Ezriel',
-      createdAt: '2026-06-12',
-      reviewDate: '2026-06-27',
-      archived: false
-    },
-    {
-      id: 'goal-self-advocacy-1',
-      studentId: 2,
-      title: 'Ask for help before frustration builds',
-      category: 'Self-Advocacy',
-      description: 'Use a help card or ask staff before shutting down.',
-      target: 'Ask for help in four of five observed situations.',
-      nextTarget: 'Use the help card during independent work.',
-      startingLevel: 'Often waited until frustration was high.',
-      currentLevel: 'Asked for help twice this week.',
-      progressPercent: 48,
-      status: 'Steady',
-      createdBy: 'Rabbi Klein',
-      createdByRole: 'Teacher',
-      assignedTo: 'Tuli',
-      createdAt: '2026-06-12',
-      reviewDate: '2026-06-28',
-      archived: false
-    },
-    {
-      id: 'goal-break-1',
-      studentId: 4,
-      title: 'Use planned break appropriately',
-      category: 'Regulation',
-      description: 'Take a short planned break and return without delay.',
-      target: 'Return from break within seven minutes.',
-      nextTarget: 'Return with one staff prompt.',
-      startingLevel: 'Returned late from most breaks.',
-      currentLevel: 'Returned on time three times this week.',
-      progressPercent: 70,
-      status: 'Improving',
-      createdBy: 'Mrs. Bloom',
-      createdByRole: 'BCBA',
-      assignedTo: 'Avrumi',
-      createdAt: '2026-06-13',
-      reviewDate: '2026-06-29',
-      archived: false
-    },
-    {
       id: 'goal-peer-1',
       studentId: 3,
       title: 'Use respectful words during peer disagreements',
@@ -4528,48 +4471,6 @@ function StudentSupport({
       authorRole: 'BT',
       date: '2026-06-15',
       time: '11:46 AM'
-    },
-    {
-      id: 'update-transition-1',
-      studentId: 1,
-      goalId: 'goal-transition-1',
-      type: 'Routine progress',
-      text: 'Entered calmly, unpacked with one reminder, and began morning work before the second bell.',
-      progress: 'Improving',
-      measure: '1 prompt needed',
-      parentFollowUp: false,
-      author: 'Ezriel',
-      authorRole: 'BT',
-      date: '2026-06-15',
-      time: '9:04 AM'
-    },
-    {
-      id: 'update-help-1',
-      studentId: 2,
-      goalId: 'goal-self-advocacy-1',
-      type: 'Skill practice',
-      text: 'Used his help card during kriah instead of leaving the table. Staff praised him and helped him restart.',
-      progress: 'Steady',
-      measure: '1 successful help request',
-      parentFollowUp: false,
-      author: 'Rabbi Klein',
-      authorRole: 'Teacher',
-      date: '2026-06-15',
-      time: '10:36 AM'
-    },
-    {
-      id: 'update-break-1',
-      studentId: 4,
-      goalId: 'goal-break-1',
-      type: 'Positive progress',
-      text: 'Took a planned sensory break with Avrumi and returned to class after six minutes.',
-      progress: 'Strong progress',
-      measure: 'Returned in 6 minutes',
-      parentFollowUp: false,
-      author: 'Avrumi',
-      authorRole: 'BT',
-      date: '2026-06-15',
-      time: '11:12 AM'
     },
     {
       id: 'update-peer-1',
@@ -4884,6 +4785,7 @@ function StudentSupport({
                         ? `Open ${student.name}'s progress file`
                         : ''
                     }
+                    }}
                   >
                     <div style={{
                       display: 'flex',
