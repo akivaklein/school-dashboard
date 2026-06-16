@@ -713,12 +713,12 @@ const SETUP_PEOPLE = [
       specialty: person.role
     })),
 
-  ...SUPPORT_STAFF_OPTIONS.map((person, index) => ({
-    id: `support-${index + 1}`,
+  ...THERAPIST_OPTIONS.map((person, index) => ({
+    id: `therapy-${index + 1}`,
     name: person.name,
-    type: 'support',
-    specialty: person.staffType,
-    service: person.service
+    type: 'therapist',
+    specialty: person.specialty,
+    email: person.email
   }))
 ]
 
@@ -5964,95 +5964,7 @@ export default function Dashboard() {
 
   const [setupTab, setSetupTab] = useState('assignments')
   const [setupPerson, setSetupPerson] = useState('Rabbi Klein')
-  const [setupAssignments, setSetupAssignments] = useState(() => {
-    const assignments = {}
-
-    SETUP_PEOPLE.forEach(person => {
-      assignments[person.name] = {
-        periods: {
-          1: [],
-          2: [],
-          3: []
-        },
-        caseload: []
-      }
-    })
-
-    // Pre-fill teacher rosters from each student's current class.
-    initialStudents.forEach(student => {
-      const classId = STUDENT_CLASSES[student.id]
-      const classInfo = CLASSES.find(cls => cls.id === classId)
-
-      if (classInfo?.teacher && assignments[classInfo.teacher]) {
-        assignments[classInfo.teacher].periods = {
-          1: [
-            ...assignments[classInfo.teacher].periods[1],
-            student.id
-          ],
-          2: [
-            ...assignments[classInfo.teacher].periods[2],
-            student.id
-          ],
-          3: [
-            ...assignments[classInfo.teacher].periods[3],
-            student.id
-          ]
-        }
-      }
-    })
-
-    const btNames = [
-      'Ezriel',
-      'Tuli',
-      'Avrumi',
-      'Eliyahu',
-      'Yaakov',
-      'Elan',
-      'Nussi'
-    ]
-
-    const btBcbaMap = {
-      Ezriel: 'Mrs. Bloom',
-      Tuli: 'Mrs. Bloom',
-      Avrumi: 'Mrs. Bloom',
-      Eliyahu: 'Mrs. Lev',
-      Yaakov: 'Mrs. Lev',
-      Elan: 'Mr. Moshe Gross',
-      Nussi: 'Mr. Moshe Gross'
-    }
-
-    const socialNames = [
-      'Shelly Wagschal',
-      'Yechiel Feyershtien'
-    ]
-
-    initialStudents.forEach((student, index) => {
-      const btName = btNames[index % btNames.length]
-      const bcbaName = btBcbaMap[btName]
-      const socialName = socialNames[index % socialNames.length]
-
-      const assignSupportStudent = staffName => {
-        if (!assignments[staffName]) return
-
-        assignments[staffName].caseload = [
-          ...assignments[staffName].caseload,
-          student.id
-        ]
-      }
-
-      // Daily BT and supervising BCBA.
-      assignSupportStudent(btName)
-      assignSupportStudent(bcbaName)
-
-      // Weekly support services.
-      assignSupportStudent(socialName)
-      assignSupportStudent('Tzvi Malks')
-      assignSupportStudent('Yitzi Liebowitz')
-      assignSupportStudent('Aryeh Schechter')
-    })
-
-    return assignments
-  })
+  const [setupAssignments, setSetupAssignments] = useState({})
   const [setupPersonSearch, setSetupPersonSearch] = useState('')
   const [setupStudentSearch, setSetupStudentSearch] = useState('')
 
@@ -6913,70 +6825,19 @@ export default function Dashboard() {
               }
 
               const togglePeriodStudent = (period, studentId) => {
-                if (!currentPerson || currentPerson.type !== 'teacher') {
-                  return
-                }
+                updateCurrentAssignment(existing => {
+                  const currentIds = existing.periods?.[period] || []
+                  const nextIds = currentIds.includes(studentId)
+                    ? currentIds.filter(id => id !== studentId)
+                    : [...currentIds, studentId]
 
-                const currentlySelected =
-                  (
-                    setupAssignments[currentPerson.name]
-                      ?.periods?.[period] || []
-                  ).includes(studentId)
-
-                setSetupAssignments(previous => {
-                  const next = { ...previous }
-
-                  if (currentlySelected) {
-                    const existing =
-                      next[currentPerson.name] || emptyAssignment
-
-                    next[currentPerson.name] = {
-                      ...existing,
-                      periods: {
-                        ...existing.periods,
-                        [period]:
-                          (existing.periods?.[period] || [])
-                            .filter(id => id !== studentId)
-                      }
-                    }
-
-                    return next
-                  }
-
-                  // Remove the student from every other teacher
-                  // during this same period.
-                  teacherPeople.forEach(person => {
-                    const existing =
-                      next[person.name] || emptyAssignment
-
-                    next[person.name] = {
-                      ...existing,
-                      periods: {
-                        ...existing.periods,
-                        [period]:
-                          (existing.periods?.[period] || [])
-                            .filter(id => id !== studentId)
-                      }
-                    }
-                  })
-
-                  const selectedTeacher =
-                    next[currentPerson.name] || emptyAssignment
-
-                  next[currentPerson.name] = {
-                    ...selectedTeacher,
+                  return {
+                    ...existing,
                     periods: {
-                      ...selectedTeacher.periods,
-                      [period]: [
-                        ...(
-                          selectedTeacher.periods?.[period] || []
-                        ),
-                        studentId
-                      ]
+                      ...existing.periods,
+                      [period]: nextIds
                     }
                   }
-
-                  return next
                 })
               }
 
@@ -7487,8 +7348,7 @@ export default function Dashboard() {
                                   marginBottom: 12
                                 }}>
                                   {(currentAssignment.caseload || []).length}
-                                  {' '}boys assigned · click a student to add
-                                  or remove him
+                                  {' '}boys assigned
                                 </div>
 
                                 <div style={{
@@ -7647,156 +7507,40 @@ export default function Dashboard() {
                           })
                         )
 
-                        const therapyTimeToMinutes = value => {
-                          const match = String(value || '')
-                            .trim()
-                            .match(/^(\\d{1,2}):(\\d{2})\\s*(AM|PM)$/i)
+                        const conflictWarnings = []
 
-                          if (!match) return 9999
+                        scheduleRows.forEach((row, index) => {
+                          scheduleRows.slice(index + 1).forEach(other => {
+                            const sameDay = row.day === other.day
+                            const sameTime = row.time === other.time
 
-                          let hour = Number(match[1])
-                          const minute = Number(match[2])
-                          const period = match[3].toUpperCase()
+                            if (!sameDay || !sameTime) return
 
-                          if (period === 'PM' && hour !== 12) hour += 12
-                          if (period === 'AM' && hour === 12) hour = 0
+                            if (
+                              row.therapistName === other.therapistName
+                            ) {
+                              conflictWarnings.push({
+                                type: 'therapist',
+                                text: `${row.therapistName} is scheduled with ${row.student.name} and ${other.student.name} on ${row.day} at ${row.time}.`
+                              })
+                            }
 
-                          return hour * 60 + minute
-                        }
-
-                        const therapyEndMinutes = row =>
-                          therapyTimeToMinutes(row.time) +
-                          Number(row.duration || 30)
-
-                        const therapyEndLabel = row => {
-                          const total = therapyEndMinutes(row)
-
-                          if (!Number.isFinite(total) || total >= 9999) {
-                            return ''
-                          }
-
-                          let hour = Math.floor(total / 60)
-                          const minute = total % 60
-                          const period = hour >= 12 ? 'PM' : 'AM'
-
-                          hour %= 12
-                          if (hour === 0) hour = 12
-
-                          return `${hour}:${String(minute).padStart(2, '0')} ${period}`
-                        }
+                            if (row.studentId === other.studentId) {
+                              conflictWarnings.push({
+                                type: 'student',
+                                text: `${row.student.name} has two appointments on ${row.day} at ${row.time}.`
+                              })
+                            }
+                          })
+                        })
 
                         const dayOrder = {
                           Monday: 1,
                           Tuesday: 2,
                           Wednesday: 3,
-                          Thursday: 4
+                          Thursday: 4,
+                          Friday: 5
                         }
-
-                        const conflictWarnings = []
-                        const conflictKeys = new Set()
-
-                        const addConflict = (key, warning) => {
-                          if (conflictKeys.has(key)) return
-                          conflictKeys.add(key)
-                          conflictWarnings.push(warning)
-                        }
-
-                        scheduleRows.forEach((row, index) => {
-                          scheduleRows.slice(index + 1).forEach(other => {
-                            if (row.day !== other.day) return
-
-                            const rowStart = therapyTimeToMinutes(row.time)
-                            const rowEnd = therapyEndMinutes(row)
-                            const otherStart =
-                              therapyTimeToMinutes(other.time)
-                            const otherEnd = therapyEndMinutes(other)
-
-                            const overlaps =
-                              rowStart < otherEnd &&
-                              otherStart < rowEnd
-
-                            if (overlaps) {
-                              if (
-                                row.studentId === other.studentId
-                              ) {
-                                const key = [
-                                  'student-overlap',
-                                  row.day,
-                                  row.studentId,
-                                  Math.min(rowStart, otherStart),
-                                  Math.max(rowEnd, otherEnd)
-                                ].join('|')
-
-                                addConflict(key, {
-                                  type: 'student',
-                                  text:
-                                    `${row.student.name} is with ` +
-                                    `${row.therapistName} from ${row.time}–${therapyEndLabel(row)}, ` +
-                                    `but also has ${other.service} with ` +
-                                    `${other.therapistName} from ${other.time}–${therapyEndLabel(other)}.`
-                                })
-                              }
-
-                              if (
-                                row.therapistName ===
-                                other.therapistName &&
-                                row.studentId !== other.studentId
-                              ) {
-                                const key = [
-                                  'staff-overlap',
-                                  row.day,
-                                  row.therapistName,
-                                  Math.min(rowStart, otherStart),
-                                  Math.max(rowEnd, otherEnd)
-                                ].join('|')
-
-                                addConflict(key, {
-                                  type: 'therapist',
-                                  text:
-                                    `${row.therapistName} is double-booked with ` +
-                                    `${row.student.name} and ${other.student.name} ` +
-                                    `on ${row.day} between ` +
-                                    `${rowStart <= otherStart ? row.time : other.time} and ` +
-                                    `${rowEnd >= otherEnd ? therapyEndLabel(row) : therapyEndLabel(other)}.`
-                                })
-                              }
-                            }
-
-                            if (
-                              row.studentId === other.studentId &&
-                              (
-                                Math.abs(rowEnd - otherStart) <= 5 ||
-                                Math.abs(otherEnd - rowStart) <= 5
-                              )
-                            ) {
-                              const first =
-                                rowStart <= otherStart ? row : other
-                              const second =
-                                rowStart <= otherStart ? other : row
-                              const totalAway =
-                                therapyEndMinutes(second) -
-                                therapyTimeToMinutes(first.time)
-
-                              const key = [
-                                'back-to-back',
-                                row.day,
-                                row.studentId,
-                                therapyTimeToMinutes(first.time)
-                              ].join('|')
-
-                              addConflict(key, {
-                                type: 'back-to-back',
-                                text:
-                                  `${row.student.name} has back-to-back sessions: ` +
-                                  `${first.service} with ${first.therapistName}, then ` +
-                                  `${second.service} with ${second.therapistName}. ` +
-                                  `He may be out of class for about ${totalAway} minutes ` +
-                                  `and miss ${first.missedSubject || first.className} and ` +
-                                  `${second.missedSubject || second.className}.`
-                              })
-                            }
-                          })
-                        })
 
                         const sortedRows = [...filteredRows].sort((a, b) => {
                           const dayDifference =
@@ -7804,17 +7548,7 @@ export default function Dashboard() {
                             (dayOrder[b.day] || 99)
 
                           if (dayDifference !== 0) return dayDifference
-
-                          const timeDifference =
-                            therapyTimeToMinutes(a.time) -
-                            therapyTimeToMinutes(b.time)
-
-                          if (timeDifference !== 0) return timeDifference
-
-                          return String(a.student?.name || '')
-                            .localeCompare(
-                              String(b.student?.name || '')
-                            )
+                          return a.time.localeCompare(b.time)
                         })
 
                         const updateScheduleRow = (id, changes) => {
@@ -7976,311 +7710,13 @@ export default function Dashboard() {
                           return []
                         }
 
-                        const staffChoicesForRow = row => {
-                          const staffType =
-                            String(row.staffType || '').toLowerCase()
-                          const service =
-                            String(row.service || '').toLowerCase()
-
-                          if (
-                            staffType.includes('speech') ||
-                            service.includes('speech')
-                          ) {
-                            return SUPPORT_STAFF_OPTIONS.filter(
-                              person => person.name === 'Yitzi Liebowitz'
-                            )
-                          }
-
-                          if (
-                            staffType === 'ot' ||
-                            service === 'ot'
-                          ) {
-                            return SUPPORT_STAFF_OPTIONS.filter(
-                              person => person.name === 'Tzvi Malks'
-                            )
-                          }
-
-                          if (
-                            staffType === 'pt' ||
-                            service === 'pt'
-                          ) {
-                            return SUPPORT_STAFF_OPTIONS.filter(
-                              person => person.name === 'Aryeh Schechter'
-                            )
-                          }
-
-                          if (
-                            staffType.includes('social') ||
-                            service.includes('social')
-                          ) {
-                            return SUPPORT_STAFF_OPTIONS.filter(
-                              person =>
-                                person.staffType === 'Social Counseling'
-                            )
-                          }
-
-                          if (
-                            staffType === 'bcba' ||
-                            service.includes('bcba')
-                          ) {
-                            return SUPPORT_STAFF_OPTIONS.filter(
-                              person => person.staffType === 'BCBA'
-                            )
-                          }
-
-                          if (
-                            staffType === 'bt' ||
-                            service.includes('bt')
-                          ) {
-                            return SUPPORT_STAFF_OPTIONS.filter(
-                              person => person.staffType === 'BT'
-                            )
-                          }
-
-                          return SUPPORT_STAFF_OPTIONS
-                        }
-
-                        const tomorrowDay = 'Wednesday'
-
-                        const schoolDayBlocks = [
-                          {
-                            key: 'breakfast',
-                            label: 'Breakfast / Before First Period',
-                            timeLabel: 'Before 10:10 AM',
-                            start: 0,
-                            end: 610,
-                            instructional: false,
-                            teacher: 'Breakfast Staff'
-                          },
-                          {
-                            key: 'period-1',
-                            label: 'Morning Period 1',
-                            timeLabel: '10:10–11:10 AM',
-                            start: 610,
-                            end: 670,
-                            instructional: true,
-                            teacher: 'class-teacher'
-                          },
-                          {
-                            key: 'break-1',
-                            label: 'Morning Break',
-                            timeLabel: '11:10–11:20 AM',
-                            start: 670,
-                            end: 680,
-                            instructional: false,
-                            teacher: 'Break Staff'
-                          },
-                          {
-                            key: 'period-2',
-                            label: 'Morning Period 2',
-                            timeLabel: '11:20 AM–12:05 PM',
-                            start: 680,
-                            end: 725,
-                            instructional: true,
-                            teacher: 'class-teacher'
-                          },
-                          {
-                            key: 'break-2',
-                            label: 'Morning Break',
-                            timeLabel: '12:05–12:15 PM',
-                            start: 725,
-                            end: 735,
-                            instructional: false,
-                            teacher: 'Break Staff'
-                          },
-                          {
-                            key: 'period-3',
-                            label: 'Morning Period 3',
-                            timeLabel: '12:15–12:45 PM',
-                            start: 735,
-                            end: 765,
-                            instructional: true,
-                            teacher: 'class-teacher'
-                          },
-                          {
-                            key: 'lunch',
-                            label: 'Lunch & Recess',
-                            timeLabel: '12:45–1:45 PM',
-                            start: 765,
-                            end: 825,
-                            instructional: false,
-                            teacher: 'Lunch / Recess Staff'
-                          },
-                          {
-                            key: 'english-math',
-                            label: 'English / Math',
-                            timeLabel: '1:45–2:25 PM',
-                            start: 825,
-                            end: 865,
-                            instructional: true,
-                            teacher: 'Rabbi Altshull'
-                          },
-                          {
-                            key: 'break-3',
-                            label: 'Afternoon Break',
-                            timeLabel: '2:25–2:30 PM',
-                            start: 865,
-                            end: 870,
-                            instructional: false,
-                            teacher: 'Break Staff'
-                          },
-                          {
-                            key: 'reading',
-                            label: 'Reading',
-                            timeLabel: '2:30–3:10 PM',
-                            start: 870,
-                            end: 910,
-                            instructional: true,
-                            teacher: 'Reading Teacher'
-                          },
-                          {
-                            key: 'break-4',
-                            label: 'Afternoon Break',
-                            timeLabel: '3:10–3:15 PM',
-                            start: 910,
-                            end: 915,
-                            instructional: false,
-                            teacher: 'Break Staff'
-                          },
-                          {
-                            key: 'writing-science',
-                            label: 'Writing / Science',
-                            timeLabel: '3:15–3:45 PM',
-                            start: 915,
-                            end: 945,
-                            instructional: true,
-                            teacher: 'Writing / Science Teacher'
-                          }
-                        ]
-
-                        const tomorrowRows = sortedRows
-                          .filter(row => row.day === tomorrowDay)
-                          .sort(
-                            (a, b) =>
-                              therapyTimeToMinutes(a.time) -
-                              therapyTimeToMinutes(b.time)
-                          )
-
-                        const tomorrowCoverage = []
-
-                        schoolDayBlocks.forEach(block => {
-                          const rowsInBlock = tomorrowRows.filter(row => {
-                            const start =
-                              therapyTimeToMinutes(row.time)
-                            const end = therapyEndMinutes(row)
-
-                            return start < block.end && end > block.start
-                          })
-
-                          if (rowsInBlock.length === 0) return
-
-                          if (!block.instructional) {
-                            const uniqueStudents =
-                              new Set(
-                                rowsInBlock.map(row => row.studentId)
-                              )
-
-                            tomorrowCoverage.push({
-                              key: block.key,
-                              block,
-                              classId: '',
-                              className: 'School-Wide',
-                              teacher: block.teacher,
-                              classSize: students.length,
-                              outCount: uniqueStudents.size,
-                              rows: rowsInBlock
-                            })
-
-                            return
-                          }
-
-                          const rowsByClass = rowsInBlock.reduce(
-                            (groups, row) => {
-                              const classId =
-                                row.classId ||
-                                STUDENT_CLASSES[row.studentId] ||
-                                'unassigned'
-
-                              if (!groups[classId]) {
-                                groups[classId] = []
-                              }
-
-                              groups[classId].push(row)
-                              return groups
-                            },
-                            {}
-                          )
-
-                          Object.entries(rowsByClass).forEach(
-                            ([classId, classRows]) => {
-                              const classInfo =
-                                CLASSES.find(
-                                  cls => cls.id === classId
-                                )
-
-                              const classStudents =
-                                students.filter(
-                                  student =>
-                                    STUDENT_CLASSES[student.id] ===
-                                    classId
-                                )
-
-                              const uniqueStudents =
-                                new Set(
-                                  classRows.map(row => row.studentId)
-                                )
-
-                              tomorrowCoverage.push({
-                                key:
-                                  `${block.key}-${classId}`,
-                                block,
-                                classId,
-                                className:
-                                  classInfo?.name ||
-                                  classRows[0]?.className ||
-                                  'Unassigned Class',
-                                teacher:
-                                  block.teacher === 'class-teacher'
-                                    ? (
-                                        classInfo?.teacher ||
-                                        classRows[0]?.teacherName ||
-                                        'Assigned Teacher'
-                                      )
-                                    : block.teacher,
-                                classSize: classStudents.length,
-                                outCount: uniqueStudents.size,
-                                rows: [...classRows].sort(
-                                  (a, b) =>
-                                    therapyTimeToMinutes(a.time) -
-                                    therapyTimeToMinutes(b.time)
-                                )
-                              })
-                            }
-                          )
-                        })
-
                         const therapistGroups = SUPPORT_STAFF_OPTIONS.map(
                           therapist => ({
                             therapist,
-                            rows: sortedRows
-                              .filter(
-                                row =>
-                                  row.therapistName === therapist.name
-                              )
-                              .sort((a, b) => {
-                                const dayDifference =
-                                  (dayOrder[a.day] || 99) -
-                                  (dayOrder[b.day] || 99)
-
-                                if (dayDifference !== 0) {
-                                  return dayDifference
-                                }
-
-                                return (
-                                  therapyTimeToMinutes(a.time) -
-                                  therapyTimeToMinutes(b.time)
-                                )
-                              })
+                            rows: sortedRows.filter(
+                              row =>
+                                row.therapistName === therapist.name
+                            )
                           })
                         ).filter(group => group.rows.length > 0)
 
@@ -8611,244 +8047,25 @@ export default function Dashboard() {
                               </div>
                             </div>
 
-                            <div style={{
-                              ...S.card,
-                              marginBottom: 14,
-                              padding: 14
-                            }}>
-                              <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                gap: 10,
-                                marginBottom:
-                                  tomorrowCoverage.length > 0 ? 12 : 0
-                              }}>
-                                <div>
-                                  <div style={{
-                                    fontSize: 14,
-                                    fontWeight: 900,
-                                    color: '#25374e'
-                                  }}>
-                                    Tomorrow’s Class Coverage
-                                  </div>
-
-                                  <div style={{
-                                    fontSize: 10.5,
-                                    color: '#758398',
-                                    marginTop: 2
-                                  }}>
-                                    Each session appears under the actual
-                                    class, break, breakfast, or lunch block.
-                                  </div>
-                                </div>
-
-                                <span style={{
-                                  fontSize: 10,
-                                  fontWeight: 900,
-                                  color: '#52647b',
-                                  background: '#eef2f6',
-                                  padding: '5px 8px',
-                                  borderRadius: 999
-                                }}>
-                                  {tomorrowDay}
-                                </span>
-                              </div>
-
-                              {tomorrowCoverage.length === 0 ? (
-                                <div style={{
-                                  fontSize: 11,
-                                  color: '#758398'
-                                }}>
-                                  No pull-out sessions scheduled.
-                                </div>
-                              ) : (
-                                <div style={{
-                                  display: 'grid',
-                                  gap: 12
-                                }}>
-                                  {schoolDayBlocks.map(block => {
-                                    const groups =
-                                      tomorrowCoverage.filter(
-                                        group =>
-                                          group.block.key === block.key
-                                      )
-
-                                    if (groups.length === 0) return null
-
-                                    return (
-                                      <div
-                                        key={block.key}
-                                        style={{
-                                          border:
-                                            '1px solid #dfe6ee',
-                                          borderRadius: 12,
-                                          background: '#f9fbfc',
-                                          overflow: 'hidden'
-                                        }}
-                                      >
-                                        <div style={{
-                                          padding: '9px 11px',
-                                          background: '#f1f5f8',
-                                          borderBottom:
-                                            '1px solid #dfe6ee',
-                                          display: 'flex',
-                                          justifyContent:
-                                            'space-between',
-                                          alignItems: 'center',
-                                          gap: 8
-                                        }}>
-                                          <div style={{
-                                            fontSize: 11.5,
-                                            fontWeight: 900,
-                                            color: '#2a3b52'
-                                          }}>
-                                            {block.label}
-                                          </div>
-
-                                          <div style={{
-                                            fontSize: 9.5,
-                                            fontWeight: 800,
-                                            color: '#708096'
-                                          }}>
-                                            {block.timeLabel}
-                                          </div>
-                                        </div>
-
-                                        <div style={{
-                                          padding: 9,
-                                          display: 'grid',
-                                          gridTemplateColumns:
-                                            'repeat(auto-fit, minmax(235px, 1fr))',
-                                          gap: 8
-                                        }}>
-                                          {groups.map(group => {
-                                            const percent =
-                                              group.classSize
-                                                ? Math.round(
-                                                    group.outCount /
-                                                    group.classSize *
-                                                    100
-                                                  )
-                                                : 0
-
-                                            return (
-                                              <div
-                                                key={group.key}
-                                                style={{
-                                                  border:
-                                                    '1px solid #e2e8ef',
-                                                  borderRadius: 9,
-                                                  background: '#ffffff',
-                                                  padding: 9
-                                                }}
-                                              >
-                                                <div style={{
-                                                  fontSize: 11,
-                                                  fontWeight: 900,
-                                                  color: '#30445d'
-                                                }}>
-                                                  {group.className}
-                                                </div>
-
-                                                <div style={{
-                                                  fontSize: 9.7,
-                                                  color: '#718096',
-                                                  marginTop: 2
-                                                }}>
-                                                  {group.teacher}
-                                                </div>
-
-                                                <div style={{
-                                                  fontSize: 9.7,
-                                                  color: '#60738a',
-                                                  marginTop: 4,
-                                                  fontWeight: 800
-                                                }}>
-                                                  {group.outCount} student
-                                                  {group.outCount === 1
-                                                    ? ''
-                                                    : 's'} out
-                                                  {group.classSize
-                                                    ? ` of ${group.classSize}`
-                                                    : ''}
-                                                  {' '}({percent}%)
-                                                </div>
-
-                                                <div style={{
-                                                  marginTop: 7,
-                                                  display: 'grid',
-                                                  gap: 5
-                                                }}>
-                                                  {group.rows.map(row => (
-                                                    <div
-                                                      key={
-                                                        `${group.key}-${row.id}`
-                                                      }
-                                                      style={{
-                                                        fontSize: 9.8,
-                                                        color: '#40536b',
-                                                        lineHeight: 1.4
-                                                      }}
-                                                    >
-                                                      <strong>
-                                                        {row.time}–
-                                                        {therapyEndLabel(row)}
-                                                      </strong>
-                                                      {' · '}
-                                                      {row.student.name}
-                                                      {' → '}
-                                                      {row.service} with{' '}
-                                                      {row.therapistName}
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              </div>
-                                            )
-                                          })}
-                                        </div>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-
                             {conflictWarnings.length > 0 && (
-                              <details style={{
-
+                              <div style={{
                                 border: '1px solid #e7c7ac',
                                 background: '#fff8f1',
                                 borderRadius: 13,
                                 padding: 14,
                                 marginBottom: 16
                               }}>
-                                <summary style={{
-                                  cursor: 'pointer',
-                                  fontSize: 12.5,
+                                <div style={{
+                                  fontSize: 13,
                                   fontWeight: 900,
                                   color: '#8a5b2b',
-                                  listStyle: 'none'
+                                  marginBottom: 7
                                 }}>
-                                  Schedule Conflicts ·{' '}
-                                  {conflictWarnings.length}
-                                  <span style={{
-                                    marginLeft: 8,
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    color: '#a2764e'
-                                  }}>
-                                    Click to expand
-                                  </span>
-                                </summary>
+                                  Schedule Conflicts
+                                </div>
 
-                                <div style={{
-                                  marginTop: 8,
-                                  display: 'grid',
-                                  gap: 4
-                                }}>
                                 {conflictWarnings
-                                  .slice(0, 12)
+                                  .slice(0, 8)
                                   .map((warning, index) => (
                                     <div
                                       key={`${warning.text}-${index}`}
@@ -8861,29 +8078,26 @@ export default function Dashboard() {
                                       ⚠ {warning.text}
                                     </div>
                                   ))}
-                                </div>
-                              </details>
+                              </div>
                             )}
 
                             {setupTherapyView === 'therapist' && (
                               <div style={{
                                 display: 'grid',
-                                gap: 14
+                                gridTemplateColumns:
+                                  'repeat(auto-fit, minmax(390px, 1fr))',
+                                gap: 15
                               }}>
                                 {therapistGroups.map(group => (
                                   <div
                                     key={group.therapist.name}
-                                    style={{
-                                      ...S.card,
-                                      padding: 14
-                                    }}
+                                    style={S.card}
                                   >
                                     <div style={{
                                       display: 'flex',
                                       justifyContent: 'space-between',
                                       alignItems: 'center',
-                                      marginBottom: 10,
-                                      gap: 10
+                                      marginBottom: 12
                                     }}>
                                       <div>
                                         <div style={{
@@ -8900,345 +8114,437 @@ export default function Dashboard() {
                                           marginTop: 2
                                         }}>
                                           {group.therapist.staffType} ·{' '}
-                                          {group.rows.length} appointments ·{' '}
-                                          chronological order
+                                          {group.rows.length} appointments
                                         </div>
                                       </div>
                                     </div>
 
                                     <div style={{
                                       display: 'grid',
-                                      gridTemplateColumns:
-                                        'repeat(auto-fit, minmax(240px, 1fr))',
                                       gap: 8
                                     }}>
                                       {group.rows.map(row => (
-                                        <details
+                                        <div
                                           key={row.id}
                                           style={{
-                                            border:
-                                              '1px solid #dfe6ee',
+                                            border: '1px solid #e1e7ef',
                                             borderRadius: 10,
                                             padding: 10,
-                                            background: '#f9fbfc'
+                                            background: '#fbfcfe'
                                           }}
                                         >
-                                          <summary style={{
-                                            cursor: 'pointer',
-                                            listStyle: 'none'
+                                          <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            marginBottom: 8
                                           }}>
-                                            <div style={{
-                                              display: 'flex',
-                                              justifyContent:
-                                                'space-between',
-                                              alignItems: 'flex-start',
-                                              gap: 8
-                                            }}>
-                                              <div>
-                                                <div style={{
-                                                  fontSize: 12,
-                                                  fontWeight: 900,
-                                                  color: '#2a3b52'
-                                                }}>
-                                                  {row.time}–
-                                                  {therapyEndLabel(row)}
-                                                </div>
-
-                                                <div style={{
-                                                  fontSize: 11.5,
-                                                  fontWeight: 800,
-                                                  color: '#354a64',
-                                                  marginTop: 3
-                                                }}>
-                                                  {row.student.name}
-                                                </div>
+                                            <div>
+                                              <div style={{
+                                                fontSize: 12,
+                                                fontWeight: 900,
+                                                color: '#2a3b52'
+                                              }}>
+                                                {row.student.name}
                                               </div>
 
-                                              <span style={{
-                                                fontSize: 9.5,
-                                                fontWeight: 900,
-                                                color: '#52647b',
-                                                background: '#edf2f6',
-                                                padding: '4px 7px',
-                                                borderRadius: 999
-                                              }}>
-                                                {row.day}
-                                              </span>
-                                            </div>
-
-                                            <div style={{
-                                              marginTop: 7,
-                                              display: 'flex',
-                                              gap: 5,
-                                              flexWrap: 'wrap'
-                                            }}>
-                                              <span style={{
-                                                fontSize: 9.5,
-                                                fontWeight: 800,
-                                                color: '#49627d',
-                                                background: '#edf4fa',
-                                                padding: '4px 6px',
-                                                borderRadius: 7
+                                              <div style={{
+                                                fontSize: 10,
+                                                color: '#77869a',
+                                                marginTop: 2
                                               }}>
                                                 {row.service}
-                                              </span>
-
-                                              <span style={{
-                                                fontSize: 9.5,
-                                                color: '#6f7e91',
-                                                background: '#f1f3f5',
-                                                padding: '4px 6px',
-                                                borderRadius: 7
-                                              }}>
-                                                {row.duration} min
-                                              </span>
+                                              </div>
                                             </div>
 
-                                            <div style={{
-                                              fontSize: 9.8,
-                                              color: '#758398',
-                                              marginTop: 7,
-                                              lineHeight: 1.4
-                                            }}>
-                                              Missing{' '}
-                                              {row.missedSubject ||
-                                                row.className ||
-                                                'class'}
-                                              {' '}with{' '}
-                                              {row.teacherName ||
-                                                'assigned teacher'}
-                                            </div>
-
-                                            <div style={{
-                                              fontSize: 9.5,
-                                              color: '#8a6b49',
-                                              marginTop: 5,
-                                              fontWeight: 700
-                                            }}>
-                                              Click to edit
-                                            </div>
-                                          </summary>
+                                            <button
+                                              onClick={() =>
+                                                setSetupTherapySchedule(
+                                                  previous =>
+                                                    previous.filter(
+                                                      item =>
+                                                        item.id !== row.id
+                                                    )
+                                                )
+                                              }
+                                              style={{
+                                                border: 'none',
+                                                background: '#f5f7fa',
+                                                color: '#985064',
+                                                borderRadius: 7,
+                                                padding: '5px 7px',
+                                                cursor: 'pointer',
+                                                fontSize: 10
+                                              }}
+                                            >
+                                              Remove
+                                            </button>
+                                          </div>
 
                                           <div style={{
-                                            borderTop:
-                                              '1px solid #e1e7ef',
-                                            marginTop: 9,
-                                            paddingTop: 9,
                                             display: 'grid',
-                                            gap: 7
+                                            gridTemplateColumns:
+                                              '1fr 1fr 0.8fr',
+                                            gap: 6
                                           }}>
-                                            <div style={{
-                                              display: 'grid',
-                                              gridTemplateColumns:
-                                                '1fr 1fr',
-                                              gap: 6
-                                            }}>
-                                              <select
-                                                value={row.day}
-                                                onChange={event =>
-                                                  updateScheduleRow(
-                                                    row.id,
-                                                    {
-                                                      day:
-                                                        event.target.value
-                                                    }
-                                                  )
-                                                }
-                                                style={{
-                                                  padding: '7px',
-                                                  borderRadius: 7,
-                                                  border:
-                                                    '1px solid #dce4ed',
-                                                  fontSize: 10.5
-                                                }}
-                                              >
-                                                {[
-                                                  'Monday',
-                                                  'Tuesday',
-                                                  'Wednesday',
-                                                  'Thursday'
-                                                ].map(day => (
-                                                  <option
-                                                    key={day}
-                                                    value={day}
-                                                  >
-                                                    {day}
-                                                  </option>
-                                                ))}
-                                              </select>
-
-                                              <input
-                                                value={row.time}
-                                                onChange={event =>
-                                                  updateScheduleRow(
-                                                    row.id,
-                                                    {
-                                                      time:
-                                                        event.target.value
-                                                    }
-                                                  )
-                                                }
-                                                style={{
-                                                  padding: '7px',
-                                                  borderRadius: 7,
-                                                  border:
-                                                    '1px solid #dce4ed',
-                                                  fontSize: 10.5
-                                                }}
-                                              />
-                                            </div>
-
-                                            <div style={{
-                                              display: 'grid',
-                                              gridTemplateColumns:
-                                                '1fr 1fr',
-                                              gap: 6
-                                            }}>
-                                              <select
-                                                value={row.studentId}
-                                                onChange={event =>
-                                                  updateScheduleRow(
-                                                    row.id,
-                                                    {
-                                                      studentId:
-                                                        Number(
-                                                          event.target.value
-                                                        )
-                                                    }
-                                                  )
-                                                }
-                                                style={{
-                                                  padding: '7px',
-                                                  borderRadius: 7,
-                                                  border:
-                                                    '1px solid #dce4ed',
-                                                  fontSize: 10.5
-                                                }}
-                                              >
-                                                {students.map(student => (
-                                                  <option
-                                                    key={student.id}
-                                                    value={student.id}
-                                                  >
-                                                    {student.name}
-                                                  </option>
-                                                ))}
-                                              </select>
-
-                                              <select
-                                                value={row.therapistName}
-                                                onChange={event => {
-                                                  const selected =
-                                                    SUPPORT_STAFF_OPTIONS.find(
-                                                      person =>
-                                                        person.name ===
-                                                        event.target.value
-                                                    )
-
-                                                  updateScheduleRow(
-                                                    row.id,
-                                                    {
-                                                      therapistName:
-                                                        event.target.value,
-                                                      staffType:
-                                                        selected?.staffType ||
-                                                        row.staffType,
-                                                      service:
-                                                        selected?.service ||
-                                                        row.service
-                                                    }
-                                                  )
-                                                }}
-                                                style={{
-                                                  padding: '7px',
-                                                  borderRadius: 7,
-                                                  border:
-                                                    '1px solid #dce4ed',
-                                                  fontSize: 10.5
-                                                }}
-                                              >
-                                                {staffChoicesForRow(row)
-                                                  .map(person => (
-                                                    <option
-                                                      key={person.name}
-                                                      value={person.name}
-                                                    >
-                                                      {person.name}
-                                                    </option>
-                                                  ))}
-                                              </select>
-                                            </div>
-
-                                            <div style={{
-                                              display: 'flex',
-                                              justifyContent:
-                                                'space-between',
-                                              alignItems: 'center',
-                                              gap: 8
-                                            }}>
-                                              <select
-                                                value={row.duration}
-                                                onChange={event =>
-                                                  updateScheduleRow(
-                                                    row.id,
-                                                    {
-                                                      duration:
-                                                        Number(
-                                                          event.target.value
-                                                        )
-                                                    }
-                                                  )
-                                                }
-                                                style={{
-                                                  padding: '7px',
-                                                  borderRadius: 7,
-                                                  border:
-                                                    '1px solid #dce4ed',
-                                                  fontSize: 10.5
-                                                }}
-                                              >
-                                                <option value={30}>
-                                                  30 minutes
+                                            <select
+                                              value={row.day}
+                                              onChange={event =>
+                                                updateScheduleRow(
+                                                  row.id,
+                                                  {
+                                                    day:
+                                                      event.target.value
+                                                  }
+                                                )
+                                              }
+                                              style={{
+                                                padding: '6px 7px',
+                                                borderRadius: 7,
+                                                border:
+                                                  '1px solid #dce4ed',
+                                                fontSize: 10.5
+                                              }}
+                                            >
+                                              {[
+                                                'Monday',
+                                                'Tuesday',
+                                                'Wednesday',
+                                                'Thursday',
+                                                'Friday'
+                                              ].map(day => (
+                                                <option
+                                                  key={day}
+                                                  value={day}
+                                                >
+                                                  {day}
                                                 </option>
-                                                <option value={45}>
-                                                  45 minutes
-                                                </option>
-                                                <option value={60}>
-                                                  60 minutes
-                                                </option>
-                                              </select>
+                                              ))}
+                                            </select>
 
-                                              <button
-                                                onClick={() =>
-                                                  setSetupTherapySchedule(
-                                                    previous =>
-                                                      previous.filter(
-                                                        item =>
-                                                          item.id !== row.id
+                                            <input
+                                              value={row.time}
+                                              onChange={event =>
+                                                updateScheduleRow(
+                                                  row.id,
+                                                  {
+                                                    time:
+                                                      event.target.value
+                                                  }
+                                                )
+                                              }
+                                              style={{
+                                                padding: '6px 7px',
+                                                borderRadius: 7,
+                                                border:
+                                                  '1px solid #dce4ed',
+                                                fontSize: 10.5
+                                              }}
+                                            />
+
+                                            <select
+                                              value={row.duration}
+                                              onChange={event =>
+                                                updateScheduleRow(
+                                                  row.id,
+                                                  {
+                                                    duration:
+                                                      Number(
+                                                        event.target.value
                                                       )
-                                                  )
-                                                }
-                                                style={{
-                                                  border:
-                                                    '1px solid #ead9de',
-                                                  background: '#faf7f8',
-                                                  color: '#985064',
-                                                  borderRadius: 7,
-                                                  padding: '7px 9px',
-                                                  cursor: 'pointer',
-                                                  fontSize: 10,
-                                                  fontWeight: 800
-                                                }}
-                                              >
-                                                Remove
-                                              </button>
-                                            </div>
+                                                  }
+                                                )
+                                              }
+                                              style={{
+                                                padding: '6px 7px',
+                                                borderRadius: 7,
+                                                border:
+                                                  '1px solid #dce4ed',
+                                                fontSize: 10.5
+                                              }}
+                                            >
+                                              <option value={30}>
+                                                30 min
+                                              </option>
+                                              <option value={45}>
+                                                45 min
+                                              </option>
+                                              <option value={60}>
+                                                60 min
+                                              </option>
+                                            </select>
                                           </div>
-                                        </details>
+
+                                          <div style={{
+                                            marginTop: 7,
+                                            display: 'grid',
+                                            gridTemplateColumns:
+                                              '1fr 1fr',
+                                            gap: 6
+                                          }}>
+                                            <select
+                                              value={row.studentId}
+                                              onChange={event =>
+                                                updateScheduleRow(
+                                                  row.id,
+                                                  {
+                                                    studentId:
+                                                      Number(
+                                                        event.target.value
+                                                      )
+                                                  }
+                                                )
+                                              }
+                                              style={{
+                                                padding: '6px 7px',
+                                                borderRadius: 7,
+                                                border:
+                                                  '1px solid #dce4ed',
+                                                fontSize: 10.5
+                                              }}
+                                            >
+                                              {students.map(student => (
+                                                <option
+                                                  key={student.id}
+                                                  value={student.id}
+                                                >
+                                                  {student.name}
+                                                </option>
+                                              ))}
+                                            </select>
+
+                                            <select
+                                              value={row.therapistName}
+                                              onChange={event =>
+                                                updateScheduleRow(
+                                                  row.id,
+                                                  {
+                                                    therapistName:
+                                                      event.target.value
+                                                  }
+                                                )
+                                              }
+                                              style={{
+                                                padding: '6px 7px',
+                                                borderRadius: 7,
+                                                border:
+                                                  '1px solid #dce4ed',
+                                                fontSize: 10.5
+                                              }}
+                                            >
+                                              {THERAPIST_OPTIONS.map(
+                                                therapist => (
+                                                  <option
+                                                    key={therapist.name}
+                                                    value={therapist.name}
+                                                  >
+                                                    {therapist.name}
+                                                  </option>
+                                                )
+                                              )}
+                                            </select>
+                                          </div>
+                                        </div>
                                       ))}
                                     </div>
                                   </div>
                                 ))}
+                              </div>
+                            )}
+
+                            {setupTherapyView === 'time' && (
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns:
+                                  'repeat(auto-fit, minmax(340px, 1fr))',
+                                gap: 14
+                              }}>
+                                {timeGroups.map(group => {
+                                  const hasConflict =
+                                    group.rows.some((row, index) =>
+                                      group.rows.slice(index + 1).some(other =>
+                                        row.studentId === other.studentId ||
+                                        row.therapistName === other.therapistName
+                                      )
+                                    )
+
+                                  return (
+                                    <div
+                                      key={`${group.day}-${group.time}`}
+                                      style={{
+                                        ...S.card,
+                                        border: hasConflict
+                                          ? '1px solid #e5b98f'
+                                          : '1px solid #e2e8f0',
+                                        background: hasConflict
+                                          ? '#fffaf4'
+                                          : '#ffffff'
+                                      }}
+                                    >
+                                      <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        gap: 10,
+                                        marginBottom: 12
+                                      }}>
+                                        <div>
+                                          <div style={{
+                                            fontSize: 15,
+                                            fontWeight: 900,
+                                            color: '#26384e'
+                                          }}>
+                                            {group.time}
+                                          </div>
+
+                                          <div style={{
+                                            fontSize: 11,
+                                            color: '#708095',
+                                            marginTop: 2
+                                          }}>
+                                            {group.day}
+                                          </div>
+                                        </div>
+
+                                        <div style={{
+                                          padding: '6px 9px',
+                                          borderRadius: 999,
+                                          background: hasConflict
+                                            ? '#fff0df'
+                                            : '#eef4f9',
+                                          color: hasConflict
+                                            ? '#965c22'
+                                            : '#50677f',
+                                          fontSize: 10,
+                                          fontWeight: 900
+                                        }}>
+                                          {group.rows.length} appointment
+                                          {group.rows.length === 1 ? '' : 's'}
+                                        </div>
+                                      </div>
+
+                                      <div style={{
+                                        display: 'grid',
+                                        gap: 8
+                                      }}>
+                                        {group.rows.map(row => {
+                                          const therapistConflict =
+                                            group.rows.some(
+                                              other =>
+                                                other.id !== row.id &&
+                                                other.therapistName ===
+                                                  row.therapistName
+                                            )
+
+                                          const studentConflict =
+                                            group.rows.some(
+                                              other =>
+                                                other.id !== row.id &&
+                                                other.studentId ===
+                                                  row.studentId
+                                            )
+
+                                          const conflict =
+                                            therapistConflict ||
+                                            studentConflict
+
+                                          return (
+                                            <div
+                                              key={row.id}
+                                              style={{
+                                                border: conflict
+                                                  ? '1px solid #e7bf9a'
+                                                  : '1px solid #e3e9f0',
+                                                borderRadius: 10,
+                                                padding: '10px 11px',
+                                                background: conflict
+                                                  ? '#fff8ef'
+                                                  : '#fbfcfe'
+                                              }}
+                                            >
+                                              <div style={{
+                                                display: 'flex',
+                                                justifyContent:
+                                                  'space-between',
+                                                gap: 10
+                                              }}>
+                                                <div>
+                                                  <div style={{
+                                                    fontSize: 12,
+                                                    fontWeight: 900,
+                                                    color: '#2b3c52'
+                                                  }}>
+                                                    {row.student.name}
+                                                  </div>
+
+                                                  <div style={{
+                                                    fontSize: 10.5,
+                                                    color: '#6f7f93',
+                                                    marginTop: 3
+                                                  }}>
+                                                    {row.therapistName}
+                                                  </div>
+                                                </div>
+
+                                                <div style={{
+                                                  textAlign: 'right'
+                                                }}>
+                                                  <div style={{
+                                                    fontSize: 10.5,
+                                                    fontWeight: 800,
+                                                    color: '#617287'
+                                                  }}>
+                                                    {row.duration} min
+                                                  </div>
+
+                                                  {conflict && (
+                                                    <div style={{
+                                                      fontSize: 9,
+                                                      color: '#a05f23',
+                                                      fontWeight: 900,
+                                                      marginTop: 3
+                                                    }}>
+                                                      ⚠ Conflict
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+
+                                              <div style={{
+                                                marginTop: 7,
+                                                paddingTop: 7,
+                                                borderTop:
+                                                  '1px solid #edf1f5',
+                                                display: 'flex',
+                                                justifyContent:
+                                                  'space-between',
+                                                gap: 8,
+                                                flexWrap: 'wrap',
+                                                fontSize: 10,
+                                                color: '#7a889a'
+                                              }}>
+                                                <span>{row.service}</span>
+                                                <span>{row.location}</span>
+                                              </div>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+
+                                {timeGroups.length === 0 && (
+                                  <div style={{
+                                    ...S.card,
+                                    textAlign: 'center',
+                                    color: '#718096',
+                                    fontSize: 13
+                                  }}>
+                                    No appointments match this filter.
+                                  </div>
+                                )}
                               </div>
                             )}
 
