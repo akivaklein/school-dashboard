@@ -2383,15 +2383,70 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
 
   function handleToggle(s) {
     const now = new Date()
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+    const timeStr = now.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })
+
     if (s.status === 'present') {
-      setLeavePopup(s.id); setLeaveReason('therapy'); setLeaveStaffSearch(''); setLeaveStaffId('')
-    } else {
-      setStudents(prev => prev.map(x => x.id === s.id ? {
-        ...x, status: 'present', withStaff: null,
-        classLog: [...(x.classLog || []), { time: timeStr, type: 'in', note: 'Returned to class', staffId: null }]
-      } : x))
+      setLeavePopup(s.id)
+      setLeaveReason('therapy')
+      setLeaveStaffSearch('')
+      setLeaveStaffId('')
+      return
     }
+
+    setStudents(prev => prev.map(x => {
+      if (x.id !== s.id) return x
+
+      const wasAbsentFromYeshiva =
+        x.dailyStatus === 'absent' ||
+        x.status === 'absent' ||
+        x.status === 'not-arrived'
+
+      // Returning from therapy, BT, or another room.
+      // This is not a late arrival to school.
+      if (!wasAbsentFromYeshiva) {
+        return {
+          ...x,
+          status: 'present',
+          withStaff: null,
+          classLog: [
+            ...(x.classLog || []),
+            {
+              time: timeStr,
+              type: 'in',
+              note: 'Returned to class',
+              staffId: null
+            }
+          ]
+        }
+      }
+
+      // Student was absent but has now arrived at yeshiva.
+      return {
+        ...x,
+        status: 'present',
+        dailyStatus: 'late',
+        withStaff: null,
+        lateDetails: {
+          timeArrived: timeStr,
+          reason: 'arrived-late',
+          note: 'Arrival recorded from School-Wide Mode'
+        },
+        classLog: [
+          ...(x.classLog || []),
+          {
+            time: timeStr,
+            type: 'in',
+            note: 'Arrived late to yeshiva',
+            staffId: null
+          }
+        ]
+      }
+    }))
   }
 
   function confirmLeave() {
@@ -3629,6 +3684,10 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
             const isSelected = selected.includes(s.id)
             const vip = isVIP(s)
             const inClass = s.status === 'present'
+            const isAbsent =
+              s.dailyStatus === 'absent' || s.status === 'absent'
+            const isPulledOut =
+              s.status === 'therapy' || s.status === 'with-bt'
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
             const thisIntervalReminders = intervalReminders[s.id] || 0
             const unavailableReason =
@@ -3644,9 +3703,33 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
                 key={s.id}
                 onClick={() => toggleSelect(s.id)}
                 style={{
-                  background: isSelected ? '#f3f7ff' : inClass ? '#ffffff' : '#f2f4f7',
-                  opacity: inClass ? 1 : 0.72,
-                  border: `1.5px solid ${isSelected ? '#5d85bf' : inClass ? '#d6e0eb' : '#d6dce4'}`,
+                  background: inClass
+                    ? '#ffffff'
+                    : isSelected
+                      ? '#f3f7ff'
+                      : isAbsent
+                      ? '#cbd5e1'
+                      : s.status === 'unknown'
+                        ? '#fee2e2'
+                        : isPulledOut
+                          ? '#e8eef7'
+                          : inClass
+                            ? '#ffffff'
+                            : '#e5e7eb',
+                  opacity: isAbsent ? 0.92 : isPulledOut ? 0.82 : inClass ? 1 : 0.76,
+                  border: `1.5px solid ${
+                    isSelected
+                      ? '#5d85bf'
+                      : isAbsent
+                        ? '#94a3b8'
+                        : s.status === 'unknown'
+                          ? '#fca5a5'
+                          : isPulledOut
+                            ? '#b8c9df'
+                            : inClass
+                              ? '#d6e0eb'
+                              : '#cbd5e1'
+                  }`,
                   boxShadow: isSelected
                     ? '0 9px 24px rgba(47,86,138,0.16)'
                     : inClass
@@ -4068,8 +4151,60 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
       setLeaveStaffSearch('')
       setLeaveStaffId('')
     } else {
-      // Turning on — mark present
-      setStudents(prev => prev.map(x => x.id === s.id ? { ...x, status: 'present', withStaff: null } : x))
+      // Turning on:
+      // If the student had not arrived, record a late arrival and current time.
+      const arrivedNow = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+      })
+
+      setStudents(prev => prev.map(x => {
+        if (x.id !== s.id) return x
+
+        const wasNotInSchool =
+          x.dailyStatus === 'absent' ||
+          x.status === 'absent' ||
+          x.status === 'not-arrived'
+
+        if (!wasNotInSchool) {
+          // Returning from therapy, BT, hallway, etc.
+          return {
+            ...x,
+            status: 'present',
+            withStaff: null,
+            classLog: [
+              ...(x.classLog || []),
+              {
+                time: arrivedNow,
+                type: 'in',
+                note: 'Returned to class',
+                staffId: null
+              }
+            ]
+          }
+        }
+
+        return {
+          ...x,
+          status: 'present',
+          dailyStatus: 'late',
+          withStaff: null,
+          lateDetails: {
+            timeArrived: arrivedNow,
+            reason: 'arrived-late',
+            note: 'Marked present from School-Wide Mode'
+          },
+          classLog: [
+            ...(x.classLog || []),
+            {
+              time: arrivedNow,
+              type: 'in',
+              note: 'Arrived late to yeshiva',
+              staffId: null
+            }
+          ]
+        }
+      }))
     }
   }
 
@@ -4281,7 +4416,31 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
             const inClass = s.status === 'present'
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
             return (
-              <div key={s.id} style={{ background: inClass ? '#f0fdf4' : s.status === 'unknown' ? '#fef2f2' : '#ffffff', border: `2px solid ${inClass ? '#86efac' : s.status === 'unknown' ? '#fecaca' : '#e2e8f0'}`, borderRadius: 10, padding: '12px 14px' }}>
+              <div key={s.id} style={{ background:
+                  s.status === 'absent'
+                    ? '#cbd5e1'
+                    : s.status === 'unknown'
+                      ? '#fee2e2'
+                      : s.status === 'therapy'
+                        ? '#f3e8ff'
+                        : s.status === 'with-bt'
+                          ? '#e0f2fe'
+                          : inClass
+                            ? '#f0fdf4'
+                            : '#f8fafc',
+                border: `2px solid ${
+                  s.status === 'absent'
+                    ? '#94a3b8'
+                    : s.status === 'unknown'
+                      ? '#fca5a5'
+                      : s.status === 'therapy'
+                        ? '#c4b5fd'
+                        : s.status === 'with-bt'
+                          ? '#7dd3fc'
+                          : inClass
+                            ? '#86efac'
+                            : '#e2e8f0'
+                }`, borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <div style={S.avatar(i, 30)}>{initials(s.name)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -12024,7 +12183,32 @@ export default function Dashboard() {
         </div>
       )}
 
-      {drillDown && <DrillDown title={drillDown.title} students={drillDown.students} onClose={() => setDrillDown(null)} onSelectStudent={s => { openStudent(s); setDrillDown(null) }} />}
+      {drillDown && (
+        <DrillDown
+          title={drillDown.title}
+          students={drillDown.students
+            .map(savedStudent =>
+              students.find(currentStudent => currentStudent.id === savedStudent.id)
+            )
+            .filter(Boolean)
+            .filter(student => {
+              if (drillDown.title.includes('Absent')) {
+                return (student.dailyStatus || student.status) === 'absent'
+              }
+
+              if (drillDown.title.includes('Present')) {
+                return student.status === 'present'
+              }
+
+              return true
+            })}
+          onClose={() => setDrillDown(null)}
+          onSelectStudent={student => {
+            openStudent(student)
+            setDrillDown(null)
+          }}
+        />
+      )}
       {selectedStudent && <StudentProfile student={selectedStudent} students={students} setStudents={setStudents} onClose={() => setSelectedStudent(null)} role={role} userName={userName} defaultTab={selectedStudentTab} />}
     </div>
   )
