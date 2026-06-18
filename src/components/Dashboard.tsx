@@ -4862,7 +4862,7 @@ function StudentFlagsPanel({
   )
 }
 
-function FlagDashboardWidget({ flags, students, onOpen }) {
+function FlagDashboardWidget({ flags, onOpen }) {
   const today = new Date().toISOString().slice(0, 10)
   const inSevenDays = new Date()
   inSevenDays.setDate(inSevenDays.getDate() + 7)
@@ -4876,32 +4876,33 @@ function FlagDashboardWidget({ flags, students, onOpen }) {
     0
   )
 
-  const nameFor = id =>
-    students.find(student => Number(student.id) === Number(id))?.name ||
-    'Unknown Student'
-
   return (
     <div style={{
-      maxWidth: 1180,
-      margin: '0 auto 18px',
-      background: '#fff',
-      border: '1px solid #dfe6ee',
-      borderRadius: 14,
-      padding: '15px 17px',
-      boxShadow: '0 5px 16px rgba(30,41,59,0.045)'
+      marginTop: 16,
+      paddingTop: 14,
+      borderTop: '1px solid #eef0f7'
     }}>
       <div style={{
         display: 'flex',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        gap: 14,
-        alignItems: 'center'
+        gap: 12
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 900, color: '#293c52' }}>
+          <div style={{
+            fontSize: 12,
+            fontWeight: 800,
+            color: '#263241'
+          }}>
             Student Flags
           </div>
-          <div style={{ fontSize: 11, color: '#718096', marginTop: 3 }}>
-            {active.length} active · {dueSoon.length} ending within 7 days · {observationsToday} observations today
+
+          <div style={{
+            fontSize: 10.5,
+            color: '#64748b',
+            marginTop: 3
+          }}>
+            {active.length} active · {dueSoon.length} ending soon · {observationsToday} today
           </div>
         </div>
 
@@ -4909,63 +4910,23 @@ function FlagDashboardWidget({ flags, students, onOpen }) {
           onClick={onOpen}
           style={{
             border: '1px solid #cbd7e3',
-            background: '#f7f9fb',
-            color: '#315f82',
-            borderRadius: 9,
-            padding: '7px 10px',
-            fontSize: 11,
-            fontWeight: 850,
-            cursor: 'pointer'
+            background: '#f8fafc',
+            color: '#4f6687',
+            borderRadius: 10,
+            padding: '6px 9px',
+            fontSize: 10.5,
+            fontWeight: 750,
+            cursor: 'pointer',
+            flexShrink: 0
           }}
         >
           Open Flags
         </button>
       </div>
-
-      {active.length > 0 && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-          gap: 8,
-          marginTop: 11
-        }}>
-          {active.slice(0, 3).map(flag => (
-            <div key={flag.id} style={{
-              background: '#f7f9fb',
-              border: '1px solid #e3e8ee',
-              borderRadius: 9,
-              padding: '9px 10px'
-            }}>
-              <div style={{
-                fontSize: 11.5,
-                fontWeight: 850,
-                color: '#34465a',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
-                {nameFor(flag.studentId)}
-              </div>
-              <div style={{
-                fontSize: 10.5,
-                color: '#64748b',
-                marginTop: 3,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
-                {flag.goal}
-              </div>
-              <div style={{ fontSize: 10, color: '#8a6570', marginTop: 5 }}>
-                Ends {flag.endDate}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
+
 
 function StudentSupport({
   students,
@@ -7484,17 +7445,6 @@ export default function Dashboard() {
 
         {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} setDrillDown={setDrillDown} />}
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={visibleStudents} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
-
-        {page === 'dashboard' && role === 'admin' && (
-          <FlagDashboardWidget
-            flags={studentFlags}
-            students={visibleStudents}
-            onOpen={() => {
-              setSupportInitialSection('flags')
-              setPage('support')
-            }}
-          />
-        )}
 
         {page === 'dashboard' && role === 'admin' && isOfficeUser && (
           <div style={{ maxWidth: 1180, margin: '0 auto' }}>
@@ -10936,6 +10886,14 @@ export default function Dashboard() {
                   ))}
                   {alerts.filter(a => a.type === 'danger').length === 0 && <div style={{ color: '#64748b', fontSize: 12, paddingTop: 8 }}>No urgent alerts right now.</div>}
                 </div>
+
+                <FlagDashboardWidget
+                  flags={studentFlags}
+                  onOpen={() => {
+                    setSupportInitialSection('flags')
+                    setPage('support')
+                  }}
+                />
               </div>
             </div>
 
