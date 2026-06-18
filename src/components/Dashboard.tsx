@@ -2383,70 +2383,15 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
 
   function handleToggle(s) {
     const now = new Date()
-
-    const timeStr = now.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
-
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     if (s.status === 'present') {
-      setLeavePopup(s.id)
-      setLeaveReason('therapy')
-      setLeaveStaffSearch('')
-      setLeaveStaffId('')
-      return
+      setLeavePopup(s.id); setLeaveReason('therapy'); setLeaveStaffSearch(''); setLeaveStaffId('')
+    } else {
+      setStudents(prev => prev.map(x => x.id === s.id ? {
+        ...x, status: 'present', withStaff: null,
+        classLog: [...(x.classLog || []), { time: timeStr, type: 'in', note: 'Returned to class', staffId: null }]
+      } : x))
     }
-
-    setStudents(prev => prev.map(x => {
-      if (x.id !== s.id) return x
-
-      const wasAbsentFromYeshiva =
-        x.dailyStatus === 'absent' ||
-        x.status === 'absent' ||
-        x.status === 'not-arrived'
-
-      // Returning from therapy, BT, or another room.
-      // This is not a late arrival to school.
-      if (!wasAbsentFromYeshiva) {
-        return {
-          ...x,
-          status: 'present',
-          withStaff: null,
-          classLog: [
-            ...(x.classLog || []),
-            {
-              time: timeStr,
-              type: 'in',
-              note: 'Returned to class',
-              staffId: null
-            }
-          ]
-        }
-      }
-
-      // Student was absent but has now arrived at yeshiva.
-      return {
-        ...x,
-        status: 'present',
-        dailyStatus: 'late',
-        withStaff: null,
-        lateDetails: {
-          timeArrived: timeStr,
-          reason: 'arrived-late',
-          note: 'Arrival recorded from School-Wide Mode'
-        },
-        classLog: [
-          ...(x.classLog || []),
-          {
-            time: timeStr,
-            type: 'in',
-            note: 'Arrived late to yeshiva',
-            staffId: null
-          }
-        ]
-      }
-    }))
   }
 
   function confirmLeave() {
@@ -4473,6 +4418,555 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
 }
 
 
+
+function StudentFlagsPanel({
+  students,
+  flags,
+  setFlags,
+  currentStaffName
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const [expandedId, setExpandedId] = useState(null)
+  const [showCreate, setShowCreate] = useState(false)
+  const [studentId, setStudentId] = useState(students[0]?.id || '')
+  const [goal, setGoal] = useState('')
+  const [startDate, setStartDate] = useState(today)
+  const [endDate, setEndDate] = useState('')
+  const [observed, setObserved] = useState('yes')
+  const [note, setNote] = useState('')
+  const [staffName, setStaffName] = useState(currentStaffName || 'Staff Member')
+
+  const studentName = id =>
+    students.find(student => Number(student.id) === Number(id))?.name ||
+    'Unknown Student'
+
+  const normalizedFlags = flags.map(flag => ({
+    ...flag,
+    completed: flag.completed || flag.endDate < today
+  }))
+
+  const activeFlags = normalizedFlags
+    .filter(flag => !flag.completed)
+    .sort((a, b) => a.endDate.localeCompare(b.endDate))
+
+  const completedFlags = normalizedFlags
+    .filter(flag => flag.completed)
+    .sort((a, b) => b.endDate.localeCompare(a.endDate))
+
+  const createFlag = () => {
+    if (!studentId || !goal.trim() || !startDate || !endDate) return
+    if (endDate < startDate) {
+      alert('End date must be on or after the start date.')
+      return
+    }
+
+    setFlags(previous => [
+      {
+        id: `flag-${Date.now()}`,
+        studentId: Number(studentId),
+        goal: goal.trim(),
+        startDate,
+        endDate,
+        createdBy: currentStaffName || 'Staff Member',
+        createdAt: today,
+        completed: endDate < today,
+        observations: []
+      },
+      ...previous
+    ])
+
+    setGoal('')
+    setStartDate(today)
+    setEndDate('')
+    setShowCreate(false)
+  }
+
+  const addObservation = flagId => {
+    if (!staffName.trim()) return
+
+    setFlags(previous =>
+      previous.map(flag =>
+        flag.id !== flagId
+          ? flag
+          : {
+              ...flag,
+              observations: [
+                {
+                  id: `observation-${Date.now()}`,
+                  observed: observed === 'yes',
+                  note: note.trim(),
+                  staffName: staffName.trim(),
+                  date: today,
+                  time: new Date().toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })
+                },
+                ...(flag.observations || [])
+              ]
+            }
+      )
+    )
+
+    setNote('')
+    setObserved('yes')
+  }
+
+  const card = {
+    background: '#ffffff',
+    border: '1px solid #dfe6ee',
+    borderRadius: 14,
+    padding: 16,
+    boxShadow: '0 4px 14px rgba(30,41,59,0.045)'
+  }
+
+  const input = {
+    width: '100%',
+    padding: '9px 11px',
+    borderRadius: 9,
+    border: '1px solid #d8e0e8',
+    fontSize: 12,
+    background: '#fff',
+    boxSizing: 'border-box'
+  }
+
+  const renderFlag = (flag, completed = false) => {
+    const isOpen = expandedId === flag.id
+    const yesCount = (flag.observations || []).filter(item => item.observed).length
+    const noCount = (flag.observations || []).filter(item => !item.observed).length
+
+    return (
+      <div key={flag.id} style={{
+        ...card,
+        opacity: completed ? 0.82 : 1,
+        borderLeft: `4px solid ${completed ? '#94a3b8' : '#4f7092'}`
+      }}>
+        <button
+          onClick={() => setExpandedId(isOpen ? null : flag.id)}
+          style={{
+            width: '100%',
+            border: 0,
+            background: 'transparent',
+            padding: 0,
+            cursor: 'pointer',
+            textAlign: 'left'
+          }}
+        >
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 14,
+            alignItems: 'flex-start'
+          }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 900, color: '#24364b' }}>
+                {studentName(flag.studentId)}
+              </div>
+              <div style={{
+                fontSize: 13,
+                fontWeight: 750,
+                color: '#40556d',
+                marginTop: 5,
+                lineHeight: 1.4
+              }}>
+                {flag.goal}
+              </div>
+              <div style={{ fontSize: 11, color: '#718096', marginTop: 7 }}>
+                {flag.startDate} through {flag.endDate} · Created by {flag.createdBy}
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <span style={{
+                display: 'inline-flex',
+                padding: '4px 8px',
+                borderRadius: 999,
+                background: completed ? '#eef1f4' : '#eaf2f8',
+                color: completed ? '#64748b' : '#315f82',
+                fontSize: 10,
+                fontWeight: 850
+              }}>
+                {completed ? 'Completed' : 'Active'}
+              </span>
+              <div style={{ fontSize: 11, color: '#718096', marginTop: 8 }}>
+                {yesCount} yes · {noCount} no · {(flag.observations || []).length} total
+              </div>
+            </div>
+          </div>
+        </button>
+
+        {isOpen && (
+          <div style={{
+            marginTop: 15,
+            paddingTop: 15,
+            borderTop: '1px solid #e6ebf0'
+          }}>
+            {!completed && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '150px minmax(180px, 1fr) 190px auto',
+                gap: 10,
+                alignItems: 'end',
+                background: '#f7f9fb',
+                border: '1px solid #e3e8ee',
+                borderRadius: 11,
+                padding: 12,
+                marginBottom: 14
+              }}>
+                <label style={{ fontSize: 11, fontWeight: 800, color: '#526274' }}>
+                  Observed behavior?
+                  <select
+                    value={observed}
+                    onChange={event => setObserved(event.target.value)}
+                    style={{ ...input, marginTop: 5 }}
+                  >
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+
+                <label style={{ fontSize: 11, fontWeight: 800, color: '#526274' }}>
+                  Note
+                  <input
+                    value={note}
+                    onChange={event => setNote(event.target.value)}
+                    placeholder="What did you notice?"
+                    style={{ ...input, marginTop: 5 }}
+                  />
+                </label>
+
+                <label style={{ fontSize: 11, fontWeight: 800, color: '#526274' }}>
+                  Staff name
+                  <input
+                    value={staffName}
+                    onChange={event => setStaffName(event.target.value)}
+                    style={{ ...input, marginTop: 5 }}
+                  />
+                </label>
+
+                <button
+                  onClick={() => addObservation(flag.id)}
+                  style={{
+                    padding: '10px 13px',
+                    borderRadius: 9,
+                    border: '1px solid #315f82',
+                    background: '#315f82',
+                    color: '#fff',
+                    fontSize: 11,
+                    fontWeight: 850,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Log observation
+                </button>
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              {(flag.observations || []).length === 0 && (
+                <div style={{ fontSize: 12, color: '#8491a0', padding: '8px 0' }}>
+                  No observations logged yet.
+                </div>
+              )}
+
+              {(flag.observations || []).map(item => (
+                <div key={item.id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '72px 1fr auto',
+                  gap: 10,
+                  alignItems: 'start',
+                  padding: '10px 11px',
+                  borderRadius: 9,
+                  background: item.observed ? '#edf7f1' : '#fff3f3',
+                  border: `1px solid ${item.observed ? '#cfe6d7' : '#f2d0d0'}`
+                }}>
+                  <b style={{
+                    fontSize: 11,
+                    color: item.observed ? '#397153' : '#a23a4c'
+                  }}>
+                    {item.observed ? 'YES' : 'NO'}
+                  </b>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#3d4f62' }}>
+                      {item.note || 'No note entered.'}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: '#718096', marginTop: 4 }}>
+                      {item.staffName}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: '#718096', textAlign: 'right' }}>
+                    {item.date}<br />{item.time}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 14,
+        alignItems: 'center',
+        marginBottom: 14
+      }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: '#34465a' }}>
+            Student Flags & Observations
+          </div>
+          <div style={{ fontSize: 12, color: '#778493', marginTop: 4 }}>
+            Time-limited observation goals with simple staff check-ins.
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowCreate(value => !value)}
+          style={{
+            padding: '9px 13px',
+            borderRadius: 9,
+            border: '1px solid #315f82',
+            background: '#315f82',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 850,
+            cursor: 'pointer'
+          }}
+        >
+          {showCreate ? 'Cancel' : '+ New Flag'}
+        </button>
+      </div>
+
+      {showCreate && (
+        <div style={{
+          ...card,
+          marginBottom: 16,
+          background: '#f7f9fb'
+        }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1.5fr 160px 160px',
+            gap: 11
+          }}>
+            <label style={{ fontSize: 11, fontWeight: 800, color: '#526274' }}>
+              Student
+              <select
+                value={studentId}
+                onChange={event => setStudentId(event.target.value)}
+                style={{ ...input, marginTop: 5 }}
+              >
+                {students.map(student => (
+                  <option key={student.id} value={student.id}>{student.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <label style={{ fontSize: 11, fontWeight: 800, color: '#526274' }}>
+              Goal / behavior to observe
+              <input
+                value={goal}
+                onChange={event => setGoal(event.target.value)}
+                placeholder="Example: Raises hand before speaking"
+                style={{ ...input, marginTop: 5 }}
+              />
+            </label>
+
+            <label style={{ fontSize: 11, fontWeight: 800, color: '#526274' }}>
+              Start date
+              <input
+                type="date"
+                value={startDate}
+                onChange={event => setStartDate(event.target.value)}
+                style={{ ...input, marginTop: 5 }}
+              />
+            </label>
+
+            <label style={{ fontSize: 11, fontWeight: 800, color: '#526274' }}>
+              End date
+              <input
+                type="date"
+                value={endDate}
+                onChange={event => setEndDate(event.target.value)}
+                style={{ ...input, marginTop: 5 }}
+              />
+            </label>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 12
+          }}>
+            <div style={{ fontSize: 11, color: '#718096' }}>
+              Created by: <b>{currentStaffName || 'Staff Member'}</b>
+            </div>
+            <button
+              onClick={createFlag}
+              style={{
+                padding: '9px 14px',
+                borderRadius: 9,
+                border: '1px solid #315f82',
+                background: '#315f82',
+                color: '#fff',
+                fontSize: 11,
+                fontWeight: 850,
+                cursor: 'pointer'
+              }}
+            >
+              Create flag
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gap: 12 }}>
+        <div>
+          <div style={{
+            fontSize: 13,
+            fontWeight: 900,
+            color: '#34465a',
+            marginBottom: 9
+          }}>
+            Active ({activeFlags.length})
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {activeFlags.length
+              ? activeFlags.map(flag => renderFlag(flag, false))
+              : <div style={card}>No active flags.</div>}
+          </div>
+        </div>
+
+        <details style={{ marginTop: 6 }}>
+          <summary style={{
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 900,
+            color: '#526274',
+            padding: '8px 0'
+          }}>
+            Completed ({completedFlags.length})
+          </summary>
+          <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+            {completedFlags.length
+              ? completedFlags.map(flag => renderFlag(flag, true))
+              : <div style={card}>No completed flags yet.</div>}
+          </div>
+        </details>
+      </div>
+    </div>
+  )
+}
+
+function FlagDashboardWidget({ flags, students, onOpen }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const inSevenDays = new Date()
+  inSevenDays.setDate(inSevenDays.getDate() + 7)
+  const sevenDayIso = inSevenDays.toISOString().slice(0, 10)
+
+  const active = flags.filter(flag => !flag.completed && flag.endDate >= today)
+  const dueSoon = active.filter(flag => flag.endDate <= sevenDayIso)
+  const observationsToday = active.reduce(
+    (sum, flag) =>
+      sum + (flag.observations || []).filter(item => item.date === today).length,
+    0
+  )
+
+  const nameFor = id =>
+    students.find(student => Number(student.id) === Number(id))?.name ||
+    'Unknown Student'
+
+  return (
+    <div style={{
+      maxWidth: 1180,
+      margin: '0 auto 18px',
+      background: '#fff',
+      border: '1px solid #dfe6ee',
+      borderRadius: 14,
+      padding: '15px 17px',
+      boxShadow: '0 5px 16px rgba(30,41,59,0.045)'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 14,
+        alignItems: 'center'
+      }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 900, color: '#293c52' }}>
+            Student Flags
+          </div>
+          <div style={{ fontSize: 11, color: '#718096', marginTop: 3 }}>
+            {active.length} active · {dueSoon.length} ending within 7 days · {observationsToday} observations today
+          </div>
+        </div>
+
+        <button
+          onClick={onOpen}
+          style={{
+            border: '1px solid #cbd7e3',
+            background: '#f7f9fb',
+            color: '#315f82',
+            borderRadius: 9,
+            padding: '7px 10px',
+            fontSize: 11,
+            fontWeight: 850,
+            cursor: 'pointer'
+          }}
+        >
+          Open Flags
+        </button>
+      </div>
+
+      {active.length > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gap: 8,
+          marginTop: 11
+        }}>
+          {active.slice(0, 3).map(flag => (
+            <div key={flag.id} style={{
+              background: '#f7f9fb',
+              border: '1px solid #e3e8ee',
+              borderRadius: 9,
+              padding: '9px 10px'
+            }}>
+              <div style={{
+                fontSize: 11.5,
+                fontWeight: 850,
+                color: '#34465a',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {nameFor(flag.studentId)}
+              </div>
+              <div style={{
+                fontSize: 10.5,
+                color: '#64748b',
+                marginTop: 3,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {flag.goal}
+              </div>
+              <div style={{ fontSize: 10, color: '#8a6570', marginTop: 5 }}>
+                Ends {flag.endDate}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StudentSupport({
   students,
   setStudents,
@@ -4480,9 +4974,13 @@ function StudentSupport({
   role,
   alerts,
   openStudent,
-  setPage
+  setPage,
+  flags,
+  setFlags,
+  initialSection = 'overview'
 }) {
-  const [section, setSection] = useState('overview')
+  const [section, setSection] = useState(initialSection)
+  useEffect(() => setSection(initialSection), [initialSection])
   const [studentFilter, setStudentFilter] = useState('all')
   const [goalStudentId, setGoalStudentId] = useState(students[0]?.id || '')
   const [goalTitle, setGoalTitle] = useState('')
@@ -5020,6 +5518,13 @@ function StudentSupport({
             style={sectionButton('add-update')}
           >
             Add Observation
+          </button>
+
+          <button
+            onClick={() => setSection('flags')}
+            style={sectionButton('flags')}
+          >
+            Flags ({flags.filter(flag => !flag.completed && flag.endDate >= todayIso()).length})
           </button>
 
           <button
@@ -6043,6 +6548,15 @@ function StudentSupport({
           </div>
         </div>
       )}
+      {section === 'flags' && (
+        <StudentFlagsPanel
+          students={students}
+          flags={flags}
+          setFlags={setFlags}
+          currentStaffName={currentStaffName}
+        />
+      )}
+
     </div>
   )
 }
@@ -6053,6 +6567,60 @@ export default function Dashboard() {
   const [userName, setUserName] = useState('')
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState(initialStudents)
+  const [studentFlags, setStudentFlags] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hadran-student-flags')
+      if (saved) return JSON.parse(saved)
+    } catch (error) {
+      console.warn('Could not load saved student flags:', error)
+    }
+
+    return [
+      {
+        id: 'flag-demo-1',
+        studentId: 16,
+        goal: 'Uses an appropriate break request before leaving his seat',
+        startDate: '2026-06-18',
+        endDate: '2026-06-30',
+        createdBy: 'Rabbi Baum',
+        createdAt: '2026-06-18',
+        completed: false,
+        observations: []
+      },
+      {
+        id: 'flag-demo-2',
+        studentId: 11,
+        goal: 'Begins assigned work within three minutes',
+        startDate: '2026-06-17',
+        endDate: '2026-06-26',
+        createdBy: 'Rabbi Klein',
+        createdAt: '2026-06-17',
+        completed: false,
+        observations: [
+          {
+            id: 'flag-demo-observation-1',
+            observed: true,
+            note: 'Started independently after one reminder.',
+            staffName: 'Rabbi Klein',
+            date: '2026-06-18',
+            time: '10:14 AM'
+          }
+        ]
+      }
+    ]
+  })
+  const [supportInitialSection, setSupportInitialSection] = useState('overview')
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'hadran-student-flags',
+        JSON.stringify(studentFlags)
+      )
+    } catch (error) {
+      console.warn('Could not save student flags:', error)
+    }
+  }, [studentFlags])
 
   useEffect(() => {
     async function loadStudentNotes() {
@@ -6908,11 +7476,25 @@ export default function Dashboard() {
             alerts={alerts}
             openStudent={openStudent}
             setPage={setPage}
+            flags={studentFlags}
+            setFlags={setStudentFlags}
+            initialSection={supportInitialSection}
           />
         )}
 
         {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} setDrillDown={setDrillDown} />}
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={visibleStudents} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
+
+        {page === 'dashboard' && role === 'admin' && (
+          <FlagDashboardWidget
+            flags={studentFlags}
+            students={visibleStudents}
+            onOpen={() => {
+              setSupportInitialSection('flags')
+              setPage('support')
+            }}
+          />
+        )}
 
         {page === 'dashboard' && role === 'admin' && isOfficeUser && (
           <div style={{ maxWidth: 1180, margin: '0 auto' }}>
