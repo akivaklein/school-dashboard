@@ -4053,15 +4053,30 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
   const [lateReason, setLateReason] = useState('no-reason')
   const [lateNote, setLateNote] = useState('')
 
-  function updateDailyStatus(id, status) {
-    const prev = students.find(s => s.id === id)
-    setUndoStack(u => [...u.slice(-19), { type: 'single', id, dailyStatus: prev?.dailyStatus || 'present', lateDetails: prev?.lateDetails || null }])
+  async function saveStudentField(id, field, value) {
+    const payload = { [field]: value }
+    const { error } = await supabase.from('students').update(payload).eq('id', id)
+    if (error) {
+      console.error('Supabase update failed:', error)
+      alert('Unable to save student status to Supabase.')
+      return false
+    }
+    return true
+  }
+
+  async function updateDailyStatus(id, status) {
+    const original = students.find(s => s.id === id)
+    setUndoStack(u => [...u.slice(-19), { type: 'single', id, dailyStatus: original?.dailyStatus || 'present', lateDetails: original?.lateDetails || null }])
     setStudents(prev => prev.map(s => s.id === id ? { ...s, dailyStatus: status } : s))
     if (status === 'late') {
       setLatePopup(id)
       setLateTime('')
       setLateReason('no-reason')
       setLateNote('')
+    }
+    const success = await saveStudentField(id, 'dailyStatus', status)
+    if (!success && original) {
+      setStudents(prev => prev.map(s => s.id === id ? { ...s, dailyStatus: original.dailyStatus } : s))
     }
   }
 
@@ -6527,7 +6542,138 @@ export default function Dashboard() {
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
   const [page, setPage] = useState('dashboard')
-  const [students, setStudents] = useState(initialStudents)
+  const [students, setStudents] = useState([])
+  const [studentLoadError, setStudentLoadError] = useState(null)
+
+  useEffect(() => {
+    async function loadStudents() {
+      setStudentLoadError(null)
+
+      console.log('Loading students from Supabase...')
+
+      const { data: existingRows, error: loadError } = await supabase
+        .from('students')
+        .select('*')
+
+      if (loadError) {
+        console.error('Supabase load students error:', loadError)
+        setStudentLoadError(
+          loadError.message || 'Unable to load student data.'
+        )
+        return
+      }
+
+      const currentRows = existingRows || []
+
+      console.log('Current Supabase student count:', currentRows.length)
+
+      const existingIds = new Set(
+        currentRows.map(student => Number(student.id))
+      )
+
+      const missingStudents = initialStudents.filter(
+        student => !existingIds.has(Number(student.id))
+      )
+
+      console.log('Missing student count:', missingStudents.length)
+
+      if (missingStudents.length > 0) {
+        /*
+         * Insert only the basic columns first.
+         * The full rich demo objects remain in initialStudents and are
+         * merged back into the loaded rows below.
+         */
+        const seedRows = missingStudents.map(student => ({
+          id: student.id,
+          name: student.name,
+          status: student.status
+        }))
+
+        const { error: insertError } = await supabase
+          .from('students')
+          .upsert(seedRows, {
+            onConflict: 'id',
+            ignoreDuplicates: true
+          })
+
+        if (insertError) {
+          console.error('Supabase insert missing students error:', insertError)
+          setStudentLoadError(
+            insertError.message || 'Unable to add missing students.'
+          )
+          return
+        }
+
+        console.log('Inserted student count:', seedRows.length)
+      }
+
+      const { data: finalRows, error: finalLoadError } = await supabase
+        .from('students')
+        .select('*')
+        .order('name')
+
+      if (finalLoadError) {
+        console.error(
+          'Supabase final student load error:',
+          finalLoadError
+        )
+        setStudentLoadError(
+          finalLoadError.message || 'Unable to reload student data.'
+        )
+        return
+      }
+
+      const databaseRows = finalRows || []
+
+      /*
+       * Keep all existing rich fields from initialStudents, while allowing
+       * saved Supabase values such as status to override them.
+       */
+      const initialById = new Map(
+        initialStudents.map(student => [Number(student.id), student])
+      )
+
+      const mergedStudents = databaseRows.map(databaseStudent => {
+        const initialStudent = initialById.get(
+          Number(databaseStudent.id)
+        )
+
+        if (!initialStudent) {
+          return {
+            points: 0,
+            reminders: 0,
+            status: 'present',
+            dailyStatus: databaseStudent.status || 'present',
+            withStaff: null,
+            att: [],
+            breakfast: [],
+            services: [],
+            parentCalls: [],
+            notes: [],
+            behaviorLog: [],
+            testScores: [],
+            classLog: [],
+            lateDetails: null,
+            family: {},
+            medical: {},
+            ...databaseStudent
+          }
+        }
+
+        return {
+          ...initialStudent,
+          ...databaseStudent
+        }
+      })
+
+      console.log('Final student count:', mergedStudents.length)
+
+      setStudents(mergedStudents)
+    }
+
+    loadStudents()
+  }, [])
+
   const [studentFlags, setStudentFlags] = useState(() => {
     try {
       const saved = localStorage.getItem('hadran-student-flags')
@@ -7162,7 +7308,26 @@ export default function Dashboard() {
     }
   }
   function openStudent(s, tab = 'overview') { setSelectedStudent(s); setSelectedStudentTab(tab) }
-  function updateStatus(id, status) { setStudents(prev => prev.map(s => s.id === id ? { ...s, status } : s)) }
+
+  async function saveStudentField(id, field, value) {
+    const payload = { [field]: value }
+    const { error } = await supabase.from('students').update(payload).eq('id', id)
+    if (error) {
+      console.error('Supabase update failed:', error)
+      alert('Unable to save student status to Supabase.')
+      return false
+    }
+    return true
+  }
+
+  async function updateStatus(id, status) {
+    const original = students.find(s => s.id === id)
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, status } : s))
+    const success = await saveStudentField(id, 'status', status)
+    if (!success && original) {
+      setStudents(prev => prev.map(s => s.id === id ? { ...s, status: original.status } : s))
+    }
+  }
   function addPoints(id, amount) { playSound(amount > 0 ? 'positive' : 'negative'); setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount) } : s)) }
   function addReminder(id) { const s = students.find(x => x.id === id); playSound(s && s.reminders + 1 >= 6 ? 'redmark' : 'negative'); setStudents(prev => prev.map(s => s.id === id ? { ...s, reminders: s.reminders + 1 } : s)) }
   function applyBehavior(studentId, beh) {
