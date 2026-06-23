@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
+import SupportSessions from './support/SupportSessions'
 function playSound(type) {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -1164,6 +1165,23 @@ const statusLabel = { present: 'Present', absent: 'Absent', late: 'Late', 'left-
 const statusEmoji = { present: '✅', absent: '❌', late: '⏰', 'left-early': '🚪', therapy: '🧠', 'with-bt': '👤', unknown: '❓', 'not-arrived': '🕐' }
 
 
+async function persistStudentFields(id, fields) {
+  const { error } = await supabase.from('students').update(fields).eq('id', id)
+  if (error) {
+    console.error(`Supabase student update failed for ${id}:`, error)
+    return false
+  }
+  return true
+}
+
+async function persistStudentFieldsBulk(updates) {
+  const results = await Promise.all(
+    updates.map(({ id, fields }) => persistStudentFields(id, fields))
+  )
+  return results.every(Boolean)
+}
+
+
 const INTAKE_ASSESSMENT_AREAS = [
   {
     section: 'Limudei Kodesh',
@@ -2239,6 +2257,12 @@ function StudentProfile({ student, students, setStudents, onClose, role, userNam
 }
 
 function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = null }) {
+
+  const isStudentInClass = student =>
+    student.status === 'present' &&
+    !['absent', 'left-early'].includes(student.dailyStatus)
+
+
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState([])
   const [showTeachingActions, setShowTeachingActions] = useState(false)
@@ -2381,30 +2405,153 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
     // behaviors can be recorded in one classroom interaction.
   }
 
-  function handleToggle(s) {
+  async function handleToggle(s) {
     const now = new Date()
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-    if (s.status === 'present') {
-      setLeavePopup(s.id); setLeaveReason('therapy'); setLeaveStaffSearch(''); setLeaveStaffId('')
-    } else {
-      setStudents(prev => prev.map(x => x.id === s.id ? {
-        ...x, status: 'present', withStaff: null,
-        classLog: [...(x.classLog || []), { time: timeStr, type: 'in', note: 'Returned to class', staffId: null }]
-      } : x))
+    const timeStr = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+
+    if (isStudentInClass(s)) {
+      setLeavePopup(s.id)
+      setLeaveReason('therapy')
+      setLeaveStaffSearch('')
+      setLeaveStaffId('')
+      return
+    }
+
+    const original = s
+    const wasNotInSchool =
+      s.dailyStatus === 'absent' ||
+      s.status === 'absent' ||
+      s.status === 'not-arrived'
+
+    const fields = wasNotInSchool
+      ? { status: 'present', dailyStatus: 'late', withStaff: null }
+      : { status: 'present', withStaff: null }
+
+    setStudents(prev =>
+      prev.map(x => {
+        if (Number(x.id) !== Number(s.id)) return x
+
+        return {
+          ...x,
+          ...fields,
+          withStaff: null,
+          lateDetails: wasNotInSchool
+            ? {
+                timeArrived: timeStr,
+                reason: 'arrived-late',
+                note: 'Marked present from School-Wide Mode'
+              }
+            : x.lateDetails,
+          classLog: [
+            ...(x.classLog || []),
+            {
+              time: timeStr,
+              type: 'in',
+              note: wasNotInSchool
+                ? 'Arrived late to yeshiva'
+                : 'Returned to class',
+              staffId: null
+            }
+          ]
+        }
+      })
+    )
+
+    const success = await persistStudentFields(s.id, fields)
+
+    if (!success) {
+      setStudents(prev =>
+        prev.map(x =>
+          Number(x.id) === Number(s.id) ? original : x
+        )
+      )
+      alert('Unable to save student status to Supabase.')
     }
   }
 
-  function confirmLeave() {
+  async function confirmLeave() {
+    const studentId = leavePopup
+    if (!studentId) return
+
+    const original = students.find(
+      x => Number(x.id) === Number(studentId)
+    )
+
     const now = new Date()
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-    const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'present', unknown: 'unknown', other: 'unknown' }
-    const staffObj = leaveStaffId ? STAFF.find(st => st.id === leaveStaffId) : null
-    const note = staffObj ? `Left with ${staffObj.name} (${staffObj.role})` : leaveReason === 'unknown' ? 'Location unknown' : 'Left class'
-    setStudents(prev => prev.map(x => x.id === leavePopup ? {
-      ...x, status: statusMap[leaveReason] || 'unknown', withStaff: leaveStaffId || null,
-      classLog: [...(x.classLog || []), { time: timeStr, type: 'out', note, staffId: leaveStaffId || null }]
-    } : x))
+    const timeStr = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+
+    const staffObj = leaveStaffId
+      ? STAFF.find(st => st.id === leaveStaffId)
+      : null
+
+    const effectiveReason =
+      staffObj?.role === 'BT'
+        ? 'with-bt'
+        : leaveReason
+
+    const statusMap = {
+      therapy: 'therapy',
+      'with-bt': 'with-bt',
+      menahel: 'present',
+      unknown: 'unknown',
+      other: 'unknown'
+    }
+
+    const newStatus = statusMap[effectiveReason] || 'unknown'
+
+    const note = staffObj
+      ? `Left with ${staffObj.name} (${staffObj.role})`
+      : effectiveReason === 'unknown'
+        ? 'Location unknown'
+        : effectiveReason === 'with-bt'
+          ? 'Left with BT'
+          : effectiveReason === 'therapy'
+            ? 'Left for therapy'
+            : 'Left class'
+
+    setStudents(prev =>
+      prev.map(x =>
+        Number(x.id) === Number(studentId)
+          ? {
+              ...x,
+              status: newStatus,
+              withStaff: leaveStaffId || null,
+              classLog: [
+                ...(x.classLog || []),
+                {
+                  time: timeStr,
+                  type: 'out',
+                  note,
+                  staffId: leaveStaffId || null
+                }
+              ]
+            }
+          : x
+      )
+    )
+
     setLeavePopup(null)
+
+    const success = await persistStudentFields(studentId, {
+      status: newStatus
+    })
+
+    if (!success && original) {
+      setStudents(prev =>
+        prev.map(x =>
+          Number(x.id) === Number(studentId) ? original : x
+        )
+      )
+      alert('Unable to save student status to Supabase.')
+    }
   }
 
   const mins = Math.floor(intervalSeconds / 60)
@@ -2508,16 +2655,25 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
               <input value={lateClassNote} onChange={e => setLateClassNote(e.target.value)} placeholder="e.g. was asked to come speak with Menahel" style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', marginBottom: 14 }} />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setLateClassPopup(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>
-                <button onClick={() => {
+                <button onClick={async () => {
+                  const studentId = lateClassPopup
+                  if (!studentId) return
+                  const original = students.find(x => x.id === studentId)
                   const now = new Date()
                   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
                   const staffObj = lateClassStaffId ? STAFF.find(st => st.id === lateClassStaffId) : null
                   const note = staffObj ? `Came late — was with ${staffObj.name}${lateClassNote ? `: ${lateClassNote}` : ''}` : lateClassNote ? `Came late — ${lateClassNote}` : 'Came late to class'
-                  setStudents(prev => prev.map(x => x.id === lateClassPopup ? {
+                  setStudents(prev => prev.map(x => x.id === studentId ? {
                     ...x, status: 'present',
                     classLog: [...(x.classLog||[]), { time: timeStr, type: 'in', note, staffId: lateClassStaffId || null }]
                   } : x))
                   setLateClassPopup(null); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote('')
+
+                  const success = await persistStudentFields(studentId, { status: 'present', withStaff: null })
+                  if (!success && original) {
+                    setStudents(prev => prev.map(x => x.id === studentId ? original : x))
+                    alert('Unable to save student status to Supabase.')
+                  }
                 }} style={{ ...S.btn('primary'), flex: 1 }}>Confirm</button>
               </div>
             </div>
@@ -3050,7 +3206,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
               fontWeight: 900,
               marginTop: 1
             }}>
-              {filtered.filter(s => s.status === 'present').length}/{filtered.length}
+              {filtered.filter(isStudentInClass).length}/{filtered.length}
             </div>
           </div>
 
@@ -3154,7 +3310,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
 
             <button
               onClick={() => {
-                setSelected(filtered.filter(s => s.status === 'present').map(s => s.id))
+                setSelected(filtered.filter(isStudentInClass).map(s => s.id))
                 setShowTeachingActions(true)
               }}
               style={{
@@ -3172,11 +3328,28 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
             </button>
 
             <button
-              onClick={() => setStudents(prev => prev.map(s => ({
-                ...s,
-                status: 'present',
-                withStaff: null
-              })))}
+              onClick={async () => {
+                const snapshot = students
+                setStudents(prev => prev.map(s => ({
+                  ...s,
+                  status: 'present',
+                  dailyStatus: 'present',
+                  withStaff: null
+                })))
+                const success = await persistStudentFieldsBulk(
+                  students.map(s => ({
+                    id: s.id,
+                    fields: {
+                      status: 'present',
+                      dailyStatus: 'present'
+                    }
+                  }))
+                )
+                if (!success) {
+                  setStudents(snapshot)
+                  alert('Unable to save all student statuses to Supabase.')
+                }
+              }}
               style={{
                 padding: '9px 12px',
                 borderRadius: 10,
@@ -3628,7 +3801,7 @@ function TeachingMode({ students, setStudents, onExit, isAdmin, initialClass = n
           {filtered.map((s, i) => {
             const isSelected = selected.includes(s.id)
             const vip = isVIP(s)
-            const inClass = s.status === 'present'
+            const inClass = isStudentInClass(s)
             const isAbsent =
               s.dailyStatus === 'absent' || s.status === 'absent'
             const isPulledOut =
@@ -4054,33 +4227,83 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
   const [lateNote, setLateNote] = useState('')
 
   async function saveStudentField(id, field, value) {
-    const payload = { [field]: value }
-    const { error } = await supabase.from('students').update(payload).eq('id', id)
-    if (error) {
-      console.error('Supabase update failed:', error)
-      alert('Unable to save student status to Supabase.')
-      return false
-    }
-    return true
+    const success = await persistStudentFields(id, { [field]: value })
+    if (!success) alert('Unable to save student status to Supabase.')
+    return success
+  }
+
+  async function saveStudentFields(id, fields) {
+    const success = await persistStudentFields(id, fields)
+    if (!success) alert('Unable to save student status to Supabase.')
+    return success
   }
 
   async function updateDailyStatus(id, status) {
-    const original = students.find(s => s.id === id)
-    setUndoStack(u => [...u.slice(-19), { type: 'single', id, dailyStatus: original?.dailyStatus || 'present', lateDetails: original?.lateDetails || null }])
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, dailyStatus: status } : s))
+    const original = students.find(s => Number(s.id) === Number(id))
+    if (!original) return
+
+    const syncedStatus =
+      status === 'absent'
+        ? 'absent'
+        : status === 'left-early'
+          ? 'left-early'
+          : 'present'
+
+    setUndoStack(u => [
+      ...u.slice(-19),
+      {
+        type: 'single',
+        id,
+        dailyStatus: original.dailyStatus || 'present',
+        status: original.status || 'present',
+        lateDetails: original.lateDetails || null,
+        withStaff: original.withStaff || null
+      }
+    ])
+
+    setStudents(prev =>
+      prev.map(s =>
+        Number(s.id) === Number(id)
+          ? {
+              ...s,
+              dailyStatus: status,
+              status: syncedStatus,
+              withStaff: syncedStatus === 'present' ? null : s.withStaff
+            }
+          : s
+      )
+    )
+
     if (status === 'late') {
       setLatePopup(id)
       setLateTime('')
       setLateReason('no-reason')
       setLateNote('')
     }
-    const success = await saveStudentField(id, 'dailyStatus', status)
-    if (!success && original) {
-      setStudents(prev => prev.map(s => s.id === id ? { ...s, dailyStatus: original.dailyStatus } : s))
+
+    const success = await saveStudentFields(id, {
+      dailyStatus: status,
+      status: syncedStatus
+    })
+
+    if (!success) {
+      setStudents(prev =>
+        prev.map(s =>
+          Number(s.id) === Number(id)
+            ? {
+                ...s,
+                dailyStatus: original.dailyStatus,
+                status: original.status,
+                lateDetails: original.lateDetails,
+                withStaff: original.withStaff
+              }
+            : s
+        )
+      )
     }
   }
 
-  function undo() {
+  async function undo() {
     if (undoStack.length === 0) return
     const last = undoStack[undoStack.length - 1]
     if (last.type === 'bulk') {
@@ -4088,8 +4311,13 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
         const saved = last.snapshot.find(x => x.id === s.id)
         return saved ? { ...s, dailyStatus: saved.dailyStatus, lateDetails: saved.lateDetails } : s
       }))
+      const success = await persistStudentFieldsBulk(
+        last.snapshot.map(saved => ({ id: saved.id, fields: { dailyStatus: saved.dailyStatus } }))
+      )
+      if (!success) alert('Some attendance statuses could not be restored in Supabase.')
     } else {
       setStudents(prev => prev.map(s => s.id === last.id ? { ...s, dailyStatus: last.dailyStatus, lateDetails: last.lateDetails } : s))
+      await saveStudentField(last.id, 'dailyStatus', last.dailyStatus)
     }
     setUndoStack(u => u.slice(0, -1))
   }
@@ -4103,7 +4331,7 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
     ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase()) || st.role.toLowerCase().includes(leaveStaffSearch.toLowerCase()))
     : STAFF
 
-  function handleToggle(s) {
+  async function handleToggle(s) {
     if (s.status === 'present') {
       // Turning off — show popup to pick reason
       setLeavePopup(s.id)
@@ -4113,6 +4341,11 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
     } else {
       // Turning on:
       // If the student had not arrived, record a late arrival and current time.
+      const original = s
+      const wasNotInSchool =
+        s.dailyStatus === 'absent' ||
+        s.status === 'absent' ||
+        s.status === 'not-arrived'
       const arrivedNow = new Date().toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit'
@@ -4121,13 +4354,8 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
       setStudents(prev => prev.map(x => {
         if (x.id !== s.id) return x
 
-        const wasNotInSchool =
-          x.dailyStatus === 'absent' ||
-          x.status === 'absent' ||
-          x.status === 'not-arrived'
-
         if (!wasNotInSchool) {
-          // Returning from therapy, BT, hallway, etc.
+          // Returning from therapy, BT, hallway, etc. does not make the student late.
           return {
             ...x,
             status: 'present',
@@ -4165,14 +4393,30 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
           ]
         }
       }))
+
+      const fields = wasNotInSchool
+        ? { status: 'present', dailyStatus: 'late', withStaff: null }
+        : { status: 'present', withStaff: null }
+      const success = await saveStudentFields(s.id, fields)
+      if (!success) {
+        setStudents(prev => prev.map(x => x.id === s.id ? original : x))
+      }
     }
   }
 
-  function confirmLeave() {
+  async function confirmLeave() {
+    const studentId = leavePopup
+    if (!studentId) return
+    const original = students.find(x => x.id === studentId)
     const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'present', hallway: 'unknown', other: 'unknown' }
     const newStatus = statusMap[leaveReason] || 'unknown'
-    setStudents(prev => prev.map(x => x.id === leavePopup ? { ...x, status: newStatus, withStaff: leaveStaffId || null } : x))
+    setStudents(prev => prev.map(x => x.id === studentId ? { ...x, status: newStatus, withStaff: leaveStaffId || null } : x))
     setLeavePopup(null)
+
+    const success = await saveStudentField(studentId, 'status', newStatus)
+    if (!success && original) {
+      setStudents(prev => prev.map(x => x.id === studentId ? original : x))
+    }
   }
 
   const leaveStudent = leavePopup ? students.find(s => s.id === leavePopup) : null
@@ -4309,7 +4553,21 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
             <div style={{ display: 'flex', gap: 8 }}>
               {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>↩️ Undo</button>}
               <button onClick={() => setCollapsed(c => !c)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>{collapsed ? '⬇️ Expand All' : '⬆️ Collapse All'}</button>
-              <button onClick={() => { setUndoStack(u => [...u.slice(-9), { type: 'bulk', snapshot: students.map(s => ({ id: s.id, dailyStatus: s.dailyStatus||'present', lateDetails: s.lateDetails||null })) }]); setStudents(prev => prev.map(s => ({ ...s, dailyStatus: 'present', lateDetails: null }))) }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+              <button onClick={async () => {
+                const snapshot = students.map(s => ({ id: s.id, dailyStatus: s.dailyStatus || 'present', lateDetails: s.lateDetails || null }))
+                setUndoStack(u => [...u.slice(-9), { type: 'bulk', snapshot }])
+                setStudents(prev => prev.map(s => ({ ...s, dailyStatus: 'present', lateDetails: null })))
+                const success = await persistStudentFieldsBulk(
+                  students.map(s => ({ id: s.id, fields: { dailyStatus: 'present' } }))
+                )
+                if (!success) {
+                  setStudents(prev => prev.map(s => {
+                    const saved = snapshot.find(x => x.id === s.id)
+                    return saved ? { ...s, dailyStatus: saved.dailyStatus, lateDetails: saved.lateDetails } : s
+                  }))
+                  alert('Unable to save all attendance statuses to Supabase.')
+                }
+              }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: collapsed ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: 10 }}>
@@ -4369,7 +4627,17 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>🔄 Live Class Toggle</div>
-            <button onClick={() => setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+            <button onClick={async () => {
+              const snapshot = students
+              setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))
+              const success = await persistStudentFieldsBulk(
+                students.map(s => ({ id: s.id, fields: { status: 'present', withStaff: null } }))
+              )
+              if (!success) {
+                setStudents(snapshot)
+                alert('Unable to save all student statuses to Supabase.')
+              }
+            }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
           {filteredStudents.map((s, i) => {
@@ -5504,6 +5772,13 @@ function StudentSupport({
           </button>
 
           <button
+            onClick={() => setSection('sessions')}
+            style={sectionButton('sessions')}
+          >
+            Support Sessions ({students.filter(student => ['therapy', 'with-bt'].includes(student.status)).length})
+          </button>
+
+          <button
             onClick={() => setPage('behavior')}
             style={sectionButton('behavior')}
           >
@@ -6524,6 +6799,14 @@ function StudentSupport({
           </div>
         </div>
       )}
+      {section === 'sessions' && (
+        <SupportSessions
+          students={students}
+          setStudents={setStudents}
+          staff={STAFF}
+        />
+      )}
+
       {section === 'flags' && (
         <StudentFlagsPanel
           students={students}
@@ -6543,6 +6826,7 @@ export default function Dashboard() {
   const [userName, setUserName] = useState('')
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState([])
+  const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState(null)
 
   useEffect(() => {
@@ -6643,7 +6927,7 @@ export default function Dashboard() {
             points: 0,
             reminders: 0,
             status: 'present',
-            dailyStatus: databaseStudent.status || 'present',
+            dailyStatus: databaseStudent.dailyStatus || databaseStudent.status || 'present',
             withStaff: null,
             att: [],
             breakfast: [],
@@ -6669,6 +6953,7 @@ export default function Dashboard() {
       console.log('Final student count:', mergedStudents.length)
 
       setStudents(mergedStudents)
+      setStudentsLoaded(true)
     }
 
     loadStudents()
@@ -6730,6 +7015,8 @@ export default function Dashboard() {
   }, [studentFlags])
 
   useEffect(() => {
+    if (!studentsLoaded) return
+
     async function loadStudentNotes() {
       const { data, error } = await supabase
         .from('student_notes')
@@ -6741,34 +7028,43 @@ export default function Dashboard() {
         return
       }
 
-      if (!data || data.length === 0) return
-
       setStudents(prev =>
         prev.map(student => {
-          const savedNotes = data
-            .filter(note => note.student_id === student.id)
+          const savedNotes = (data || [])
+            .filter(note => Number(note.student_id) === Number(student.id))
             .map(note => ({
-              date: note.created_at ? note.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+              date: note.created_at
+                ? note.created_at.slice(0, 10)
+                : new Date().toISOString().slice(0, 10),
               author: note.author || 'Staff',
               text: note.note,
             }))
 
-          if (savedNotes.length === 0) return student
-
           const existingNotes = student.notes || []
-          const existingKeys = new Set(existingNotes.map(note => `${note.date}|${note.author}|${note.text}`))
-          const newSavedNotes = savedNotes.filter(note => !existingKeys.has(`${note.date}|${note.author}|${note.text}`))
+          const savedKeys = new Set(
+            savedNotes.map(note =>
+              `${note.date}|${note.author}|${note.text}`
+            )
+          )
+
+          const uniqueExistingNotes = existingNotes.filter(
+            note =>
+              !savedKeys.has(
+                `${note.date}|${note.author}|${note.text}`
+              )
+          )
 
           return {
             ...student,
-            notes: [...existingNotes, ...newSavedNotes],
+            notes: [...uniqueExistingNotes, ...savedNotes],
           }
         })
       )
     }
 
     loadStudentNotes()
-  }, [])
+  }, [studentsLoaded])
+
   const [attendanceReportOpen, setAttendanceReportOpen] = useState(false)
   const [attendanceReportView, setAttendanceReportView] = useState('today')
   const [attendanceReportDivision, setAttendanceReportDivision] = useState('all')
@@ -7415,7 +7711,7 @@ export default function Dashboard() {
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
   const present = visibleStudents.filter(s => s.status === 'present').length
   const absent = visibleStudents.filter(s => s.status === 'absent').length
-  const late = visibleStudents.filter(s => s.status === 'late').length
+  const late = visibleStudents.filter(s => s.dailyStatus === 'late').length
   const inTherapy = visibleStudents.filter(s => s.status === 'therapy').length
   const withBT = visibleStudents.filter(s => s.status === 'with-bt').length
   const unknown = visibleStudents.filter(s => s.status === 'unknown').length
@@ -7427,7 +7723,7 @@ export default function Dashboard() {
   const stillInYeshiva = stillInYeshivaStudents.length
   const inClassroomsStudents = visibleStudents.filter(s => s.status === 'present')
   const inClassrooms = inClassroomsStudents.length
-  const lateStudents = visibleStudents.filter(s => s.status === 'late')
+  const lateStudents = visibleStudents.filter(s => s.dailyStatus === 'late')
   const leftEarlyStudents = visibleStudents.filter(s => s.dailyStatus === 'left-early')
   const absentTodayStudents = visibleStudents.filter(s => (s.dailyStatus || 'present') === 'absent')
   const cameTodayRate = total ? Math.round(cameToday / total * 100) : 0
