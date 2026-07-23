@@ -21,6 +21,10 @@ import AlertsPage from './AlertsPage'
 import CallsPage from './CallsPage'
 import StudentsListPage from './StudentsListPage'
 import AdminMainDashboard from './AdminMainDashboard'
+import {
+  createPointsEvent,
+  deletePointsEvent,
+} from '../services/pointsEventsService'
 
 const STORE_ITEMS = [
   // Drinks
@@ -2559,6 +2563,12 @@ export default function Dashboard() {
               ...databaseStudent
             }
 
+        const persistedPoints = databaseStudent.token_balance
+
+        if (persistedPoints !== null && persistedPoints !== undefined) {
+          merged.points = Number(persistedPoints) || 0
+        }
+
         return persistedStudent
           ? { ...merged, ...persistedStudent }
           : merged
@@ -3238,6 +3248,102 @@ export default function Dashboard() {
     return true
   }
 
+  async function recordStudentPointsAction({
+    studentId,
+    pointsDelta,
+    reminderDelta = 0,
+    reason,
+    eventType,
+    category,
+    sourceContext,
+    note = null,
+    metadata = {},
+  }) {
+    const originalStudent = students.find(
+      student => Number(student.id) === Number(studentId)
+    )
+
+    if (!originalStudent) {
+      return false
+    }
+
+    const nextPoints = Math.max(
+      0,
+      Number(originalStudent.points || 0) + Number(pointsDelta || 0)
+    )
+    const nextReminders = Math.max(
+      0,
+      Number(originalStudent.reminders || 0) + Number(reminderDelta || 0)
+    )
+    const nextBehaviorLog = [
+      {
+        label: reason,
+        points: pointsDelta,
+        date: new Date().toISOString().slice(0, 10),
+      },
+      ...(originalStudent.behaviorLog || []),
+    ].slice(0, 30)
+
+    setStudents(prev => prev.map(student =>
+      Number(student.id) !== Number(studentId)
+        ? student
+        : {
+            ...student,
+            points: nextPoints,
+            reminders: nextReminders,
+            behaviorLog: nextBehaviorLog,
+          }
+    ))
+
+    let eventId = null
+
+    try {
+      eventId = await createPointsEvent({
+        studentId: Number(originalStudent.id),
+        studentName: originalStudent.name,
+        staffName: userName || 'Staff',
+        staffRole: role || 'staff',
+        pointsDelta: Number(pointsDelta || 0),
+        eventType,
+        category,
+        reason,
+        note,
+        sourcePage: category,
+        sourceContext,
+        metadata,
+      })
+
+      const saved = await persistStudentFields(originalStudent.id, {
+        token_balance: nextPoints,
+      })
+
+      if (!saved) {
+        throw new Error('Unable to save token balance.')
+      }
+
+      return true
+    } catch (error) {
+      if (eventId) {
+        try {
+          await deletePointsEvent(eventId)
+        } catch (rollbackError) {
+          console.error('Unable to roll back points event:', rollbackError)
+        }
+      }
+
+      console.error('Points event write failed:', error)
+
+      setStudents(prev => prev.map(student =>
+        Number(student.id) !== Number(studentId)
+          ? student
+          : originalStudent
+      ))
+
+      alert('Unable to save points activity to Supabase.')
+      return false
+    }
+  }
+
   async function updateStatus(id, status) {
     const original = students.find(s => s.id === id)
     setStudents(prev => prev.map(s => s.id === id ? { ...s, status } : s))
@@ -3252,10 +3358,10 @@ export default function Dashboard() {
     if ((item.stock ?? 0) <= 0) { alert(`${item.name} is out of stock.`); return }
     if (isStoreItemRestrictedForStudent(s, item)) { alert(`${s.name} cannot redeem candy items.`); return }
     playSound('store')
-    setStudents(prev => prev.map(x => x.id === studentId ? { ...x, points: x.points - item.cost } : x))
+    const purchaseId = Date.now()
     setStoreItems(prev => prev.map(x => x.id === item.id ? { ...x, stock: Math.max(0, (x.stock || 0) - 1) } : x))
     setPurchaseLog(prev => [{
-      id: Date.now(),
+      id: purchaseId,
       time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       studentId: s.id,
       studentName: s.name,
@@ -3264,7 +3370,33 @@ export default function Dashboard() {
       staff: userName || 'Register',
       division: studentDivision(s),
     }, ...prev].slice(0, 25))
-    alert(`${s.name} redeemed: ${item.name}!`)
+
+    recordStudentPointsAction({
+      studentId,
+      pointsDelta: -Number(item.cost || 0),
+      reason: `Store purchase: ${item.name}`,
+      eventType: 'purchase',
+      category: 'store',
+      sourceContext: 'token-store-redeem',
+      note: `${s.name} redeemed ${item.name}`,
+      metadata: {
+        itemId: item.id,
+        itemName: item.name,
+        itemCost: item.cost,
+      },
+    }).then(success => {
+      if (!success) {
+        setStoreItems(prev => prev.map(x =>
+          x.id === item.id
+            ? { ...x, stock: (x.stock || 0) + 1 }
+            : x
+        ))
+        setPurchaseLog(prev => prev.filter(entry => entry.id !== purchaseId))
+        return
+      }
+
+      alert(`${s.name} redeemed: ${item.name}!`)
+    })
   }
 
   function updateStoreItem(id, field, value) {
@@ -3335,6 +3467,7 @@ export default function Dashboard() {
       initials={initials}
       persistStudentFields={persistStudentFields}
       persistStudentFieldsBulk={persistStudentFieldsBulk}
+      recordStudentPointsAction={recordStudentPointsAction}
     />
   )
 
@@ -4370,7 +4503,6 @@ export default function Dashboard() {
         {page === 'behavior' && (
           <BehaviorPage
             students={students}
-            setStudents={setStudents}
             searchedStudents={searchedStudents}
             openStudent={openStudent}
             initials={initials}
@@ -4379,6 +4511,7 @@ export default function Dashboard() {
             statusColor={statusColor}
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
+            onAdjustPoints={recordStudentPointsAction}
           />
         )}
 

@@ -71,3 +71,18 @@ export default defineConfig([
   },
 ])
 ```
+
+## Supabase Migration Notes
+
+The project now includes a first database migration for the event-based points ledger:
+
+- `supabase/migrations/20260723_create_points_events.sql`
+- `supabase/migrations/20260723_allow_zero_delta_points_events.sql`
+
+Apply it in the Supabase SQL editor, or with your normal Supabase migration workflow if you add one later.
+
+This table is intentionally append-only and stores every points change as its own event row. Role policies are not included yet; those will be added in the later permissions step.
+
+If you already ran the first migration before the zero-delta reminder update was added, also run `supabase/migrations/20260723_allow_zero_delta_points_events.sql` so reminder events can be stored without changing the student's point balance.
+
+Before using real student or staff data, you must enable and verify Supabase RLS policies for `public.points_events`. Running without RLS is acceptable only during local development while the permissions model is still being built.

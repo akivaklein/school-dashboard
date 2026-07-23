@@ -21,7 +21,6 @@ const BEHAVIORS_NEGATIVE = [
 
 export default function BehaviorPage({
   students,
-  setStudents,
   searchedStudents,
   openStudent,
   initials,
@@ -30,36 +29,51 @@ export default function BehaviorPage({
   statusColor,
   statusEmoji,
   statusLabel,
+  onAdjustPoints,
 }) {
   const [behaviorStudent, setBehaviorStudent] = useState(null)
   const [behaviorTab, setBehaviorTab] = useState('positive')
 
   function addPoints(id, amount) {
     playSound(amount > 0 ? 'positive' : 'negative')
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount) } : s))
+    onAdjustPoints({
+      studentId: id,
+      pointsDelta: amount,
+      reason: amount > 0 ? `+${amount} pts` : `${amount} pts`,
+      eventType: amount > 0 ? 'award' : 'deduction',
+      category: 'behavior',
+      sourceContext: 'behavior-page-adjustment',
+    })
   }
 
   function addReminder(id) {
     const s = students.find(x => x.id === id)
     playSound(s && s.reminders + 1 >= 6 ? 'redmark' : 'negative')
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, reminders: s.reminders + 1 } : s))
+    onAdjustPoints({
+      studentId: id,
+      pointsDelta: 0,
+      reminderDelta: 1,
+      reason: 'Reminder',
+      eventType: 'reminder',
+      category: 'behavior',
+      sourceContext: 'behavior-page-reminder',
+    })
   }
 
   function applyBehavior(studentId, beh) {
     playSound(beh.points > 0 ? 'positive' : 'negative')
-    setStudents(prev => prev.map(s =>
-      s.id !== studentId
-        ? s
-        : {
-            ...s,
-            points: Math.max(0, s.points + beh.points),
-            reminders: beh.points < 0 ? s.reminders + 1 : s.reminders,
-            behaviorLog: [
-              { label: beh.label, points: beh.points, date: new Date().toISOString().slice(0, 10) },
-              ...s.behaviorLog,
-            ].slice(0, 20),
-          }
-    ))
+    onAdjustPoints({
+      studentId,
+      pointsDelta: beh.points,
+      reminderDelta: beh.points < 0 ? 1 : 0,
+      reason: beh.label,
+      eventType: beh.points > 0 ? 'award' : 'deduction',
+      category: 'behavior',
+      sourceContext: 'behavior-page-preset',
+      metadata: {
+        behaviorId: beh.id,
+      },
+    })
   }
 
   return (

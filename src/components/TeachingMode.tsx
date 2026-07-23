@@ -36,6 +36,7 @@ export default function TeachingMode({
   initials,
   persistStudentFields,
   persistStudentFieldsBulk,
+  recordStudentPointsAction,
 }) {
 
   const isStudentInClass = student =>
@@ -746,13 +747,16 @@ export default function TeachingMode({
                   {[1, 2, 3, 5].map(amount => (
                     <button
                       key={amount}
-                      onClick={() => {
+                      onClick={async () => {
                         playSound('positive')
-                        setStudents(prev => prev.map(x => x.id === quickActionStudent.id ? {
-                          ...x,
-                          points: x.points + amount,
-                          behaviorLog: [{ label: `Quick +${amount}`, points: amount, date: new Date().toISOString().slice(0,10) }, ...(x.behaviorLog || [])].slice(0, 30)
-                        } : x))
+                        await recordStudentPointsAction({
+                          studentId: quickActionStudent.id,
+                          pointsDelta: amount,
+                          reason: `Quick +${amount}`,
+                          eventType: 'award',
+                          category: 'teaching',
+                          sourceContext: 'teaching-mode-quick-action',
+                        })
                         setQuickActionStudent(null)
                       }}
                       style={{
@@ -784,14 +788,17 @@ export default function TeachingMode({
                   ].map(action => (
                     <button
                       key={action.label}
-                      onClick={() => {
+                      onClick={async () => {
                         playSound('negative')
-                        setStudents(prev => prev.map(x => x.id === quickActionStudent.id ? {
-                          ...x,
-                          points: Math.max(0, x.points + action.amount),
-                          reminders: action.reminder ? x.reminders + 1 : x.reminders,
-                          behaviorLog: [{ label: action.label, points: action.amount, date: new Date().toISOString().slice(0,10) }, ...(x.behaviorLog || [])].slice(0, 30)
-                        } : x))
+                        await recordStudentPointsAction({
+                          studentId: quickActionStudent.id,
+                          pointsDelta: action.amount,
+                          reminderDelta: action.reminder ? 1 : 0,
+                          reason: action.label,
+                          eventType: action.reminder ? 'reminder' : 'deduction',
+                          category: 'teaching',
+                          sourceContext: 'teaching-mode-quick-action',
+                        })
                         setQuickActionStudent(null)
                       }}
                       style={{
