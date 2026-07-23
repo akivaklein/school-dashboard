@@ -1,0 +1,152 @@
+import { useState } from 'react'
+import playSound from '../utils/playSound'
+
+const BEHAVIORS_POSITIVE = [
+  { id: 'p1', label: 'Appropriate appearance', points: 1 },
+  { id: 'p2', label: 'On-time to class', points: 2 },
+  { id: 'p3', label: 'Ignored peer misbehavior', points: 2 },
+  { id: 'p4', label: 'Major appropriate behavior', points: 3 },
+  { id: 'p5', label: 'Completed homework', points: 2 },
+  { id: 'p6', label: 'Helped a classmate', points: 2 },
+]
+
+const BEHAVIORS_NEGATIVE = [
+  { id: 'n1', label: 'Speaking without permission', points: -1 },
+  { id: 'n2', label: 'Off-task behavior', points: -1 },
+  { id: 'n3', label: 'Noncompliance', points: -1 },
+  { id: 'n4', label: 'Disruptive behavior', points: -1 },
+  { id: 'n5', label: 'Disrespect', points: -2 },
+  { id: 'n6', label: 'Physical aggression', points: -3 },
+]
+
+export default function BehaviorPage({
+  students,
+  setStudents,
+  searchedStudents,
+  openStudent,
+  initials,
+  isVIP,
+  S,
+  statusColor,
+  statusEmoji,
+  statusLabel,
+}) {
+  const [behaviorStudent, setBehaviorStudent] = useState(null)
+  const [behaviorTab, setBehaviorTab] = useState('positive')
+
+  function addPoints(id, amount) {
+    playSound(amount > 0 ? 'positive' : 'negative')
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount) } : s))
+  }
+
+  function addReminder(id) {
+    const s = students.find(x => x.id === id)
+    playSound(s && s.reminders + 1 >= 6 ? 'redmark' : 'negative')
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, reminders: s.reminders + 1 } : s))
+  }
+
+  function applyBehavior(studentId, beh) {
+    playSound(beh.points > 0 ? 'positive' : 'negative')
+    setStudents(prev => prev.map(s =>
+      s.id !== studentId
+        ? s
+        : {
+            ...s,
+            points: Math.max(0, s.points + beh.points),
+            reminders: beh.points < 0 ? s.reminders + 1 : s.reminders,
+            behaviorLog: [
+              { label: beh.label, points: beh.points, date: new Date().toISOString().slice(0, 10) },
+              ...s.behaviorLog,
+            ].slice(0, 20),
+          }
+    ))
+  }
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 18 }}>Behavior & Points</h1>
+      {behaviorStudent ? (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+            <button onClick={() => setBehaviorStudent(null)} style={S.btn('ghost')}>← Back</button>
+            <div style={S.avatar(behaviorStudent.id - 1, 38)}>{initials(behaviorStudent.name)}</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{behaviorStudent.name}</div>
+              <div style={{ color: '#9a6a2a', fontWeight: 700, fontSize: 13 }}>
+                {students.find(s => s.id === behaviorStudent.id)?.points} pts · {students.find(s => s.id === behaviorStudent.id)?.reminders} reminders
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <button onClick={() => setBehaviorTab('positive')} style={S.btn(behaviorTab === 'positive' ? 'success' : 'ghost')}>✅ Positive</button>
+            <button onClick={() => setBehaviorTab('negative')} style={S.btn(behaviorTab === 'negative' ? 'danger' : 'ghost')}>⚠️ Reminders</button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+            {(behaviorTab === 'positive' ? BEHAVIORS_POSITIVE : BEHAVIORS_NEGATIVE).map(beh => (
+              <button
+                key={beh.id}
+                onClick={() => applyBehavior(behaviorStudent.id, beh)}
+                style={{
+                  background: behaviorTab === 'positive' ? '#f0fdf4' : '#fef2f2',
+                  border: `1px solid ${behaviorTab === 'positive' ? '#86efac' : '#fca5a5'}`,
+                  borderRadius: 8,
+                  padding: '12px 14px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <span style={{ fontSize: 13, fontWeight: 500 }}>{beh.label}</span>
+                <span style={{ fontWeight: 700, fontSize: 15, color: behaviorTab === 'positive' ? '#4b6854' : '#9f1239' }}>
+                  {beh.points > 0 ? '+' : ''}{beh.points}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+            <button onClick={() => addPoints(behaviorStudent.id, 10)} style={S.btn('success')}>+10 Points</button>
+            <button onClick={() => addPoints(behaviorStudent.id, -10)} style={S.btn('danger')}>-10 Points</button>
+            <button onClick={() => addReminder(behaviorStudent.id)} style={{ ...S.btn('danger'), background: '#7f1d1d' }}>⚠️ Reminder</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          {[...searchedStudents].sort((a, b) => b.points - a.points).map((s, i) => {
+            const vip = isVIP(s)
+            return (
+              <div
+                key={s.id}
+                onClick={() => setBehaviorStudent(s)}
+                style={{
+                  ...S.card,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '12px 14px',
+                  borderLeft: vip ? '3px solid #ca8a04' : undefined,
+                }}
+              >
+                <div style={S.avatar(s.id - 1, 36)}>{initials(s.name)}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {s.name}{vip && <span style={{ fontSize: 11 }}>⭐</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                    <span style={S.badge('#92400e', '#fef3c7')}>{s.points} pts</span>
+                    {s.reminders > 0 && <span style={S.badge('#9f1239', '#fee2e2')}>⚠️ {s.reminders}</span>}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}

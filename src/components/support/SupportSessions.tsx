@@ -62,6 +62,7 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
   const [studentId, setStudentId] = useState<StudentLike['id']>(students[0]?.id || '')
   const [staffId, setStaffId] = useState('')
   const [serviceType, setServiceType] = useState('Therapy')
+  const selectedStudentId = studentId || students[0]?.id || ''
 
   const [endingSessionId, setEndingSessionId] = useState<SupportSession['id'] | null>(null)
   const [returnLocation, setReturnLocation] = useState('back-in-class')
@@ -91,10 +92,6 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
     return () => { active = false }
   }, [])
 
-  useEffect(() => {
-    if (!studentId && students[0]?.id) setStudentId(students[0].id)
-  }, [studentId, students])
-
   const activeSessions = useMemo(
     () => sessions.filter(session => !session.ended_at),
     [sessions],
@@ -108,7 +105,7 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
   )
 
   async function startSession() {
-    const student = students.find(item => Number(item.id) === Number(studentId))
+    const student = students.find(item => Number(item.id) === Number(selectedStudentId))
     const staffMember = staff.find(item => item.id === staffId)
 
     if (!student) return alert('Choose a student.')
@@ -195,7 +192,7 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
           </div>
 
           <label style={{ fontSize: 11, color: '#6f7d8c' }}>Student</label>
-          <select value={studentId} onChange={event => setStudentId(event.target.value)} style={fieldStyle}>
+          <select value={selectedStudentId} onChange={event => setStudentId(event.target.value)} style={fieldStyle}>
             {students.map(student => <option key={String(student.id)} value={student.id}>{student.name}</option>)}
           </select>
 
