@@ -779,7 +779,31 @@ const CLASS_DIVISION = {
 }
 
 function studentDivision(student) {
-  return CLASS_DIVISION[STUDENT_CLASSES[student.id]] || 'yeshiva_ketana'
+  const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
+
+  if (mappedClass) {
+    return CLASS_DIVISION[mappedClass] || 'yeshiva_ketana'
+  }
+
+  const explicitClassId = student.classId || student.class_id
+  if (explicitClassId && CLASS_DIVISION[explicitClassId]) {
+    return CLASS_DIVISION[explicitClassId]
+  }
+
+  if (student.className) {
+    const classMatch = CLASSES.find(cls => cls.name === student.className)
+    if (classMatch) {
+      return CLASS_DIVISION[classMatch.id] || 'yeshiva_ketana'
+    }
+  }
+
+  return 'yeshiva_ketana'
+}
+
+function teacherDivisionForName(name) {
+  const classId = TEACHER_CLASS_MAP[name]
+  if (!classId) return 'yeshiva_ketana'
+  return CLASS_DIVISION[classId] || 'yeshiva_ketana'
 }
 
 function getUserAccess(name, role) {
@@ -823,7 +847,7 @@ function getUserAccess(name, role) {
 
   if (role === 'teacher' || role === 'rebbe') {
     return {
-      divisions: ['yeshiva_ketana'],
+      divisions: [teacherDivisionForName(name)],
       canManageStore: false
     }
   }
@@ -1890,11 +1914,30 @@ function MedicalEditor({ s, setStudents, onCancel = null, onSaved = null }) {
 }
 
 
-function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction }) {
+function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP }) {
   const [selectedClass, setSelectedClass] = useState(initialClass)
 
+  useEffect(() => {
+    setSelectedClass(initialClass)
+  }, [initialClass])
+
+  const getStudentClassId = student => {
+    const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
+    if (mappedClass) return mappedClass
+
+    const explicitClassId = student.classId || student.class_id
+    if (explicitClassId) return explicitClassId
+
+    if (student.className) {
+      const classMatch = CLASSES.find(cls => cls.name === student.className)
+      return classMatch?.id || null
+    }
+
+    return null
+  }
+
   const classStudents = selectedClass
-    ? students.filter(s => STUDENT_CLASSES[s.id] === selectedClass)
+    ? students.filter(s => getStudentClassId(s) === selectedClass)
     : students
 
   const present = classStudents.filter(s => s.status === 'present').length
@@ -1940,18 +1983,45 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
       <div style={{ ...S.card, marginBottom: 20 }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>👨‍🏫 Which class are you teaching now?</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setSelectedClass(null)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === null ? '#0f172a' : '#e5e7eb'}`, background: selectedClass === null ? '#0f172a' : '#fff', color: selectedClass === null ? '#fff' : '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            📚 All Classes ({students.length})
-          </button>
-          {CLASSES.map(cls => {
-            const count = students.filter(s => STUDENT_CLASSES[s.id] === cls.id).length
-            const presentCount = students.filter(s => STUDENT_CLASSES[s.id] === cls.id && s.status === 'present').length
-            return (
-              <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === cls.id ? '#4f6687' : '#e5e7eb'}`, background: selectedClass === cls.id ? '#4f6687' : '#fff', color: selectedClass === cls.id ? '#fff' : '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                🏫 {cls.name} ({presentCount}/{count})
+          {initialClass ? (
+            (() => {
+              const cls = CLASSES.find(c => c.id === initialClass)
+              const count = students.filter(s => getStudentClassId(s) === initialClass).length
+              const presentCount = students.filter(s => getStudentClassId(s) === initialClass && s.status === 'present').length
+              return (
+                <button
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    border: '2px solid #4f6687',
+                    background: '#4f6687',
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'default',
+                  }}
+                  disabled
+                >
+                  🏫 {cls?.name || 'Assigned Class'} ({presentCount}/{count})
+                </button>
+              )
+            })()
+          ) : (
+            <>
+              <button onClick={() => setSelectedClass(null)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === null ? '#0f172a' : '#e5e7eb'}`, background: selectedClass === null ? '#0f172a' : '#fff', color: selectedClass === null ? '#fff' : '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                📚 All Classes ({students.length})
               </button>
-            )
-          })}
+              {CLASSES.map(cls => {
+                const count = students.filter(s => getStudentClassId(s) === cls.id).length
+                const presentCount = students.filter(s => getStudentClassId(s) === cls.id && s.status === 'present').length
+                return (
+                  <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === cls.id ? '#4f6687' : '#e5e7eb'}`, background: selectedClass === cls.id ? '#4f6687' : '#fff', color: selectedClass === cls.id ? '#fff' : '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    🏫 {cls.name} ({presentCount}/{count})
+                  </button>
+                )
+              })}
+            </>
+          )}
         </div>
         <div style={{ marginTop: 12 }}>
           <button onClick={() => setTeachingMode(true)} style={{ ...S.btn('primary'), padding: '8px 20px', fontSize: 13 }}>▶ Start Class Session</button>
@@ -1984,7 +2054,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
           {classStudents.map((s, i) => {
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
-            const vip = checkIsVIP(s)
+            const vip = isVIP ? isVIP(s) : false
             return (
               <div key={s.id} style={{ background: vip ? '#fefce8' : s.status === 'unknown' ? '#fef2f2' : '#ffffff', border: `1px solid ${vip ? '#ca8a04' : s.status === 'unknown' ? '#fecaca' : '#e2e8f0'}`, borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => setSelectedStudent(s)}>
@@ -4472,7 +4542,7 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
           />
         )}
 
-        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} />}
+        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} />}
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={visibleStudents} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
 
         {page === 'dashboard' && role === 'admin' && isOfficeUser && (
