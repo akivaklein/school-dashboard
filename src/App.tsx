@@ -5,10 +5,16 @@ function App() {
   const [loginMode, setLoginMode] = useState('normal')
 
   useEffect(() => {
-    // Check if URL has ?teacher-login or /teacher-login
+    // Check URL for teacher login indicators
     const params = new URLSearchParams(window.location.search)
+    const hash = window.location.hash
     const path = window.location.pathname
-    if (params.get('teacher-login') === 'true' || path.includes('/teacher-login')) {
+    
+    if (
+      params.get('teacher-login') === 'true' || 
+      hash.includes('teacher-login') ||
+      path.includes('/teacher-login')
+    ) {
       setLoginMode('teacher-only')
     }
   }, [])
