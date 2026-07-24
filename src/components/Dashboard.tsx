@@ -2658,6 +2658,7 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
   const [loggedInStaff, setLoggedInStaff] = useState([])
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
   const [showStaffManagement, setShowStaffManagement] = useState(false)
+  const [showStaffPanel, setShowStaffPanel] = useState(true)
   const [showLoginActivity, setShowLoginActivity] = useState(false)
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState(() => initialStudents.slice())
@@ -6556,13 +6557,38 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
       />}
       
       {/* Staff Login Panel */}
-      {role === 'admin' && (
+      {role === 'admin' && showStaffPanel && (
         <StaffLoginPanel 
           loggedInStaff={loggedInStaff}
           onAddLogin={handleAddStaffLogin}
           onRemoveLogin={handleRemoveStaffLogin}
           onShowManagement={() => setShowStaffManagement(true)}
+          onClose={() => setShowStaffPanel(false)}
         />
+      )}
+
+      {role === 'admin' && !showStaffPanel && (
+        <button
+          onClick={() => setShowStaffPanel(true)}
+          style={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            zIndex: 998,
+            border: '1px solid #d8dee9',
+            background: '#ffffff',
+            color: '#334155',
+            borderRadius: 10,
+            padding: '8px 12px',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
+          }}
+          title="Show Logged In Staff panel"
+        >
+          👥 Show Staff Panel
+        </button>
       )}
       
       {/* Staff Management Modal */}

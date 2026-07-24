@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { loadStaffMembers, addStaffMember } from '../services/staffService'
 
 interface StaffMember {
@@ -13,9 +13,10 @@ interface StaffLoginPanelProps {
   onAddLogin: (staff: StaffMember) => void
   onRemoveLogin: (staffId: number) => void
   onShowManagement?: () => void
+  onClose?: () => void
 }
 
-export default function StaffLoginPanel({ loggedInStaff, onAddLogin, onRemoveLogin, onShowManagement }: StaffLoginPanelProps) {
+export default function StaffLoginPanel({ loggedInStaff, onAddLogin, onRemoveLogin, onShowManagement, onClose }: StaffLoginPanelProps) {
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [filteredStaff, setFilteredStaff] = useState<StaffMember[]>([])
   const [searchInput, setSearchInput] = useState('')
@@ -25,6 +26,13 @@ export default function StaffLoginPanel({ loggedInStaff, onAddLogin, onRemoveLog
   const [newStaffRole, setNewStaffRole] = useState('staff')
   const [showAddForm, setShowAddForm] = useState(false)
   const [addingStaff, setAddingStaff] = useState(false)
+  const [dragPosition, setDragPosition] = useState(() => ({
+    top: 20,
+    left: typeof window !== 'undefined' ? Math.max(window.innerWidth - 360, 16) : 20,
+  }))
+  const [isDragging, setIsDragging] = useState(false)
+  const dragOffsetRef = useRef({ x: 0, y: 0 })
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     loadStaffList()
@@ -67,12 +75,62 @@ export default function StaffLoginPanel({ loggedInStaff, onAddLogin, onRemoveLog
 
   const loggedInIds = new Set(loggedInStaff.map(s => s.id))
 
+  useEffect(() => {
+    if (!isDragging) return
+
+    const onMouseMove = (event: MouseEvent) => {
+      const panelWidth = panelRef.current?.offsetWidth ?? 340
+      const panelHeight = panelRef.current?.offsetHeight ?? 520
+      const maxLeft = Math.max(window.innerWidth - panelWidth - 8, 8)
+      const maxTop = Math.max(window.innerHeight - panelHeight - 8, 8)
+
+      const nextLeft = Math.min(
+        maxLeft,
+        Math.max(8, event.clientX - dragOffsetRef.current.x)
+      )
+      const nextTop = Math.min(
+        maxTop,
+        Math.max(8, event.clientY - dragOffsetRef.current.y)
+      )
+
+      setDragPosition({ left: nextLeft, top: nextTop })
+    }
+
+    const onMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [isDragging])
+
+  function startDragging(event: React.MouseEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement
+    if (target.closest('button')) return
+
+    const rect = panelRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    dragOffsetRef.current = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    }
+
+    setIsDragging(true)
+  }
+
   return (
     <div
+      ref={panelRef}
       style={{
         position: 'fixed',
-        top: 20,
-        right: 20,
+        top: dragPosition.top,
+        left: dragPosition.left,
         zIndex: 999,
         background: '#ffffff',
         borderRadius: 14,
@@ -83,25 +141,62 @@ export default function StaffLoginPanel({ loggedInStaff, onAddLogin, onRemoveLog
       }}
     >
       {/* Header */}
-      <div style={{ background: '#0f172a', color: '#fff', padding: '14px 16px', fontWeight: 700, fontSize: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        onMouseDown={startDragging}
+        style={{
+          background: '#0f172a',
+          color: '#fff',
+          padding: '14px 16px',
+          fontWeight: 700,
+          fontSize: 14,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          cursor: isDragging ? 'grabbing' : 'grab',
+          userSelect: 'none',
+          gap: 8,
+        }}
+        title="Drag to move"
+      >
         <span>👥 Logged In Staff</span>
-        <button
-          onClick={onShowManagement}
-          style={{
-            background: 'rgba(255,255,255,0.1)',
-            border: 'none',
-            color: '#fff',
-            width: 24,
-            height: 24,
-            borderRadius: 6,
-            cursor: 'pointer',
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-          title="Manage staff accounts"
-        >
-          ⚙️
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={onShowManagement}
+            style={{
+              background: 'rgba(255,255,255,0.1)',
+              border: 'none',
+              color: '#fff',
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+            title="Manage staff accounts"
+          >
+            ⚙️
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                border: 'none',
+                color: '#fff',
+                width: 24,
+                height: 24,
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+              title="Close panel"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Currently logged in users */}
