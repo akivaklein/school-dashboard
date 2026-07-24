@@ -1236,7 +1236,16 @@ function getImprovement(s) {
   return { label: 'Same as last week', color: '#9a6a2a', icon: '➡️' }
 }
 
-function isVIP(s) { return s.reminders === 0 && s.att.every(d => d === 'P') }
+function isVIP(s, rules: { minimumPoints: number; maximumReminders: number; minimumAttendance: number; requireAll: boolean }) {
+  const presentCount = s.att.filter((d: string) => d === 'P').length
+  const attPct = s.att.length > 0 ? (presentCount / s.att.length) * 100 : 100
+  const checks = [
+    s.points >= rules.minimumPoints,
+    s.reminders <= rules.maximumReminders,
+    attPct >= rules.minimumAttendance,
+  ]
+  return rules.requireAll ? checks.every(Boolean) : checks.some(Boolean)
+}
 
 function isStoreItemRestrictedForStudent(student, item) {
   if (!student || !item) return false
@@ -1276,7 +1285,7 @@ function DrillDown({ title, students, onClose, onSelectStudent }) {
           {students.length === 0 && <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No students</div>}
           {students.map((s, i) => {
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
-            const vip = isVIP(s)
+            const vip = checkIsVIP(s)
             return (
               <div key={s.id} onClick={() => onSelectStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 8, cursor: 'pointer', background: '#ffffff' }}>
                 <div style={S.avatar(i, 40)}>{initials(s.name)}</div>
@@ -1871,7 +1880,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
           {classStudents.map((s, i) => {
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
-            const vip = isVIP(s)
+            const vip = checkIsVIP(s)
             return (
               <div key={s.id} style={{ background: vip ? '#fefce8' : s.status === 'unknown' ? '#fef2f2' : '#ffffff', border: `1px solid ${vip ? '#ca8a04' : s.status === 'unknown' ? '#fecaca' : '#e2e8f0'}`, borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => setSelectedStudent(s)}>
@@ -3036,6 +3045,8 @@ export default function Dashboard() {
   })
   const [setupVipRulesLoaded, setSetupVipRulesLoaded] = useState(false)
 
+  const checkIsVIP = (s: any) => isVIP(s, setupVipRules)
+
   const [setupSales, setSetupSales] = useState([])
   const [setupSalesLoaded, setSetupSalesLoaded] = useState(false)
 
@@ -3939,7 +3950,7 @@ export default function Dashboard() {
       statusColor={statusColor}
       statusEmoji={statusEmoji}
       statusLabel={statusLabel}
-      isVIP={isVIP}
+      isVIP={checkIsVIP}
       initials={initials}
       persistStudentFields={persistStudentFields}
       persistStudentFieldsBulk={persistStudentFieldsBulk}
@@ -3972,7 +3983,7 @@ export default function Dashboard() {
   const cameTodayRate = total ? Math.round(cameToday / total * 100) : 0
   const improved = visibleStudents.filter(s => s.reminders < s.lastWeekReminders).length
   const needsAttention = visibleStudents.filter(s => s.reminders > s.lastWeekReminders).length
-  const vipStudents = visibleStudents.filter(s => isVIP(s))
+  const vipStudents = visibleStudents.filter(s => checkIsVIP(s))
   const urgentStudents = visibleStudents.filter(s => s.reminders >= 6 || s.detention || s.att.filter(d=>d==='A').length >= 3 || s.status === 'unknown')
   const callsDueStudents = visibleStudents.filter(s => { const lc = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length-1] : null; return !lc || daysSince(lc.date) > 14 })
   const divisionSummaries = userAccess.divisions.map(key => {
@@ -4743,7 +4754,7 @@ export default function Dashboard() {
             S={S}
             STAFF={STAFF}
             getImprovement={getImprovement}
-            isVIP={isVIP}
+            isVIP={checkIsVIP}
             statusColor={statusColor}
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
@@ -4930,7 +4941,7 @@ export default function Dashboard() {
             STAFF={STAFF}
             S={S}
             initials={initials}
-            isVIP={isVIP}
+            isVIP={checkIsVIP}
             DAYS={DAYS}
             CLASSES={CLASSES}
             STUDENT_CLASSES={STUDENT_CLASSES}
@@ -4982,7 +4993,7 @@ export default function Dashboard() {
             searchedStudents={searchedStudents}
             openStudent={openStudent}
             initials={initials}
-            isVIP={isVIP}
+            isVIP={checkIsVIP}
             S={S}
             statusColor={statusColor}
             statusEmoji={statusEmoji}
@@ -5007,7 +5018,7 @@ export default function Dashboard() {
             storeStudent={storeStudent}
             setStoreStudent={setStoreStudent}
             visibleStudents={visibleStudents}
-            isVIP={isVIP}
+            isVIP={checkIsVIP}
             students={students}
             storeCategoryFilter={storeCategoryFilter}
             setStoreCategoryFilter={setStoreCategoryFilter}
@@ -6114,7 +6125,7 @@ export default function Dashboard() {
         statusEmoji={statusEmoji}
         statusLabel={statusLabel}
         initials={initials}
-        isVIP={isVIP}
+        isVIP={checkIsVIP}
         getImprovement={getImprovement}
         daysSince={daysSince}
         TrackingTab={TrackingTab}
