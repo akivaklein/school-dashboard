@@ -2712,6 +2712,9 @@ export default function Dashboard() {
         if (databaseStudent.parent_calls && Array.isArray(databaseStudent.parent_calls) && databaseStudent.parent_calls.length > 0) {
           merged.parentCalls = databaseStudent.parent_calls
         }
+        if (typeof databaseStudent.reminders === 'number') {
+          merged.reminders = databaseStudent.reminders
+        }
 
         return merged
       })
@@ -3620,6 +3623,7 @@ export default function Dashboard() {
 
       const saved = await persistStudentFields(originalStudent.id, {
         token_balance: nextPoints,
+        reminders: nextReminders,
       })
 
       if (!saved) {
@@ -3718,6 +3722,7 @@ export default function Dashboard() {
 
       const saved = await persistStudentFields(currentStudent.id, {
         token_balance: nextPoints,
+        reminders: nextReminders,
       })
 
       if (!saved) {
