@@ -3677,7 +3677,7 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
 
   function setStoredAuthUser(roleValue: string, nameValue: string) {
     try {
-      localStorage.setItem(
+      sessionStorage.setItem(
         AUTH_USER_STORAGE_KEY,
         JSON.stringify({ role: roleValue, name: nameValue })
       )
@@ -3688,7 +3688,7 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
 
   function clearStoredAuthUser() {
     try {
-      localStorage.removeItem(AUTH_USER_STORAGE_KEY)
+      sessionStorage.removeItem(AUTH_USER_STORAGE_KEY)
     } catch (error) {
       console.error('Failed to clear auth user:', error)
     }

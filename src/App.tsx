@@ -11,7 +11,7 @@ const AUTH_USER_STORAGE_KEY = 'schoolDashboardAuthUser'
 
 function loadStoredAuthUser(): AuthUser | null {
   try {
-    const raw = localStorage.getItem(AUTH_USER_STORAGE_KEY)
+    const raw = sessionStorage.getItem(AUTH_USER_STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as AuthUser
     if (!parsed?.name || !parsed?.role) return null
@@ -25,7 +25,12 @@ function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => loadStoredAuthUser())
 
   // Check if current path is the teacher-only route
-  const isTeacherRoute = window.location.pathname === '/teacher' || window.location.pathname === '/teacher-login'
+  const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
+  const isTeacherRoute =
+    normalizedPath === '/teacher' ||
+    normalizedPath === '/teacher-login' ||
+    normalizedPath.endsWith('/teacher') ||
+    normalizedPath.endsWith('/teacher-login')
 
   const handleTeacherLogin = (role: string, name: string) => {
     setCurrentUser({ role, name })
