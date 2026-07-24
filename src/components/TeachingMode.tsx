@@ -214,9 +214,21 @@ export default function TeachingMode({
       s.status === 'absent' ||
       s.status === 'not-arrived'
 
+    const updatedClassLog = [
+      ...(s.classLog || []),
+      {
+        time: timeStr,
+        type: 'in',
+        note: wasNotInSchool
+          ? 'Arrived late to yeshiva'
+          : 'Returned to class',
+        staffId: null
+      }
+    ]
+
     const fields = wasNotInSchool
-      ? { status: 'present', dailyStatus: 'late', withStaff: null }
-      : { status: 'present', withStaff: null }
+      ? { status: 'present', dailyStatus: 'late', withStaff: null, classLog: updatedClassLog }
+      : { status: 'present', withStaff: null, classLog: updatedClassLog }
 
     setStudents(prev =>
       prev.map(x => {
@@ -232,18 +244,7 @@ export default function TeachingMode({
                 reason: 'arrived-late',
                 note: 'Marked present from School-Wide Mode'
               }
-            : x.lateDetails,
-          classLog: [
-            ...(x.classLog || []),
-            {
-              time: timeStr,
-              type: 'in',
-              note: wasNotInSchool
-                ? 'Arrived late to yeshiva'
-                : 'Returned to class',
-              staffId: null
-            }
-          ]
+            : x.lateDetails
         }
       })
     )
@@ -304,8 +305,8 @@ export default function TeachingMode({
             ? 'Left for therapy'
             : 'Left class'
 
-    setStudents(prev =>
-      prev.map(x =>
+    setStudents(prev => {
+      const updated = prev.map(x =>
         Number(x.id) === Number(studentId)
           ? {
               ...x,
@@ -323,22 +324,22 @@ export default function TeachingMode({
             }
           : x
       )
-    )
-
-    setLeavePopup(null)
-
-    const success = await persistStudentFields(studentId, {
-      status: newStatus
+      setLeavePopup(null)
+      
+      // Get the updated student to get the new classLog
+      const updatedStudent = updated.find(x => Number(x.id) === Number(studentId))
+      if (updatedStudent) {
+        persistStudentFields(studentId, {
+          status: newStatus,
+          classLog: updatedStudent.classLog
+        }).catch(error => {
+          console.error('Unable to save student status to Supabase:', error)
+          alert('Unable to save student status to Supabase.')
+        })
+      }
+      
+      return updated
     })
-
-    if (!success && original) {
-      setStudents(prev =>
-        prev.map(x =>
-          Number(x.id) === Number(studentId) ? original : x
-        )
-      )
-      alert('Unable to save student status to Supabase.')
-    }
   }
 
   const mins = Math.floor(intervalSeconds / 60)

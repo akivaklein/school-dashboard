@@ -188,9 +188,10 @@ export default function AttendancePage({
         }
       }))
 
+      const updatedStudent = students.find(s => s.id === original.id)
       const fields = wasNotInSchool
-        ? { status: 'present', dailyStatus: 'late', withStaff: null }
-        : { status: 'present', withStaff: null }
+        ? { status: 'present', dailyStatus: 'late', withStaff: null, classLog: updatedStudent?.classLog || [] }
+        : { status: 'present', withStaff: null, classLog: updatedStudent?.classLog || [] }
       const success = await saveStudentFields(s.id, fields)
       if (!success) {
         setStudents(prev => prev.map(x => x.id === s.id ? original : x))

@@ -1167,6 +1167,10 @@ async function persistStudentFields(id, fields) {
     mappedFields.test_scores = mappedFields.testScores
     delete mappedFields.testScores
   }
+  if ('classLog' in mappedFields) {
+    mappedFields.class_log = mappedFields.classLog
+    delete mappedFields.classLog
+  }
   
   const { error } = await supabase.from('students').update(mappedFields).eq('id', id)
   if (error) {
@@ -2722,6 +2726,9 @@ export default function Dashboard() {
         if (databaseStudent.test_scores && Array.isArray(databaseStudent.test_scores) && databaseStudent.test_scores.length > 0) {
           merged.testScores = databaseStudent.test_scores
         }
+        if (databaseStudent.class_log && Array.isArray(databaseStudent.class_log) && databaseStudent.class_log.length > 0) {
+          merged.classLog = databaseStudent.class_log
+        }
 
         return merged
       })
@@ -4039,16 +4046,21 @@ export default function Dashboard() {
   function updateUnknownLocation(studentId, newStatus, label) {
     const note = (unknownNotes[studentId] || '').trim()
     const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+    const studentBeforeUpdate = students.find(s => s.id === studentId)
+    const logNote = `Location updated from Unknown to ${label}.${note ? ` Note: ${note}` : ''}`
+    const updatedClassLog = [...(studentBeforeUpdate?.classLog || []), { time, type: 'status-update', note: logNote, staffId: null }]
+    
     setStudents(prev => prev.map(s => {
       if (s.id !== studentId) return s
-      const logNote = `Location updated from Unknown to ${label}.${note ? ` Note: ${note}` : ''}`
       return {
         ...s,
         status: newStatus === 'left-early' ? 'left-early' : newStatus,
         dailyStatus: newStatus === 'absent' ? 'absent' : newStatus === 'left-early' ? 'left-early' : s.dailyStatus,
-        classLog: [...(s.classLog || []), { time, type: 'status-update', note: logNote, staffId: null }]
+        classLog: updatedClassLog
       }
     }))
+    
+    persistStudentFields(studentId, { classLog: updatedClassLog })
     setUnknownNotes(prev => ({ ...prev, [studentId]: '' }))
     if (students.filter(s => s.status === 'unknown' && s.id !== studentId).length === 0) setShowUnknownPopup(false)
   }
