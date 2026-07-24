@@ -57,6 +57,12 @@ import {
   createStoreSale,
   updateStoreSale,
   deleteStoreSale,
+  loadSetupAssignments,
+  saveSetupAssignment,
+  loadTherapySchedule,
+  saveTherapySchedule,
+  loadStaffAccounts,
+  saveStaffAccount,
 } from '../services/setupCenterService'
 
 const STORE_ITEMS = [
@@ -2035,7 +2041,7 @@ function TherapistDashboard({ students, userName, setSelectedStudent }) {
         </div>
         <div style={S.card}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📅 This Week's Sessions</div>
-          {THERAPY_SCHEDULE.map((t, i) => {
+          {THERAPY_SCHEDULE_STATE.map((t, i) => {
             const staffMember = STAFF.find(st => st.id === t.staffId)
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f8fafc' }}>
@@ -3021,10 +3027,13 @@ export default function Dashboard() {
 
     async function loadSetupData() {
       try {
-        const [actions, vipRules, sales] = await Promise.all([
+        const [actions, vipRules, sales, assignments, schedule, accounts] = await Promise.all([
           listTeachingActions(),
           getVIPRules(),
           listStoreSales(),
+          loadSetupAssignments(),
+          loadTherapySchedule(),
+          loadStaffAccounts(),
         ])
 
         if (active) {
@@ -3036,6 +3045,9 @@ export default function Dashboard() {
             requireAll: vipRules.require_all,
           })
           setSetupSales(sales)
+          setSetupAssignments(prev => ({ ...prev, ...assignments }))
+          setTHERAPY_SCHEDULE(schedule.length > 0 ? schedule : prev => prev)
+          setSetupAccounts(accounts)
         }
       } catch (error) {
         console.error('Unable to load setup center config from Supabase:', error)
@@ -3179,6 +3191,23 @@ export default function Dashboard() {
   })
 
   const [setupAccounts, setSetupAccounts] = useState({})
+
+  const [THERAPY_SCHEDULE_STATE, setTHERAPY_SCHEDULE] = useState(THERAPY_SCHEDULE)
+
+  // Persist staff accounts changes
+  useEffect(() => {
+    const persistAllAccounts = async () => {
+      for (const [staffName, accountData] of Object.entries(setupAccounts)) {
+        if (accountData && (accountData.active !== undefined || accountData.divisions)) {
+          await saveStaffAccount(staffName, accountData)
+        }
+      }
+    }
+    
+    if (Object.keys(setupAccounts).length > 0) {
+      persistAllAccounts()
+    }
+  }, [setupAccounts])
 
   const createFakeTherapySchedule = () => {
     // Demo scheduling runs Monday through Thursday only.
@@ -3498,6 +3527,14 @@ export default function Dashboard() {
       previous.filter(filter => filter.id !== id)
     )
   }
+
+  // Persist therapy schedule changes
+  useEffect(() => {
+    if (setupTherapySchedule && setupTherapySchedule.length > 0) {
+      saveTherapySchedule(setupTherapySchedule)
+    }
+  }, [setupTherapySchedule])
+
   const [intakeList, setIntakeList] = useState(() => enrichIntakeDemoData([
     { id: 1, name: 'Moshe Friedman', dob: '2012-03-15', currentSchool: 'Yeshiva Ohr Torah', shul: 'Khal Avreichim', heardAbout: 'Rabbi Klein', fatherName: 'Avraham Friedman', fatherPhone: '718-555-1234', motherName: 'Rivka', motherMaiden: 'Schwartz', motherPhone: '718-555-1235', address: '1234 56th St Brooklyn NY', program: 'mesivta', status: 'interviewed', tourDate: '2026-05-28', tourBy: 'Rabbi Baum', interviewDate: '2026-06-04', nextStep: 'Admissions team decision', diagnoses: ['ADHD', 'Anxiety'], issues: 'Difficulty focusing in large groups. Responds well 1-on-1.', interviewNotes: 'Very bright boy. Strong in Gemara. Needs structured environment.', scores: { tefillah: 4, kriah: 3, gemaraReading: 4, gemaraTranslation: 3, gemaraComprehension: 3, rashiScript: 3, mathAddition: 4, mathSubtraction: 3, mathMultiplication: 2, mathDivision: 2, englishReading: 4, readingComprehension: 3, writingSkills: 3, spellingVocabulary: 3 }, placements: { tefillah: 'independent', kriah: 'developing', gemaraReading: 'independent', gemaraTranslation: 'developing', gemaraComprehension: 'developing', rashiScript: 'developing', mathAddition: 'independent', mathSubtraction: 'developing', mathMultiplication: 'foundational', mathDivision: 'foundational', englishReading: 'independent', readingComprehension: 'developing', writingSkills: 'developing', spellingVocabulary: 'developing' }, documents: [{ name: 'Assessment_Friedman.pdf', date: '2025-11-10' }] },
     { id: 2, name: 'Yosef Stern', dob: '2011-07-22', currentSchool: 'Mesivta Beis Shraga', shul: 'Young Israel', heardAbout: 'Parent referral', fatherName: 'Shmuel Stern', fatherPhone: '718-555-5678', motherName: 'Chana', motherMaiden: 'Goldberg', motherPhone: '718-555-5679', address: '567 Ave J Brooklyn NY', program: 'mesivta', status: 'applicant', tourDate: '', tourBy: '', interviewDate: '', nextStep: 'Schedule tour', diagnoses: [], issues: '', interviewNotes: '', scores: {}, placements: {}, documents: [] },
@@ -4444,9 +4481,16 @@ export default function Dashboard() {
                   const existing =
                     previous[currentPerson.name] || emptyAssignment
 
+                  const updated = updater(existing)
+
+                  // Persist the changes
+                  setTimeout(async () => {
+                    await saveSetupAssignment(currentPerson.name, updated)
+                  }, 0)
+
                   return {
                     ...previous,
-                    [currentPerson.name]: updater(existing)
+                    [currentPerson.name]: updated
                   }
                 })
               }
@@ -4464,6 +4508,7 @@ export default function Dashboard() {
 
                 setSetupAssignments(previous => {
                   const next = { ...previous }
+                  const affectedTeachers = [currentPerson.name]
 
                   if (currentlySelected) {
                     const existing =
@@ -4478,6 +4523,11 @@ export default function Dashboard() {
                             .filter(id => id !== studentId)
                       }
                     }
+
+                    // Persist after state update
+                    setTimeout(async () => {
+                      await saveSetupAssignment(currentPerson.name, next[currentPerson.name])
+                    }, 0)
 
                     return next
                   }
@@ -4497,6 +4547,9 @@ export default function Dashboard() {
                             .filter(id => id !== studentId)
                       }
                     }
+                    if (person.name !== currentPerson.name) {
+                      affectedTeachers.push(person.name)
+                    }
                   })
 
                   const selectedTeacher =
@@ -4514,6 +4567,13 @@ export default function Dashboard() {
                       ]
                     }
                   }
+
+                  // Persist all affected teachers
+                  setTimeout(async () => {
+                    for (const teacher of affectedTeachers) {
+                      await saveSetupAssignment(teacher, next[teacher])
+                    }
+                  }, 0)
 
                   return next
                 })
@@ -5107,7 +5167,7 @@ export default function Dashboard() {
             students={students}
             STAFF={STAFF}
             SCHEDULE_PERIODS={SCHEDULE_PERIODS}
-            THERAPY_SCHEDULE={THERAPY_SCHEDULE}
+            THERAPY_SCHEDULE={THERAPY_SCHEDULE_STATE}
             openStudent={openStudent}
             initials={initials}
             statusColor={statusColor}

@@ -269,3 +269,113 @@ export async function deleteStoreSale(id: string): Promise<void> {
     throw new Error(error.message || 'Unable to delete store sale')
   }
 }
+
+/**
+ * Setup Center Persistence
+ * Staff assignments, therapy schedules, and account settings
+ */
+
+// Staff Assignments
+export async function loadSetupAssignments() {
+  const { data, error } = await supabase
+    .from('setup_assignments')
+    .select('staff_name, assignments_data')
+
+  if (error) {
+    console.error('Error loading setup assignments:', error)
+    return {}
+  }
+
+  const result: Record<string, any> = {}
+  data?.forEach(row => {
+    result[row.staff_name] = row.assignments_data || {
+      periods: { 1: [], 2: [], 3: [] },
+      caseload: []
+    }
+  })
+
+  return result
+}
+
+export async function saveSetupAssignment(staffName: string, assignmentData: any) {
+  const { error } = await supabase
+    .from('setup_assignments')
+    .upsert({
+      staff_name: staffName,
+      assignments_data: assignmentData,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'staff_name' })
+
+  if (error) {
+    console.error(`Error saving assignment for ${staffName}:`, error)
+    return false
+  }
+  return true
+}
+
+// Therapy Schedule
+export async function loadTherapySchedule() {
+  const { data, error } = await supabase
+    .from('therapy_schedule')
+    .select('schedule_data')
+    .eq('id', 1)
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error loading therapy schedule:', error)
+    return []
+  }
+
+  return data?.schedule_data || []
+}
+
+export async function saveTherapySchedule(scheduleData: any) {
+  const { error } = await supabase
+    .from('therapy_schedule')
+    .upsert({
+      id: 1,
+      schedule_data: scheduleData,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' })
+
+  if (error) {
+    console.error('Error saving therapy schedule:', error)
+    return false
+  }
+  return true
+}
+
+// Staff Accounts
+export async function loadStaffAccounts() {
+  const { data, error } = await supabase
+    .from('staff_accounts')
+    .select('staff_name, account_data')
+
+  if (error) {
+    console.error('Error loading staff accounts:', error)
+    return {}
+  }
+
+  const result: Record<string, any> = {}
+  data?.forEach(row => {
+    result[row.staff_name] = row.account_data || { active: true, divisions: 'both' }
+  })
+
+  return result
+}
+
+export async function saveStaffAccount(staffName: string, accountData: any) {
+  const { error } = await supabase
+    .from('staff_accounts')
+    .upsert({
+      staff_name: staffName,
+      account_data: accountData,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'staff_name' })
+
+  if (error) {
+    console.error(`Error saving account for ${staffName}:`, error)
+    return false
+  }
+  return true
+}
