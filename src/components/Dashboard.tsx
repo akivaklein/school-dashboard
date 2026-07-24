@@ -2647,11 +2647,12 @@ function FlagDashboardWidget({ flags, onOpen }) {
 
 interface DashboardProps {
   teacherUser?: { role: string; name: string }
+  onTeacherSessionLogout?: () => void
 }
 
 const AUTH_USER_STORAGE_KEY = 'schoolDashboardAuthUser'
 
-export default function Dashboard({ teacherUser }: DashboardProps) {
+export default function Dashboard({ teacherUser, onTeacherSessionLogout }: DashboardProps) {
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
@@ -3757,6 +3758,9 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
       setRole('admin')
       clearStoredAuthUser()
       setCurrentSessionId(null)
+      if (teacherUser) {
+        onTeacherSessionLogout?.()
+      }
     }
   }
 
@@ -3775,6 +3779,9 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
     setRole('admin')
     clearStoredAuthUser()
     setCurrentSessionId(null)
+    if (teacherUser) {
+      onTeacherSessionLogout?.()
+    }
   }
 
   async function saveStudentField(id, field, value) {

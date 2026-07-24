@@ -36,6 +36,10 @@ function App() {
     setCurrentUser({ role, name })
   }
 
+  const handleTeacherSessionLogout = () => {
+    setCurrentUser(null)
+  }
+
   // If on teacher-only route, show ONLY the teacher login page (no redirect to main)
   if (isTeacherRoute) {
     // If not logged in, show login page; if logged in, show dashboard
@@ -43,7 +47,7 @@ function App() {
       return <TeacherOnlyLoginPage onLogin={handleTeacherLogin} />
     }
     // After login, show dashboard with teacher user info so it auto-logs in
-    return <Dashboard teacherUser={currentUser} />
+    return <Dashboard teacherUser={currentUser} onTeacherSessionLogout={handleTeacherSessionLogout} />
   }
 
   // Otherwise, show normal Dashboard
