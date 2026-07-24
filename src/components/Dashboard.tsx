@@ -800,6 +800,21 @@ function studentDivision(student) {
   return 'yeshiva_ketana'
 }
 
+function resolveStudentClassId(student) {
+  const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
+  if (mappedClass) return mappedClass
+
+  const explicitClassId = student.classId || student.class_id
+  if (explicitClassId) return explicitClassId
+
+  if (student.className) {
+    const classMatch = CLASSES.find(cls => cls.name === student.className)
+    return classMatch?.id || null
+  }
+
+  return null
+}
+
 function teacherDivisionForName(name) {
   const classId = TEACHER_CLASS_MAP[name]
   if (!classId) return 'yeshiva_ketana'
@@ -4328,9 +4343,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   )
 
   const userAccess = getUserAccess(userName, role)
+  const isTeacherRole = role === 'teacher' || role === 'rebbe'
   const isOfficeUser = ['Eli Bloom', 'Zev Reisman', 'Eli Stern'].includes(userName)
   const allowedDivisionSet = new Set(userAccess.divisions)
-  const visibleStudents = students.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
+  const divisionScopedStudents = students.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
+  const assignedTeacherClass = isTeacherRole
+    ? (teacherClass || TEACHER_CLASS_MAP[userName] || null)
+    : null
+  const visibleStudents = isTeacherRole
+    ? divisionScopedStudents.filter(s => assignedTeacherClass && resolveStudentClassId(s) === assignedTeacherClass)
+    : divisionScopedStudents
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
   const present = visibleStudents.filter(s => s.status === 'present').length
   const absent = visibleStudents.filter(s => s.status === 'absent').length
@@ -5340,7 +5362,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
         {page === 'attendance' && (
           <AttendancePage
-            students={students}
+            students={visibleStudents}
             setStudents={setStudents}
             role={role}
             attFilter={attFilter}
@@ -5386,7 +5408,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         {page === 'schedule' && (
           <SchedulePage
             S={S}
-            students={students}
+            students={visibleStudents}
             STAFF={STAFF}
             SCHEDULE_PERIODS={SCHEDULE_PERIODS}
             THERAPY_SCHEDULE={THERAPY_SCHEDULE_STATE}
@@ -5400,7 +5422,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
         {page === 'behavior' && (
           <BehaviorPage
-            students={students}
+            students={visibleStudents}
             searchedStudents={searchedStudents}
             openStudent={openStudent}
             initials={initials}
@@ -5430,7 +5452,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             setStoreStudent={setStoreStudent}
             visibleStudents={visibleStudents}
             isVIP={checkIsVIP}
-            students={students}
+            students={visibleStudents}
             storeCategoryFilter={storeCategoryFilter}
             setStoreCategoryFilter={setStoreCategoryFilter}
             storeItemSearch={storeItemSearch}
