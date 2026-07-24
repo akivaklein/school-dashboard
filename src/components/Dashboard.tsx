@@ -2740,6 +2740,8 @@ export default function Dashboard() {
   const [storeItems, setStoreItems] = useState(() => STORE_ITEMS.slice())
   const [purchaseLog, setPurchaseLog] = useState([])
   const [storePersistenceReady, setStorePersistenceReady] = useState(false)
+  const [storeSyncState, setStoreSyncState] = useState('loading')
+  const [storeLastLoadError, setStoreLastLoadError] = useState('')
   const [showStoreManager, setShowStoreManager] = useState(false)
   const [newStoreItem, setNewStoreItem] = useState({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', vip: false })
   const [attFilter, setAttFilter] = useState('all')
@@ -2756,6 +2758,9 @@ export default function Dashboard() {
 
     async function loadStoreData() {
       try {
+        setStoreSyncState('loading')
+        setStoreLastLoadError('')
+
         let loadedItems = await listStoreItems()
 
         if (loadedItems.length === 0) {
@@ -2784,10 +2789,17 @@ export default function Dashboard() {
           })),
         )
         setStorePersistenceReady(true)
+        setStoreSyncState('ready')
       } catch (error) {
         console.error('Unable to load token store data from Supabase:', error)
         if (active) {
           setStorePersistenceReady(false)
+          setStoreSyncState('error')
+          setStoreLastLoadError(
+            error instanceof Error
+              ? error.message
+              : 'Unable to load token store data from Supabase.',
+          )
         }
       }
     }
@@ -4935,6 +4947,9 @@ export default function Dashboard() {
             purchaseLog={purchaseLog}
             isStoreItemRestrictedForStudent={isStoreItemRestrictedForStudent}
             STORE_CATEGORY_OPTIONS={STORE_CATEGORY_OPTIONS}
+            storePersistenceReady={storePersistenceReady}
+            storeSyncState={storeSyncState}
+            storeLastLoadError={storeLastLoadError}
           />
         )}
 

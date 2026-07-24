@@ -23,6 +23,9 @@ type Props = {
   purchaseLog: any[]
   isStoreItemRestrictedForStudent: (student: any, item: any) => boolean
   STORE_CATEGORY_OPTIONS: Array<{ key: string; label: string }>
+  storePersistenceReady: boolean
+  storeSyncState: string
+  storeLastLoadError: string
 }
 
 export default function TokenStorePage({
@@ -50,7 +53,33 @@ export default function TokenStorePage({
   purchaseLog,
   isStoreItemRestrictedForStudent,
   STORE_CATEGORY_OPTIONS,
+  storePersistenceReady,
+  storeSyncState,
+  storeLastLoadError,
 }: Props) {
+  const syncLabel =
+    storeSyncState === 'ready'
+      ? 'Connected'
+      : storeSyncState === 'loading'
+        ? 'Checking...'
+        : 'Not connected'
+
+  const syncColor =
+    storeSyncState === 'ready'
+      ? '#166534'
+      : storeSyncState === 'loading'
+        ? '#7c2d12'
+        : '#9f1239'
+
+  const syncBackground =
+    storeSyncState === 'ready'
+      ? '#dcfce7'
+      : storeSyncState === 'loading'
+        ? '#ffedd5'
+        : '#ffe4e6'
+
+  const lastErrorText = storeLastLoadError || 'none'
+
   return (
     <div>
       {(() => {
@@ -69,6 +98,25 @@ export default function TokenStorePage({
                   {showStoreManager ? 'Close Inventory' : 'Manage Inventory'}
                 </button>
               )}
+            </div>
+
+            <div style={{ ...S.card, marginBottom: 12, padding: '10px 12px', borderLeft: `3px solid ${syncColor}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Sync
+                </span>
+                <span style={{ ...S.badge(syncColor, syncBackground), fontWeight: 700 }}>
+                  {syncLabel}
+                </span>
+                <span style={{ fontSize: 11, color: '#475569' }}>
+                  Last load error: {lastErrorText}
+                </span>
+                {!storePersistenceReady && storeSyncState !== 'loading' && (
+                  <span style={{ fontSize: 11, color: '#9f1239', fontWeight: 600 }}>
+                    Writes are currently blocked.
+                  </span>
+                )}
+              </div>
             </div>
 
             {showStoreManager && userAccess.canManageStore && (
