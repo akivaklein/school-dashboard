@@ -1273,7 +1273,7 @@ const S = {
   avatar: (idx, size = 36) => ({ width: size, height: size, borderRadius: '50%', background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size > 30 ? 13 : 10, flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.18)' }),
 }
 
-function DrillDown({ title, students, onClose, onSelectStudent }) {
+function DrillDown({ title, students, onClose, onSelectStudent, isVIP }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 600, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 70px rgba(15,23,42,0.22)' }}>
@@ -1285,7 +1285,7 @@ function DrillDown({ title, students, onClose, onSelectStudent }) {
           {students.length === 0 && <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No students</div>}
           {students.map((s, i) => {
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
-            const vip = checkIsVIP(s)
+            const vip = isVIP ? isVIP(s) : false
             return (
               <div key={s.id} onClick={() => onSelectStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 8, cursor: 'pointer', background: '#ffffff' }}>
                 <div style={S.avatar(i, 40)}>{initials(s.name)}</div>
@@ -6108,6 +6108,7 @@ export default function Dashboard() {
             openStudent(student)
             setDrillDown(null)
           }}
+          isVIP={checkIsVIP}
         />
       )}
       {selectedStudent && <StudentProfile
