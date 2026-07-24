@@ -15,6 +15,7 @@ export function StudentScoresTab({
   academicDisplay,
   academicStatus,
   academicStatusColor,
+  persistStudentFields,
 }) {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ teacher: userName?.startsWith('Rabbi') ? userName : DEFAULT_ACADEMIC_TEACHER, subject: 'Math', skill: '2-digit', assessmentName: '', date: new Date().toISOString().slice(0,10), scoreType: 'points', score: '', maxScore: '100', rating: 'Good', notes: '' })
@@ -54,7 +55,14 @@ export function StudentScoresTab({
       rating: form.scoreType === 'rating' ? form.rating : null,
       notes: form.notes,
     }
-    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, testScores: [entry, ...(x.testScores || [])] } : x))
+    const updatedScores = [entry, ...(s.testScores || [])]
+    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, testScores: updatedScores } : x))
+    
+    // Persist to database
+    if (persistStudentFields) {
+      persistStudentFields(s.id, { testScores: updatedScores })
+    }
+    
     setShowAdd(false)
     setForm(prev => ({ ...prev, assessmentName: '', score: '', notes: '' }))
   }

@@ -1163,6 +1163,10 @@ async function persistStudentFields(id, fields) {
     mappedFields.parent_calls = mappedFields.parentCalls
     delete mappedFields.parentCalls
   }
+  if ('testScores' in mappedFields) {
+    mappedFields.test_scores = mappedFields.testScores
+    delete mappedFields.testScores
+  }
   
   const { error } = await supabase.from('students').update(mappedFields).eq('id', id)
   if (error) {
@@ -2714,6 +2718,9 @@ export default function Dashboard() {
         }
         if (typeof databaseStudent.reminders === 'number') {
           merged.reminders = databaseStudent.reminders
+        }
+        if (databaseStudent.test_scores && Array.isArray(databaseStudent.test_scores) && databaseStudent.test_scores.length > 0) {
+          merged.testScores = databaseStudent.test_scores
         }
 
         return merged
@@ -6254,6 +6261,7 @@ export default function Dashboard() {
             academicDisplay={academicDisplay}
             academicStatus={academicStatus}
             academicStatusColor={academicStatusColor}
+            persistStudentFields={persistStudentFields}
           />
         )}
         FamilyEditorPopup={FamilyEditorPopup}
