@@ -300,28 +300,6 @@ export default function TeacherOnlyLoginPage({ onLogin }: TeacherOnlyLoginProps)
           >
             Sign In
           </button>
-
-          <div
-            style={{
-              color: '#94a3b8',
-              fontSize: 12,
-              textAlign: 'center',
-              marginTop: 22,
-            }}
-          >
-            ⚠️ Admin accounts are blocked from this portal.{' '}
-            <a
-              href="/"
-              style={{
-                color: '#047857',
-                textDecoration: 'none',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Main login
-            </a>
-          </div>
         </div>
       </div>
     </div>
