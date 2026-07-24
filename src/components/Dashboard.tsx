@@ -64,6 +64,9 @@ import {
   loadStaffAccounts,
   saveStaffAccount,
 } from '../services/setupCenterService'
+import { loadStaffMembers, getStaffByName } from '../services/staffService'
+import StaffLoginPanel from './StaffLoginPanel'
+import StaffManagementModal from './StaffManagementModal'
 
 const STORE_ITEMS = [
   // Drinks
@@ -2574,6 +2577,8 @@ export default function Dashboard() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
+  const [loggedInStaff, setLoggedInStaff] = useState([])
+  const [showStaffManagement, setShowStaffManagement] = useState(false)
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState(() => initialStudents.slice())
   const [studentsLoaded, setStudentsLoaded] = useState(false)
@@ -3591,6 +3596,32 @@ export default function Dashboard() {
       setTeacherClass(null)
     }
   }
+
+  async function handleAddStaffLogin(staff) {
+    // Auto-login the staff member as their role
+    const roleMap = { admin: 'admin', teacher: 'teacher', therapist: 'therapist', staff: 'admin' }
+    const role = roleMap[staff.role] || 'admin'
+    
+    setLoggedInStaff(prev => [...prev, staff])
+    
+    // Also set as primary user if no one else is logged in
+    if (!loggedIn) {
+      handleLogin(role, staff.name)
+    }
+  }
+
+  function handleRemoveStaffLogin(staffId) {
+    setLoggedInStaff(prev => prev.filter(s => s.id !== staffId))
+    
+    // If we're removing the currently logged-in user, log them out
+    const removedStaff = loggedInStaff.find(s => s.id === staffId)
+    if (removedStaff && userName === removedStaff.name) {
+      setLoggedIn(false)
+      setUserName('')
+      setRole('admin')
+    }
+  }
+
   function openStudent(s, tab = 'overview') { setSelectedStudent(s); setSelectedStudentTab(tab) }
 
   async function saveStudentField(id, field, value) {
@@ -4103,6 +4134,7 @@ export default function Dashboard() {
   }
 
   if (!loggedIn) return <LoginPage onLogin={handleLogin} />
+  
   if (teachingMode) return (
     <TeachingMode
       students={students}
@@ -6340,6 +6372,19 @@ export default function Dashboard() {
         MedicalEditorPopup={MedicalEditorPopup}
         persistStudentFields={persistStudentFields}
       />}
+      
+      {/* Staff Login Panel */}
+      <StaffLoginPanel 
+        loggedInStaff={loggedInStaff}
+        onAddLogin={handleAddStaffLogin}
+        onRemoveLogin={handleRemoveStaffLogin}
+        onShowManagement={() => setShowStaffManagement(true)}
+      />
+      
+      {/* Staff Management Modal */}
+      {showStaffManagement && (
+        <StaffManagementModal onClose={() => setShowStaffManagement(false)} />
+      )}
     </div>
   )
 }
