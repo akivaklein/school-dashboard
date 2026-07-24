@@ -2576,7 +2576,7 @@ function FlagDashboardWidget({ flags, onOpen }) {
 
 
 
-export default function Dashboard() {
+export default function Dashboard({ loginMode: initialLoginMode = 'normal', setLoginMode: setParentLoginMode }) {
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
@@ -2584,7 +2584,7 @@ export default function Dashboard() {
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
   const [showStaffManagement, setShowStaffManagement] = useState(false)
   const [showLoginActivity, setShowLoginActivity] = useState(false)
-  const [loginMode, setLoginMode] = useState('normal') // 'normal' or 'teacher-only'
+  const [loginMode, setLoginMode] = useState(initialLoginMode)
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState(() => initialStudents.slice())
   const [studentsLoaded, setStudentsLoaded] = useState(false)
@@ -4183,7 +4183,10 @@ export default function Dashboard() {
           <TeacherOnlyLoginPage onLogin={handleLogin} />
           <div style={{ position: 'fixed', bottom: 20, left: 20, fontSize: 12, color: '#64748b' }}>
             <button
-              onClick={() => setLoginMode('normal')}
+              onClick={() => {
+                setLoginMode('normal')
+                window.history.replaceState({}, '', window.location.pathname)
+              }}
               style={{
                 background: '#f8fafc',
                 border: '1px solid #d8dee9',
@@ -4205,7 +4208,10 @@ export default function Dashboard() {
         <LoginPage onLogin={handleLogin} />
         <div style={{ position: 'fixed', bottom: 20, right: 20, fontSize: 12, color: '#64748b' }}>
           <button
-            onClick={() => setLoginMode('teacher-only')}
+            onClick={() => {
+              setLoginMode('teacher-only')
+              window.history.replaceState({}, '', `${window.location.pathname}?teacher-login=true`)
+            }}
             style={{
               background: '#f8fafc',
               border: '1px solid #d8dee9',
