@@ -4320,10 +4320,27 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       </div>
     )
   }
+
+  const userAccessForMode = getUserAccess(userName, role)
+  const allowedDivisionSetForMode = new Set(userAccessForMode.divisions)
+  const divisionScopedStudentsForMode = students.filter(
+    s =>
+      allowedDivisionSetForMode.has(studentDivision(s)) &&
+      (divisionView === 'all' || studentDivision(s) === divisionView)
+  )
+  const isTeacherRoleForMode = role === 'teacher' || role === 'rebbe'
+  const assignedTeacherClassForMode = isTeacherRoleForMode
+    ? (teacherClass || TEACHER_CLASS_MAP[userName] || null)
+    : null
+  const studentsForCurrentRole = isTeacherRoleForMode
+    ? divisionScopedStudentsForMode.filter(
+        s => assignedTeacherClassForMode && resolveStudentClassId(s) === assignedTeacherClassForMode
+      )
+    : divisionScopedStudentsForMode
   
   if (teachingMode) return (
     <TeachingMode
-      students={students}
+      students={studentsForCurrentRole}
       setStudents={setStudents}
       onExit={() => setTeachingMode(false)}
       isAdmin={role === 'admin'}
