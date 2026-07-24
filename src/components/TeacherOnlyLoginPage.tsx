@@ -283,11 +283,6 @@ export default function TeacherOnlyLoginPage({ onLogin }: TeacherOnlyLoginProps)
             )}
           </div>
 
-          <div style={{ marginBottom: 26 }}>
-            <div style={loginLabelStyle}>Password</div>
-            <input type="password" defaultValue="••••••••••" style={loginInputStyle} />
-          </div>
-
           <button
             onClick={handleLogin}
             style={{

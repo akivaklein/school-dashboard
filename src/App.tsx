@@ -14,16 +14,12 @@ function App() {
 
   // If on teacher-only route, show ONLY the teacher login page (no redirect to main)
   if (isTeacherRoute) {
-    return (
-      <div>
-        <TeacherOnlyLoginPage onLogin={handleTeacherLogin} />
-        {currentUser && (
-          <div style={{ position: 'fixed', top: 20, right: 20, background: '#fff', padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#334155', fontWeight: 600 }}>
-            ✅ Logged in as {currentUser.name} ({currentUser.role})
-          </div>
-        )}
-      </div>
-    )
+    // If not logged in, show login page; if logged in, show dashboard
+    if (!currentUser) {
+      return <TeacherOnlyLoginPage onLogin={handleTeacherLogin} />
+    }
+    // After login, show dashboard (teacher has access to main app)
+    return <Dashboard />
   }
 
   // Otherwise, show normal Dashboard
