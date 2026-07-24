@@ -2915,6 +2915,12 @@ export default function Dashboard({ loginMode: initialLoginMode = 'normal', setL
   const [showUnknownPopup, setShowUnknownPopup] = useState(false)
   const [unknownNotes, setUnknownNotes] = useState({})
 
+  // Open a student profile with optional tab
+  const openStudent = (student, tab = 'overview') => {
+    setSelectedStudent(student)
+    if (tab) setSelectedStudentTab(tab)
+  }
+
   useEffect(() => {
     let active = true
 
