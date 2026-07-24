@@ -1159,6 +1159,10 @@ async function persistStudentFields(id, fields) {
     mappedFields.behavior_log = mappedFields.behaviorLog
     delete mappedFields.behaviorLog
   }
+  if ('parentCalls' in mappedFields) {
+    mappedFields.parent_calls = mappedFields.parentCalls
+    delete mappedFields.parentCalls
+  }
   
   const { error } = await supabase.from('students').update(mappedFields).eq('id', id)
   if (error) {
@@ -2704,6 +2708,9 @@ export default function Dashboard() {
         }
         if (databaseStudent.family && typeof databaseStudent.family === 'object' && Object.keys(databaseStudent.family).length > 0) {
           merged.family = databaseStudent.family
+        }
+        if (databaseStudent.parent_calls && Array.isArray(databaseStudent.parent_calls) && databaseStudent.parent_calls.length > 0) {
+          merged.parentCalls = databaseStudent.parent_calls
         }
 
         return merged
@@ -6246,6 +6253,7 @@ export default function Dashboard() {
         )}
         FamilyEditorPopup={FamilyEditorPopup}
         MedicalEditorPopup={MedicalEditorPopup}
+        persistStudentFields={persistStudentFields}
       />}
     </div>
   )

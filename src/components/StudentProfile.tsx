@@ -25,6 +25,7 @@ export default function StudentProfile({
   StudentScoresTab,
   FamilyEditorPopup,
   MedicalEditorPopup,
+  persistStudentFields,
 }) {
   const [tab, setTab] = useState(defaultTab)
   const [callNotes, setCallNotes] = useState('')
@@ -69,7 +70,20 @@ export default function StudentProfile({
     }
   }
 
-  function addCall() { if (!callNotes.trim()) return; setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: [...x.parentCalls, { date: new Date().toISOString().slice(0,10), staff: callStaff, notes: callNotes, duration: callDuration }] } : x)); setCallNotes(''); setCallDuration('') }
+  function addCall() { 
+    if (!callNotes.trim()) return
+    const newCall = { date: new Date().toISOString().slice(0,10), staff: callStaff, notes: callNotes, duration: callDuration }
+    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: [...x.parentCalls, newCall] } : x))
+    
+    // Persist to database
+    if (persistStudentFields) {
+      const updatedCalls = [...s.parentCalls, newCall]
+      persistStudentFields(s.id, { parentCalls: updatedCalls })
+    }
+    
+    setCallNotes('')
+    setCallDuration('')
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
