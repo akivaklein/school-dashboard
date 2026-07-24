@@ -69,7 +69,6 @@ import { recordLoginSession, recordLogoutSession } from '../services/loginSessio
 import StaffLoginPanel from './StaffLoginPanel'
 import StaffManagementModal from './StaffManagementModal'
 import LoginActivityView from './LoginActivityView'
-import TeacherOnlyLoginPage from './TeacherOnlyLoginPage'
 
 const STORE_ITEMS = [
   // Drinks
@@ -2576,7 +2575,7 @@ function FlagDashboardWidget({ flags, onOpen }) {
 
 
 
-export default function Dashboard({ loginMode: initialLoginMode = 'normal', setLoginMode: setParentLoginMode }) {
+export default function Dashboard() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
@@ -2584,7 +2583,6 @@ export default function Dashboard({ loginMode: initialLoginMode = 'normal', setL
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
   const [showStaffManagement, setShowStaffManagement] = useState(false)
   const [showLoginActivity, setShowLoginActivity] = useState(false)
-  const [loginMode, setLoginMode] = useState(initialLoginMode)
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState(() => initialStudents.slice())
   const [studentsLoaded, setStudentsLoaded] = useState(false)
@@ -4183,53 +4181,13 @@ export default function Dashboard({ loginMode: initialLoginMode = 'normal', setL
   }
 
   if (!loggedIn) {
-    if (loginMode === 'teacher-only') {
-      return (
-        <div>
-          <TeacherOnlyLoginPage onLogin={handleLogin} />
-          <div style={{ position: 'fixed', bottom: 20, left: 20, fontSize: 12, color: '#64748b' }}>
-            <button
-              onClick={() => {
-                setLoginMode('normal')
-                window.history.replaceState({}, '', window.location.pathname)
-              }}
-              style={{
-                background: '#f8fafc',
-                border: '1px solid #d8dee9',
-                padding: '6px 12px',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontSize: 12,
-                color: '#334155',
-              }}
-            >
-              ← Back to Main Login
-            </button>
-          </div>
-        </div>
-      )
-    }
     return (
       <div>
         <LoginPage onLogin={handleLogin} />
         <div style={{ position: 'fixed', bottom: 20, right: 20, fontSize: 12, color: '#64748b' }}>
-          <button
-            onClick={() => {
-              setLoginMode('teacher-only')
-              window.history.replaceState({}, '', `${window.location.pathname}?teacher-login=true`)
-            }}
-            style={{
-              background: '#f8fafc',
-              border: '1px solid #d8dee9',
-              padding: '6px 12px',
-              borderRadius: 6,
-              cursor: 'pointer',
-              fontSize: 12,
-              color: '#334155',
-            }}
-          >
+          <a href="/teacher" style={{ background: '#f8fafc', border: '1px solid #d8dee9', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, color: '#334155', textDecoration: 'none', display: 'inline-block' }}>
             👨‍🏫 Teacher Login →
-          </button>
+          </a>
         </div>
       </div>
     )
