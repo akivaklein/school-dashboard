@@ -2579,6 +2579,8 @@ interface DashboardProps {
   teacherUser?: { role: string; name: string }
 }
 
+const AUTH_USER_STORAGE_KEY = 'schoolDashboardAuthUser'
+
 export default function Dashboard({ teacherUser }: DashboardProps) {
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
@@ -3603,10 +3605,30 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
   const [newTodoCategory, setNewTodoCategory] = useState('general')
   const [newTodoTime, setNewTodoTime] = useState('')
 
+  function setStoredAuthUser(roleValue: string, nameValue: string) {
+    try {
+      localStorage.setItem(
+        AUTH_USER_STORAGE_KEY,
+        JSON.stringify({ role: roleValue, name: nameValue })
+      )
+    } catch (error) {
+      console.error('Failed to persist auth user:', error)
+    }
+  }
+
+  function clearStoredAuthUser() {
+    try {
+      localStorage.removeItem(AUTH_USER_STORAGE_KEY)
+    } catch (error) {
+      console.error('Failed to clear auth user:', error)
+    }
+  }
+
   async function handleLogin(r, name) { 
     const access = getUserAccess(name, r)
     setRole(r)
     setUserName(name)
+    setStoredAuthUser(r, name)
     setDivisionView(defaultDivisionView(access))
     setLoggedIn(true)
     setPage(r === 'store' ? 'store' : 'dashboard')
@@ -3662,6 +3684,7 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
       setLoggedIn(false)
       setUserName('')
       setRole('admin')
+      clearStoredAuthUser()
       setCurrentSessionId(null)
     }
   }
@@ -3679,6 +3702,7 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
     setLoggedIn(false)
     setUserName('')
     setRole('admin')
+    clearStoredAuthUser()
     setCurrentSessionId(null)
   }
 

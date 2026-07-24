@@ -2,8 +2,27 @@ import { useState } from 'react'
 import Dashboard from './components/Dashboard'
 import TeacherOnlyLoginPage from './components/TeacherOnlyLoginPage'
 
+type AuthUser = {
+  role: string
+  name: string
+}
+
+const AUTH_USER_STORAGE_KEY = 'schoolDashboardAuthUser'
+
+function loadStoredAuthUser(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem(AUTH_USER_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as AuthUser
+    if (!parsed?.name || !parsed?.role) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
 function App() {
-  const [currentUser, setCurrentUser] = useState(null)
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => loadStoredAuthUser())
 
   // Check if current path is the teacher-only route
   const isTeacherRoute = window.location.pathname === '/teacher' || window.location.pathname === '/teacher-login'
