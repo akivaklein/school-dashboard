@@ -18,8 +18,8 @@ function App() {
     if (!currentUser) {
       return <TeacherOnlyLoginPage onLogin={handleTeacherLogin} />
     }
-    // After login, show dashboard (teacher has access to main app)
-    return <Dashboard />
+    // After login, show dashboard with teacher user info so it auto-logs in
+    return <Dashboard teacherUser={currentUser} />
   }
 
   // Otherwise, show normal Dashboard

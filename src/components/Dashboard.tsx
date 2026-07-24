@@ -2575,7 +2575,11 @@ function FlagDashboardWidget({ flags, onOpen }) {
 
 
 
-export default function Dashboard() {
+interface DashboardProps {
+  teacherUser?: { role: string; name: string }
+}
+
+export default function Dashboard({ teacherUser }: DashboardProps) {
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
@@ -2587,6 +2591,13 @@ export default function Dashboard() {
   const [students, setStudents] = useState(() => initialStudents.slice())
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState(null)
+
+  // Auto-login with teacher portal user info
+  useEffect(() => {
+    if (teacherUser && !loggedIn) {
+      handleLogin(teacherUser.role, teacherUser.name)
+    }
+  }, [teacherUser])
 
   useEffect(() => {
     async function loadStudents() {
