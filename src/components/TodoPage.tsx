@@ -1,4 +1,5 @@
 import type { Dispatch, KeyboardEvent, SetStateAction } from 'react'
+import { createTodo, updateTodo, deleteTodo } from '../services/todosService'
 
 type TodoItem = {
   id: number
@@ -32,16 +33,6 @@ export default function TodoPage({
   newTodoTime,
   setNewTodoTime,
 }: Props) {
-  const matchesTodo = (candidate: TodoItem, target: TodoItem) => (
-    candidate === target || (
-      candidate.id === target.id
-      && candidate.date === target.date
-      && candidate.time === target.time
-      && candidate.text === target.text
-      && candidate.category === target.category
-    )
-  )
-
   const pendingTodos = todos.filter(todo => !todo.done)
   const completedTodos = todos.filter(todo => todo.done)
 
@@ -53,21 +44,44 @@ export default function TodoPage({
     general: ['#334155', '#f8fafc'],
   }
 
-  function addTodo() {
+  async function addTodo() {
     if (!newTodo.trim()) return
-    setTodos(previous => [
-      ...previous,
-      {
-        id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
+    try {
+      const created = await createTodo({
         date: new Date().toISOString().slice(0, 10),
         time: newTodoTime,
         text: newTodo,
         category: newTodoCategory,
-        done: false,
-      },
-    ])
-    setNewTodo('')
-    setNewTodoTime('')
+      })
+      setTodos(previous => [...previous, created])
+      setNewTodo('')
+      setNewTodoTime('')
+    } catch (error) {
+      console.error('Failed to create todo:', error)
+      alert('Unable to save todo. Please try again.')
+    }
+  }
+
+  async function handleToggleTodo(todo: TodoItem) {
+    try {
+      const updated = await updateTodo(todo.id, { done: !todo.done })
+      setTodos(previous => previous.map(item => 
+        item.id === todo.id ? updated : item
+      ))
+    } catch (error) {
+      console.error('Failed to update todo:', error)
+      alert('Unable to update todo. Please try again.')
+    }
+  }
+
+  async function handleDeleteTodo(todo: TodoItem) {
+    try {
+      await deleteTodo(todo.id)
+      setTodos(previous => previous.filter(item => item.id !== todo.id))
+    } catch (error) {
+      console.error('Failed to delete todo:', error)
+      alert('Unable to delete todo. Please try again.')
+    }
   }
 
   function onTaskInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -129,11 +143,7 @@ export default function TodoPage({
               <input
                 type="checkbox"
                 checked={todo.done}
-                onChange={() => setTodos(previous => previous.map(item => (
-                  matchesTodo(item, todo)
-                    ? { ...item, done: true }
-                    : item
-                )))}
+                onChange={() => handleToggleTodo(todo)}
                 style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
               />
               <div style={{ flex: 1 }}>
@@ -144,7 +154,7 @@ export default function TodoPage({
                 </div>
               </div>
               <button
-                onClick={() => setTodos(previous => previous.filter(item => !matchesTodo(item, todo)))}
+                onClick={() => handleDeleteTodo(todo)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 16 }}
               >
                 ✕
@@ -169,18 +179,14 @@ export default function TodoPage({
                 <input
                   type="checkbox"
                   checked={todo.done}
-                  onChange={() => setTodos(previous => previous.map(item => (
-                    matchesTodo(item, todo)
-                      ? { ...item, done: false }
-                      : item
-                  )))}
+                  onChange={() => handleToggleTodo(todo)}
                   style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
                 />
                 <div style={{ flex: 1, textDecoration: 'line-through', fontSize: 13, color: '#64748b' }}>
                   {todo.text}
                 </div>
                 <button
-                  onClick={() => setTodos(previous => previous.filter(item => !matchesTodo(item, todo)))}
+                  onClick={() => handleDeleteTodo(todo)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 16 }}
                 >
                   ✕

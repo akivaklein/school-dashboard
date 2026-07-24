@@ -41,6 +41,12 @@ import {
   setStoreItemActive,
   updateStoreItem as saveStoreItem,
 } from '../services/storeService'
+import {
+  listTodos,
+  createTodo,
+  updateTodo,
+  deleteTodo,
+} from '../services/todosService'
 
 const STORE_ITEMS = [
   // Drinks
@@ -2837,6 +2843,37 @@ export default function Dashboard() {
     }
   }, [selectedStudent])
 
+  useEffect(() => {
+    let active = true
+
+    async function loadTodosData() {
+      try {
+        setTodoLoadError(null)
+        const loadedTodos = await listTodos()
+        if (active) {
+          setTodos(loadedTodos)
+        }
+      } catch (error) {
+        console.error('Unable to load todos from Supabase:', error)
+        if (active) {
+          setTodoLoadError(
+            error instanceof Error ? error.message : 'Unable to load todos.'
+          )
+        }
+      } finally {
+        if (active) {
+          setTodosLoaded(true)
+        }
+      }
+    }
+
+    loadTodosData()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   const [setupTab, setSetupTab] = useState('assignments')
   const [setupPerson, setSetupPerson] = useState('Rabbi Klein')
   const [setupAssignments, setSetupAssignments] = useState(() => {
@@ -3320,16 +3357,9 @@ export default function Dashboard() {
     { id: 10, name: 'Moshe Berger', phone: '718-555-1010', program: 'yeshiva-ketana', status: 'tour-scheduled', callNotes: 'Looking for 8th grade.', tourDate: '2026-06-11', tourTime: '09:30', interviewDate: '', interviewTime: '', followUpNotes: '' },
   ])
   const [selectedPreIntake, setSelectedPreIntake] = useState(null)
-  const [todos, setTodos] = useState([
-    { id: 1, date: '2025-06-10', time: '10:20 AM', text: 'Tour for Friedman family', category: 'meeting', done: false },
-    { id: 2, date: '2025-06-10', time: '12:30 PM', text: 'Interview with Moshe Braver', category: 'meeting', done: false },
-    { id: 3, date: '2025-06-10', time: '', text: 'Announce: bus will leave 5 min earlier starting tomorrow morning', category: 'announcement', done: false },
-    { id: 4, date: '2025-06-10', time: '', text: 'Conversation with Zevi about changing levels', category: 'general', done: false },
-    { id: 5, date: '2025-06-10', time: '', text: "Call Moshe Chaim's parents — plan for him to come on time", category: 'call', done: false },
-    { id: 6, date: '2025-06-10', time: '', text: 'IEP meeting coming up soon — make appointment', category: 'appointment', done: false },
-    { id: 7, date: '2025-06-10', time: '', text: 'Schedule meeting with Rabbi Ambush — topic: general', category: 'meeting', done: false },
-    { id: 8, date: '2025-06-10', time: '', text: 'Make appointment by Rav for 10th grade farher', category: 'appointment', done: false },
-  ])
+  const [todos, setTodos] = useState([])
+  const [todosLoaded, setTodosLoaded] = useState(false)
+  const [todoLoadError, setTodoLoadError] = useState(null)
   const [newTodo, setNewTodo] = useState('')
   const [newTodoCategory, setNewTodoCategory] = useState('general')
   const [newTodoTime, setNewTodoTime] = useState('')
