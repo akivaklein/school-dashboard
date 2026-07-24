@@ -3,6 +3,48 @@ export default function SetupVipRulesSection({
   setSetupVipRules,
   S,
 }) {
+  async function handleSaveVIPRules() {
+    try {
+      const { updateVIPRules } = await import('../services/setupCenterService')
+      await updateVIPRules({
+        minimum_points: setupVipRules.minimumPoints,
+        maximum_reminders: setupVipRules.maximumReminders,
+        minimum_attendance: setupVipRules.minimumAttendance,
+        require_all: setupVipRules.requireAll,
+      })
+    } catch (error) {
+      console.error('Failed to save VIP rules:', error)
+      alert('Unable to save VIP rules. Please try again.')
+    }
+  }
+
+  const handleMinPointsChange = (value: number) => {
+    setSetupVipRules(previous => ({
+      ...previous,
+      minimumPoints: value
+    }))
+  }
+
+  const handleMaxRemindersChange = (value: number) => {
+    setSetupVipRules(previous => ({
+      ...previous,
+      maximumReminders: value
+    }))
+  }
+
+  const handleMinAttendanceChange = (value: number) => {
+    setSetupVipRules(previous => ({
+      ...previous,
+      minimumAttendance: value
+    }))
+  }
+
+  const handleRequireAllChange = (checked: boolean) => {
+    setSetupVipRules(previous => ({
+      ...previous,
+      requireAll: checked
+    }))
+  }
   return (
                     <div style={S.card}>
                       <div style={{
@@ -26,12 +68,9 @@ export default function SetupVipRulesSection({
                             type="number"
                             value={setupVipRules.minimumPoints}
                             onChange={event =>
-                              setSetupVipRules(previous => ({
-                                ...previous,
-                                minimumPoints:
-                                  Number(event.target.value)
-                              }))
+                              handleMinPointsChange(Number(event.target.value))
                             }
+                            onBlur={handleSaveVIPRules}
                             style={{
                               display: 'block',
                               width: '100%',
@@ -50,12 +89,9 @@ export default function SetupVipRulesSection({
                             type="number"
                             value={setupVipRules.maximumReminders}
                             onChange={event =>
-                              setSetupVipRules(previous => ({
-                                ...previous,
-                                maximumReminders:
-                                  Number(event.target.value)
-                              }))
+                              handleMaxRemindersChange(Number(event.target.value))
                             }
+                            onBlur={handleSaveVIPRules}
                             style={{
                               display: 'block',
                               width: '100%',
@@ -74,12 +110,9 @@ export default function SetupVipRulesSection({
                             type="number"
                             value={setupVipRules.minimumAttendance}
                             onChange={event =>
-                              setSetupVipRules(previous => ({
-                                ...previous,
-                                minimumAttendance:
-                                  Number(event.target.value)
-                              }))
+                              handleMinAttendanceChange(Number(event.target.value))
                             }
+                            onBlur={handleSaveVIPRules}
                             style={{
                               display: 'block',
                               width: '100%',
@@ -105,12 +138,10 @@ export default function SetupVipRulesSection({
                         <input
                           type="checkbox"
                           checked={setupVipRules.requireAll}
-                          onChange={event =>
-                            setSetupVipRules(previous => ({
-                              ...previous,
-                              requireAll: event.target.checked
-                            }))
-                          }
+                          onChange={event => {
+                            handleRequireAllChange(event.target.checked)
+                          }}
+                          onBlur={handleSaveVIPRules}
                         />
                         Require all rules to become VIP
                       </label>

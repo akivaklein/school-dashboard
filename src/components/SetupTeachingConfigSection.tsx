@@ -1,3 +1,5 @@
+import { createTeachingAction, deleteTeachingAction } from '../services/setupCenterService'
+
 export default function SetupTeachingConfigSection({
   setupActionDraft,
   setSetupActionDraft,
@@ -5,6 +7,41 @@ export default function SetupTeachingConfigSection({
   setupCustomActions,
   S,
 }) {
+  async function handleAddAction() {
+    const label = setupActionDraft.label.trim()
+    if (!label) return
+
+    try {
+      const created = await createTeachingAction({
+        label,
+        points: Number(setupActionDraft.points || 0),
+        category: setupActionDraft.category,
+      })
+
+      setSetupCustomActions(previous => [...previous, created])
+      setSetupActionDraft({
+        label: '',
+        points: 1,
+        category: 'Praise'
+      })
+    } catch (error) {
+      console.error('Failed to create teaching action:', error)
+      alert('Unable to add action. Please try again.')
+    }
+  }
+
+  async function handleRemoveAction(actionId: string) {
+    try {
+      await deleteTeachingAction(actionId)
+      setSetupCustomActions(previous =>
+        previous.filter(item => item.id !== actionId)
+      )
+    } catch (error) {
+      console.error('Failed to delete teaching action:', error)
+      alert('Unable to remove action. Please try again.')
+    }
+  }
+
   return (
                     <div style={{
                       display: 'grid',
@@ -113,28 +150,7 @@ export default function SetupTeachingConfigSection({
                         </select>
 
                         <button
-                          onClick={() => {
-                            const label = setupActionDraft.label.trim()
-                            if (!label) return
-
-                            setSetupCustomActions(previous => [
-                              ...previous,
-                              {
-                                id: `custom-${Date.now()}`,
-                                label,
-                                points: Number(
-                                  setupActionDraft.points || 0
-                                ),
-                                category: setupActionDraft.category
-                              }
-                            ])
-
-                            setSetupActionDraft({
-                              label: '',
-                              points: 1,
-                              category: 'Praise'
-                            })
-                          }}
+                          onClick={handleAddAction}
                           style={S.btn('primary')}
                         >
                           Add Action
@@ -200,11 +216,7 @@ export default function SetupTeachingConfigSection({
 
                               <button
                                 onClick={() =>
-                                  setSetupCustomActions(previous =>
-                                    previous.filter(
-                                      item => item.id !== action.id
-                                    )
-                                  )
+                                  handleRemoveAction(action.id)
                                 }
                                 style={{
                                   border: 'none',
@@ -222,10 +234,6 @@ export default function SetupTeachingConfigSection({
                         </div>
 
                         <div style={{
-                          marginTop: 14,
-                          padding: 12,
-                          borderRadius: 10,
-                          background: '#f5f8fb',
                           color: '#68778a',
                           fontSize: 11
                         }}>

@@ -1,3 +1,5 @@
+import { createStoreSale, updateStoreSale, deleteStoreSale } from '../services/setupCenterService'
+
 export default function SetupStoreSalesSection({
   setupSaleDraft,
   setSetupSaleDraft,
@@ -5,6 +7,55 @@ export default function SetupStoreSalesSection({
   setupSales,
   S,
 }) {
+  const handleAddSale = async () => {
+    const name = setupSaleDraft.name.trim()
+    if (!name) return
+
+    try {
+      const newSale = await createStoreSale({
+        name,
+        type: setupSaleDraft.type,
+        value: setupSaleDraft.value,
+        active: true
+      })
+
+      setSetupSales(previous => [...previous, newSale])
+
+      setSetupSaleDraft({
+        name: '',
+        type: 'points-off',
+        value: 5
+      })
+    } catch (error) {
+      console.error('Failed to create store sale:', error)
+    }
+  }
+
+  const handleToggleSaleActive = async (sale) => {
+    try {
+      const updatedSale = await updateStoreSale(sale.id, {
+        active: !sale.active
+      })
+
+      setSetupSales(previous =>
+        previous.map(item =>
+          item.id === sale.id ? updatedSale : item
+        )
+      )
+    } catch (error) {
+      console.error('Failed to update store sale:', error)
+    }
+  }
+
+  const handleDeleteSale = async (saleId) => {
+    try {
+      await deleteStoreSale(saleId)
+      setSetupSales(previous => previous.filter(item => item.id !== saleId))
+    } catch (error) {
+      console.error('Failed to delete store sale:', error)
+    }
+  }
+
   return (
                     <div style={{
                       display: 'grid',
@@ -88,26 +139,7 @@ export default function SetupStoreSalesSection({
                         />
 
                         <button
-                          onClick={() => {
-                            const name = setupSaleDraft.name.trim()
-                            if (!name) return
-
-                            setSetupSales(previous => [
-                              ...previous,
-                              {
-                                id: `sale-${Date.now()}`,
-                                ...setupSaleDraft,
-                                name,
-                                active: true
-                              }
-                            ])
-
-                            setSetupSaleDraft({
-                              name: '',
-                              type: 'points-off',
-                              value: 5
-                            })
-                          }}
+                          onClick={handleAddSale}
                           style={S.btn('primary')}
                         >
                           Create Sale
@@ -155,23 +187,19 @@ export default function SetupStoreSalesSection({
                             </div>
 
                             <button
-                              onClick={() =>
-                                setSetupSales(previous =>
-                                  previous.map(item =>
-                                    item.id === sale.id
-                                      ? {
-                                          ...item,
-                                          active: !item.active
-                                        }
-                                      : item
-                                  )
-                                )
-                              }
+                              onClick={() => handleToggleSaleActive(sale)}
                               style={sale.active
                                 ? S.btn('success')
                                 : S.btn('ghost')}
                             >
                               {sale.active ? 'Active' : 'Inactive'}
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteSale(sale.id)}
+                              style={S.btn('danger')}
+                            >
+                              Delete
                             </button>
                           </div>
                         ))}

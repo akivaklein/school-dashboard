@@ -47,6 +47,17 @@ import {
   updateTodo,
   deleteTodo,
 } from '../services/todosService'
+import {
+  listTeachingActions,
+  createTeachingAction,
+  deleteTeachingAction,
+  getVIPRules,
+  updateVIPRules,
+  listStoreSales,
+  createStoreSale,
+  updateStoreSale,
+  deleteStoreSale,
+} from '../services/setupCenterService'
 
 const STORE_ITEMS = [
   // Drinks
@@ -2874,6 +2885,46 @@ export default function Dashboard() {
     }
   }, [])
 
+  useEffect(() => {
+    let active = true
+
+    async function loadSetupData() {
+      try {
+        const [actions, vipRules, sales] = await Promise.all([
+          listTeachingActions(),
+          getVIPRules(),
+          listStoreSales(),
+        ])
+
+        if (active) {
+          setSetupCustomActions(actions)
+          setSetupVipRules({
+            minimumPoints: vipRules.minimum_points,
+            maximumReminders: vipRules.maximum_reminders,
+            minimumAttendance: vipRules.minimum_attendance,
+            requireAll: vipRules.require_all,
+          })
+          setSetupSales(sales)
+        }
+      } catch (error) {
+        console.error('Unable to load setup center config from Supabase:', error)
+        // Keep defaults if load fails
+      } finally {
+        if (active) {
+          setSetupCustomActionsLoaded(true)
+          setSetupVipRulesLoaded(true)
+          setSetupSalesLoaded(true)
+        }
+      }
+    }
+
+    loadSetupData()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   const [setupTab, setSetupTab] = useState('assignments')
   const [setupPerson, setSetupPerson] = useState('Rabbi Klein')
   const [setupAssignments, setSetupAssignments] = useState(() => {
@@ -2968,10 +3019,8 @@ export default function Dashboard() {
   const [setupPersonSearch, setSetupPersonSearch] = useState('')
   const [setupStudentSearch, setSetupStudentSearch] = useState('')
 
-  const [setupCustomActions, setSetupCustomActions] = useState([
-    { id: 'custom-1', label: 'Brought back homework', points: 5, category: 'Responsibility' },
-    { id: 'custom-2', label: 'Excellent participation', points: 3, category: 'Praise' },
-  ])
+  const [setupCustomActions, setSetupCustomActions] = useState([])
+  const [setupCustomActionsLoaded, setSetupCustomActionsLoaded] = useState(false)
 
   const [setupActionDraft, setSetupActionDraft] = useState({
     label: '',
@@ -2985,16 +3034,10 @@ export default function Dashboard() {
     minimumAttendance: 90,
     requireAll: true
   })
+  const [setupVipRulesLoaded, setSetupVipRulesLoaded] = useState(false)
 
-  const [setupSales, setSetupSales] = useState([
-    {
-      id: 'sale-1',
-      name: 'Friday VIP Special',
-      type: 'points-off',
-      value: 5,
-      active: true
-    }
-  ])
+  const [setupSales, setSetupSales] = useState([])
+  const [setupSalesLoaded, setSetupSalesLoaded] = useState(false)
 
   const [setupSaleDraft, setSetupSaleDraft] = useState({
     name: '',
