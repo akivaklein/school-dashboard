@@ -42,6 +42,16 @@ export default function AdminMainDashboard({
   setTodos,
   FlagDashboardWidget,
 }) {
+  const matchesTodo = (candidate, target) => (
+    candidate === target || (
+      candidate.id === target.id
+      && candidate.date === target.date
+      && candidate.time === target.time
+      && candidate.text === target.text
+      && candidate.category === target.category
+    )
+  )
+
   return (
     <div style={{ maxWidth: 1180, margin: '0 auto' }}>
       <div style={{ marginBottom: 26, background: '#ffffff', borderRadius: 14, padding: '26px 28px', color: '#1f2937', boxShadow: '0 10px 28px rgba(15,23,42,0.045)', border: '1px solid #e4e9f0', position: 'relative', overflow: 'hidden' }}>
@@ -282,7 +292,7 @@ export default function AdminMainDashboard({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           {todos.filter(t => !t.done).slice(0, 6).map(todo => (
             <div key={todo.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', background: '#f8fafc', borderRadius: 14, border: '1px solid #eef0f7' }}>
-              <input type="checkbox" checked={todo.done} onChange={() => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, done: true } : t))} style={{ marginTop: 2, cursor: 'pointer', flexShrink: 0 }} />
+              <input type="checkbox" checked={todo.done} onChange={() => setTodos(prev => prev.map(t => matchesTodo(t, todo) ? { ...t, done: true } : t))} style={{ marginTop: 2, cursor: 'pointer', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 750, color: '#263241' }}>{todo.text}</div>
                 {todo.time && <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{todo.time}</div>}

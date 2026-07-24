@@ -32,6 +32,16 @@ export default function TodoPage({
   newTodoTime,
   setNewTodoTime,
 }: Props) {
+  const matchesTodo = (candidate: TodoItem, target: TodoItem) => (
+    candidate === target || (
+      candidate.id === target.id
+      && candidate.date === target.date
+      && candidate.time === target.time
+      && candidate.text === target.text
+      && candidate.category === target.category
+    )
+  )
+
   const pendingTodos = todos.filter(todo => !todo.done)
   const completedTodos = todos.filter(todo => todo.done)
 
@@ -48,7 +58,7 @@ export default function TodoPage({
     setTodos(previous => [
       ...previous,
       {
-        id: Date.now(),
+        id: Number(`${Date.now()}${Math.floor(Math.random() * 1000)}`),
         date: new Date().toISOString().slice(0, 10),
         time: newTodoTime,
         text: newTodo,
@@ -119,7 +129,11 @@ export default function TodoPage({
               <input
                 type="checkbox"
                 checked={todo.done}
-                onChange={() => setTodos(previous => previous.map(item => item.id === todo.id ? { ...item, done: true } : item))}
+                onChange={() => setTodos(previous => previous.map(item => (
+                  matchesTodo(item, todo)
+                    ? { ...item, done: true }
+                    : item
+                )))}
                 style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
               />
               <div style={{ flex: 1 }}>
@@ -130,7 +144,7 @@ export default function TodoPage({
                 </div>
               </div>
               <button
-                onClick={() => setTodos(previous => previous.filter(item => item.id !== todo.id))}
+                onClick={() => setTodos(previous => previous.filter(item => !matchesTodo(item, todo)))}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 16 }}
               >
                 ✕
@@ -155,14 +169,18 @@ export default function TodoPage({
                 <input
                   type="checkbox"
                   checked={todo.done}
-                  onChange={() => setTodos(previous => previous.map(item => item.id === todo.id ? { ...item, done: false } : item))}
+                  onChange={() => setTodos(previous => previous.map(item => (
+                    matchesTodo(item, todo)
+                      ? { ...item, done: false }
+                      : item
+                  )))}
                   style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
                 />
                 <div style={{ flex: 1, textDecoration: 'line-through', fontSize: 13, color: '#64748b' }}>
                   {todo.text}
                 </div>
                 <button
-                  onClick={() => setTodos(previous => previous.filter(item => item.id !== todo.id))}
+                  onClick={() => setTodos(previous => previous.filter(item => !matchesTodo(item, todo)))}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 16 }}
                 >
                   ✕

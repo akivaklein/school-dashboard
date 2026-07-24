@@ -26,6 +26,21 @@ import {
   deletePointsEvent,
   listPointsEventsForStudent,
 } from '../services/pointsEventsService'
+import {
+  listStudentFlags,
+  replaceStudentFlags,
+} from '../services/studentFlagsService'
+import {
+  adjustStoreItemStockBy,
+  createStoreItem,
+  createStoreRedemption,
+  deleteStoreRedemption,
+  listStoreItems,
+  listStoreRedemptions,
+  seedStoreItems,
+  setStoreItemActive,
+  updateStoreItem as saveStoreItem,
+} from '../services/storeService'
 
 const STORE_ITEMS = [
   // Drinks
@@ -2435,18 +2450,7 @@ export default function Dashboard() {
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
   const [page, setPage] = useState('dashboard')
-  const [students, setStudents] = useState(() => {
-    if (typeof localStorage !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('hadran-students')
-        if (saved) return JSON.parse(saved)
-      } catch (error) {
-        console.warn('Could not parse saved students from localStorage:', error)
-      }
-    }
-
-    return initialStudents.slice()
-  })
+  const [students, setStudents] = useState(() => initialStudents.slice())
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState(null)
 
@@ -2534,14 +2538,9 @@ export default function Dashboard() {
         return
       }
 
-      const persistedStudentsById = new Map(
-        students.map(student => [Number(student.id), student])
-      )
-
       /*
        * Keep all existing rich fields from initialStudents, while allowing
        * saved Supabase values such as status to override them.
-       * Preserve any locally-stored temporary attendance/location changes.
        */
       const initialById = new Map(
         initialStudents.map(student => [Number(student.id), student])
@@ -2586,9 +2585,7 @@ export default function Dashboard() {
           merged.points = Number(persistedPoints) || 0
         }
 
-        return persistedStudent
-          ? { ...merged, ...persistedStudent }
-          : merged
+        return merged
       })
 
       console.log('Final student count:', mergedStudents.length)
@@ -2600,15 +2597,7 @@ export default function Dashboard() {
     loadStudents()
   }, [])
 
-  const [studentFlags, setStudentFlags] = useState(() => {
-    try {
-      const saved = localStorage.getItem('hadran-student-flags')
-      if (saved) return JSON.parse(saved)
-    } catch (error) {
-      console.warn('Could not load saved student flags:', error)
-    }
-
-    return [
+  const [studentFlags, setStudentFlags] = useState(() => [
       {
         id: 'flag-demo-1',
         studentId: 16,
@@ -2640,30 +2629,49 @@ export default function Dashboard() {
           }
         ]
       }
-    ]
-  })
+    ])
+  const [studentFlagsLoaded, setStudentFlagsLoaded] = useState(false)
+  const [studentFlagsPersistenceReady, setStudentFlagsPersistenceReady] = useState(false)
   const [supportInitialSection, setSupportInitialSection] = useState('overview')
 
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        'hadran-student-flags',
-        JSON.stringify(studentFlags)
-      )
-    } catch (error) {
-      console.warn('Could not save student flags:', error)
+    let active = true
+
+    async function loadStudentFlags() {
+      try {
+        const flags = await listStudentFlags()
+        if (active && flags.length > 0) {
+          setStudentFlags(flags)
+        }
+        if (active) {
+          setStudentFlagsPersistenceReady(true)
+        }
+      } catch (error) {
+        console.error('Unable to load student flags from Supabase:', error)
+        if (active) {
+          setStudentFlagsPersistenceReady(false)
+        }
+      } finally {
+        if (active) {
+          setStudentFlagsLoaded(true)
+        }
+      }
     }
-  }, [studentFlags])
+
+    loadStudentFlags()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
-    if (typeof localStorage === 'undefined') return
+    if (!studentFlagsLoaded || !studentFlagsPersistenceReady) return
 
-    try {
-      localStorage.setItem('hadran-students', JSON.stringify(students))
-    } catch (error) {
-      console.warn('Could not save student state:', error)
-    }
-  }, [students])
+    replaceStudentFlags(studentFlags).catch(error => {
+      console.error('Unable to save student flags to Supabase:', error)
+    })
+  }, [studentFlags, studentFlagsLoaded, studentFlagsPersistenceReady])
 
   useEffect(() => {
     if (!studentsLoaded) return
@@ -2729,8 +2737,9 @@ export default function Dashboard() {
   const [storeStudent, setStoreStudent] = useState(null)
   const [storeCategoryFilter, setStoreCategoryFilter] = useState('all')
   const [storeItemSearch, setStoreItemSearch] = useState('')
-  const [storeItems, setStoreItems] = useState(STORE_ITEMS)
+  const [storeItems, setStoreItems] = useState(() => STORE_ITEMS.slice())
   const [purchaseLog, setPurchaseLog] = useState([])
+  const [storePersistenceReady, setStorePersistenceReady] = useState(false)
   const [showStoreManager, setShowStoreManager] = useState(false)
   const [newStoreItem, setNewStoreItem] = useState({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', vip: false })
   const [attFilter, setAttFilter] = useState('all')
@@ -2741,6 +2750,54 @@ export default function Dashboard() {
   const [drillDown, setDrillDown] = useState(null)
   const [showUnknownPopup, setShowUnknownPopup] = useState(false)
   const [unknownNotes, setUnknownNotes] = useState({})
+
+  useEffect(() => {
+    let active = true
+
+    async function loadStoreData() {
+      try {
+        let loadedItems = await listStoreItems()
+
+        if (loadedItems.length === 0) {
+          await seedStoreItems(STORE_ITEMS)
+          loadedItems = await listStoreItems()
+        }
+
+        const loadedRedemptions = await listStoreRedemptions(25)
+
+        if (!active) return
+
+        setStoreItems(loadedItems.length > 0 ? loadedItems : STORE_ITEMS.slice())
+        setPurchaseLog(
+          loadedRedemptions.map(redemption => ({
+            id: redemption.id,
+            time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            studentId: redemption.studentId,
+            studentName: redemption.studentName,
+            itemName: redemption.itemName,
+            cost: redemption.cost,
+            staff: redemption.staffName,
+            division: String(redemption.metadata?.division || ''),
+          })),
+        )
+        setStorePersistenceReady(true)
+      } catch (error) {
+        console.error('Unable to load token store data from Supabase:', error)
+        if (active) {
+          setStorePersistenceReady(false)
+        }
+      }
+    }
+
+    loadStoreData()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -3511,26 +3568,52 @@ export default function Dashboard() {
       setStudents(prev => prev.map(s => s.id === id ? { ...s, status: original.status } : s))
     }
   }
-  function buyItem(studentId, item) {
+  async function buyItem(studentId, item) {
     const s = students.find(x => x.id === studentId)
     if (!s || s.points < item.cost) { alert('Not enough points!'); return }
     if ((item.stock ?? 0) <= 0) { alert(`${item.name} is out of stock.`); return }
     if (isStoreItemRestrictedForStudent(s, item)) { alert(`${s.name} cannot redeem candy items.`); return }
-    playSound('store')
-    const purchaseId = Date.now()
-    setStoreItems(prev => prev.map(x => x.id === item.id ? { ...x, stock: Math.max(0, (x.stock || 0) - 1) } : x))
-    setPurchaseLog(prev => [{
-      id: purchaseId,
-      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      studentId: s.id,
-      studentName: s.name,
-      itemName: item.name,
-      cost: item.cost,
-      staff: userName || 'Register',
-      division: studentDivision(s),
-    }, ...prev].slice(0, 25))
+    if (!storePersistenceReady) {
+      alert('Token Store is not synced to Supabase yet.')
+      return
+    }
 
-    recordStudentPointsAction({
+    playSound('store')
+    let redemptionId = null
+    let stockAdjusted = false
+
+    try {
+      const stockRow = await adjustStoreItemStockBy(
+        Number(item.id),
+        -1,
+        userName || 'Register',
+      )
+
+      stockAdjusted = true
+
+      setStoreItems(prev => prev.map(entry => (
+        Number(entry.id) === Number(stockRow.id)
+          ? { ...entry, ...stockRow }
+          : entry
+      )))
+
+      const redemption = await createStoreRedemption({
+        studentId: Number(s.id),
+        studentName: s.name,
+        itemId: Number(item.id),
+        itemName: item.name,
+        cost: Number(item.cost || 0),
+        staffName: userName || 'Register',
+        source: 'token-store',
+        metadata: {
+          division: studentDivision(s),
+          staffRole: role || 'staff',
+        },
+      })
+
+      redemptionId = redemption.id
+
+      const pointsSaved = await recordStudentPointsAction({
       studentId,
       pointsDelta: -Number(item.cost || 0),
       reason: `Store purchase: ${item.name}`,
@@ -3543,52 +3626,204 @@ export default function Dashboard() {
         itemName: item.name,
         itemCost: item.cost,
       },
-    }).then(success => {
-      if (!success) {
-        setStoreItems(prev => prev.map(x =>
-          x.id === item.id
-            ? { ...x, stock: (x.stock || 0) + 1 }
-            : x
-        ))
-        setPurchaseLog(prev => prev.filter(entry => entry.id !== purchaseId))
+    })
+
+      if (!pointsSaved) {
+        if (redemptionId) {
+          try {
+            await deleteStoreRedemption(redemptionId)
+          } catch (deleteError) {
+            console.error('Unable to roll back store redemption row:', deleteError)
+          }
+        }
+
+        if (stockAdjusted) {
+          try {
+            const restoredRow = await adjustStoreItemStockBy(
+              Number(item.id),
+              1,
+              userName || 'Register',
+            )
+            setStoreItems(prev => prev.map(entry => (
+              Number(entry.id) === Number(restoredRow.id)
+                ? { ...entry, ...restoredRow }
+                : entry
+            )))
+          } catch (rollbackError) {
+            console.error('Unable to roll back store stock:', rollbackError)
+          }
+        }
+
         return
       }
 
+      setPurchaseLog(prev => [{
+        id: redemption.id,
+        time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        studentId: redemption.studentId,
+        studentName: redemption.studentName,
+        itemName: redemption.itemName,
+        cost: redemption.cost,
+        staff: redemption.staffName,
+        division: String(redemption.metadata?.division || ''),
+      }, ...prev].slice(0, 25))
+
       alert(`${s.name} redeemed: ${item.name}!`)
-    })
+    } catch (error) {
+      if (redemptionId) {
+        try {
+          await deleteStoreRedemption(redemptionId)
+        } catch (deleteError) {
+          console.error('Unable to roll back store redemption row:', deleteError)
+        }
+      }
+
+      if (stockAdjusted) {
+        try {
+          const restoredRow = await adjustStoreItemStockBy(
+            Number(item.id),
+            1,
+            userName || 'Register',
+          )
+          setStoreItems(prev => prev.map(entry => (
+            Number(entry.id) === Number(restoredRow.id)
+              ? { ...entry, ...restoredRow }
+              : entry
+          )))
+        } catch (rollbackError) {
+          console.error('Unable to roll back store stock:', rollbackError)
+        }
+      }
+
+      console.error('Store redemption failed:', error)
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to complete store redemption.',
+      )
+    }
   }
 
   function updateStoreItem(id, field, value) {
+    if (!storePersistenceReady) {
+      alert('Token Store is not synced to Supabase yet.')
+      return
+    }
+
+    let previousItem = null
+    let nextItem = null
+
     setStoreItems(prev => prev.map(item => {
-      if (item.id !== id) return item
-      if (field === 'cost' || field === 'stock' || field === 'lowStockAt') return { ...item, [field]: Math.max(0, Number(value) || 0) }
-      if (field === 'vip') return { ...item, vip: value }
-      return { ...item, [field]: value }
+      if (Number(item.id) !== Number(id)) return item
+
+      previousItem = item
+
+      if (field === 'cost' || field === 'stock' || field === 'lowStockAt') {
+        nextItem = { ...item, [field]: Math.max(0, Number(value) || 0) }
+        return nextItem
+      }
+
+      if (field === 'vip') {
+        nextItem = { ...item, vip: value }
+        return nextItem
+      }
+
+      nextItem = { ...item, [field]: value }
+      return nextItem
     }))
+
+    if (!nextItem) return
+
+    saveStoreItem(nextItem, userName || 'Store Manager')
+      .then(savedItem => {
+        setStoreItems(prev => prev.map(item => (
+          Number(item.id) === Number(savedItem.id)
+            ? { ...item, ...savedItem }
+            : item
+        )))
+      })
+      .catch(error => {
+        console.error('Unable to save store item:', error)
+
+        if (previousItem) {
+          setStoreItems(prev => prev.map(item => (
+            Number(item.id) === Number(previousItem.id)
+              ? previousItem
+              : item
+          )))
+        }
+
+        alert('Unable to save store item changes.')
+      })
   }
 
   function adjustStoreStock(id, amount) {
-    setStoreItems(prev => prev.map(item => item.id === id ? { ...item, stock: Math.max(0, (item.stock || 0) + amount) } : item))
-  }
-
-  function addStoreItem() {
-    if (!newStoreItem.name.trim()) { alert('Add an item name first.'); return }
-    const item = {
-      id: Date.now(),
-      name: newStoreItem.name.trim(),
-      cost: Math.max(0, Number(newStoreItem.cost) || 0),
-      emoji: newStoreItem.emoji.trim() || '▪️',
-      vip: !!newStoreItem.vip,
-      stock: Math.max(0, Number(newStoreItem.stock) || 0),
-      lowStockAt: Math.max(0, Number(newStoreItem.lowStockAt) || 0),
+    if (!storePersistenceReady) {
+      alert('Token Store is not synced to Supabase yet.')
+      return
     }
-    setStoreItems(prev => [...prev, item])
-    setNewStoreItem({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', vip: false })
+
+    adjustStoreItemStockBy(Number(id), Number(amount || 0), userName || 'Store Manager')
+      .then(savedItem => {
+        setStoreItems(prev => prev.map(item => (
+          Number(item.id) === Number(savedItem.id)
+            ? { ...item, ...savedItem }
+            : item
+        )))
+      })
+      .catch(error => {
+        console.error('Unable to adjust stock:', error)
+        alert(
+          error instanceof Error
+            ? error.message
+            : 'Unable to adjust store stock.',
+        )
+      })
   }
 
-  function removeStoreItem(id) {
+  async function addStoreItem() {
+    if (!newStoreItem.name.trim()) { alert('Add an item name first.'); return }
+    if (!storePersistenceReady) {
+      alert('Token Store is not synced to Supabase yet.')
+      return
+    }
+
+    try {
+      const item = await createStoreItem({
+        name: newStoreItem.name.trim(),
+        cost: Math.max(0, Number(newStoreItem.cost) || 0),
+        emoji: newStoreItem.emoji.trim() || '▪️',
+        vip: !!newStoreItem.vip,
+        stock: Math.max(0, Number(newStoreItem.stock) || 0),
+        lowStockAt: Math.max(0, Number(newStoreItem.lowStockAt) || 0),
+      }, userName || 'Store Manager')
+
+      setStoreItems(prev => [...prev, item])
+      setNewStoreItem({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', vip: false })
+    } catch (error) {
+      console.error('Unable to add store item:', error)
+      alert('Unable to add store item.')
+    }
+  }
+
+  async function removeStoreItem(id) {
     if (!confirm('Remove this store item from the demo?')) return
-    setStoreItems(prev => prev.filter(item => item.id !== id))
+    if (!storePersistenceReady) {
+      alert('Token Store is not synced to Supabase yet.')
+      return
+    }
+
+    try {
+      await setStoreItemActive(Number(id), false, userName || 'Store Manager')
+      setStoreItems(prev => prev.filter(item => Number(item.id) !== Number(id)))
+    } catch (error) {
+      console.error('Unable to remove store item:', error)
+      alert('Unable to remove store item.')
+    }
   }
 
   function updateUnknownLocation(studentId, newStatus, label) {

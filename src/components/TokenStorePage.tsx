@@ -296,7 +296,7 @@ export default function TokenStorePage({
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <div>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>Recent Store Activity</div>
-                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Today’s redemptions in this demo session.</div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Most recent persisted redemptions.</div>
                         </div>
                         <span style={S.badge('#475569', '#f1f5f9')}>{purchaseLog.length} purchases</span>
                       </div>
