@@ -1149,7 +1149,18 @@ const statusEmoji = { present: '✅', absent: '❌', late: '⏰', 'left-early': 
 
 
 async function persistStudentFields(id, fields) {
-  const { error } = await supabase.from('students').update(fields).eq('id', id)
+  // Map React field names to database column names
+  const mappedFields = { ...fields }
+  if ('att' in mappedFields) {
+    mappedFields.attendance = mappedFields.att
+    delete mappedFields.att
+  }
+  if ('behaviorLog' in mappedFields) {
+    mappedFields.behavior_log = mappedFields.behaviorLog
+    delete mappedFields.behaviorLog
+  }
+  
+  const { error } = await supabase.from('students').update(mappedFields).eq('id', id)
   if (error) {
     console.error(`Supabase student update failed for ${id}:`, error)
     return false
@@ -2606,6 +2617,17 @@ export default function Dashboard() {
 
         if (persistedPoints !== null && persistedPoints !== undefined) {
           merged.points = Number(persistedPoints) || 0
+        }
+
+        // Load persisted JSONB fields from database, fallback to demo data if empty
+        if (databaseStudent.attendance && Array.isArray(databaseStudent.attendance) && databaseStudent.attendance.length > 0) {
+          merged.att = databaseStudent.attendance
+        }
+        if (databaseStudent.notes && Array.isArray(databaseStudent.notes) && databaseStudent.notes.length > 0) {
+          merged.notes = databaseStudent.notes
+        }
+        if (databaseStudent.behavior_log && Array.isArray(databaseStudent.behavior_log) && databaseStudent.behavior_log.length > 0) {
+          merged.behaviorLog = databaseStudent.behavior_log
         }
 
         return merged

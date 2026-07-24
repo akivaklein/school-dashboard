@@ -18,7 +18,22 @@ export default function StudentNotes({ student, students, setStudents, userName,
 
     setSaving(true)
 
-    const { error } = await supabase
+    // Update student notes array in students table (JSONB persistence)
+    const updatedNotes = [...(s.notes || []), newNote]
+    const { error: updateError } = await supabase
+      .from('students')
+      .update({ notes: updatedNotes })
+      .eq('id', s.id)
+
+    if (updateError) {
+      setSaving(false)
+      console.error('Error saving student note to students table:', updateError)
+      alert('Could not save note. Check console.')
+      return
+    }
+
+    // Also insert into student_notes table for audit log
+    const { error: insertError } = await supabase
       .from('student_notes')
       .insert([
         {
@@ -32,16 +47,15 @@ export default function StudentNotes({ student, students, setStudents, userName,
 
     setSaving(false)
 
-    if (error) {
-      console.error('Error saving student note:', error)
-      alert('Could not save note. Check console.')
-      return
+    if (insertError) {
+      console.error('Error saving note to audit log:', insertError)
+      // Note was saved to student record, so don't fail completely
     }
 
     setStudents(prev =>
       prev.map(x =>
         x.id === s.id
-          ? { ...x, notes: [...(x.notes || []), newNote] }
+          ? { ...x, notes: updatedNotes }
           : x
       )
     )
