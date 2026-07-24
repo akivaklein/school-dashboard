@@ -814,6 +814,13 @@ function getUserAccess(name, role) {
     }
   }
 
+  if (role === 'teacher' || role === 'rebbe') {
+    return {
+      divisions: [teacherDivisionForName(name)],
+      canManageStore: false
+    }
+  }
+
   const bothDivisions = [
     'Rabbi Baum',
     'Rabbi Fried',
@@ -842,13 +849,6 @@ function getUserAccess(name, role) {
     return {
       divisions: ['yeshiva_ketana'],
       canManageStore: true
-    }
-  }
-
-  if (role === 'teacher' || role === 'rebbe') {
-    return {
-      divisions: [teacherDivisionForName(name)],
-      canManageStore: false
     }
   }
 
@@ -6556,20 +6556,22 @@ export default function Dashboard({ teacherUser }: DashboardProps) {
       />}
       
       {/* Staff Login Panel */}
-      <StaffLoginPanel 
-        loggedInStaff={loggedInStaff}
-        onAddLogin={handleAddStaffLogin}
-        onRemoveLogin={handleRemoveStaffLogin}
-        onShowManagement={() => setShowStaffManagement(true)}
-      />
+      {role === 'admin' && (
+        <StaffLoginPanel 
+          loggedInStaff={loggedInStaff}
+          onAddLogin={handleAddStaffLogin}
+          onRemoveLogin={handleRemoveStaffLogin}
+          onShowManagement={() => setShowStaffManagement(true)}
+        />
+      )}
       
       {/* Staff Management Modal */}
-      {showStaffManagement && (
+      {role === 'admin' && showStaffManagement && (
         <StaffManagementModal onClose={() => setShowStaffManagement(false)} />
       )}
       
       {/* Login Activity Modal */}
-      {showLoginActivity && (
+      {role === 'admin' && showLoginActivity && (
         <LoginActivityView onClose={() => setShowLoginActivity(false)} />
       )}
     </div>
