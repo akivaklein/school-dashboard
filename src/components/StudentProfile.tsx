@@ -24,6 +24,7 @@ export default function StudentProfile({
   onUndoPointsEvent,
   StudentScoresTab,
   FamilyEditorPopup,
+  MedicalEditorPopup,
 }) {
   const [tab, setTab] = useState(defaultTab)
   const [callNotes, setCallNotes] = useState('')
@@ -374,6 +375,11 @@ export default function StudentProfile({
                   {s.medical?.lastPhysical && <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}><div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>LAST PHYSICAL</div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.medical.lastPhysical}</div></div>}
                 </div>
                 {s.medical?.notes && <div style={{ marginTop: 10, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>📝 {s.medical.notes}</div>}
+                {role === 'admin' && (
+                  <div style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
+                    <MedicalEditorPopup s={s} setStudents={setStudents} />
+                  </div>
+                )}
               </div>
             </div>
           )}
