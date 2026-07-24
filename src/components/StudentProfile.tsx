@@ -20,6 +20,8 @@ export default function StudentProfile({
   getImprovement,
   daysSince,
   TrackingTab,
+  pointsEvents = [],
+  onUndoPointsEvent,
   StudentScoresTab,
   FamilyEditorPopup,
 }) {
@@ -27,6 +29,9 @@ export default function StudentProfile({
   const [callNotes, setCallNotes] = useState('')
   const [callStaff, setCallStaff] = useState('Rabbi Klein')
   const [callDuration, setCallDuration] = useState('')
+  const [pendingUndoEvent, setPendingUndoEvent] = useState(null)
+  const [undoSaving, setUndoSaving] = useState(false)
+  const [undoFeedback, setUndoFeedback] = useState(null)
   const s = students.find(x => x.id === student.id)
   const improvement = getImprovement(s)
   const vip = isVIP(s)
@@ -34,6 +39,34 @@ export default function StudentProfile({
   const lateCount = s.att.filter(d => d === 'L').length
   const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null
   const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
+  const reversedEventIds = new Set(
+    pointsEvents
+      .filter(event => event.related_event_id != null)
+      .map(event => Number(event.related_event_id))
+  )
+
+  async function confirmUndoEvent() {
+    if (!pendingUndoEvent || typeof onUndoPointsEvent !== 'function' || undoSaving) return
+
+    setUndoSaving(true)
+    try {
+      const ok = await onUndoPointsEvent(pendingUndoEvent)
+      if (!ok) {
+        throw new Error('Undo did not complete.')
+      }
+      setUndoFeedback({
+        type: 'success',
+        message: `Undo complete for "${pendingUndoEvent.reason}".`,
+      })
+      setPendingUndoEvent(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to undo this event right now.'
+      setUndoFeedback({ type: 'error', message })
+      setPendingUndoEvent(null)
+    } finally {
+      setUndoSaving(false)
+    }
+  }
 
   function addCall() { if (!callNotes.trim()) return; setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: [...x.parentCalls, { date: new Date().toISOString().slice(0,10), staff: callStaff, notes: callNotes, duration: callDuration }] } : x)); setCallNotes(''); setCallDuration('') }
 
@@ -61,7 +94,7 @@ export default function StudentProfile({
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', fontSize: 14 }}>✕</button>
         </div>
         <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', padding: '0 24px', background: '#ffffff' }}>
-          {['overview','attendance','tracking','behavior','therapy','testScores','calls','notes','info'].map(t => (
+          {['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes','info'].map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t ? 700 : 400, borderBottom: tab === t ? '2px solid #0f172a' : '2px solid transparent', color: tab === t ? '#0f172a' : '#64748b', textTransform: 'capitalize' }}>{t}</button>
           ))}
         </div>
@@ -140,6 +173,94 @@ export default function StudentProfile({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+          {tab === 'pointsHistory' && (
+            <div style={S.card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>Points History</div>
+                  <div style={{ color: '#64748b', fontSize: 12 }}>Ledger entries from points_events for this student.</div>
+                </div>
+                <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>{pointsEvents.length} event{pointsEvents.length === 1 ? '' : 's'}</div>
+              </div>
+              {undoFeedback && (
+                <div
+                  style={{
+                    marginBottom: 12,
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: undoFeedback.type === 'success' ? '1px solid #86efac' : '1px solid #fecaca',
+                    background: undoFeedback.type === 'success' ? '#f0fdf4' : '#fef2f2',
+                    color: undoFeedback.type === 'success' ? '#166534' : '#991b1b',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <span>{undoFeedback.message}</span>
+                  <button
+                    onClick={() => setUndoFeedback(null)}
+                    style={{ ...S.btn('ghost'), padding: '4px 8px', fontSize: 11 }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+              {pointsEvents.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: 13 }}>No point events recorded yet.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {pointsEvents.map(event => {
+                    const isReversal = event.event_type === 'reversal' || event.related_event_id != null
+                    const canUndo =
+                      event.event_type !== 'reversal' &&
+                      !reversedEventIds.has(Number(event.id)) &&
+                      typeof onUndoPointsEvent === 'function'
+                    const deltaLabel = event.points_delta > 0 ? `+${event.points_delta}` : `${event.points_delta}`
+
+                    return (
+                      <div key={event.id} style={{ background: '#f8fafc', borderRadius: 10, padding: 12, border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 }}>
+                              <span style={S.badge(event.points_delta >= 0 ? '#4b6854' : '#9f1239', event.points_delta >= 0 ? '#dcfce7' : '#fee2e2')}>{deltaLabel} pts</span>
+                              <span style={S.badge('#334155', '#e2e8f0')}>{event.event_type}</span>
+                              {isReversal && <span style={S.badge('#7c3aed', '#ede9fe')}>Reversal</span>}
+                            </div>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>{event.reason}</div>
+                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                              {event.staff_name} · {event.staff_role || 'staff'} · {new Date(event.created_at).toLocaleString()}
+                            </div>
+                            {event.note && <div style={{ fontSize: 12, color: '#475569', marginTop: 6 }}>{event.note}</div>}
+                            {event.related_event_id && <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 6 }}>Reverses event #{event.related_event_id}</div>}
+                          </div>
+                          <div style={{ flexShrink: 0 }}>
+                            {canUndo && (
+                              <button
+                                onClick={() => {
+                                  setUndoFeedback(null)
+                                  setPendingUndoEvent(event)
+                                }}
+                                style={{
+                                  ...S.btn('ghost'),
+                                  padding: '6px 10px',
+                                  fontSize: 12,
+                                }}
+                              >
+                                Undo
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
           {tab === 'therapy' && (
@@ -258,6 +379,40 @@ export default function StudentProfile({
           )}
         </div>
       </div>
+
+      {pendingUndoEvent && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 460, border: '1px solid #e2e8f0', boxShadow: '0 24px 70px rgba(15,23,42,0.22)' }}>
+            <div style={{ padding: '16px 18px', borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Confirm Undo</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>This will create a reversal entry in points history.</div>
+            </div>
+            <div style={{ padding: '14px 18px' }}>
+              <div style={{ fontSize: 12, color: '#334155', marginBottom: 6 }}>Event</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>{pendingUndoEvent.reason}</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>
+                {pendingUndoEvent.points_delta > 0 ? '+' : ''}{pendingUndoEvent.points_delta} pts · {pendingUndoEvent.event_type}
+              </div>
+            </div>
+            <div style={{ padding: '12px 18px 16px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                onClick={() => setPendingUndoEvent(null)}
+                disabled={undoSaving}
+                style={{ ...S.btn('ghost'), padding: '7px 11px', fontSize: 12, opacity: undoSaving ? 0.7 : 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmUndoEvent}
+                disabled={undoSaving}
+                style={{ ...S.btn('danger'), padding: '7px 11px', fontSize: 12, opacity: undoSaving ? 0.7 : 1 }}
+              >
+                {undoSaving ? 'Undoing...' : 'Confirm Undo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

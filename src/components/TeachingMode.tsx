@@ -123,11 +123,18 @@ export default function TeachingMode({
   function addIntervalReminder(studentId) {
     playSound('negative')
     setIntervalReminders(prev => ({ ...prev, [studentId]: (prev[studentId] || 0) + 1 }))
-    // Only update total reminders on student if this interval pushes them over
-    setStudents(prev => prev.map(s => s.id === studentId ? {
-      ...s,
-      behaviorLog: [{ label: `Reminder (Interval ${intervalNum})`, points: -1, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 30)
-    } : s))
+    recordStudentPointsAction({
+      studentId,
+      pointsDelta: 0,
+      reminderDelta: 1,
+      reason: `Reminder (Interval ${intervalNum})`,
+      eventType: 'reminder',
+      category: 'teaching',
+      sourceContext: 'teaching-mode-interval',
+      metadata: {
+        interval: intervalNum,
+      },
+    })
   }
 
   const filteredStaff = leaveStaffSearch.length > 0 ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase())) : STAFF
@@ -164,23 +171,22 @@ export default function TeachingMode({
 
     playSound(amount > 0 ? 'positive' : 'negative')
 
-    setStudents(prev => prev.map(s =>
-      selected.includes(s.id)
-        ? {
-            ...s,
-            points: Math.max(0, s.points + amount),
-            reminders: amount < 0 ? s.reminders + 1 : s.reminders,
-            behaviorLog: [
-              {
-                label,
-                points: amount,
-                date: new Date().toISOString().slice(0, 10)
-              },
-              ...s.behaviorLog
-            ].slice(0, 20)
-          }
-        : s
-    ))
+    Promise.all(
+      selected.map(studentId =>
+        recordStudentPointsAction({
+          studentId,
+          pointsDelta: amount,
+          reminderDelta: amount < 0 ? 1 : 0,
+          reason: label,
+          eventType: amount > 0 ? 'award' : 'deduction',
+          category: 'teaching',
+          sourceContext: 'teaching-mode-bulk-action',
+          metadata: {
+            bulkSelectionSize: selected.length,
+          },
+        })
+      )
+    )
 
     // Keep the popup and current students selected so several
     // behaviors can be recorded in one classroom interaction.

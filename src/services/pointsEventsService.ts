@@ -1,5 +1,24 @@
 import { supabase } from '../supabaseClient'
 
+export type PointsEventRecord = {
+  id: number
+  created_at: string
+  student_id: number
+  student_name: string
+  staff_id: string | null
+  staff_name: string
+  staff_role: string | null
+  points_delta: number
+  event_type: string
+  category: string
+  reason: string
+  note: string | null
+  source_page: string | null
+  source_context: string | null
+  related_event_id: number | null
+  metadata: Record<string, unknown> | null
+}
+
 export type CreatePointsEventInput = {
   studentId: number
   studentName: string
@@ -52,4 +71,19 @@ export async function deletePointsEvent(id: number): Promise<void> {
     .eq('id', id)
 
   if (error) throw error
+}
+
+export async function listPointsEventsForStudent(
+  studentId: number,
+): Promise<PointsEventRecord[]> {
+  const { data, error } = await supabase
+    .from('points_events')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+
+  if (error) throw error
+
+  return (data || []) as PointsEventRecord[]
 }

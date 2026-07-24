@@ -24,6 +24,7 @@ import AdminMainDashboard from './AdminMainDashboard'
 import {
   createPointsEvent,
   deletePointsEvent,
+  listPointsEventsForStudent,
 } from '../services/pointsEventsService'
 
 const STORE_ITEMS = [
@@ -1744,7 +1745,7 @@ function FamilyEditor({ s, setStudents, onCancel = null, onSaved = null }) {
 }
 
 
-function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown }) {
+function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction }) {
   const [selectedClass, setSelectedClass] = useState(initialClass)
 
   const classStudents = selectedClass
@@ -1758,13 +1759,29 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
   const withBT = classStudents.filter(s => s.status === 'with-bt').length
   const unknown = classStudents.filter(s => s.status === 'unknown').length
 
-  function quickPoints(id, amount) {
+  async function quickPoints(id, amount) {
     playSound(amount > 0 ? 'positive' : 'negative')
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount), behaviorLog: [{ label: amount > 0 ? `+${amount} pts` : `${amount} pts`, points: amount, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
+    await recordStudentPointsAction({
+      studentId: id,
+      pointsDelta: amount,
+      reminderDelta: amount < 0 ? 1 : 0,
+      reason: amount > 0 ? `+${amount} pts` : `${amount} pts`,
+      eventType: amount > 0 ? 'award' : 'deduction',
+      category: 'teacher-dashboard',
+      sourceContext: 'teacher-dashboard-quick-action',
+    })
   }
-  function quickReminder(id) {
+  async function quickReminder(id) {
     playSound('negative')
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, reminders: s.reminders + 1, behaviorLog: [{ label: 'Reminder', points: -1, date: new Date().toISOString().slice(0,10) }, ...s.behaviorLog].slice(0, 20) } : s))
+    await recordStudentPointsAction({
+      studentId: id,
+      pointsDelta: 0,
+      reminderDelta: 1,
+      reason: 'Reminder',
+      eventType: 'reminder',
+      category: 'teacher-dashboard',
+      sourceContext: 'teacher-dashboard-quick-action',
+    })
   }
 
   return (
@@ -2708,6 +2725,7 @@ export default function Dashboard() {
   const [attendanceReportSearch, setAttendanceReportSearch] = useState('')
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [selectedStudentTab, setSelectedStudentTab] = useState('overview')
+  const [selectedStudentPointsEvents, setSelectedStudentPointsEvents] = useState([])
   const [storeStudent, setStoreStudent] = useState(null)
   const [storeCategoryFilter, setStoreCategoryFilter] = useState('all')
   const [storeItemSearch, setStoreItemSearch] = useState('')
@@ -2723,6 +2741,35 @@ export default function Dashboard() {
   const [drillDown, setDrillDown] = useState(null)
   const [showUnknownPopup, setShowUnknownPopup] = useState(false)
   const [unknownNotes, setUnknownNotes] = useState({})
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadSelectedStudentPointsEvents() {
+      if (!selectedStudent?.id) {
+        setSelectedStudentPointsEvents([])
+        return
+      }
+
+      try {
+        const events = await listPointsEventsForStudent(Number(selectedStudent.id))
+        if (!cancelled) {
+          setSelectedStudentPointsEvents(events)
+        }
+      } catch (error) {
+        console.error('Unable to load student points history:', error)
+        if (!cancelled) {
+          setSelectedStudentPointsEvents([])
+        }
+      }
+    }
+
+    loadSelectedStudentPointsEvents()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedStudent])
 
   const [setupTab, setSetupTab] = useState('assignments')
   const [setupPerson, setSetupPerson] = useState('Rabbi Klein')
@@ -3310,7 +3357,10 @@ export default function Dashboard() {
         note,
         sourcePage: category,
         sourceContext,
-        metadata,
+        metadata: {
+          ...metadata,
+          reminderDelta: Number(reminderDelta || 0),
+        },
       })
 
       const saved = await persistStudentFields(originalStudent.id, {
@@ -3341,6 +3391,115 @@ export default function Dashboard() {
 
       alert('Unable to save points activity to Supabase.')
       return false
+    }
+  }
+
+  async function undoPointsEvent(event) {
+    const currentStudent = students.find(
+      student => Number(student.id) === Number(event.student_id)
+    )
+
+    if (!currentStudent) {
+      throw new Error('Student was not found for this event.')
+    }
+
+    const originalPointsDelta = Number(event.points_delta || 0)
+    const originalReminderDelta = Number(
+      event?.metadata?.reminderDelta || (event.event_type === 'reminder' ? 1 : 0)
+    )
+    const reversalPointsDelta = -originalPointsDelta
+    const reversalReminderDelta = -originalReminderDelta
+    const nextPoints = Math.max(
+      0,
+      Number(currentStudent.points || 0) + reversalPointsDelta
+    )
+    const nextReminders = Math.max(
+      0,
+      Number(currentStudent.reminders || 0) + reversalReminderDelta
+    )
+
+    setStudents(prev => prev.map(student =>
+      Number(student.id) !== Number(currentStudent.id)
+        ? student
+        : {
+            ...student,
+            points: nextPoints,
+            token_balance: nextPoints,
+            reminders: nextReminders,
+            behaviorLog: [
+              {
+                label: `Undo: ${event.reason}`,
+                points: reversalPointsDelta,
+                date: new Date().toISOString().slice(0, 10),
+              },
+              ...(student.behaviorLog || []),
+            ].slice(0, 30),
+          }
+    ))
+
+    let undoEventId = null
+
+    try {
+      undoEventId = await createPointsEvent({
+        studentId: Number(currentStudent.id),
+        studentName: currentStudent.name,
+        staffName: userName || 'Staff',
+        staffRole: role || 'staff',
+        pointsDelta: reversalPointsDelta,
+        eventType: 'reversal',
+        category: event.category,
+        reason: `Undo: ${event.reason}`,
+        note: `Reversed event #${event.id}`,
+        sourcePage: event.source_page || event.category,
+        sourceContext: 'history-undo',
+        relatedEventId: Number(event.id),
+        metadata: {
+          reversedEventId: Number(event.id),
+          originalEventType: event.event_type,
+          originalPointsDelta,
+          originalReminderDelta,
+        },
+      })
+
+      const saved = await persistStudentFields(currentStudent.id, {
+        token_balance: nextPoints,
+      })
+
+      if (!saved) {
+        throw new Error('Unable to save token balance.')
+      }
+
+      try {
+        const refreshedEvents = await listPointsEventsForStudent(Number(currentStudent.id))
+        setSelectedStudentPointsEvents(refreshedEvents)
+      } catch (refreshError) {
+        console.error('Unable to refresh points history after undo:', refreshError)
+      }
+
+      return true
+    } catch (error) {
+      if (undoEventId) {
+        try {
+          await deletePointsEvent(undoEventId)
+        } catch (rollbackError) {
+          console.error('Unable to roll back undo event:', rollbackError)
+        }
+      }
+
+      console.error('Undo points event failed:', error)
+
+      setStudents(prev => prev.map(student =>
+        Number(student.id) !== Number(currentStudent.id)
+          ? student
+          : {
+              ...currentStudent,
+              token_balance: currentStudent.token_balance,
+            }
+      ))
+
+      throw error instanceof Error
+        ? error
+        : new Error('Unable to undo points activity in Supabase.')
     }
   }
 
@@ -3675,7 +3834,7 @@ export default function Dashboard() {
           />
         )}
 
-        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} setDrillDown={setDrillDown} />}
+        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} />}
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={visibleStudents} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
 
         {page === 'dashboard' && role === 'admin' && isOfficeUser && (
@@ -5639,6 +5798,8 @@ export default function Dashboard() {
         getImprovement={getImprovement}
         daysSince={daysSince}
         TrackingTab={TrackingTab}
+        pointsEvents={selectedStudentPointsEvents}
+        onUndoPointsEvent={undoPointsEvent}
         StudentScoresTab={props => (
           <StudentScoresTab
             {...props}
