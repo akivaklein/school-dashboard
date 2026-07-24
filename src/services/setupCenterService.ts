@@ -128,25 +128,15 @@ export async function getVIPRules(): Promise<VIPRules> {
 }
 
 export async function updateVIPRules(input: Partial<Omit<VIPRules, 'id' | 'updated_at'>>): Promise<VIPRules> {
-  // First try to insert default row if it doesn't exist
-  await supabase
-    .from('vip_rules')
-    .insert([{ id: 'default' }])
-    .eq('id', 'default')
-    .throwOnError()
-    .catch(() => {
-      // Ignore if already exists
-    })
-
   const { data, error } = await supabase
     .from('vip_rules')
-    .update({
-      ...(input.minimum_points !== undefined && { minimum_points: input.minimum_points }),
-      ...(input.maximum_reminders !== undefined && { maximum_reminders: input.maximum_reminders }),
-      ...(input.minimum_attendance !== undefined && { minimum_attendance: input.minimum_attendance }),
-      ...(input.require_all !== undefined && { require_all: input.require_all }),
-    })
-    .eq('id', 'default')
+    .upsert({
+      id: 'default',
+      minimum_points: input.minimum_points ?? 80,
+      maximum_reminders: input.maximum_reminders ?? 2,
+      minimum_attendance: input.minimum_attendance ?? 90,
+      require_all: input.require_all ?? true,
+    }, { onConflict: 'id' })
     .select('*')
     .single()
 

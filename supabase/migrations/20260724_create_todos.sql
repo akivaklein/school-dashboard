@@ -1,6 +1,6 @@
 -- Create todos table for task management
 CREATE TABLE IF NOT EXISTS todos (
-  id BIGINT PRIMARY KEY DEFAULT gen_random_bigint(),
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   date TEXT NOT NULL,
   time TEXT,
   text TEXT NOT NULL,
