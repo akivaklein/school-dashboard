@@ -65,8 +65,10 @@ import {
   saveStaffAccount,
 } from '../services/setupCenterService'
 import { loadStaffMembers, getStaffByName } from '../services/staffService'
+import { recordLoginSession, recordLogoutSession } from '../services/loginSessionService'
 import StaffLoginPanel from './StaffLoginPanel'
 import StaffManagementModal from './StaffManagementModal'
+import LoginActivityView from './LoginActivityView'
 
 const STORE_ITEMS = [
   // Drinks
@@ -2578,7 +2580,9 @@ export default function Dashboard() {
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
   const [loggedInStaff, setLoggedInStaff] = useState([])
+  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
   const [showStaffManagement, setShowStaffManagement] = useState(false)
+  const [showLoginActivity, setShowLoginActivity] = useState(false)
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState(() => initialStudents.slice())
   const [studentsLoaded, setStudentsLoaded] = useState(false)
@@ -3582,7 +3586,7 @@ export default function Dashboard() {
   const [newTodoCategory, setNewTodoCategory] = useState('general')
   const [newTodoTime, setNewTodoTime] = useState('')
 
-  function handleLogin(r, name) { 
+  async function handleLogin(r, name) { 
     const access = getUserAccess(name, r)
     setRole(r)
     setUserName(name)
@@ -3594,6 +3598,19 @@ export default function Dashboard() {
       setTeacherClass(cls)
     } else {
       setTeacherClass(null)
+    }
+    
+    // Record login session
+    try {
+      const staff = await getStaffByName(name)
+      if (staff) {
+        const session = await recordLoginSession(staff.id, name, r)
+        if (session) {
+          setCurrentSessionId(session.id)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to record login session:', error)
     }
   }
 
@@ -3610,19 +3627,43 @@ export default function Dashboard() {
     }
   }
 
-  function handleRemoveStaffLogin(staffId) {
+  async function handleRemoveStaffLogin(staffId) {
     setLoggedInStaff(prev => prev.filter(s => s.id !== staffId))
     
     // If we're removing the currently logged-in user, log them out
     const removedStaff = loggedInStaff.find(s => s.id === staffId)
     if (removedStaff && userName === removedStaff.name) {
+      // Record logout
+      if (currentSessionId) {
+        try {
+          await recordLogoutSession(currentSessionId)
+        } catch (error) {
+          console.error('Failed to record logout:', error)
+        }
+      }
+      
       setLoggedIn(false)
       setUserName('')
       setRole('admin')
+      setCurrentSessionId(null)
     }
   }
 
-  function openStudent(s, tab = 'overview') { setSelectedStudent(s); setSelectedStudentTab(tab) }
+  async function handleLogout() {
+    // Record logout session
+    if (currentSessionId) {
+      try {
+        await recordLogoutSession(currentSessionId)
+      } catch (error) {
+        console.error('Failed to record logout:', error)
+      }
+    }
+    
+    setLoggedIn(false)
+    setUserName('')
+    setRole('admin')
+    setCurrentSessionId(null)
+  }
 
   async function saveStudentField(id, field, value) {
     const payload = { [field]: value }
@@ -4291,8 +4332,27 @@ export default function Dashboard() {
         </div>
         <div style={{ marginTop: 'auto', padding: '14px 16px 18px', borderTop: '1px solid rgba(255,255,255,0.10)', flexShrink: 0 }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 8 }}>{userName}</div>
+          {role === 'admin' && (
+            <button
+              onClick={() => setShowLoginActivity(true)}
+              style={{
+                fontSize: 11,
+                color: 'rgba(255,255,255,0.78)',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                cursor: 'pointer',
+                padding: '6px 8px',
+                borderRadius: 6,
+                width: '100%',
+                textAlign: 'left',
+                marginBottom: 6
+              }}
+            >
+              📊 Login Activity
+            </button>
+          )}
           <button
-            onClick={() => setLoggedIn(false)}
+            onClick={handleLogout}
             style={{
               fontSize: 12,
               color: 'rgba(255,255,255,0.78)',
@@ -6384,6 +6444,11 @@ export default function Dashboard() {
       {/* Staff Management Modal */}
       {showStaffManagement && (
         <StaffManagementModal onClose={() => setShowStaffManagement(false)} />
+      )}
+      
+      {/* Login Activity Modal */}
+      {showLoginActivity && (
+        <LoginActivityView onClose={() => setShowLoginActivity(false)} />
       )}
     </div>
   )
