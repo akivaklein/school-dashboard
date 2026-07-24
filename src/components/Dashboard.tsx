@@ -2550,9 +2550,6 @@ export default function Dashboard() {
         const initialStudent = initialById.get(
           Number(databaseStudent.id)
         )
-        const persistedStudent = persistedStudentsById.get(
-          Number(databaseStudent.id)
-        )
 
         const merged = initialStudent
           ? { ...initialStudent, ...databaseStudent }
