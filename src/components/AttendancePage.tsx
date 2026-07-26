@@ -547,18 +547,28 @@ export default function AttendancePage({
               {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>↩️ Undo</button>}
               <button onClick={() => setCollapsed(c => !c)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>{collapsed ? '⬇️ Expand All' : '⬆️ Collapse All'}</button>
               <button onClick={async () => {
-                const snapshot = students.map(s => ({
-                  id: s.id,
-                  dailyStatus: s.dailyStatus || 'present',
-                  lateDetails: s.lateDetails || null,
-                  status: s.status || 'present',
-                  withStaff: s.withStaff || null,
-                  classLog: s.classLog || [],
-                }))
+                const targetIds = new Set(filteredStudents.map(s => Number(s.id)))
+                if (targetIds.size === 0) return
+
+                const snapshot = students
+                  .filter(s => targetIds.has(Number(s.id)))
+                  .map(s => ({
+                    id: s.id,
+                    dailyStatus: s.dailyStatus || 'present',
+                    lateDetails: s.lateDetails || null,
+                    status: s.status || 'present',
+                    withStaff: s.withStaff || null,
+                    classLog: s.classLog || [],
+                  }))
+
                 setUndoStack(u => [...u.slice(-9), { type: 'bulk', snapshot }])
-                setStudents(prev => prev.map(s => ({ ...s, dailyStatus: 'present', lateDetails: null })))
+                setStudents(prev => prev.map(s => (
+                  targetIds.has(Number(s.id))
+                    ? { ...s, dailyStatus: 'present', lateDetails: null }
+                    : s
+                )))
                 const success = await persistStudentFieldsBulk(
-                  students.map(s => ({
+                  filteredStudents.map(s => ({
                     id: s.id,
                     fields: {
                       dailyStatus: 'present',
@@ -568,6 +578,7 @@ export default function AttendancePage({
                 )
                 if (!success) {
                   setStudents(prev => prev.map(s => {
+                    if (!targetIds.has(Number(s.id))) return s
                     const saved = snapshot.find(x => x.id === s.id)
                     return saved
                       ? {
@@ -639,10 +650,20 @@ export default function AttendancePage({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>🔄 Live Class Toggle</div>
             <button onClick={async () => {
-              const snapshot = students
-              setStudents(prev => prev.map(s => ({ ...s, status: 'present', withStaff: null })))
+              const targetIds = new Set(filteredStudents.map(s => Number(s.id)))
+              if (targetIds.size === 0) return
+
+              const snapshot = students.map(s => ({ ...s }))
+              setStudents(prev => prev.map(s => (
+                targetIds.has(Number(s.id))
+                  ? { ...s, status: 'present', withStaff: null }
+                  : s
+              )))
               const success = await persistStudentFieldsBulk(
-                students.map(s => ({ id: s.id, fields: { status: 'present', withStaff: null } }))
+                filteredStudents.map(s => ({
+                  id: s.id,
+                  fields: { status: 'present', withStaff: null }
+                }))
               )
               if (!success) {
                 setStudents(snapshot)

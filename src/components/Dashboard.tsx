@@ -843,6 +843,25 @@ function getTeacherAssignedClassIds(name, setupAssignments, students) {
   return Array.from(classIds)
 }
 
+function getTeacherAssignedStudentIds(name, setupAssignments) {
+  const assignment = setupAssignments?.[name]
+  const studentIds = new Set()
+
+  if (assignment?.periods) {
+    ;[1, 2, 3].forEach(period => {
+      const periodStudentIds = assignment.periods?.[period] || []
+      periodStudentIds.forEach(studentId => {
+        const numericId = Number(studentId)
+        if (!Number.isNaN(numericId)) {
+          studentIds.add(numericId)
+        }
+      })
+    })
+  }
+
+  return Array.from(studentIds)
+}
+
 function teacherDivisionForName(name) {
   const classId = TEACHER_CLASS_MAP[name]
   if (!classId) return 'yeshiva_ketana'
@@ -4557,9 +4576,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             : []
       )
     : []
+  const assignedTeacherStudentIdsForMode = isTeacherRoleForMode
+    ? getTeacherAssignedStudentIds(userName, setupAssignments)
+    : []
+  const assignedTeacherStudentSetForMode = new Set(assignedTeacherStudentIdsForMode)
   const studentsForCurrentRole = isTeacherRoleForMode
-    ? divisionScopedStudentsForMode.filter(
-        s => assignedTeacherClassIdsForMode.includes(resolveStudentClassId(s))
+    ? (
+        assignedTeacherStudentSetForMode.size > 0
+          ? students.filter(s => assignedTeacherStudentSetForMode.has(Number(s.id)))
+          : divisionScopedStudentsForMode.filter(
+              s => assignedTeacherClassIdsForMode.includes(resolveStudentClassId(s))
+            )
       )
     : divisionScopedStudentsForMode
   
@@ -4599,8 +4626,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             : []
       )
     : []
+  const assignedTeacherStudentIds = isTeacherRole
+    ? getTeacherAssignedStudentIds(userName, setupAssignments)
+    : []
+  const assignedTeacherStudentSet = new Set(assignedTeacherStudentIds)
   const visibleStudents = isTeacherRole
-    ? divisionScopedStudents.filter(s => assignedTeacherClassIds.includes(resolveStudentClassId(s)))
+    ? (
+        assignedTeacherStudentSet.size > 0
+          ? students.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
+          : divisionScopedStudents.filter(s => assignedTeacherClassIds.includes(resolveStudentClassId(s)))
+      )
     : divisionScopedStudents
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
   const present = visibleStudents.filter(s => s.status === 'present').length
