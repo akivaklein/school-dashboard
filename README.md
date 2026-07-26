@@ -101,3 +101,9 @@ Implementation rule:
 
 - New feature work should avoid introducing new hardcoded dropdown options when the option set is expected to change operationally.
 - Prefer persisted configuration tables (or a centralized config service) and admin-facing management UI in Setup/Settings.
+
+## Backlog Tracking
+
+Current progress for the original 12-item implementation backlog is tracked in:
+
+- `docs/original-12-item-status.md`
