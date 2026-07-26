@@ -234,7 +234,7 @@ const S = {
 }
 
 // ── TRACKING TAB COMPONENT ────────────────────────────────────────────────────
-function TrackingTab({ s, students }) {
+function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; staffMembers: any[] }) {
   const [period, setPeriod] = useState('today')
   const [drillType, setDrillType] = useState(null) // 'in', 'out', or a date string
   const student = students.find(x => x.id === s.id) || s
@@ -349,7 +349,7 @@ function TrackingTab({ s, students }) {
                     <>
                       <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Timeline:</div>
                       {todayLog.map((ev, i) => {
-                        const staffObj = ev.staffId ? STAFF.find(st => st.id === ev.staffId) : null
+                        const staffObj = ev.staffId ? staffMembers.find(st => st.id === ev.staffId) : null
                         const period = SCHEDULE_PERIODS.find(p => { if (p.type !== 'class') return false; const [sh, sm] = p.time.split(' - ')[0].split(':').map(Number); const [eh, em] = p.time.split(' - ')[1].split(':').map(Number); const [ch, cm] = ev.time.split(':').map(Number); return (ch*60+cm) >= (sh*60+sm) && (ch*60+cm) <= (eh*60+em) })
                         return (
                           <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
@@ -404,7 +404,7 @@ function TrackingTab({ s, students }) {
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8, textTransform: 'uppercase' }}>Today's Timeline</div>
                 {todayLog.filter(e => isIn ? e.type === 'in' : e.type === 'out').map((ev, i) => {
                   const next = todayLog[todayLog.indexOf(ev) + 1]
-                  const staffObj = ev.staffId ? STAFF.find(st => st.id === ev.staffId) : null
+                  const staffObj = ev.staffId ? staffMembers.find(st => st.id === ev.staffId) : null
                   const [ch, cm] = ev.time.split(':').map(Number)
                   const mins = next ? (() => { const [nh, nm] = next.time.split(':').map(Number); return (nh*60+nm)-(ch*60+cm) })() : null
                   // Find which class period this falls in

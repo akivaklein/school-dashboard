@@ -185,7 +185,7 @@ export default function StudentProfile({
             </div>
           )}
           {tab === 'tracking' && (
-            <TrackingTab s={s} students={students} />
+            <TrackingTab s={s} students={students} staffMembers={STAFF} />
           )}
 
           {tab === 'behavior' && (
