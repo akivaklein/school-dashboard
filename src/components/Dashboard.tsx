@@ -3419,6 +3419,34 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   // Open a student profile with optional tab
   const openStudent = (student, tab = 'overview') => {
+    const isTeacherPortalRole = role === 'teacher' || role === 'rebbe'
+
+    if (isTeacherPortalRole) {
+      const targetStudentId = Number(student?.id)
+      const directAssignedIds = getTeacherAssignedStudentIds(userName, setupAssignments)
+
+      if (directAssignedIds.length > 0) {
+        if (!directAssignedIds.includes(targetStudentId)) {
+          alert('You can only open student profiles assigned to your roster.')
+          return
+        }
+      } else {
+        const assignedClassIds = getTeacherAssignedClassIds(userName, setupAssignments, students)
+        const fallbackClassId = teacherClass || TEACHER_CLASS_MAP[userName] || null
+        const allowedClassIds = assignedClassIds.length > 0
+          ? assignedClassIds
+          : (fallbackClassId ? [fallbackClassId] : [])
+
+        if (allowedClassIds.length > 0) {
+          const studentClassId = resolveStudentClassId(student)
+          if (!studentClassId || !allowedClassIds.includes(studentClassId)) {
+            alert('You can only open student profiles assigned to your class roster.')
+            return
+          }
+        }
+      }
+    }
+
     setSelectedStudent(student)
     if (tab) setSelectedStudentTab(tab)
   }

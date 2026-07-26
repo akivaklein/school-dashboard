@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import StudentNotes from './StudentNotes'
 
 export default function StudentProfile({
@@ -34,6 +34,10 @@ export default function StudentProfile({
   const [pendingUndoEvent, setPendingUndoEvent] = useState(null)
   const [undoSaving, setUndoSaving] = useState(false)
   const [undoFeedback, setUndoFeedback] = useState(null)
+  const isTeacherRole = role === 'teacher' || role === 'rebbe'
+  const availableTabs = isTeacherRole
+    ? ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes']
+    : ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes','info']
   const s = students.find(x => x.id === student.id)
   const improvement = getImprovement(s)
   const vip = isVIP(s)
@@ -69,6 +73,12 @@ export default function StudentProfile({
       setUndoSaving(false)
     }
   }
+
+  useEffect(() => {
+    if (!availableTabs.includes(tab)) {
+      setTab('overview')
+    }
+  }, [availableTabs, tab])
 
   function addCall() { 
     if (!callNotes.trim()) return
@@ -114,7 +124,7 @@ export default function StudentProfile({
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', fontSize: 14 }}>✕</button>
         </div>
         <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', padding: '0 24px', background: '#ffffff', overflowX: 'auto', overflowY: 'hidden', flexShrink: 0 }}>
-          {['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes','info'].map(t => (
+          {availableTabs.map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t ? 700 : 400, borderBottom: tab === t ? '2px solid #0f172a' : '2px solid transparent', color: tab === t ? '#0f172a' : '#64748b', textTransform: 'capitalize', whiteSpace: 'nowrap', flexShrink: 0 }}>{t}</button>
           ))}
         </div>
