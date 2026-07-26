@@ -2828,6 +2828,10 @@ function clearStudentFallbackPatch(id) {
   writeStudentFallbackPatches(patches)
 }
 
+function getStudentFallbackPatchCount() {
+  return Object.keys(readStudentFallbackPatches()).length
+}
+
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -2872,6 +2876,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [students, setStudents] = useState(() => initialStudents.slice())
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState(null)
+  const [studentFallbackPatchCount, setStudentFallbackPatchCount] = useState(() => getStudentFallbackPatchCount())
   const [staffMembers, setStaffMembers] = useState([])
   const [staffLoadError, setStaffLoadError] = useState(null)
 
@@ -2897,6 +2902,22 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   useEffect(() => {
     refreshStaffMembers()
   }, [refreshStaffMembers])
+
+  useEffect(() => {
+    const refreshFallbackCount = () => {
+      setStudentFallbackPatchCount(getStudentFallbackPatchCount())
+    }
+
+    refreshFallbackCount()
+
+    const intervalId = window.setInterval(refreshFallbackCount, 3000)
+    window.addEventListener('storage', refreshFallbackCount)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('storage', refreshFallbackCount)
+    }
+  }, [])
 
   const STAFF = useMemo(
     () =>
@@ -5103,6 +5124,44 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
       <div style={S.main}>
         <div style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto' }}>
+        {studentFallbackPatchCount > 0 && (
+          <div
+            style={{
+              marginBottom: 12,
+              borderRadius: 10,
+              border: '1px solid #facc15',
+              background: '#fffbeb',
+              color: '#854d0e',
+              fontSize: 12,
+              fontWeight: 700,
+              padding: '10px 12px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <span>
+              Saved locally: {studentFallbackPatchCount} student update{studentFallbackPatchCount === 1 ? '' : 's'} are queued because a Supabase write failed.
+            </span>
+            <button
+              onClick={() => setStudentFallbackPatchCount(getStudentFallbackPatchCount())}
+              style={{
+                border: '1px solid #eab308',
+                background: '#fff7cc',
+                color: '#854d0e',
+                borderRadius: 8,
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '5px 8px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Refresh status
+            </button>
+          </div>
+        )}
         <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {divisionOptions.map(option => (
