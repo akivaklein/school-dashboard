@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Dashboard from './components/Dashboard'
 import TeacherOnlyLoginPage from './components/TeacherOnlyLoginPage'
 
@@ -23,9 +23,16 @@ function loadStoredAuthUser(): AuthUser | null {
 
 function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => loadStoredAuthUser())
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname)
 
-  // Check if current path is the teacher-only route
-  const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
+  useEffect(() => {
+    const syncPath = () => setCurrentPath(window.location.pathname)
+    syncPath()
+    window.addEventListener('popstate', syncPath)
+    return () => window.removeEventListener('popstate', syncPath)
+  }, [])
+
+  const normalizedPath = currentPath.replace(/\/+$/, '') || '/'
   const isTeacherRoute =
     normalizedPath === '/teacher' ||
     normalizedPath === '/teacher-login' ||

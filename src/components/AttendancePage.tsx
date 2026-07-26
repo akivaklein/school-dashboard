@@ -14,7 +14,7 @@ export default function AttendancePage({
   STAFF,
   S,
   initials,
-  isVIP,
+  isVIP = () => false,
   DAYS,
   CLASSES,
   STUDENT_CLASSES,
@@ -794,14 +794,25 @@ export default function AttendancePage({
 
       {dailyView === 'weekly' && (
         <div style={S.card}>
-          <WeeklyRecord students={students} filteredStudents={filteredStudents} openStudent={openStudent} S={S} initials={initials} DAYS={DAYS} CLASSES={CLASSES} STUDENT_CLASSES={STUDENT_CLASSES} HISTORICAL_DATA={HISTORICAL_DATA} />
+          <WeeklyRecord
+            students={students}
+            filteredStudents={filteredStudents}
+            openStudent={openStudent}
+            S={S}
+            initials={initials}
+            DAYS={DAYS}
+            CLASSES={CLASSES}
+            STUDENT_CLASSES={STUDENT_CLASSES}
+            HISTORICAL_DATA={HISTORICAL_DATA}
+            isVIP={isVIP}
+          />
         </div>
       )}
     </div>
   )
 }
 
-function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DAYS, CLASSES, STUDENT_CLASSES, HISTORICAL_DATA }) {
+function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DAYS, CLASSES, STUDENT_CLASSES, HISTORICAL_DATA, isVIP }) {
   const [view, setView] = useState('daily')
   const dailyLabels = { 'P': 'P', 'A': 'A', 'L': 'L', 'LE': 'LE' }
   const dailyColors = {
@@ -833,28 +844,31 @@ function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DA
             </tr>
           </thead>
           <tbody>
-            {filteredStudents.map((s, i) => (
-              <tr key={s.id} onClick={() => openStudent(s)} style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}>
-                <td style={{ padding: '8px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={S.avatar(i, 26)}>{initials(s.name)}</div>
-                    <span style={{ fontWeight: 500 }}>{s.name}</span>
-                    {isVIP(s) && <span style={{ fontSize: 10 }}>⭐</span>}
-                  </div>
-                </td>
-                {s.att.map((d, j) => {
-                  const [color, bg] = dailyColors[d] || dailyColors['P']
-                  return (
-                    <td key={j} style={{ padding: 8, textAlign: 'center' }}>
-                      <span style={{ background: bg, color, padding: '2px 6px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>{d}</span>
-                    </td>
-                  )
-                })}
-                <td style={{ textAlign: 'center', padding: 8, fontWeight: 600 }}>{s.att.filter(d => d === 'P').length}</td>
-                <td style={{ textAlign: 'center', padding: 8, color: '#9f1239', fontWeight: 600 }}>{s.att.filter(d => d === 'A').length}</td>
-                <td style={{ textAlign: 'center', padding: 8, color: '#9a6a2a', fontWeight: 600 }}>{s.att.filter(d => d === 'L').length}</td>
-              </tr>
-            ))}
+            {filteredStudents.map((s, i) => {
+              const attendanceCodes = Array.isArray(s.att) ? s.att : []
+              return (
+                <tr key={s.id} onClick={() => openStudent(s)} style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}>
+                  <td style={{ padding: '8px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={S.avatar(i, 26)}>{initials(s.name)}</div>
+                      <span style={{ fontWeight: 500 }}>{s.name}</span>
+                      {(typeof isVIP === 'function' ? isVIP(s) : false) && <span style={{ fontSize: 10 }}>⭐</span>}
+                    </div>
+                  </td>
+                  {attendanceCodes.map((d, j) => {
+                    const [color, bg] = dailyColors[d] || dailyColors['P']
+                    return (
+                      <td key={j} style={{ padding: 8, textAlign: 'center' }}>
+                        <span style={{ background: bg, color, padding: '2px 6px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>{d}</span>
+                      </td>
+                    )
+                  })}
+                  <td style={{ textAlign: 'center', padding: 8, fontWeight: 600 }}>{attendanceCodes.filter(d => d === 'P').length}</td>
+                  <td style={{ textAlign: 'center', padding: 8, color: '#9f1239', fontWeight: 600 }}>{attendanceCodes.filter(d => d === 'A').length}</td>
+                  <td style={{ textAlign: 'center', padding: 8, color: '#9a6a2a', fontWeight: 600 }}>{attendanceCodes.filter(d => d === 'L').length}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       )}
