@@ -2081,7 +2081,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [storeSyncState, setStoreSyncState] = useState('loading')
   const [storeLastLoadError, setStoreLastLoadError] = useState('')
   const [showStoreManager, setShowStoreManager] = useState(false)
-  const [newStoreItem, setNewStoreItem] = useState({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', vip: false })
+  const [newStoreItem, setNewStoreItem] = useState({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', category: 'nosh', vip: false })
   const [attFilter, setAttFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [teachingMode, setTeachingMode] = useState(false)
@@ -3441,6 +3441,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     try {
       const item = await createStoreItem({
         name: newStoreItem.name.trim(),
+        category: (newStoreItem.category || 'nosh').trim() || 'nosh',
         cost: Math.max(0, Number(newStoreItem.cost) || 0),
         emoji: newStoreItem.emoji.trim() || '▪️',
         vip: !!newStoreItem.vip,
@@ -3449,7 +3450,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       }, userName || 'Store Manager')
 
       setStoreItems(prev => [...prev, item])
-      setNewStoreItem({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', vip: false })
+      setNewStoreItem({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', category: 'nosh', vip: false })
     } catch (error) {
       console.error('Unable to add store item:', error)
       alert('Unable to add store item.')

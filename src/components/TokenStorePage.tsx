@@ -128,12 +128,12 @@ export default function TokenStorePage({
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 80px 90px 90px 70px 96px', gap: 8, padding: '0 4px 8px', fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  <div>Item</div><div>Cost</div><div>Stock</div><div>Low At</div><div>VIP</div><div></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 80px 90px 90px 90px 100px 70px 96px', gap: 8, padding: '0 4px 8px', fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <div>Item</div><div>Cost</div><div>Stock</div><div>Low At</div><div>Category</div><div>VIP</div><div></div>
                 </div>
 
                 {storeItems.map(item => (
-                  <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 80px 90px 90px 70px 96px', gap: 8, alignItems: 'center', padding: '8px 4px', borderTop: '1px solid #eef2f7' }}>
+                  <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 80px 90px 90px 90px 100px 70px 96px', gap: 8, alignItems: 'center', padding: '8px 4px', borderTop: '1px solid #eef2f7' }}>
                     <input value={item.name} onChange={e => updateStoreItem(item.id, 'name', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={item.cost} onChange={e => updateStoreItem(item.id, 'cost', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <div style={{ display: 'flex', gap: 4 }}>
@@ -142,6 +142,11 @@ export default function TokenStorePage({
                       <button onClick={() => adjustStoreStock(item.id, 1)} style={{ ...S.btn('ghost'), padding: '6px 8px' }}>+</button>
                     </div>
                     <input type="number" value={item.lowStockAt} onChange={e => updateStoreItem(item.id, 'lowStockAt', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <select value={item.category || 'nosh'} onChange={e => updateStoreItem(item.id, 'category', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, background: '#fff' }}>
+                      {STORE_CATEGORY_OPTIONS.filter(cat => cat.key !== 'all').map(cat => (
+                        <option key={cat.key} value={cat.key}>{cat.label}</option>
+                      ))}
+                    </select>
                     <input type="checkbox" checked={item.vip} onChange={e => updateStoreItem(item.id, 'vip', e.target.checked)} />
                     <button onClick={() => removeStoreItem(item.id)} style={{ ...S.btn('ghost'), color: '#9f1239' }}>Remove</button>
                   </div>
@@ -149,12 +154,17 @@ export default function TokenStorePage({
 
                 <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 14, paddingTop: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Add Store Item</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 90px 90px 90px 90px 110px', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 90px 90px 90px 100px 100px 110px', gap: 8, alignItems: 'center' }}>
                     <input value={newStoreItem.emoji} onChange={e => setNewStoreItem(prev => ({ ...prev, emoji: e.target.value }))} placeholder="Icon" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input value={newStoreItem.name} onChange={e => setNewStoreItem(prev => ({ ...prev, name: e.target.value }))} placeholder="Item name" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.cost} onChange={e => setNewStoreItem(prev => ({ ...prev, cost: e.target.value }))} placeholder="Cost" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.stock} onChange={e => setNewStoreItem(prev => ({ ...prev, stock: e.target.value }))} placeholder="Stock" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.lowStockAt} onChange={e => setNewStoreItem(prev => ({ ...prev, lowStockAt: e.target.value }))} placeholder="Low at" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <select value={newStoreItem.category || 'nosh'} onChange={e => setNewStoreItem(prev => ({ ...prev, category: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, background: '#fff' }}>
+                      {STORE_CATEGORY_OPTIONS.filter(cat => cat.key !== 'all').map(cat => (
+                        <option key={cat.key} value={cat.key}>{cat.label}</option>
+                      ))}
+                    </select>
                     <label style={{ fontSize: 12, color: '#475569', display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={newStoreItem.vip} onChange={e => setNewStoreItem(prev => ({ ...prev, vip: e.target.checked }))} /> VIP</label>
                     <button onClick={addStoreItem} style={S.btn('primary')}>Add Item</button>
                   </div>
