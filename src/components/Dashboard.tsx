@@ -5621,6 +5621,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             academicDisplay={academicDisplay}
             academicStatus={academicStatus}
             academicStatusColor={academicStatusColor}
+            persistStudentFields={persistStudentFields}
           />
         )}
 

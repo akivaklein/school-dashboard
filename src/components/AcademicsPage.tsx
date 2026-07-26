@@ -26,6 +26,19 @@ export function StudentScoresTab({
   const subjectOptions = Object.keys(ACADEMIC_AREAS[form.teacher] || ACADEMIC_AREAS[DEFAULT_ACADEMIC_TEACHER])
   const skillOptions = (ACADEMIC_AREAS[form.teacher]?.[form.subject] || ACADEMIC_AREAS[DEFAULT_ACADEMIC_TEACHER]?.[form.subject] || [])
 
+  function scoreDisplayValue(score) {
+    if (score.attemptStatus === 'absent') return 'Absent'
+    if (score.attemptStatus === 'missed') return 'Missed'
+    return academicDisplay(score)
+  }
+
+  function scoreStatusValue(score) {
+    if (score.attemptStatus === 'absent' || score.attemptStatus === 'missed') {
+      return 'Missing'
+    }
+    return academicStatus(score)
+  }
+
   function updateForm(key, val) {
     setForm(prev => {
       const next = { ...prev, [key]: val }
@@ -93,11 +106,11 @@ export function StudentScoresTab({
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Test Scores & Skill Ratings</div>
         {scores.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13 }}>No academic scores yet.</div>}
         {scores.map(score => {
-          const status = academicStatus(score)
+          const status = scoreStatusValue(score)
           return <div key={score.id} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 0.8fr 0.7fr', gap: 12, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #f0f1f6' }}>
             <div><div style={{ fontWeight: 700, fontSize: 13 }}>{score.assessmentName}</div><div style={{ fontSize: 11, color: '#64748b' }}>{score.date} · {score.teacher}</div></div>
             <div><div style={{ fontSize: 13, fontWeight: 700 }}>{score.subject}</div><div style={{ fontSize: 11, color: '#64748b' }}>{score.skill}</div></div>
-            <div style={{ fontWeight: 700, color: '#263241' }}>{academicDisplay(score)}</div>
+            <div style={{ fontWeight: 700, color: '#263241' }}>{scoreDisplayValue(score)}</div>
             <div><span style={S.badge(academicStatusColor(status), academicStatusColor(status)+'15')}>{status}</span></div>
             {score.notes && <div style={{ gridColumn: '1 / -1', fontSize: 12, color: '#64748b', background: '#ffffff', borderRadius: 8, padding: '8px 10px' }}>{score.notes}</div>}
           </div>
@@ -142,22 +155,203 @@ export default function AcademicsPage({
   academicDisplay,
   academicStatus,
   academicStatusColor,
+  persistStudentFields,
 }) {
   const [classFilter, setClassFilter] = useState(role === 'teacher' && teacherClass ? teacherClass : 'all')
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [skillFilter, setSkillFilter] = useState('all')
   const [teacherFilter, setTeacherFilter] = useState(role === 'teacher' ? userName : 'all')
   const [addStudentId, setAddStudentId] = useState(null)
+  const [showBulkEntry, setShowBulkEntry] = useState(false)
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [bulkStudentStates, setBulkStudentStates] = useState({})
+  const [bulkForm, setBulkForm] = useState({
+    teacher: userName?.startsWith('Rabbi') ? userName : 'Rabbi Abowitz',
+    subject: 'Math',
+    skill: '2-digit',
+    assessmentName: '',
+    date: new Date().toISOString().slice(0, 10),
+    scoreType: 'points',
+    maxScore: '100',
+    rating: 'Good',
+    notes: '',
+    fillAllScore: '',
+  })
   const visibleStudents = students.filter(s => classFilter === 'all' || STUDENT_CLASSES[s.id] === classFilter)
+  const bulkSubjectOptions = Object.keys(ACADEMIC_AREAS[bulkForm.teacher] || ACADEMIC_AREAS['Rabbi Abowitz'] || { Math: ['2-digit'] })
+  const bulkSkillOptions = (ACADEMIC_AREAS[bulkForm.teacher]?.[bulkForm.subject] || ACADEMIC_AREAS['Rabbi Abowitz']?.[bulkForm.subject] || ['General'])
+
+  function scoreStatusValue(score) {
+    if (score.attemptStatus === 'absent' || score.attemptStatus === 'missed') {
+      return 'Missing'
+    }
+    return academicStatus(score)
+  }
+
+  function scoreDisplayValue(score) {
+    if (score.attemptStatus === 'absent') return 'Absent'
+    if (score.attemptStatus === 'missed') return 'Missed'
+    return academicDisplay(score)
+  }
+
+  function updateBulkForm(key, value) {
+    setBulkForm(prev => {
+      const next = { ...prev, [key]: value }
+      if (key === 'teacher') {
+        const firstSubject = Object.keys(ACADEMIC_AREAS[value] || ACADEMIC_AREAS['Rabbi Abowitz'] || { Math: ['2-digit'] })[0]
+        next.subject = firstSubject
+        next.skill = (ACADEMIC_AREAS[value] || ACADEMIC_AREAS['Rabbi Abowitz'])[firstSubject][0]
+      }
+      if (key === 'subject') {
+        next.skill = (ACADEMIC_AREAS[next.teacher]?.[value] || ACADEMIC_AREAS['Rabbi Abowitz']?.[value] || ['General'])[0]
+      }
+      return next
+    })
+  }
+
+  function openBulkEntry() {
+    const initialStates = {}
+    visibleStudents.forEach(student => {
+      initialStates[student.id] = { mode: 'score', score: '' }
+    })
+    setBulkStudentStates(initialStates)
+    setShowBulkEntry(true)
+  }
+
+  function setStudentBulkMode(studentId, mode) {
+    setBulkStudentStates(prev => ({
+      ...prev,
+      [studentId]: {
+        ...(prev[studentId] || { score: '' }),
+        mode,
+      },
+    }))
+  }
+
+  function setStudentBulkScore(studentId, score) {
+    setBulkStudentStates(prev => ({
+      ...prev,
+      [studentId]: {
+        ...(prev[studentId] || { mode: 'score' }),
+        score,
+      },
+    }))
+  }
+
+  function fillAllScores() {
+    const fillValue = bulkForm.fillAllScore
+    setBulkStudentStates(prev => {
+      const next = { ...prev }
+      visibleStudents.forEach(student => {
+        next[student.id] = {
+          ...(next[student.id] || { mode: 'score' }),
+          mode: 'score',
+          score: fillValue,
+        }
+      })
+      return next
+    })
+  }
+
+  async function saveBulkScores() {
+    if (!bulkForm.assessmentName.trim()) {
+      alert('Add an assessment name before saving bulk scores.')
+      return
+    }
+
+    if (bulkForm.scoreType === 'points' && !bulkForm.maxScore) {
+      alert('Enter max score for numeric bulk grading.')
+      return
+    }
+
+    const payload = []
+
+    for (const student of visibleStudents) {
+      const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
+
+      if (state.mode === 'score') {
+        if (bulkForm.scoreType === 'points' && (state.score === '' || state.score === null || state.score === undefined)) {
+          continue
+        }
+      }
+
+      const attemptStatus = state.mode === 'absent' ? 'absent' : state.mode === 'missed' ? 'missed' : 'scored'
+      const statusNote = attemptStatus === 'absent' ? '[Absent on assessment date]' : attemptStatus === 'missed' ? '[Missed assessment]' : ''
+      const mergedNotes = [statusNote, bulkForm.notes].filter(Boolean).join(' ')
+
+      const entry = {
+        id: `ts${Date.now()}-${student.id}`,
+        teacher: bulkForm.teacher,
+        subject: bulkForm.subject,
+        skill: bulkForm.skill,
+        assessmentName: bulkForm.assessmentName,
+        date: bulkForm.date,
+        scoreType: attemptStatus === 'scored' ? bulkForm.scoreType : 'status',
+        score: attemptStatus === 'scored' && bulkForm.scoreType === 'points' ? Number(state.score) : null,
+        maxScore: attemptStatus === 'scored' && bulkForm.scoreType === 'points' ? Number(bulkForm.maxScore) : null,
+        rating: attemptStatus === 'scored' && bulkForm.scoreType === 'rating' ? bulkForm.rating : null,
+        notes: mergedNotes,
+        attemptStatus,
+      }
+
+      payload.push({
+        studentId: student.id,
+        nextScores: [entry, ...(student.testScores || [])],
+      })
+    }
+
+    if (payload.length === 0) {
+      alert('No student rows have data to save yet.')
+      return
+    }
+
+    const previousById = {}
+    payload.forEach(item => {
+      const current = students.find(student => student.id === item.studentId)
+      previousById[item.studentId] = current?.testScores || []
+    })
+
+    setBulkSaving(true)
+
+    setStudents(prev => prev.map(student => {
+      const update = payload.find(item => item.studentId === student.id)
+      return update ? { ...student, testScores: update.nextScores } : student
+    }))
+
+    if (persistStudentFields) {
+      const saveResults = await Promise.all(
+        payload.map(item =>
+          persistStudentFields(item.studentId, { testScores: item.nextScores })
+        )
+      )
+
+      if (!saveResults.every(Boolean)) {
+        setStudents(prev => prev.map(student => {
+          if (!Object.prototype.hasOwnProperty.call(previousById, student.id)) {
+            return student
+          }
+          return { ...student, testScores: previousById[student.id] }
+        }))
+        setBulkSaving(false)
+        alert('Some bulk scores could not be saved to Supabase.')
+        return
+      }
+    }
+
+    setBulkSaving(false)
+    setShowBulkEntry(false)
+    setBulkForm(prev => ({ ...prev, assessmentName: '', notes: '', fillAllScore: '' }))
+  }
+
   const allScores = visibleStudents.flatMap(s => (s.testScores || []).map(score => ({ ...score, studentId: s.id, studentName: s.name }))).filter(score => (teacherFilter === 'all' || score.teacher === teacherFilter) && (subjectFilter === 'all' || score.subject === subjectFilter) && (skillFilter === 'all' || score.skill === skillFilter))
-  const numericScores = allScores.filter(x => x.scoreType !== 'rating' && x.maxScore)
+  const numericScores = allScores.filter(x => x.scoreType !== 'rating' && x.maxScore && x.attemptStatus !== 'absent' && x.attemptStatus !== 'missed')
   const classAvg = numericScores.length ? Math.round(numericScores.reduce((acc, x) => acc + academicPct(x), 0) / numericScores.length) : null
   const latestByStudent = visibleStudents.map(st => {
     const scores = (st.testScores || []).filter(score => (teacherFilter === 'all' || score.teacher === teacherFilter) && (subjectFilter === 'all' || score.subject === subjectFilter) && (skillFilter === 'all' || score.skill === skillFilter)).sort((a,b)=>b.date.localeCompare(a.date))
-    const nums = scores.filter(x=>x.scoreType !== 'rating' && x.maxScore)
+    const nums = scores.filter(x=>x.scoreType !== 'rating' && x.maxScore && x.attemptStatus !== 'absent' && x.attemptStatus !== 'missed')
     const avg = nums.length ? Math.round(nums.reduce((acc,x)=>acc+academicPct(x),0)/nums.length) : null
     const latest = scores[0]
-    return { student: st, scores, latest, avg, status: latest ? academicStatus(latest) : 'Missing' }
+    return { student: st, scores, latest, avg, status: latest ? scoreStatusValue(latest) : 'Missing' }
   })
   const statusCounts = { Excellent: 0, 'Doing Well': 0, Watch: 0, 'Needs Support': 0, Missing: 0 }
   latestByStudent.forEach(row => { statusCounts[row.status] = (statusCounts[row.status] || 0) + 1 })
@@ -168,8 +362,9 @@ export default function AcademicsPage({
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap: 12, marginBottom:18 }}>
         <div><h1 style={{ fontSize:22, fontWeight:900, color:'#1e293b', margin:'0 0 6px' }}>Academics</h1><div style={{ fontSize:13, color:'#64748b' }}>Class view for test scores and skill ratings</div></div>
+        <button onClick={openBulkEntry} style={{ ...S.btn('primary'), whiteSpace: 'nowrap' }}>Bulk Grade Entry</button>
       </div>
 
       <div style={{ ...S.card, marginBottom:16, display:'grid', gridTemplateColumns: role === 'admin' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap:10 }}>
@@ -194,7 +389,7 @@ export default function AcademicsPage({
             <div onClick={()=>openStudent(row.student, 'testScores')} style={{ cursor:'pointer' }}><div style={{ fontWeight:850, fontSize:13 }}>{row.student.name}</div><div style={{ fontSize:11, color:'#64748b' }}>{CLASSES.find(c=>c.id===STUDENT_CLASSES[row.student.id])?.name}</div></div>
             <div style={{ fontWeight:900, color:'#1e293b' }}>{row.avg !== null ? `${row.avg}%` : '—'}</div>
             <div>{row.latest ? <><div style={{ fontWeight:750, fontSize:12 }}>{row.latest.assessmentName}</div><div style={{ fontSize:11, color:'#64748b' }}>{row.latest.subject} · {row.latest.skill}</div></> : <span style={{ color:'#94a3b8', fontSize:12 }}>No scores</span>}</div>
-            <div>{row.latest ? academicDisplay(row.latest) : '—'}</div>
+            <div>{row.latest ? scoreDisplayValue(row.latest) : '—'}</div>
             <div><span style={S.badge(academicStatusColor(row.status), academicStatusColor(row.status)+'15')}>{row.status}</span></div>
           </div>)}
         </div>
@@ -213,6 +408,99 @@ export default function AcademicsPage({
           </div>
         </div>
       </div>
+
+      {showBulkEntry && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.48)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 980, maxHeight: '92vh', overflow: 'hidden', boxShadow: '0 24px 80px rgba(15,23,42,0.28)' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 18, color: '#1e293b' }}>Bulk Grade Entry</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{visibleStudents.length} students in current class filter</div>
+              </div>
+              <button onClick={() => setShowBulkEntry(false)} style={{ border:'none', background:'#f4f5f8', borderRadius:'50%', width:30, height:30, cursor:'pointer' }}>×</button>
+            </div>
+
+            <div style={{ padding: 16, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+              <select value={bulkForm.teacher} onChange={e => updateBulkForm('teacher', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                {Object.keys(ACADEMIC_AREAS).map(name => <option key={name}>{name}</option>)}
+              </select>
+              <select value={bulkForm.subject} onChange={e => updateBulkForm('subject', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                {bulkSubjectOptions.map(option => <option key={option}>{option}</option>)}
+              </select>
+              <select value={bulkForm.skill} onChange={e => updateBulkForm('skill', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                {bulkSkillOptions.map(option => <option key={option}>{option}</option>)}
+              </select>
+              <input type="date" value={bulkForm.date} onChange={e => updateBulkForm('date', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
+
+              <input value={bulkForm.assessmentName} onChange={e => updateBulkForm('assessmentName', e.target.value)} placeholder="Assessment name" style={{ gridColumn: 'span 2', padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
+              <select value={bulkForm.scoreType} onChange={e => updateBulkForm('scoreType', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                <option value="points">Number score</option>
+                <option value="rating">Skill rating</option>
+              </select>
+              {bulkForm.scoreType === 'points' ? (
+                <input value={bulkForm.maxScore} onChange={e => updateBulkForm('maxScore', e.target.value)} placeholder="Max score" style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
+              ) : (
+                <select value={bulkForm.rating} onChange={e => updateBulkForm('rating', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                  {SKILL_RATINGS.map(rating => <option key={rating}>{rating}</option>)}
+                </select>
+              )}
+
+              <textarea value={bulkForm.notes} onChange={e => updateBulkForm('notes', e.target.value)} placeholder="Optional note for all entries" style={{ gridColumn: 'span 2', padding: 10, border:'1px solid #e5e7eb', borderRadius:8, minHeight: 42, resize: 'vertical' }} />
+              <div style={{ display:'flex', gap: 8, alignItems: 'center', gridColumn: 'span 2' }}>
+                <input value={bulkForm.fillAllScore} onChange={e => updateBulkForm('fillAllScore', e.target.value)} placeholder="Fill all with score" style={{ flex: 1, padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
+                <button onClick={fillAllScores} style={S.btn('ghost')}>Fill All</button>
+              </div>
+            </div>
+
+            <div style={{ maxHeight: '52vh', overflow: 'auto', padding: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.9fr 1fr', gap: 10, fontSize: 12, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>
+                <div>Student</div>
+                <div>Mode</div>
+                <div>{bulkForm.scoreType === 'points' ? 'Score' : 'Rating'}</div>
+                <div>Quick status</div>
+              </div>
+
+              {visibleStudents.map(student => {
+                const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
+                return (
+                  <div key={student.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.9fr 1fr', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #eef2f7' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 13 }}>{student.name}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{CLASSES.find(c => c.id === STUDENT_CLASSES[student.id])?.name || 'Unassigned class'}</div>
+                    </div>
+
+                    <select value={state.mode} onChange={e => setStudentBulkMode(student.id, e.target.value)} style={{ padding: 8, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                      <option value="score">Scored</option>
+                      <option value="missed">Missed</option>
+                      <option value="absent">Absent</option>
+                    </select>
+
+                    {bulkForm.scoreType === 'points' ? (
+                      <input value={state.score || ''} onChange={e => setStudentBulkScore(student.id, e.target.value)} disabled={state.mode !== 'score'} placeholder="Score" style={{ padding: 8, border:'1px solid #e5e7eb', borderRadius:8, background: state.mode !== 'score' ? '#f8fafc' : '#fff' }} />
+                    ) : (
+                      <div style={{ fontSize: 12, color: '#334155', fontWeight: 700 }}>{state.mode === 'score' ? bulkForm.rating : 'N/A'}</div>
+                    )}
+
+                    <div style={{ fontSize: 12, color: state.mode === 'absent' ? '#9f1239' : state.mode === 'missed' ? '#9a6a2a' : '#4b6854', fontWeight: 700 }}>
+                      {state.mode === 'score' ? 'Will save score' : state.mode === 'missed' ? 'Mark missed' : 'Mark absent'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ padding: 16, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 12, color: '#64748b' }}>
+                Missed/Absent entries are saved in each student score history with explicit status tags.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setShowBulkEntry(false)} style={S.btn('ghost')} disabled={bulkSaving}>Cancel</button>
+                <button onClick={saveBulkScores} style={S.btn('primary')} disabled={bulkSaving}>{bulkSaving ? 'Saving...' : 'Save Bulk Grades'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
