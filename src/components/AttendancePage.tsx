@@ -564,7 +564,7 @@ export default function AttendancePage({
                 setUndoStack(u => [...u.slice(-9), { type: 'bulk', snapshot }])
                 setStudents(prev => prev.map(s => (
                   targetIds.has(Number(s.id))
-                    ? { ...s, dailyStatus: 'present', lateDetails: null }
+                    ? { ...s, dailyStatus: 'present', lateDetails: null, status: 'present', withStaff: null }
                     : s
                 )))
                 const success = await persistStudentFieldsBulk(
@@ -573,6 +573,8 @@ export default function AttendancePage({
                     fields: {
                       dailyStatus: 'present',
                       lateDetails: null,
+                      status: 'present',
+                      withStaff: null,
                     }
                   }))
                 )

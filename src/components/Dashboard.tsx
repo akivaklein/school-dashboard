@@ -1268,13 +1268,43 @@ async function persistStudentFields(id, fields) {
     mappedFields.class_log = mappedFields.classLog
     delete mappedFields.classLog
   }
-  
-  const { error } = await supabase.from('students').update(mappedFields).eq('id', id)
-  if (error) {
-    console.error(`Supabase student update failed for ${id}:`, error)
+
+  const payload = { ...mappedFields }
+  const missingColumnPattern = /column\s+"?([a-zA-Z0-9_]+)"?\s+of\s+relation\s+"?students"?\s+does\s+not\s+exist/i
+
+  while (true) {
+    const { error } = await supabase.from('students').update(payload).eq('id', id)
+    if (!error) {
+      return true
+    }
+
+    const message = error.message || ''
+    const match = message.match(missingColumnPattern)
+    const missingColumn = match?.[1]
+
+    if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
+      delete payload[missingColumn]
+
+      if (Object.keys(payload).length === 0) {
+        console.error(
+          `Supabase student update skipped for ${id}: all requested fields are missing from schema. Original fields:`,
+          fields,
+          'Last error:',
+          error
+        )
+        return false
+      }
+
+      console.warn(
+        `Supabase students schema missing column "${missingColumn}". Retrying update for student ${id} with fallback payload keys:`,
+        Object.keys(payload)
+      )
+      continue
+    }
+
+    console.error(`Supabase student update failed for ${id}:`, error, 'Payload keys:', Object.keys(payload))
     return false
   }
-  return true
 }
 
 async function persistStudentFieldsBulk(updates) {
