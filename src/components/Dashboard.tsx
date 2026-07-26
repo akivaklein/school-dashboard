@@ -3277,6 +3277,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }, [])
 
   const [setupTab, setSetupTab] = useState('assignments')
+  const [setupAssignmentError, setSetupAssignmentError] = useState(null)
   const [setupPerson, setSetupPerson] = useState('Rabbi Klein')
   const [setupAssignments, setSetupAssignments] = useState(() => {
     const assignments = {}
@@ -4870,7 +4871,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                 })
               }
 
-              const togglePeriodStudent = (period, studentId) => {
+              const togglePeriodStudent = async (period, studentId) => {
                 if (!currentPerson || currentPerson.type !== 'teacher') {
                   return
                 }
@@ -4881,34 +4882,34 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                       ?.periods?.[period] || []
                   ).includes(studentId)
 
-                setSetupAssignments(previous => {
-                  const next = { ...previous }
-                  const affectedTeachers = [currentPerson.name]
-
-                  if (currentlySelected) {
-                    const existing =
-                      next[currentPerson.name] || emptyAssignment
-
-                    next[currentPerson.name] = {
-                      ...existing,
-                      periods: {
-                        ...existing.periods,
-                        [period]:
-                          (existing.periods?.[period] || [])
-                            .filter(id => id !== studentId)
+                const previousAssignments = setupAssignments
+                const persistedAssignments = await loadSetupAssignments()
+                const baseAssignments =
+                  Object.keys(persistedAssignments || {}).length > 0
+                    ? {
+                        ...setupAssignments,
+                        ...persistedAssignments,
                       }
+                    : setupAssignments
+
+                const next = { ...baseAssignments }
+                const affectedTeachers = [currentPerson.name]
+
+                if (currentlySelected) {
+                  const existing =
+                    next[currentPerson.name] || emptyAssignment
+
+                  next[currentPerson.name] = {
+                    ...existing,
+                    periods: {
+                      ...existing.periods,
+                      [period]:
+                        (existing.periods?.[period] || [])
+                          .filter(id => id !== studentId)
                     }
-
-                    // Persist after state update
-                    setTimeout(async () => {
-                      await saveSetupAssignment(currentPerson.name, next[currentPerson.name])
-                    }, 0)
-
-                    return next
                   }
-
-                  // Remove the student from every other teacher
-                  // during this same period.
+                } else {
+                  // Hard enforcement: one teacher per student per period.
                   teacherPeople.forEach(person => {
                     const existing =
                       next[person.name] || emptyAssignment
@@ -4922,6 +4923,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                             .filter(id => id !== studentId)
                       }
                     }
+
                     if (person.name !== currentPerson.name) {
                       affectedTeachers.push(person.name)
                     }
@@ -4935,23 +4937,29 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                     periods: {
                       ...selectedTeacher.periods,
                       [period]: [
-                        ...(
-                          selectedTeacher.periods?.[period] || []
-                        ),
+                        ...(selectedTeacher.periods?.[period] || []),
                         studentId
                       ]
                     }
                   }
+                }
 
-                  // Persist all affected teachers
-                  setTimeout(async () => {
-                    for (const teacher of affectedTeachers) {
-                      await saveSetupAssignment(teacher, next[teacher])
-                    }
-                  }, 0)
+                setSetupAssignments(next)
+                setSetupAssignmentError(null)
 
-                  return next
-                })
+                const saveResults = await Promise.all(
+                  affectedTeachers.map(teacher =>
+                    saveSetupAssignment(teacher, next[teacher])
+                  )
+                )
+
+                if (!saveResults.every(Boolean)) {
+                  setSetupAssignments(previousAssignments)
+                  setSetupAssignmentError(
+                    'Could not save assignment changes. No assignment updates were kept.'
+                  )
+                  return
+                }
               }
 
               const toggleCaseloadStudent = studentId => {
@@ -5121,6 +5129,20 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                       </div>
                     </div>
                   </div>
+
+                  {setupAssignmentError && (
+                    <div style={{
+                      ...S.card,
+                      marginBottom: 16,
+                      border: '1px solid #fecaca',
+                      background: '#fef2f2',
+                      color: '#991b1b',
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}>
+                      {setupAssignmentError}
+                    </div>
+                  )}
 
                                     {setupTab === 'assignments' && (
                     <SetupAssignmentsSection
