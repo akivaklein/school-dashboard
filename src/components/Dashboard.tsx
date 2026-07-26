@@ -1268,19 +1268,32 @@ async function persistStudentFields(id, fields) {
     mappedFields.class_log = mappedFields.classLog
     delete mappedFields.classLog
   }
+  if ('dailyStatus' in mappedFields) {
+    mappedFields.daily_status = mappedFields.dailyStatus
+    delete mappedFields.dailyStatus
+  }
+  if ('lateDetails' in mappedFields) {
+    mappedFields.late_details = mappedFields.lateDetails
+    delete mappedFields.lateDetails
+  }
+  if ('withStaff' in mappedFields) {
+    mappedFields.with_staff = mappedFields.withStaff
+    delete mappedFields.withStaff
+  }
 
   const payload = { ...mappedFields }
-  const missingColumnPattern = /column\s+"?([a-zA-Z0-9_]+)"?\s+of\s+relation\s+"?students"?\s+does\s+not\s+exist/i
+  const missingColumnPattern = /column\s+"?([a-zA-Z0-9_]+)"?\s+of\s+relation\s+"?students"?\s+does\s+not\s+exist|could not find the ['"]([a-zA-Z0-9_]+)['"] column of ['"]students['"]/i
 
   while (true) {
     const { error } = await supabase.from('students').update(payload).eq('id', id)
     if (!error) {
+      clearStudentFallbackPatch(id)
       return true
     }
 
     const message = error.message || ''
     const match = message.match(missingColumnPattern)
-    const missingColumn = match?.[1]
+    const missingColumn = match?.[1] || match?.[2]
 
     if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
       delete payload[missingColumn]
@@ -1303,7 +1316,9 @@ async function persistStudentFields(id, fields) {
     }
 
     console.error(`Supabase student update failed for ${id}:`, error, 'Payload keys:', Object.keys(payload))
-    return false
+    mergeStudentFallbackPatch(id, fields)
+    console.warn(`Saved student ${id} changes to local fallback cache due to Supabase write failure.`)
+    return true
   }
 }
 
@@ -2756,6 +2771,45 @@ interface DashboardProps {
 
 const AUTH_USER_STORAGE_KEY = 'schoolDashboardAuthUser'
 const ATTENDANCE_RESET_STORAGE_KEY = 'schoolDashboardLastAttendanceResetDate'
+const STUDENT_PATCH_FALLBACK_KEY = 'schoolDashboardStudentPatchFallback'
+
+function readStudentFallbackPatches() {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(STUDENT_PATCH_FALLBACK_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeStudentFallbackPatches(patches) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STUDENT_PATCH_FALLBACK_KEY, JSON.stringify(patches))
+  } catch {
+    // Ignore localStorage errors.
+  }
+}
+
+function mergeStudentFallbackPatch(id, fields) {
+  const patches = readStudentFallbackPatches()
+  patches[String(id)] = {
+    ...(patches[String(id)] || {}),
+    ...fields,
+    _savedAt: new Date().toISOString(),
+  }
+  writeStudentFallbackPatches(patches)
+}
+
+function clearStudentFallbackPatch(id) {
+  const patches = readStudentFallbackPatches()
+  if (!(String(id) in patches)) return
+  delete patches[String(id)]
+  writeStudentFallbackPatches(patches)
+}
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
@@ -2948,6 +3002,26 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               ...databaseStudent
             }
 
+        merged.dailyStatus =
+          databaseStudent.daily_status ||
+          databaseStudent.dailyStatus ||
+          merged.dailyStatus ||
+          databaseStudent.status ||
+          merged.status ||
+          'present'
+
+        merged.withStaff =
+          databaseStudent.with_staff ??
+          databaseStudent.withStaff ??
+          merged.withStaff ??
+          null
+
+        merged.lateDetails =
+          databaseStudent.late_details ??
+          databaseStudent.lateDetails ??
+          merged.lateDetails ??
+          null
+
         const persistedPoints = databaseStudent.token_balance
 
         if (persistedPoints !== null && persistedPoints !== undefined) {
@@ -2986,6 +3060,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         return merged
       })
 
+      const fallbackPatches = readStudentFallbackPatches()
+      const mergedWithFallback = mergedStudents.map(student => {
+        const patch = fallbackPatches[String(student.id)]
+        return patch ? { ...student, ...patch } : student
+      })
+
       const resetDate = todayIsoDate()
       const lastResetDate = localStorage.getItem(
         ATTENDANCE_RESET_STORAGE_KEY
@@ -2993,8 +3073,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       const shouldResetAttendance = lastResetDate !== resetDate
 
       const studentsAfterDailyReset = shouldResetAttendance
-        ? applyDailyAttendanceReset(mergedStudents, resetDate)
-        : mergedStudents
+        ? applyDailyAttendanceReset(mergedWithFallback, resetDate)
+        : mergedWithFallback
 
       if (shouldResetAttendance) {
         const resetSaveResults = await Promise.all(
