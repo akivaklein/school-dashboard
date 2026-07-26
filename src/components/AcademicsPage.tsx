@@ -161,6 +161,7 @@ export default function AcademicsPage({
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [skillFilter, setSkillFilter] = useState('all')
   const [teacherFilter, setTeacherFilter] = useState(role === 'teacher' ? userName : 'all')
+  const [gradeSearch, setGradeSearch] = useState('')
   const [addStudentId, setAddStudentId] = useState(null)
   const [showBulkEntry, setShowBulkEntry] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
@@ -343,7 +344,16 @@ export default function AcademicsPage({
     setBulkForm(prev => ({ ...prev, assessmentName: '', notes: '', fillAllScore: '' }))
   }
 
-  const allScores = visibleStudents.flatMap(s => (s.testScores || []).map(score => ({ ...score, studentId: s.id, studentName: s.name }))).filter(score => (teacherFilter === 'all' || score.teacher === teacherFilter) && (subjectFilter === 'all' || score.subject === subjectFilter) && (skillFilter === 'all' || score.skill === skillFilter))
+  const allScores = visibleStudents
+    .flatMap(s => (s.testScores || []).map(score => ({ ...score, studentId: s.id, studentName: s.name })))
+    .filter(score => (teacherFilter === 'all' || score.teacher === teacherFilter) && (subjectFilter === 'all' || score.subject === subjectFilter) && (skillFilter === 'all' || score.skill === skillFilter))
+    .filter(score => {
+      const q = gradeSearch.trim().toLowerCase()
+      if (!q) return true
+      return `${score.studentName} ${score.teacher} ${score.subject} ${score.skill} ${score.assessmentName || ''} ${score.notes || ''}`
+        .toLowerCase()
+        .includes(q)
+    })
   const numericScores = allScores.filter(x => x.scoreType !== 'rating' && x.maxScore && x.attemptStatus !== 'absent' && x.attemptStatus !== 'missed')
   const classAvg = numericScores.length ? Math.round(numericScores.reduce((acc, x) => acc + academicPct(x), 0) / numericScores.length) : null
   const latestByStudent = visibleStudents.map(st => {
@@ -372,6 +382,57 @@ export default function AcademicsPage({
         <select value={classFilter} onChange={e=>setClassFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="all">All classes</option>{CLASSES.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <select value={subjectFilter} onChange={e=>{setSubjectFilter(e.target.value); setSkillFilter('all')}} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{subjects.map(x=><option key={x} value={x}>{x === 'all' ? 'All subjects' : x}</option>)}</select>
         <select value={skillFilter} onChange={e=>setSkillFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{skills.filter(x=> subjectFilter==='all' || x==='all' || Object.values(ACADEMIC_AREAS).some(area => (area[subjectFilter] || []).includes(x))).map(x=><option key={x} value={x}>{x === 'all' ? 'All skills' : x}</option>)}</select>
+      </div>
+
+      <div style={{ ...S.card, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 15 }}>Filterable Grades View</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              {allScores.length} matching entries · Teacher: {teacherFilter === 'all' ? 'All' : teacherFilter} · Subject: {subjectFilter === 'all' ? 'All' : subjectFilter}
+            </div>
+          </div>
+          <input
+            value={gradeSearch}
+            onChange={e => setGradeSearch(e.target.value)}
+            placeholder="Search student, assessment, teacher, notes..."
+            style={{ width: 340, maxWidth: '100%', padding: 9, border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13 }}
+          />
+        </div>
+
+        <div style={{ maxHeight: 260, overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: 10 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ position: 'sticky', top: 0, background: '#f8fafc', textAlign: 'left' }}>
+                <th style={{ padding: 9 }}>Student</th>
+                <th style={{ padding: 9 }}>Teacher</th>
+                <th style={{ padding: 9 }}>Subject</th>
+                <th style={{ padding: 9 }}>Skill</th>
+                <th style={{ padding: 9 }}>Assessment</th>
+                <th style={{ padding: 9 }}>Result</th>
+                <th style={{ padding: 9 }}>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allScores.slice().sort((a, b) => b.date.localeCompare(a.date)).map(score => (
+                <tr key={`${score.id}-${score.studentId}`} style={{ borderTop: '1px solid #eef2f7' }}>
+                  <td style={{ padding: 9, fontWeight: 700 }}>{score.studentName}</td>
+                  <td style={{ padding: 9 }}>{score.teacher}</td>
+                  <td style={{ padding: 9 }}>{score.subject}</td>
+                  <td style={{ padding: 9 }}>{score.skill}</td>
+                  <td style={{ padding: 9 }}>{score.assessmentName || '—'}</td>
+                  <td style={{ padding: 9, fontWeight: 700 }}>{scoreDisplayValue(score)}</td>
+                  <td style={{ padding: 9 }}>{score.date}</td>
+                </tr>
+              ))}
+              {allScores.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ padding: 14, color: '#64748b', textAlign: 'center' }}>No grade entries match current filters.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:12, marginBottom:16 }}>
