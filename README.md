@@ -107,3 +107,18 @@ Implementation rule:
 Current progress for the original 12-item implementation backlog is tracked in:
 
 - `docs/original-12-item-status.md`
+
+## Deferred Supabase GitHub Integration Guidance
+
+Connecting GitHub to Supabase for automated migrations is deferred and should be handled carefully in a dedicated session.
+
+Safe approach:
+
+1. Run `supabase db pull` first so Supabase records a baseline migration that reflects the current database state.
+2. Use `supabase migration repair --status applied <timestamp>` for each existing migration that is already applied locally, so those migrations are marked as applied without re-running the SQL.
+3. Use `supabase migration list` and `supabase db push --dry-run` to verify the migration state before enabling the GitHub integration.
+
+Important note:
+
+- Connecting now could cause errors by re-running the roughly 18 migrations that are already applied.
+- This is a deferred task and should not be treated as urgent.
