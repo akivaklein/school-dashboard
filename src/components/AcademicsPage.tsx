@@ -599,9 +599,9 @@ export default function AcademicsPage({
             </div>
 
             <div style={{ maxHeight: '52vh', overflow: 'auto', padding: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.9fr 1fr', gap: 10, fontSize: 12, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.4fr 0.9fr 1fr', gap: 10, fontSize: 12, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>
                 <div>Student</div>
-                <div>Mode</div>
+                <div>Entry Type</div>
                 <div>{bulkForm.scoreType === 'points' ? 'Score' : 'Rating'}</div>
                 <div>Quick status</div>
               </div>
@@ -609,17 +609,40 @@ export default function AcademicsPage({
               {bulkVisibleStudents.map(student => {
                 const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
                 return (
-                  <div key={student.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.9fr 1fr', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #eef2f7' }}>
+                  <div key={student.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.4fr 0.9fr 1fr', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #eef2f7' }}>
                     <div>
                       <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 13 }}>{student.name}</div>
                       <div style={{ fontSize: 11, color: '#64748b' }}>{CLASSES.find(c => c.id === STUDENT_CLASSES[student.id])?.name || 'Unassigned class'}</div>
                     </div>
 
-                    <select value={state.mode} onChange={e => setStudentBulkMode(student.id, e.target.value)} style={{ padding: 8, border:'1px solid #e5e7eb', borderRadius:8 }}>
-                      <option value="score">Scored</option>
-                      <option value="missed">Missed</option>
-                      <option value="absent">Absent</option>
-                    </select>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+                      {[
+                        { value: 'score', label: 'Scored', color: '#3f6f4f', bg: '#eefbf2', border: '#c7efd2' },
+                        { value: 'missed', label: 'Missed', color: '#9a6a2a', bg: '#fff7ed', border: '#fed7aa' },
+                        { value: 'absent', label: 'Absent', color: '#9f1239', bg: '#fff1f2', border: '#fecdd3' },
+                      ].map(option => {
+                        const isActive = state.mode === option.value
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setStudentBulkMode(student.id, option.value)}
+                            style={{
+                              padding: '8px 6px',
+                              borderRadius: 8,
+                              border: `1px solid ${isActive ? option.border : '#e5e7eb'}`,
+                              background: isActive ? option.bg : '#ffffff',
+                              color: isActive ? option.color : '#64748b',
+                              fontSize: 11,
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        )
+                      })}
+                    </div>
 
                     {bulkForm.scoreType === 'points' ? (
                       <input value={state.score || ''} onChange={e => setStudentBulkScore(student.id, e.target.value)} disabled={state.mode !== 'score'} placeholder="Score" style={{ padding: 8, border:'1px solid #e5e7eb', borderRadius:8, background: state.mode !== 'score' ? '#f8fafc' : '#fff' }} />
