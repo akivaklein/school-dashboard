@@ -5853,6 +5853,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             academicStatus={academicStatus}
             academicStatusColor={academicStatusColor}
             persistStudentFields={persistStudentFields}
+            setupAssignments={setupAssignments}
           />
         )}
 

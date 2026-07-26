@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 export function StudentScoresTab({
   student,
@@ -162,6 +162,7 @@ export default function AcademicsPage({
   academicStatus,
   academicStatusColor,
   persistStudentFields,
+  setupAssignments = {},
 }) {
   const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS)]))
   const initialTeacher = role === 'teacher' && userName && teacherOptions.includes(userName)
@@ -196,6 +197,62 @@ export default function AcademicsPage({
       )
     : students
   const visibleStudents = scopedStudents.filter(s => classFilter === 'all' || STUDENT_CLASSES[s.id] === classFilter)
+
+  const bulkVisibleStudents = useMemo(() => {
+    if (role === 'teacher' || role === 'rebbe') {
+      return visibleStudents
+    }
+
+    const assignment = setupAssignments?.[bulkForm.teacher]
+    const assignedIds = new Set()
+
+    if (assignment?.periods) {
+      ;[1, 2, 3].forEach(period => {
+        ;(assignment.periods?.[period] || []).forEach(studentId => {
+          const normalized = Number(studentId)
+          if (!Number.isNaN(normalized)) assignedIds.add(normalized)
+        })
+      })
+    }
+
+    ;(assignment?.caseload || []).forEach(studentId => {
+      const normalized = Number(studentId)
+      if (!Number.isNaN(normalized)) assignedIds.add(normalized)
+    })
+
+    if (assignedIds.size === 0) {
+      return visibleStudents
+    }
+
+    return scopedStudents.filter(student => {
+      const id = Number(student.id)
+      if (!assignedIds.has(id)) return false
+      if (classFilter !== 'all' && STUDENT_CLASSES[student.id] !== classFilter) {
+        return false
+      }
+      return true
+    })
+  }, [
+    role,
+    visibleStudents,
+    scopedStudents,
+    setupAssignments,
+    bulkForm.teacher,
+    classFilter,
+    STUDENT_CLASSES,
+  ])
+
+  useEffect(() => {
+    if (!showBulkEntry) return
+
+    setBulkStudentStates(prev => {
+      const next = {}
+      bulkVisibleStudents.forEach(student => {
+        next[student.id] = prev[student.id] || { mode: 'score', score: '' }
+      })
+      return next
+    })
+  }, [showBulkEntry, bulkVisibleStudents])
 
   function getTeacherAcademicAreaMap(teacherName) {
     return ACADEMIC_AREAS[teacherName] || ACADEMIC_AREAS[teacherOptions[0]] || ACADEMIC_AREAS[academicTeacherOptions?.[0]] || ACADEMIC_AREAS['Rabbi Abowitz'] || {}
@@ -234,12 +291,12 @@ export default function AcademicsPage({
   }
 
   function openBulkEntry() {
-    if (visibleStudents.length === 0) {
+    if (bulkVisibleStudents.length === 0) {
       alert('No students are currently assigned to you for bulk grading.')
       return
     }
     const initialStates = {}
-    visibleStudents.forEach(student => {
+    bulkVisibleStudents.forEach(student => {
       initialStates[student.id] = { mode: 'score', score: '' }
     })
     setBulkStudentStates(initialStates)
@@ -270,7 +327,7 @@ export default function AcademicsPage({
     const fillValue = bulkForm.fillAllScore
     setBulkStudentStates(prev => {
       const next = { ...prev }
-      visibleStudents.forEach(student => {
+      bulkVisibleStudents.forEach(student => {
         next[student.id] = {
           ...(next[student.id] || { mode: 'score' }),
           mode: 'score',
@@ -294,7 +351,7 @@ export default function AcademicsPage({
 
     const payload = []
 
-    for (const student of visibleStudents) {
+    for (const student of bulkVisibleStudents) {
       const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
 
       if (state.mode === 'score') {
@@ -402,7 +459,7 @@ export default function AcademicsPage({
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap: 12, marginBottom:18 }}>
         <div><h1 style={{ fontSize:22, fontWeight:900, color:'#1e293b', margin:'0 0 6px' }}>Academics</h1><div style={{ fontSize:13, color:'#64748b' }}>Class view for test scores and skill ratings</div></div>
-        <button onClick={openBulkEntry} disabled={visibleStudents.length === 0} style={{ ...S.btn(visibleStudents.length ? 'primary' : 'ghost'), whiteSpace: 'nowrap' }}>Bulk Grade Entry</button>
+        <button onClick={openBulkEntry} disabled={bulkVisibleStudents.length === 0} style={{ ...S.btn(bulkVisibleStudents.length ? 'primary' : 'ghost'), whiteSpace: 'nowrap' }}>Bulk Grade Entry</button>
       </div>
 
       <div style={{ ...S.card, marginBottom:16, display:'grid', gridTemplateColumns: role === 'admin' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap:10 }}>
@@ -504,7 +561,7 @@ export default function AcademicsPage({
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 18, color: '#1e293b' }}>Bulk Grade Entry</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{visibleStudents.length} students in current scope</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{bulkVisibleStudents.length} students in current scope</div>
               </div>
               <button onClick={() => setShowBulkEntry(false)} style={{ border:'none', background:'#f4f5f8', borderRadius:'50%', width:30, height:30, cursor:'pointer' }}>×</button>
             </div>
@@ -549,7 +606,7 @@ export default function AcademicsPage({
                 <div>Quick status</div>
               </div>
 
-              {visibleStudents.map(student => {
+              {bulkVisibleStudents.map(student => {
                 const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
                 return (
                   <div key={student.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.9fr 1fr', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #eef2f7' }}>
