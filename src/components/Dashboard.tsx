@@ -815,6 +815,32 @@ function resolveStudentClassId(student) {
   return null
 }
 
+function getTeacherAssignedClassIds(name, setupAssignments, students) {
+  const assignment = setupAssignments?.[name]
+  const classIds = new Set()
+
+  if (assignment?.periods) {
+    ;[1, 2, 3].forEach(period => {
+      const periodStudentIds = assignment.periods?.[period] || []
+
+      periodStudentIds.forEach(studentId => {
+        const student = students.find(item => Number(item.id) === Number(studentId))
+        if (!student) return
+
+        const classId = resolveStudentClassId(student)
+        if (classId) classIds.add(classId)
+      })
+    })
+  }
+
+  const fallbackClass = TEACHER_CLASS_MAP[name]
+  if (classIds.size === 0 && fallbackClass) {
+    classIds.add(fallbackClass)
+  }
+
+  return Array.from(classIds)
+}
+
 function teacherDivisionForName(name) {
   const classId = TEACHER_CLASS_MAP[name]
   if (!classId) return 'yeshiva_ketana'
@@ -3102,6 +3128,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [search, setSearch] = useState('')
   const [teachingMode, setTeachingMode] = useState(false)
   const [teacherClass, setTeacherClass] = useState(null)
+  const [teacherClassIds, setTeacherClassIds] = useState([])
   const [divisionView, setDivisionView] = useState('all')
   const [drillDown, setDrillDown] = useState(null)
   const [showUnknownPopup, setShowUnknownPopup] = useState(false)
@@ -3403,6 +3430,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [setupAccounts, setSetupAccounts] = useState({})
 
   const [THERAPY_SCHEDULE_STATE, setTHERAPY_SCHEDULE] = useState(THERAPY_SCHEDULE)
+
+  useEffect(() => {
+    if (role !== 'teacher' && role !== 'rebbe') return
+    if (!userName) return
+
+    const classIds = getTeacherAssignedClassIds(userName, setupAssignments, students)
+    setTeacherClassIds(classIds)
+    setTeacherClass(classIds[0] || TEACHER_CLASS_MAP[userName] || null)
+  }, [role, userName, setupAssignments, students])
 
   // Persist staff accounts changes
   useEffect(() => {
@@ -3815,10 +3851,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     setLoggedIn(true)
     setPage(r === 'store' ? 'store' : 'dashboard')
     if (r === 'teacher') {
-      const cls = TEACHER_CLASS_MAP[name] || null
-      setTeacherClass(cls)
+      const classIds = getTeacherAssignedClassIds(name, setupAssignments, students)
+      setTeacherClassIds(classIds)
+      setTeacherClass(classIds[0] || TEACHER_CLASS_MAP[name] || null)
     } else {
       setTeacherClass(null)
+      setTeacherClassIds([])
     }
     
     // Record login session for the primary login identity.
@@ -4508,12 +4546,18 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       (divisionView === 'all' || studentDivision(s) === divisionView)
   )
   const isTeacherRoleForMode = role === 'teacher' || role === 'rebbe'
-  const assignedTeacherClassForMode = isTeacherRoleForMode
-    ? (teacherClass || TEACHER_CLASS_MAP[userName] || null)
-    : null
+  const assignedTeacherClassIdsForMode = isTeacherRoleForMode
+    ? (
+        teacherClassIds.length > 0
+          ? teacherClassIds
+          : (teacherClass || TEACHER_CLASS_MAP[userName])
+            ? [teacherClass || TEACHER_CLASS_MAP[userName]]
+            : []
+      )
+    : []
   const studentsForCurrentRole = isTeacherRoleForMode
     ? divisionScopedStudentsForMode.filter(
-        s => assignedTeacherClassForMode && resolveStudentClassId(s) === assignedTeacherClassForMode
+        s => assignedTeacherClassIdsForMode.includes(resolveStudentClassId(s))
       )
     : divisionScopedStudentsForMode
   
@@ -4544,11 +4588,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const isOfficeUser = ['Eli Bloom', 'Zev Reisman', 'Eli Stern'].includes(userName)
   const allowedDivisionSet = new Set(userAccess.divisions)
   const divisionScopedStudents = students.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
-  const assignedTeacherClass = isTeacherRole
-    ? (teacherClass || TEACHER_CLASS_MAP[userName] || null)
-    : null
+  const assignedTeacherClassIds = isTeacherRole
+    ? (
+        teacherClassIds.length > 0
+          ? teacherClassIds
+          : (teacherClass || TEACHER_CLASS_MAP[userName])
+            ? [teacherClass || TEACHER_CLASS_MAP[userName]]
+            : []
+      )
+    : []
   const visibleStudents = isTeacherRole
-    ? divisionScopedStudents.filter(s => assignedTeacherClass && resolveStudentClassId(s) === assignedTeacherClass)
+    ? divisionScopedStudents.filter(s => assignedTeacherClassIds.includes(resolveStudentClassId(s)))
     : divisionScopedStudents
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
   const present = visibleStudents.filter(s => s.status === 'present').length
@@ -4769,7 +4819,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           />
         )}
 
-        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClass} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} />}
+        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} />}
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={visibleStudents} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
 
         {page === 'dashboard' && role === 'admin' && isOfficeUser && (
@@ -5610,7 +5660,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             setStudents={setStudents}
             role={role}
             userName={userName}
-            teacherClass={teacherClass}
+            teacherClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null}
             openStudent={openStudent}
             S={S}
             CLASSES={CLASSES}
