@@ -3662,10 +3662,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const adminNav = [
     { id: 'dashboard', label: 'Dashboard', icon: 'DB' },
     { id: 'support', label: `Student Support (${alerts.length})`, icon: 'SS' },
-    { id: 'intake', label: 'Intake / Admissions', icon: 'IN' },
     { id: 'attendance', label: 'Attendance', icon: 'AT' },
     { id: 'academics', label: 'Academics', icon: 'AC' },
-    { id: 'schedule', label: 'Schedule', icon: 'SC' },
     { id: 'store', label: 'Token Store', icon: 'TS' },
     { id: 'todo', label: 'To-Do List', icon: 'TD' },
     { id: 'setup', label: 'Setup Center', icon: 'SE' },
@@ -3689,14 +3687,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const navItems = role === 'admin' ? adminNav : (role === 'teacher' || role === 'rebbe') ? teacherNav : role === 'store' ? storeNav : therapistNav
   const showSetupSidebarOnly = page === 'setup' && role === 'admin'
+  const mainStyle = showSetupSidebarOnly ? { ...S.main, marginLeft: 0, width: '100%' } : S.main
   const setupNavItems = [
-    { id: 'staff-directory', label: 'Staff Directory', icon: '👥' },
-    { id: 'assignments', label: 'Staff & Assignments', icon: '🧑‍🏫' },
-    { id: 'therapy-schedule', label: 'Therapy Schedule', icon: '🩺' },
-    { id: 'teaching', label: 'Teaching Mode', icon: '🎓' },
-    { id: 'vip', label: 'VIP Rules', icon: '⭐' },
-    { id: 'store', label: 'Store & Sales', icon: '🛍️' },
-    { id: 'accounts', label: 'Accounts', icon: '🔐' },
+    { id: 'staff-directory', label: 'Staff Directory', icon: '👥', group: 'People & Staff' },
+    { id: 'assignments', label: 'Staff Assignments', icon: '🧑‍🏫', group: 'People & Staff' },
+    { id: 'therapy-schedule', label: 'Therapy Schedule', icon: '🩺', group: 'People & Staff' },
+    { id: 'accounts', label: 'Staff Accounts', icon: '🔐', group: 'People & Staff' },
+    { id: 'teaching', label: 'Teaching Actions', icon: '🎓', group: 'Rules & Configuration' },
+    { id: 'vip', label: 'VIP Rules', icon: '⭐', group: 'Rules & Configuration' },
+    { id: 'store', label: 'Store & Sales', icon: '🛍️', group: 'Rules & Configuration' },
   ]
   const searchedStudents = search ? visibleStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
@@ -3787,7 +3786,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       </div>
       )}
 
-      <div style={S.main}>
+      <div style={mainStyle}>
         <div style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto' }}>
         {studentFallbackPatchCount > 0 && (
           <div
@@ -4230,31 +4229,40 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                         <div style={{ fontSize: 18, fontWeight: 800, color: '#172033', marginTop: 6 }}>Administration & Config</div>
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Tucked-away tools for staff, assignments, rules, and store settings.</div>
                       </div>
-                      <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {setupNavItems.map(item => {
-                          const isActive = setupTab === item.id
+                      <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {['People & Staff', 'Rules & Configuration'].map(groupName => {
+                          const groupItems = setupNavItems.filter(item => item.group === groupName)
+                          if (groupItems.length === 0) return null
                           return (
-                            <button
-                              key={item.id}
-                              onClick={() => setSetupTab(item.id)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 10,
-                                padding: '10px 12px',
-                                borderRadius: 10,
-                                border: isActive ? '1px solid #7897bb' : '1px solid #e2e8f0',
-                                background: isActive ? '#edf4fb' : '#ffffff',
-                                color: isActive ? '#2f4f72' : '#5f6f81',
-                                fontSize: 12,
-                                fontWeight: 800,
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                              }}
-                            >
-                              <span style={{ fontSize: 14 }}>{item.icon}</span>
-                              <span>{item.label}</span>
-                            </button>
+                            <div key={groupName} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196', padding: '2px 4px' }}>{groupName}</div>
+                              {groupItems.map(item => {
+                                const isActive = setupTab === item.id
+                                return (
+                                  <button
+                                    key={item.id}
+                                    onClick={() => setSetupTab(item.id)}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 10,
+                                      padding: '10px 12px',
+                                      borderRadius: 10,
+                                      border: isActive ? '1px solid #7897bb' : '1px solid #e2e8f0',
+                                      background: isActive ? '#edf4fb' : '#ffffff',
+                                      color: isActive ? '#2f4f72' : '#5f6f81',
+                                      fontSize: 12,
+                                      fontWeight: 800,
+                                      cursor: 'pointer',
+                                      textAlign: 'left',
+                                    }}
+                                  >
+                                    <span style={{ fontSize: 14 }}>{item.icon}</span>
+                                    <span>{item.label}</span>
+                                  </button>
+                                )
+                              })}
+                            </div>
                           )
                         })}
                       </div>

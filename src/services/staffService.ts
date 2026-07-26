@@ -50,6 +50,17 @@ interface UpdateStaffInput {
   active?: boolean
 }
 
+const FALLBACK_STAFF_MEMBERS: StaffMemberRecord[] = [
+  { id: 1, name: 'Rabbi Baum', role: 'admin', roles: ['admin'], email: '', phone: '', active: true },
+  { id: 2, name: 'Rabbi Fried', role: 'admin', roles: ['admin'], email: '', phone: '', active: true },
+  { id: 3, name: 'Rabbi Klein', role: 'teacher', roles: ['teacher'], email: '', phone: '', active: true },
+  { id: 4, name: 'Rabbi Schults', role: 'teacher', roles: ['teacher'], email: '', phone: '', active: true },
+  { id: 5, name: 'Shelly Wagschal', role: 'therapist', roles: ['therapist'], email: '', phone: '', active: true },
+  { id: 6, name: 'Aryeh Schechter', role: 'therapist', roles: ['therapist'], email: '', phone: '', active: true },
+  { id: 7, name: 'Mrs. Goldberg', role: 'therapist', roles: ['therapist'], email: '', phone: '', active: true },
+  { id: 8, name: 'Canteen Register', role: 'staff', roles: ['staff'], email: '', phone: '', active: true },
+]
+
 function normalizeRole(role: string): string {
   const value = String(role || '').trim().toLowerCase()
   if (!value) return ''
@@ -144,13 +155,17 @@ export async function loadStaffMembers() {
 
     if (error) {
       console.error('Failed to load staff members:', error)
-      return []
+      return FALLBACK_STAFF_MEMBERS
     }
 
-    return (data || []).map(mapStaffRecord)
+    if (!data || data.length === 0) {
+      return FALLBACK_STAFF_MEMBERS
+    }
+
+    return data.map(mapStaffRecord)
   } catch (error) {
     console.error('Error loading staff members:', error)
-    return []
+    return FALLBACK_STAFF_MEMBERS
   }
 }
 
