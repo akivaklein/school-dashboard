@@ -4312,6 +4312,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                         </button>
                       </div>
 
+                                    {setupTab === 'staff-directory' && (
+                    <StaffDirectoryPage
+                      S={S}
+                      staffMembers={staffMembers}
+                      initials={initials}
+                      onStaffChanged={refreshStaffMembers}
+                    />
+                  )}
+
                                     {setupTab === 'assignments' && (
                     <SetupAssignmentsSection
                       overlapWarnings={overlapWarnings}
