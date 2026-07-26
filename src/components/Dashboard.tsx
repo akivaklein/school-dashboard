@@ -4970,7 +4970,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const teacherNav = [
     { id: 'dashboard', label: 'My Class', icon: 'MC' },
     { id: 'support', label: `Student Support (${alerts.length})`, icon: 'SS' },
-    { id: 'staff-directory', label: 'Staff Directory', icon: 'SD' },
     { id: 'attendance', label: 'Attendance', icon: 'AT' },
     { id: 'academics', label: 'Academics', icon: 'AC' },
     { id: 'schedule', label: 'Schedule', icon: 'SC' },
@@ -4986,7 +4985,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'store', label: 'Token Store', icon: 'TS' },
   ]
 
-  const navItems = role === 'admin' ? adminNav : role === 'teacher' ? teacherNav : role === 'store' ? storeNav : therapistNav
+  const navItems = role === 'admin' ? adminNav : (role === 'teacher' || role === 'rebbe') ? teacherNav : role === 'store' ? storeNav : therapistNav
   const searchedStudents = search ? visibleStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
 
@@ -5769,7 +5768,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           />
         )}
 
-        {page === 'staff-directory' && (
+        {page === 'staff-directory' && role !== 'teacher' && role !== 'rebbe' && (
           <StaffDirectoryPage
             S={S}
             staffMembers={staffMembers}
