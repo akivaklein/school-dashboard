@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 export default function SetupAssignmentsSection({
   overlapWarnings,
   S,
@@ -16,8 +18,48 @@ export default function SetupAssignmentsSection({
   togglePeriodStudent,
   toggleCaseloadStudent,
 }) {
+  const [pendingAssignmentChange, setPendingAssignmentChange] = useState(null)
+
+  async function confirmAssignmentChange() {
+    if (!pendingAssignmentChange) return
+
+    if (pendingAssignmentChange.type === 'period') {
+      await togglePeriodStudent(
+        pendingAssignmentChange.period,
+        pendingAssignmentChange.studentId
+      )
+    } else {
+      await toggleCaseloadStudent(pendingAssignmentChange.studentId)
+    }
+
+    setPendingAssignmentChange(null)
+  }
+
   return (
                     <>
+                      {pendingAssignmentChange && (
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 460, boxShadow: '0 24px 70px rgba(15,23,42,0.22)', overflow: 'hidden' }}>
+                            <div style={{ background: '#0f172a', padding: '14px 18px', color: '#fff' }}>
+                              <div style={{ fontWeight: 700, fontSize: 15 }}>Confirm Assignment Change</div>
+                              <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>Please confirm before saving roster updates.</div>
+                            </div>
+                            <div style={{ padding: 18 }}>
+                              <div style={{ fontSize: 14, color: '#334155', marginBottom: 16 }}>
+                                {pendingAssignmentChange.action === 'add' ? 'Add' : 'Remove'} <b>{pendingAssignmentChange.studentName}</b>{' '}
+                                {pendingAssignmentChange.type === 'period'
+                                  ? `in Morning Period ${pendingAssignmentChange.period}`
+                                  : 'from this caseload'}?
+                              </div>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={() => setPendingAssignmentChange(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>
+                                <button onClick={confirmAssignmentChange} style={{ ...S.btn('primary'), flex: 1 }}>Confirm</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {overlapWarnings.length > 0 && (
                         <div style={{
                           border: '1px solid #e4c5a3',
@@ -294,10 +336,13 @@ export default function SetupAssignmentsSection({
                                           <button
                                             key={`${period}-${student.id}`}
                                             onClick={() =>
-                                              togglePeriodStudent(
+                                              setPendingAssignmentChange({
+                                                type: 'period',
                                                 period,
-                                                student.id
-                                              )
+                                                studentId: student.id,
+                                                studentName: student.name,
+                                                action: selected ? 'remove' : 'add',
+                                              })
                                             }
                                             style={{
                                               textAlign: 'left',
@@ -377,7 +422,12 @@ export default function SetupAssignmentsSection({
                                       <button
                                         key={student.id}
                                         onClick={() =>
-                                          toggleCaseloadStudent(student.id)
+                                          setPendingAssignmentChange({
+                                            type: 'caseload',
+                                            studentId: student.id,
+                                            studentName: student.name,
+                                            action: selected ? 'remove' : 'add',
+                                          })
                                         }
                                         style={{
                                           textAlign: 'left',
