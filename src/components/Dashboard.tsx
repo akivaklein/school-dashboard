@@ -2716,6 +2716,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [userName, setUserName] = useState('')
   const [loggedInStaff, setLoggedInStaff] = useState([])
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
+  const [activeSessionIds, setActiveSessionIds] = useState<Record<number, number>>({})
   const [showStaffManagement, setShowStaffManagement] = useState(false)
   const [showStaffPanel, setShowStaffPanel] = useState(true)
   const [showLoginActivity, setShowLoginActivity] = useState(false)
@@ -3820,13 +3821,23 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setTeacherClass(null)
     }
     
-    // Record login session
+    // Record login session for the primary login identity.
     try {
       const staff = await getStaffByName(name)
       if (staff) {
+        const existingSessionId = activeSessionIds[staff.id]
+        if (existingSessionId) {
+          setCurrentSessionId(existingSessionId)
+          return
+        }
+
         const session = await recordLoginSession(staff.id, name, r)
         if (session) {
           setCurrentSessionId(session.id)
+          setActiveSessionIds(prev => ({
+            ...prev,
+            [staff.id]: session.id,
+          }))
         }
       }
     } catch (error) {
@@ -3839,7 +3850,26 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     const roleMap = { admin: 'admin', teacher: 'teacher', therapist: 'therapist', staff: 'admin' }
     const role = roleMap[staff.role] || 'admin'
     
-    setLoggedInStaff(prev => [...prev, staff])
+    setLoggedInStaff(prev => {
+      if (prev.some(existing => existing.id === staff.id)) {
+        return prev
+      }
+      return [...prev, staff]
+    })
+
+    if (!activeSessionIds[staff.id]) {
+      try {
+        const session = await recordLoginSession(staff.id, staff.name, staff.role)
+        if (session) {
+          setActiveSessionIds(prev => ({
+            ...prev,
+            [staff.id]: session.id,
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to record added staff login session:', error)
+      }
+    }
     
     // Also set as primary user if no one else is logged in
     if (!loggedIn) {
@@ -3849,17 +3879,39 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   async function handleRemoveStaffLogin(staffId) {
     setLoggedInStaff(prev => prev.filter(s => s.id !== staffId))
+
+    const sessionId = activeSessionIds[staffId]
+    if (sessionId) {
+      try {
+        await recordLogoutSession(sessionId)
+      } catch (error) {
+        console.error('Failed to record logout for removed staff:', error)
+      } finally {
+        setActiveSessionIds(prev => {
+          const next = { ...prev }
+          delete next[staffId]
+          return next
+        })
+      }
+    }
     
     // If we're removing the currently logged-in user, log them out
     const removedStaff = loggedInStaff.find(s => s.id === staffId)
     if (removedStaff && userName === removedStaff.name) {
-      // Record logout
-      if (currentSessionId) {
-        try {
-          await recordLogoutSession(currentSessionId)
-        } catch (error) {
-          console.error('Failed to record logout:', error)
-        }
+      const remainingSessionIds = Object.entries(activeSessionIds)
+        .filter(([id]) => Number(id) !== Number(staffId))
+        .map(([, sessionIdValue]) => sessionIdValue)
+
+      if (remainingSessionIds.length > 0) {
+        await Promise.all(
+          remainingSessionIds.map(async sessionIdValue => {
+            try {
+              await recordLogoutSession(sessionIdValue)
+            } catch (error) {
+              console.error('Failed to record logout for remaining staff:', error)
+            }
+          })
+        )
       }
       
       setLoggedIn(false)
@@ -3867,6 +3919,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setRole('admin')
       clearStoredAuthUser()
       setCurrentSessionId(null)
+      setActiveSessionIds({})
       if (teacherUser) {
         onTeacherSessionLogout?.()
       }
@@ -3874,8 +3927,19 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }
 
   async function handleLogout() {
-    // Record logout session
-    if (currentSessionId) {
+    const sessionIds = Object.values(activeSessionIds)
+
+    if (sessionIds.length > 0) {
+      await Promise.all(
+        sessionIds.map(async sessionId => {
+          try {
+            await recordLogoutSession(sessionId)
+          } catch (error) {
+            console.error('Failed to record logout:', error)
+          }
+        })
+      )
+    } else if (currentSessionId) {
       try {
         await recordLogoutSession(currentSessionId)
       } catch (error) {
@@ -3888,6 +3952,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     setRole('admin')
     clearStoredAuthUser()
     setCurrentSessionId(null)
+    setActiveSessionIds({})
     if (teacherUser) {
       onTeacherSessionLogout?.()
     }

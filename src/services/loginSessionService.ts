@@ -103,7 +103,7 @@ export async function getLoginStats(days = 30) {
   try {
     const { data, error } = await supabase
       .from('login_sessions')
-      .select('staff_name, role, session_duration_seconds')
+      .select('staff_name, role, login_time, logout_time, session_duration_seconds')
       .gte('login_time', new Date(Date.now() - days * 86400000).toISOString())
 
     if (error) {
@@ -120,17 +120,45 @@ export async function getLoginStats(days = 30) {
           role: session.role,
           loginCount: 0,
           totalSessionSeconds: 0,
-          avgSessionSeconds: 0
+          avgSessionSeconds: 0,
+          sessionsWithDuration: 0,
+          activeSessions: 0,
         }
       }
 
       stats[session.staff_name].loginCount += 1
-      stats[session.staff_name].totalSessionSeconds += session.session_duration_seconds || 0
+
+      const hasStoredDuration =
+        typeof session.session_duration_seconds === 'number' &&
+        Number.isFinite(session.session_duration_seconds)
+
+      let sessionDurationSeconds = hasStoredDuration
+        ? Math.max(0, Math.round(session.session_duration_seconds))
+        : 0
+
+      if (!hasStoredDuration && !session.logout_time) {
+        const loginMs = new Date(session.login_time).getTime()
+        if (Number.isFinite(loginMs)) {
+          sessionDurationSeconds = Math.max(
+            0,
+            Math.floor((Date.now() - loginMs) / 1000)
+          )
+          stats[session.staff_name].activeSessions += 1
+        }
+      }
+
+      stats[session.staff_name].totalSessionSeconds += sessionDurationSeconds
+
+      if (sessionDurationSeconds > 0) {
+        stats[session.staff_name].sessionsWithDuration += 1
+      }
     })
 
     // Calculate averages
     Object.values(stats).forEach((stat: any) => {
-      stat.avgSessionSeconds = Math.round(stat.totalSessionSeconds / stat.loginCount)
+      stat.avgSessionSeconds = stat.sessionsWithDuration > 0
+        ? Math.round(stat.totalSessionSeconds / stat.sessionsWithDuration)
+        : 0
     })
 
     return stats

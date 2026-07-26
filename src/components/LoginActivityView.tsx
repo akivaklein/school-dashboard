@@ -18,6 +18,7 @@ interface LoginStats {
     loginCount: number
     totalSessionSeconds: number
     avgSessionSeconds: number
+    activeSessions?: number
   }
 }
 
@@ -310,6 +311,12 @@ export default function LoginActivityView({ onClose }: LoginActivityViewProps) {
                       <div style={{ marginTop: 10, fontSize: 11, color: '#64748b' }}>
                         Total time: <strong>{formatDuration(stat.totalSessionSeconds)}</strong>
                       </div>
+
+                      {(stat.activeSessions || 0) > 0 && (
+                        <div style={{ marginTop: 6, fontSize: 11, color: '#166534', fontWeight: 700 }}>
+                          Active now: {stat.activeSessions}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
