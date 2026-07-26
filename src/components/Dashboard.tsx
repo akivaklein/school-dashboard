@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import playSound from '../utils/playSound'
 import AttendancePage from './AttendancePage'
@@ -1262,7 +1262,9 @@ const statusLabel = { present: 'Present', absent: 'Absent', late: 'Late', 'left-
 const statusEmoji = { present: '✅', absent: '❌', late: '⏰', 'left-early': '🚪', therapy: '🧠', 'with-bt': '👤', unknown: '❓', 'not-arrived': '🕐' }
 
 
-async function persistStudentFields(id, fields) {
+async function persistStudentFields(id, fields, options = {}) {
+  const allowFallback = options.allowFallback !== false
+
   // Map React field names to database column names
   const mappedFields = { ...fields }
   if ('att' in mappedFields) {
@@ -1333,9 +1335,14 @@ async function persistStudentFields(id, fields) {
     }
 
     console.error(`Supabase student update failed for ${id}:`, error, 'Payload keys:', Object.keys(payload))
-    mergeStudentFallbackPatch(id, fields)
-    console.warn(`Saved student ${id} changes to local fallback cache due to Supabase write failure.`)
-    return true
+
+    if (allowFallback) {
+      mergeStudentFallbackPatch(id, fields)
+      console.warn(`Saved student ${id} changes to local fallback cache due to Supabase write failure.`)
+      return true
+    }
+
+    return false
   }
 }
 
@@ -2877,8 +2884,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState(null)
   const [studentFallbackPatchCount, setStudentFallbackPatchCount] = useState(() => getStudentFallbackPatchCount())
+  const [studentFallbackSyncState, setStudentFallbackSyncState] = useState('idle')
   const [staffMembers, setStaffMembers] = useState([])
   const [staffLoadError, setStaffLoadError] = useState(null)
+  const fallbackSyncInFlightRef = useRef(false)
 
   const refreshStaffMembers = useCallback(async () => {
     try {
@@ -2918,6 +2927,66 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       window.removeEventListener('storage', refreshFallbackCount)
     }
   }, [])
+
+  const flushStudentFallbackPatches = useCallback(async () => {
+    if (fallbackSyncInFlightRef.current) return
+
+    const patches = readStudentFallbackPatches()
+    const patchEntries = Object.entries(patches)
+
+    if (patchEntries.length === 0) {
+      setStudentFallbackPatchCount(0)
+      setStudentFallbackSyncState('idle')
+      return
+    }
+
+    fallbackSyncInFlightRef.current = true
+    setStudentFallbackSyncState('syncing')
+
+    let hadFailure = false
+
+    try {
+      for (const [studentId, patch] of patchEntries) {
+        const { _savedAt, ...fields } = patch || {}
+
+        if (Object.keys(fields).length === 0) {
+          clearStudentFallbackPatch(studentId)
+          continue
+        }
+
+        const saved = await persistStudentFields(studentId, fields, { allowFallback: false })
+        if (!saved) {
+          hadFailure = true
+        }
+      }
+    } finally {
+      fallbackSyncInFlightRef.current = false
+      const remaining = getStudentFallbackPatchCount()
+      setStudentFallbackPatchCount(remaining)
+      setStudentFallbackSyncState(remaining === 0 ? 'idle' : hadFailure ? 'error' : 'idle')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (studentFallbackPatchCount === 0) return
+
+    flushStudentFallbackPatches()
+
+    const intervalId = window.setInterval(() => {
+      flushStudentFallbackPatches()
+    }, 15000)
+
+    const handleOnline = () => {
+      flushStudentFallbackPatches()
+    }
+
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [studentFallbackPatchCount, flushStudentFallbackPatches])
 
   const STAFF = useMemo(
     () =>
@@ -5143,9 +5212,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           >
             <span>
               Saved locally: {studentFallbackPatchCount} student update{studentFallbackPatchCount === 1 ? '' : 's'} are queued because a Supabase write failed.
+              {studentFallbackSyncState === 'syncing' ? ' Retrying now...' : ''}
+              {studentFallbackSyncState === 'error' ? ' Retry failed for some records. Use retry after confirming Supabase access is restored.' : ''}
             </span>
             <button
-              onClick={() => setStudentFallbackPatchCount(getStudentFallbackPatchCount())}
+              onClick={() => flushStudentFallbackPatches()}
               style={{
                 border: '1px solid #eab308',
                 background: '#fff7cc',
@@ -5158,7 +5229,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                 whiteSpace: 'nowrap',
               }}
             >
-              Refresh status
+              {studentFallbackSyncState === 'syncing' ? 'Retrying...' : 'Retry now'}
             </button>
           </div>
         )}
