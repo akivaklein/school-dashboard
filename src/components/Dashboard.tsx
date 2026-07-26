@@ -3662,7 +3662,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const adminNav = [
     { id: 'dashboard', label: 'Dashboard', icon: 'DB' },
     { id: 'support', label: `Student Support (${alerts.length})`, icon: 'SS' },
-    { id: 'staff-directory', label: 'Staff Directory', icon: 'SD' },
     { id: 'intake', label: 'Intake / Admissions', icon: 'IN' },
     { id: 'attendance', label: 'Attendance', icon: 'AT' },
     { id: 'academics', label: 'Academics', icon: 'AC' },
@@ -3682,7 +3681,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const therapistNav = [
     { id: 'dashboard', label: 'My Students', icon: 'MS' },
     { id: 'support', label: 'Student Support', icon: 'SS' },
-    { id: 'staff-directory', label: 'Staff Directory', icon: 'SD' },
     { id: 'schedule', label: 'Schedule', icon: 'SC' },
   ]
   const storeNav = [
@@ -3690,6 +3688,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   ]
 
   const navItems = role === 'admin' ? adminNav : (role === 'teacher' || role === 'rebbe') ? teacherNav : role === 'store' ? storeNav : therapistNav
+  const showSetupSidebarOnly = page === 'setup' && role === 'admin'
+  const setupNavItems = [
+    { id: 'staff-directory', label: 'Staff Directory', icon: '👥' },
+    { id: 'assignments', label: 'Staff & Assignments', icon: '🧑‍🏫' },
+    { id: 'therapy-schedule', label: 'Therapy Schedule', icon: '🩺' },
+    { id: 'teaching', label: 'Teaching Mode', icon: '🎓' },
+    { id: 'vip', label: 'VIP Rules', icon: '⭐' },
+    { id: 'store', label: 'Store & Sales', icon: '🛍️' },
+    { id: 'accounts', label: 'Accounts', icon: '🔐' },
+  ]
   const searchedStudents = search ? visibleStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
 
@@ -3711,6 +3719,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   return (
     <div style={S.app}>
+      {!showSetupSidebarOnly && (
       <div style={S.sidebar}>
         <div style={S.sidebarLogo}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -3776,6 +3785,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           </button>
         </div>
       </div>
+      )}
 
       <div style={S.main}>
         <div style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto' }}>
@@ -4193,107 +4203,65 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                   .includes(setupStudentSearch.toLowerCase())
               )
 
-              const tabButton = tab => ({
-                padding: '9px 13px',
-                borderRadius: 10,
-                border: `1px solid ${
-                  setupTab === tab ? '#7897bb' : '#dce4ed'
-                }`,
-                background:
-                  setupTab === tab ? '#edf4fb' : '#ffffff',
-                color:
-                  setupTab === tab ? '#2f4f72' : '#5f6f81',
-                fontSize: 12,
-                fontWeight: 800,
-                cursor: 'pointer'
-              })
-
               return (
                 <>
-                  <div style={{
-                    ...S.card,
-                    marginBottom: 16,
-                    padding: '22px 24px'
-                  }}>
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 16,
-                      flexWrap: 'wrap'
-                    }}>
-                      <div>
-                        <div style={{
-                          fontSize: 22,
-                          fontWeight: 900,
-                          color: '#223046'
-                        }}>
-                          Setup Center
-                        </div>
-
-                        <div style={{
-                          fontSize: 12,
-                          color: '#718096',
-                          marginTop: 4,
-                          maxWidth: 700
-                        }}>
-                          Manage teaching rosters, therapist caseloads,
-                          behavior actions, VIP rules, canteen sales,
-                          and staff access.
-                        </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
+                    <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
+                      <div style={{ padding: '18px 18px 10px', borderBottom: '1px solid #e2e8f0' }}>
+                        <button
+                          onClick={() => setPage('dashboard')}
+                          style={{
+                            marginBottom: 10,
+                            border: '1px solid #dbe7f1',
+                            background: '#f8fbff',
+                            color: '#31506f',
+                            borderRadius: 8,
+                            padding: '7px 10px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            width: '100%',
+                            textAlign: 'left',
+                          }}
+                        >
+                          ← Back to dashboard
+                        </button>
+                        <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196' }}>Setup Center</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#172033', marginTop: 6 }}>Administration & Config</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Tucked-away tools for staff, assignments, rules, and store settings.</div>
                       </div>
-
-                      <div style={{
-                        display: 'flex',
-                        gap: 7,
-                        flexWrap: 'wrap'
-                      }}>
-                        <button
-                          onClick={() => setSetupTab('assignments')}
-                          style={tabButton('assignments')}
-                        >
-                          Staff & Assignments
-                        </button>
-
-                        <button
-                          onClick={() => setSetupTab('therapy-schedule')}
-                          style={tabButton('therapy-schedule')}
-                        >
-                          Therapy Schedule
-                        </button>
-
-                        <button
-                          onClick={() => setSetupTab('teaching')}
-                          style={tabButton('teaching')}
-                        >
-                          Teaching Mode
-                        </button>
-
-                        <button
-                          onClick={() => setSetupTab('vip')}
-                          style={tabButton('vip')}
-                        >
-                          VIP Rules
-                        </button>
-
-                        <button
-                          onClick={() => setSetupTab('store')}
-                          style={tabButton('store')}
-                        >
-                          Store & Sales
-                        </button>
-
-                        <button
-                          onClick={() => setSetupTab('accounts')}
-                          style={tabButton('accounts')}
-                        >
-                          Accounts
-                        </button>
+                      <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {setupNavItems.map(item => {
+                          const isActive = setupTab === item.id
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => setSetupTab(item.id)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                                padding: '10px 12px',
+                                borderRadius: 10,
+                                border: isActive ? '1px solid #7897bb' : '1px solid #e2e8f0',
+                                background: isActive ? '#edf4fb' : '#ffffff',
+                                color: isActive ? '#2f4f72' : '#5f6f81',
+                                fontSize: 12,
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <span style={{ fontSize: 14 }}>{item.icon}</span>
+                              <span>{item.label}</span>
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
-                  </div>
 
-                  {setupAssignmentError && (
+                    <div>
+                      {setupAssignmentError && (
                     <div style={{
                       ...S.card,
                       marginBottom: 16,
@@ -4306,6 +4274,35 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                       {setupAssignmentError}
                     </div>
                   )}
+
+                      <div style={{ ...S.card, marginBottom: 16, padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196' }}>
+                            Home / Setup Center
+                          </div>
+                          <div style={{ fontSize: 20, fontWeight: 900, color: '#223046', marginTop: 4 }}>
+                            {setupNavItems.find(item => item.id === setupTab)?.label || 'Setup Center'}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#718096', marginTop: 4, maxWidth: 700 }}>
+                            Manage teaching rosters, therapist caseloads, behavior actions, VIP rules, canteen sales, and staff access.
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setPage('dashboard')}
+                          style={{
+                            border: '1px solid #dbe7f1',
+                            background: '#ffffff',
+                            color: '#31506f',
+                            borderRadius: 999,
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ← Back to dashboard
+                        </button>
+                      </div>
 
                                     {setupTab === 'assignments' && (
                     <SetupAssignmentsSection
@@ -4386,6 +4383,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                       S={S}
                     />
                   )}
+                    </div>
+                  </div>
                 </>
               )
             })()}

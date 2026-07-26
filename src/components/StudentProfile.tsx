@@ -34,6 +34,7 @@ export default function StudentProfile({
   const [pendingUndoEvent, setPendingUndoEvent] = useState(null)
   const [undoSaving, setUndoSaving] = useState(false)
   const [undoFeedback, setUndoFeedback] = useState(null)
+  const [expandedSections, setExpandedSections] = useState({ overview: true, contacts: false, medical: false, support: false })
   const isTeacherRole = role === 'teacher' || role === 'rebbe'
   const availableTabs = isTeacherRole
     ? ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes']
@@ -79,6 +80,10 @@ export default function StudentProfile({
       setTab('overview')
     }
   }, [availableTabs, tab])
+
+  function toggleSection(section: string) {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
+  }
 
   function addCall() { 
     if (!callNotes.trim()) return
@@ -130,36 +135,42 @@ export default function StudentProfile({
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', background: '#f8fafc' }}>
           {tab === 'overview' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              {vip && <div style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg, #fef9c3, #fef08a)', border: '2px solid #ca8a04', borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 32 }}>⭐</span><div><div style={{ fontWeight: 700, fontSize: 15, color: '#854d0e' }}>VIP Student!</div><div style={{ fontSize: 13, color: '#92400e' }}>Perfect week — eligible for VIP rewards!</div></div></div>}
-              <div style={S.card}>
-                <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>This Week Summary</div>
-                {[['Present days', s.att.filter(d=>d==='P').length+'/6'],['Late arrivals', lateCount],['Absences', absCount],['Points', s.points+' pts'],['Reminders', s.reminders],['Last call', lastCall ? daysSince(lastCall.date)+'d ago' : 'Never']].map(([label, val]) => (
-                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f8fafc', fontSize: 13 }}>
-                    <span style={{ color: '#64748b' }}>{label}</span><span style={{ fontWeight: 600 }}>{val}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ ...S.card, borderLeft: `3px solid ${improvement.color}` }}>
-                  <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 13 }}>📈 vs Last Week</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: improvement.color }}>{improvement.icon} {improvement.label}</div>
-                </div>
+            <div style={{ display: 'grid', gap: 12 }}>
+              {vip && <div style={{ background: 'linear-gradient(135deg, #fef9c3, #fef08a)', border: '2px solid #ca8a04', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 32 }}>⭐</span><div><div style={{ fontWeight: 700, fontSize: 15, color: '#854d0e' }}>VIP Student!</div><div style={{ fontSize: 13, color: '#92400e' }}>Perfect week — eligible for VIP rewards!</div></div></div>}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={S.card}>
-                  <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>Attendance</div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {DAYS.map((day, i) => (
-                      <div key={day} style={{ flex: 1, textAlign: 'center' }}>
-                        <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>{day}</div>
-                        <div style={{ width: 28, height: 28, borderRadius: 6, background: s.att[i]==='P'?'#dcfce7':s.att[i]==='A'?'#fee2e2':'#dbeafe', color: s.att[i]==='P'?'#56765f':s.att[i]==='A'?'#9f1239':'#4f6687', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, margin: '0 auto' }}>{s.att[i]}</div>
-                      </div>
-                    ))}
+                  <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>This Week Summary</div>
+                  {[['Present days', s.att.filter(d=>d==='P').length+'/6'],['Late arrivals', lateCount],['Absences', absCount],['Points', s.points+' pts'],['Reminders', s.reminders],['Last call', lastCall ? daysSince(lastCall.date)+'d ago' : 'Never']].map(([label, val]) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f8fafc', fontSize: 13 }}>
+                      <span style={{ color: '#64748b' }}>{label}</span><span style={{ fontWeight: 600 }}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ ...S.card, borderLeft: `3px solid ${improvement.color}` }}>
+                    <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 13 }}>📈 vs Last Week</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: improvement.color }}>{improvement.icon} {improvement.label}</div>
+                  </div>
+                  <div style={S.card}>
+                    <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>Attendance</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {DAYS.map((day, i) => (
+                        <div key={day} style={{ flex: 1, textAlign: 'center' }}>
+                          <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>{day}</div>
+                          <div style={{ width: 28, height: 28, borderRadius: 6, background: s.att[i]==='P'?'#dcfce7':s.att[i]==='A'?'#fee2e2':'#dbeafe', color: s.att[i]==='P'?'#56765f':s.att[i]==='A'?'#9f1239':'#4f6687', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, margin: '0 auto' }}>{s.att[i]}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-              {withStaffObj && <div style={{ ...S.card, gridColumn: 'span 2', borderLeft: '3px solid #3f6b76' }}><div style={{ fontWeight: 700, color: '#3f6b76', marginBottom: 4, fontSize: 13 }}>📍 Currently With</div><div style={{ fontSize: 14 }}><strong>{withStaffObj.name}</strong> — {withStaffObj.role}</div></div>}
-              {s.status === 'unknown' && <div style={{ ...S.card, gridColumn: 'span 2', borderLeft: '3px solid #9f1239', background: '#fef2f2' }}><div style={{ fontWeight: 700, color: '#9f1239', marginBottom: 4, fontSize: 13 }}>❓ Location Unknown</div><div style={{ fontSize: 13, color: '#9f1239' }}>Student location is unaccounted for. Please locate immediately.</div></div>}
-              {s.iep && <div style={{ ...S.card, gridColumn: 'span 2', borderLeft: '3px solid #6d28d9' }}><div style={{ fontWeight: 700, color: '#6d28d9', marginBottom: 4, fontSize: 13 }}>📋 IEP</div><div style={{ fontSize: 13 }}>{s.iepDetails}</div></div>}
+
+              <div style={{ display: 'grid', gap: 10 }}>
+                {withStaffObj && <div style={{ ...S.card, borderLeft: '3px solid #3f6b76' }}><div style={{ fontWeight: 700, color: '#3f6b76', marginBottom: 4, fontSize: 13 }}>📍 Currently With</div><div style={{ fontSize: 14 }}><strong>{withStaffObj.name}</strong> — {withStaffObj.role}</div></div>}
+                {s.status === 'unknown' && <div style={{ ...S.card, borderLeft: '3px solid #9f1239', background: '#fef2f2' }}><div style={{ fontWeight: 700, color: '#9f1239', marginBottom: 4, fontSize: 13 }}>❓ Location Unknown</div><div style={{ fontSize: 13, color: '#9f1239' }}>Student location is unaccounted for. Please locate immediately.</div></div>}
+                {s.iep && <div style={{ ...S.card, borderLeft: '3px solid #6d28d9' }}><div style={{ fontWeight: 700, color: '#6d28d9', marginBottom: 4, fontSize: 13 }}>📋 IEP</div><div style={{ fontSize: 13 }}>{s.iepDetails}</div></div>}
+              </div>
             </div>
           )}
           {tab === 'attendance' && (
