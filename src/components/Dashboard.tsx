@@ -3696,6 +3696,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'teaching', label: 'Teaching Actions', icon: '🎓', group: 'Rules & Configuration' },
     { id: 'vip', label: 'VIP Rules', icon: '⭐', group: 'Rules & Configuration' },
     { id: 'store', label: 'Store & Sales', icon: '🛍️', group: 'Rules & Configuration' },
+    { id: 'classes-divisions', label: 'Classes & Divisions', icon: '🏫', group: 'School Structure' },
+    { id: 'schedule-setup', label: 'Schedule Setup', icon: '🗓️', group: 'School Structure' },
   ]
   const searchedStudents = search ? visibleStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
@@ -4230,7 +4232,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Tucked-away tools for staff, assignments, rules, and store settings.</div>
                       </div>
                       <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {['People & Staff', 'Rules & Configuration'].map(groupName => {
+                        {['People & Staff', 'Rules & Configuration', 'School Structure'].map(groupName => {
                           const groupItems = setupNavItems.filter(item => item.group === groupName)
                           if (groupItems.length === 0) return null
                           return (
@@ -4372,6 +4374,56 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                       setupCustomActions={setupCustomActions}
                       S={S}
                     />
+                  )}
+
+                                    {setupTab === 'classes-divisions' && (
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      <div style={S.card}>
+                        <div style={{ fontSize: 18, fontWeight: 900, color: '#223046', marginBottom: 6 }}>Classes & Divisions</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Manage the school structure that drives student grouping, reporting, and access.</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                          <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12 }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196', marginBottom: 6 }}>Classes</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {CLASSES.map(cls => (
+                                <span key={cls.id} style={{ ...S.tag('#4f6687'), fontSize: 10 }}>{cls.name}</span>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12 }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196', marginBottom: 6 }}>Divisions</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {Object.entries(DIVISIONS || {}).map(([key, value]) => (
+                                <span key={key} style={{ ...S.tag('#7c3aed'), fontSize: 10 }}>{value?.label || key}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                                    {setupTab === 'schedule-setup' && (
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      <div style={S.card}>
+                        <div style={{ fontSize: 18, fontWeight: 900, color: '#223046', marginBottom: 6 }}>Schedule Setup</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Use these school-structure settings to keep daily schedules aligned with classes, divisions, and support staff.</div>
+                        <div style={{ display: 'grid', gap: 8 }}>
+                          <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: '#223046', marginBottom: 4 }}>Daily Scheduling Snapshot</div>
+                            <div style={{ fontSize: 12, color: '#64748b' }}>Active class templates: {CLASSES.length} · Active divisions: {Object.keys(DIVISIONS || {}).length}</div>
+                          </div>
+                          <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: '#223046', marginBottom: 4 }}>Suggested next steps</div>
+                            <ul style={{ margin: 0, paddingLeft: 16, color: '#64748b', fontSize: 12, display: 'grid', gap: 4 }}>
+                              <li>Confirm class rosters and division assignments before publishing schedule changes.</li>
+                              <li>Review therapy and support coverage from the People & Staff group.</li>
+                              <li>Keep school-wide schedule updates in one place for easy review.</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                                     {setupTab === 'vip' && (
