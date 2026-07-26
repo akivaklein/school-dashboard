@@ -3005,8 +3005,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         merged.dailyStatus =
           databaseStudent.daily_status ||
           databaseStudent.dailyStatus ||
-          merged.dailyStatus ||
           databaseStudent.status ||
+          merged.dailyStatus ||
           merged.status ||
           'present'
 
