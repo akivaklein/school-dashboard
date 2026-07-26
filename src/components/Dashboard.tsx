@@ -2678,6 +2678,37 @@ interface DashboardProps {
 }
 
 const AUTH_USER_STORAGE_KEY = 'schoolDashboardAuthUser'
+const ATTENDANCE_RESET_STORAGE_KEY = 'schoolDashboardLastAttendanceResetDate'
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function applyDailyAttendanceReset(studentsList, resetDate) {
+  return studentsList.map(student => {
+    const resetLogEntry = {
+      time: new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }),
+      type: 'day-reset',
+      note: `Daily attendance reset for ${resetDate}`,
+      staffId: null,
+      staffName: 'System',
+      recordedAt: new Date().toISOString(),
+    }
+
+    return {
+      ...student,
+      dailyStatus: 'not-arrived',
+      status: 'not-arrived',
+      withStaff: null,
+      lateDetails: null,
+      classLog: [...(student.classLog || []), resetLogEntry],
+    }
+  })
+}
 
 export default function Dashboard({ teacherUser, onTeacherSessionLogout }: DashboardProps) {
   const [loggedIn, setLoggedIn] = useState(false)
@@ -2780,6 +2811,23 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
       const databaseRows = finalRows || []
       if (databaseRows.length === 0) {
+        const resetDate = todayIsoDate()
+        const lastResetDate = localStorage.getItem(
+          ATTENDANCE_RESET_STORAGE_KEY
+        )
+
+        if (lastResetDate !== resetDate) {
+          const resetStudents = applyDailyAttendanceReset(
+            initialStudents,
+            resetDate
+          )
+          setStudents(resetStudents)
+          localStorage.setItem(
+            ATTENDANCE_RESET_STORAGE_KEY,
+            resetDate
+          )
+        }
+
         setStudentsLoaded(true)
         return
       }
@@ -2860,9 +2908,42 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         return merged
       })
 
-      console.log('Final student count:', mergedStudents.length)
+      const resetDate = todayIsoDate()
+      const lastResetDate = localStorage.getItem(
+        ATTENDANCE_RESET_STORAGE_KEY
+      )
+      const shouldResetAttendance = lastResetDate !== resetDate
 
-      setStudents(mergedStudents)
+      const studentsAfterDailyReset = shouldResetAttendance
+        ? applyDailyAttendanceReset(mergedStudents, resetDate)
+        : mergedStudents
+
+      if (shouldResetAttendance) {
+        const resetSaveResults = await Promise.all(
+          studentsAfterDailyReset.map(student =>
+            persistStudentFields(student.id, {
+              dailyStatus: student.dailyStatus,
+              status: student.status,
+              withStaff: student.withStaff,
+              lateDetails: student.lateDetails,
+              classLog: student.classLog,
+            })
+          )
+        )
+
+        if (resetSaveResults.every(Boolean)) {
+          localStorage.setItem(
+            ATTENDANCE_RESET_STORAGE_KEY,
+            resetDate
+          )
+        } else {
+          console.error('Daily attendance reset failed for one or more students.')
+        }
+      }
+
+      console.log('Final student count:', studentsAfterDailyReset.length)
+
+      setStudents(studentsAfterDailyReset)
       setStudentsLoaded(true)
     }
 
