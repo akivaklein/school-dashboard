@@ -86,3 +86,18 @@ This table is intentionally append-only and stores every points change as its ow
 If you already ran the first migration before the zero-delta reminder update was added, also run `supabase/migrations/20260723_allow_zero_delta_points_events.sql` so reminder events can be stored without changing the student's point balance.
 
 Before using real student or staff data, you must enable and verify Supabase RLS policies for `public.points_events`. Running without RLS is acceptable only during local development while the permissions model is still being built.
+
+## Polish Configuration Principle
+
+For the polish/configuration phase, treat dropdown and list options as admin-managed data, not hardcoded code constants.
+
+Principle:
+
+- Admin users should be able to add, edit, activate/deactivate, and reorder option lists inside the app.
+- New options must appear immediately across all screens that use that list.
+- This applies broadly to subjects, categories, behavior types, store categories, and other currently fixed option sets.
+
+Implementation rule:
+
+- New feature work should avoid introducing new hardcoded dropdown options when the option set is expected to change operationally.
+- Prefer persisted configuration tables (or a centralized config service) and admin-facing management UI in Setup/Settings.
