@@ -29,7 +29,7 @@ export default function StudentProfile({
 }) {
   const [tab, setTab] = useState(defaultTab)
   const [callNotes, setCallNotes] = useState('')
-  const [callStaff, setCallStaff] = useState('Rabbi Klein')
+  const [callStaff, setCallStaff] = useState(userName || 'Staff')
   const [callDuration, setCallDuration] = useState('')
   const [pendingUndoEvent, setPendingUndoEvent] = useState(null)
   const [undoSaving, setUndoSaving] = useState(false)
@@ -72,7 +72,12 @@ export default function StudentProfile({
 
   function addCall() { 
     if (!callNotes.trim()) return
-    const newCall = { date: new Date().toISOString().slice(0,10), staff: callStaff, notes: callNotes, duration: callDuration }
+    const newCall = {
+      date: new Date().toISOString().slice(0,10),
+      staff: (callStaff || userName || 'Staff').trim(),
+      notes: callNotes,
+      duration: callDuration,
+    }
     setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: [...x.parentCalls, newCall] } : x))
     
     // Persist to database
@@ -354,7 +359,7 @@ export default function StudentProfile({
                 </div>
                 {role === 'admin' && (
                   <div style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
-                    <FamilyEditorPopup s={s} setStudents={setStudents} />
+                    <FamilyEditorPopup s={s} setStudents={setStudents} userName={userName} />
                   </div>
                 )}
               </div>
@@ -391,7 +396,7 @@ export default function StudentProfile({
                 {s.medical?.notes && <div style={{ marginTop: 10, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>📝 {s.medical.notes}</div>}
                 {role === 'admin' && (
                   <div style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
-                    <MedicalEditorPopup s={s} setStudents={setStudents} />
+                    <MedicalEditorPopup s={s} setStudents={setStudents} userName={userName} />
                   </div>
                 )}
               </div>

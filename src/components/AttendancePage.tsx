@@ -4,6 +4,7 @@ export default function AttendancePage({
   students,
   setStudents,
   role,
+  userName,
   attFilter,
   setAttFilter,
   filteredStudents,
@@ -33,6 +34,22 @@ export default function AttendancePage({
   const [lateTime, setLateTime] = useState('')
   const [lateReason, setLateReason] = useState('no-reason')
   const [lateNote, setLateNote] = useState('')
+  const actingStaffName = userName || 'Staff'
+
+  function buildClassLogEntry(type, note, extra = {}) {
+    return {
+      time: new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }),
+      type,
+      note,
+      staffId: extra.staffId || null,
+      staffName: actingStaffName,
+      recordedAt: new Date().toISOString(),
+    }
+  }
 
   async function saveStudentField(id, field, value) {
     const success = await persistStudentFields(id, { [field]: value })
@@ -65,9 +82,16 @@ export default function AttendancePage({
         dailyStatus: original.dailyStatus || 'present',
         status: original.status || 'present',
         lateDetails: original.lateDetails || null,
-        withStaff: original.withStaff || null
+        withStaff: original.withStaff || null,
+        classLog: original.classLog || []
       }
     ])
+
+    const classLogEntry = buildClassLogEntry(
+      'attendance-update',
+      `Attendance marked ${status} by ${actingStaffName}`
+    )
+    const updatedClassLog = [...(original.classLog || []), classLogEntry]
 
     setStudents(prev =>
       prev.map(s =>
@@ -76,7 +100,8 @@ export default function AttendancePage({
               ...s,
               dailyStatus: status,
               status: syncedStatus,
-              withStaff: syncedStatus === 'present' ? null : s.withStaff
+              withStaff: syncedStatus === 'present' ? null : s.withStaff,
+              classLog: updatedClassLog
             }
           : s
       )
@@ -91,7 +116,8 @@ export default function AttendancePage({
 
     const success = await saveStudentFields(id, {
       dailyStatus: status,
-      status: syncedStatus
+      status: syncedStatus,
+      classLog: updatedClassLog
     })
 
     if (!success) {
@@ -103,7 +129,8 @@ export default function AttendancePage({
                 dailyStatus: original.dailyStatus,
                 status: original.status,
                 lateDetails: original.lateDetails,
-                withStaff: original.withStaff
+                withStaff: original.withStaff,
+                classLog: original.classLog || []
               }
             : s
         )
@@ -117,21 +144,98 @@ export default function AttendancePage({
     if (last.type === 'bulk') {
       setStudents(prev => prev.map(s => {
         const saved = last.snapshot.find(x => x.id === s.id)
-        return saved ? { ...s, dailyStatus: saved.dailyStatus, lateDetails: saved.lateDetails } : s
+        return saved
+          ? {
+              ...s,
+              dailyStatus: saved.dailyStatus,
+              lateDetails: saved.lateDetails,
+              status: saved.status,
+              withStaff: saved.withStaff,
+              classLog: saved.classLog,
+            }
+          : s
       }))
       const success = await persistStudentFieldsBulk(
-        last.snapshot.map(saved => ({ id: saved.id, fields: { dailyStatus: saved.dailyStatus } }))
+        last.snapshot.map(saved => ({
+          id: saved.id,
+          fields: {
+            dailyStatus: saved.dailyStatus,
+            lateDetails: saved.lateDetails,
+            status: saved.status,
+            withStaff: saved.withStaff,
+            classLog: saved.classLog,
+          }
+        }))
       )
       if (!success) alert('Some attendance statuses could not be restored in Supabase.')
     } else {
-      setStudents(prev => prev.map(s => s.id === last.id ? { ...s, dailyStatus: last.dailyStatus, lateDetails: last.lateDetails } : s))
-      await saveStudentField(last.id, 'dailyStatus', last.dailyStatus)
+      setStudents(prev => prev.map(s => s.id === last.id ? {
+        ...s,
+        dailyStatus: last.dailyStatus,
+        lateDetails: last.lateDetails,
+        status: last.status,
+        withStaff: last.withStaff,
+        classLog: last.classLog,
+      } : s))
+      await saveStudentFields(last.id, {
+        dailyStatus: last.dailyStatus,
+        lateDetails: last.lateDetails,
+        status: last.status,
+        withStaff: last.withStaff,
+        classLog: last.classLog,
+      })
     }
     setUndoStack(u => u.slice(0, -1))
   }
 
-  function confirmLate() {
-    setStudents(prev => prev.map(s => s.id === latePopup ? { ...s, lateDetails: { timeArrived: lateTime, reason: lateReason, note: lateNote } } : s))
+  async function confirmLate() {
+    const studentId = latePopup
+    if (!studentId) return
+
+    const original = students.find(s => s.id === studentId)
+    if (!original) return
+
+    const lateDetails = {
+      timeArrived: lateTime,
+      reason: lateReason,
+      note: lateNote,
+      markedBy: actingStaffName,
+      markedAt: new Date().toISOString(),
+    }
+
+    const classLogEntry = buildClassLogEntry(
+      'late-details',
+      `Late details saved by ${actingStaffName}`
+    )
+    const updatedClassLog = [...(original.classLog || []), classLogEntry]
+
+    setStudents(prev =>
+      prev.map(s =>
+        s.id === studentId
+          ? { ...s, lateDetails, classLog: updatedClassLog }
+          : s
+      )
+    )
+
+    const success = await saveStudentFields(studentId, {
+      lateDetails,
+      classLog: updatedClassLog,
+    })
+
+    if (!success) {
+      setStudents(prev =>
+        prev.map(s =>
+          s.id === studentId
+            ? {
+                ...s,
+                lateDetails: original.lateDetails,
+                classLog: original.classLog,
+              }
+            : s
+        )
+      )
+    }
+
     setLatePopup(null)
   }
 
@@ -160,17 +264,25 @@ export default function AttendancePage({
         if (x.id !== s.id) return x
 
         if (!wasNotInSchool) {
+          const classLogEntry = buildClassLogEntry(
+            'in',
+            `Returned to class (marked by ${actingStaffName})`
+          )
           return {
             ...x,
             status: 'present',
             withStaff: null,
             classLog: [
               ...(x.classLog || []),
-              { time: arrivedNow, type: 'in', note: 'Returned to class', staffId: null }
+              classLogEntry
             ]
           }
         }
 
+        const classLogEntry = buildClassLogEntry(
+          'in',
+          `Arrived late to yeshiva (marked by ${actingStaffName})`
+        )
         return {
           ...x,
           status: 'present',
@@ -179,18 +291,32 @@ export default function AttendancePage({
           lateDetails: {
             timeArrived: arrivedNow,
             reason: 'arrived-late',
-            note: 'Marked present from School-Wide Mode'
+            note: 'Marked present from School-Wide Mode',
+            markedBy: actingStaffName,
+            markedAt: new Date().toISOString(),
           },
           classLog: [
             ...(x.classLog || []),
-            { time: arrivedNow, type: 'in', note: 'Arrived late to yeshiva', staffId: null }
+            classLogEntry
           ]
         }
       }))
 
       const updatedStudent = students.find(s => s.id === original.id)
       const fields = wasNotInSchool
-        ? { status: 'present', dailyStatus: 'late', withStaff: null, classLog: updatedStudent?.classLog || [] }
+        ? {
+            status: 'present',
+            dailyStatus: 'late',
+            withStaff: null,
+            lateDetails: {
+              timeArrived: arrivedNow,
+              reason: 'arrived-late',
+              note: 'Marked present from School-Wide Mode',
+              markedBy: actingStaffName,
+              markedAt: new Date().toISOString(),
+            },
+            classLog: updatedStudent?.classLog || []
+          }
         : { status: 'present', withStaff: null, classLog: updatedStudent?.classLog || [] }
       const success = await saveStudentFields(s.id, fields)
       if (!success) {
@@ -205,10 +331,24 @@ export default function AttendancePage({
     const original = students.find(x => x.id === studentId)
     const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'present', hallway: 'unknown', other: 'unknown' }
     const newStatus = statusMap[leaveReason] || 'unknown'
-    setStudents(prev => prev.map(x => x.id === studentId ? { ...x, status: newStatus, withStaff: leaveStaffId || null } : x))
+    const classLogEntry = buildClassLogEntry(
+      'out',
+      `Left class (${leaveReason})`,
+      { staffId: leaveStaffId || null }
+    )
+    setStudents(prev => prev.map(x => x.id === studentId ? {
+      ...x,
+      status: newStatus,
+      withStaff: leaveStaffId || null,
+      classLog: [...(x.classLog || []), classLogEntry]
+    } : x))
     setLeavePopup(null)
 
-    const success = await saveStudentField(studentId, 'status', newStatus)
+    const success = await saveStudentFields(studentId, {
+      status: newStatus,
+      withStaff: leaveStaffId || null,
+      classLog: [...(original?.classLog || []), classLogEntry],
+    })
     if (!success && original) {
       setStudents(prev => prev.map(x => x.id === studentId ? original : x))
     }
@@ -345,16 +485,38 @@ export default function AttendancePage({
               {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>↩️ Undo</button>}
               <button onClick={() => setCollapsed(c => !c)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>{collapsed ? '⬇️ Expand All' : '⬆️ Collapse All'}</button>
               <button onClick={async () => {
-                const snapshot = students.map(s => ({ id: s.id, dailyStatus: s.dailyStatus || 'present', lateDetails: s.lateDetails || null }))
+                const snapshot = students.map(s => ({
+                  id: s.id,
+                  dailyStatus: s.dailyStatus || 'present',
+                  lateDetails: s.lateDetails || null,
+                  status: s.status || 'present',
+                  withStaff: s.withStaff || null,
+                  classLog: s.classLog || [],
+                }))
                 setUndoStack(u => [...u.slice(-9), { type: 'bulk', snapshot }])
                 setStudents(prev => prev.map(s => ({ ...s, dailyStatus: 'present', lateDetails: null })))
                 const success = await persistStudentFieldsBulk(
-                  students.map(s => ({ id: s.id, fields: { dailyStatus: 'present' } }))
+                  students.map(s => ({
+                    id: s.id,
+                    fields: {
+                      dailyStatus: 'present',
+                      lateDetails: null,
+                    }
+                  }))
                 )
                 if (!success) {
                   setStudents(prev => prev.map(s => {
                     const saved = snapshot.find(x => x.id === s.id)
-                    return saved ? { ...s, dailyStatus: saved.dailyStatus, lateDetails: saved.lateDetails } : s
+                    return saved
+                      ? {
+                          ...s,
+                          dailyStatus: saved.dailyStatus,
+                          lateDetails: saved.lateDetails,
+                          status: saved.status,
+                          withStaff: saved.withStaff,
+                          classLog: saved.classLog,
+                        }
+                      : s
                   }))
                   alert('Unable to save all attendance statuses to Supabase.')
                 }

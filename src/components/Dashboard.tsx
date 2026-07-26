@@ -1810,7 +1810,7 @@ function TrackingTab({ s, students }) {
   )
 }
 
-function FamilyEditorPopup({ s, setStudents }) {
+function FamilyEditorPopup({ s, setStudents, userName }) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -1822,7 +1822,7 @@ function FamilyEditorPopup({ s, setStudents }) {
               <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>✏️ Edit Family Info — {s.name}</div>
               <button onClick={() => setOpen(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 26, height: 26, borderRadius: '50%', cursor: 'pointer' }}>✕</button>
             </div>
-            <FamilyEditor s={s} setStudents={setStudents} onCancel={() => setOpen(false)} onSaved={() => setOpen(false)} />
+            <FamilyEditor s={s} setStudents={setStudents} userName={userName} onCancel={() => setOpen(false)} onSaved={() => setOpen(false)} />
           </div>
         </div>
       )}
@@ -1830,7 +1830,7 @@ function FamilyEditorPopup({ s, setStudents }) {
   )
 }
 
-function MedicalEditorPopup({ s, setStudents }) {
+function MedicalEditorPopup({ s, setStudents, userName }) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -1842,7 +1842,7 @@ function MedicalEditorPopup({ s, setStudents }) {
               <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>🏥 Edit Medical Info — {s.name}</div>
               <button onClick={() => setOpen(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 26, height: 26, borderRadius: '50%', cursor: 'pointer' }}>✕</button>
             </div>
-            <MedicalEditor s={s} setStudents={setStudents} onCancel={() => setOpen(false)} onSaved={() => setOpen(false)} />
+            <MedicalEditor s={s} setStudents={setStudents} userName={userName} onCancel={() => setOpen(false)} onSaved={() => setOpen(false)} />
           </div>
         </div>
       )}
@@ -1851,14 +1851,20 @@ function MedicalEditorPopup({ s, setStudents }) {
 }
 
 
-function FamilyEditor({ s, setStudents, onCancel = null, onSaved = null }) {
+function FamilyEditor({ s, setStudents, userName, onCancel = null, onSaved = null }) {
   const [f, setF] = useState(s.family || {})
 
   async function save() {
-    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, family: f } : x))
+    const nextFamily = {
+      ...f,
+      lastEditedBy: userName || 'Staff',
+      lastEditedAt: new Date().toISOString(),
+    }
+
+    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, family: nextFamily } : x))
     
     // Persist to database
-    await persistStudentFields(s.id, { family: f })
+    await persistStudentFields(s.id, { family: nextFamily })
     
     if (onSaved) onSaved()
   }
@@ -1883,14 +1889,20 @@ function FamilyEditor({ s, setStudents, onCancel = null, onSaved = null }) {
   )
 }
 
-function MedicalEditor({ s, setStudents, onCancel = null, onSaved = null }) {
+function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = null }) {
   const [m, setM] = useState(s.medical || {})
 
   async function save() {
-    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, medical: m } : x))
+    const nextMedical = {
+      ...m,
+      lastEditedBy: userName || 'Staff',
+      lastEditedAt: new Date().toISOString(),
+    }
+
+    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, medical: nextMedical } : x))
     
     // Persist to database
-    await persistStudentFields(s.id, { medical: m })
+    await persistStudentFields(s.id, { medical: nextMedical })
     
     if (onSaved) onSaved()
   }
@@ -4290,8 +4302,19 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     const note = (unknownNotes[studentId] || '').trim()
     const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     const studentBeforeUpdate = students.find(s => s.id === studentId)
-    const logNote = `Location updated from Unknown to ${label}.${note ? ` Note: ${note}` : ''}`
-    const updatedClassLog = [...(studentBeforeUpdate?.classLog || []), { time, type: 'status-update', note: logNote, staffId: null }]
+    const actor = userName || 'Staff'
+    const logNote = `Location updated from Unknown to ${label} by ${actor}.${note ? ` Note: ${note}` : ''}`
+    const updatedClassLog = [
+      ...(studentBeforeUpdate?.classLog || []),
+      {
+        time,
+        type: 'status-update',
+        note: logNote,
+        staffId: null,
+        staffName: actor,
+        recordedAt: new Date().toISOString(),
+      }
+    ]
     
     setStudents(prev => prev.map(s => {
       if (s.id !== studentId) return s
@@ -4303,7 +4326,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       }
     }))
     
-    persistStudentFields(studentId, { classLog: updatedClassLog })
+    persistStudentFields(studentId, {
+      status: newStatus === 'left-early' ? 'left-early' : newStatus,
+      dailyStatus:
+        newStatus === 'absent'
+          ? 'absent'
+          : newStatus === 'left-early'
+            ? 'left-early'
+            : studentBeforeUpdate?.dailyStatus,
+      classLog: updatedClassLog,
+    })
     setUnknownNotes(prev => ({ ...prev, [studentId]: '' }))
     if (students.filter(s => s.status === 'unknown' && s.id !== studentId).length === 0) setShowUnknownPopup(false)
   }
@@ -4344,6 +4376,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStudents={setStudents}
       onExit={() => setTeachingMode(false)}
       isAdmin={role === 'admin'}
+      userName={userName}
       S={S}
       STAFF={STAFF}
       STUDENT_CLASSES={STUDENT_CLASSES}
@@ -5382,6 +5415,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             students={visibleStudents}
             setStudents={setStudents}
             role={role}
+            userName={userName}
             attFilter={attFilter}
             setAttFilter={setAttFilter}
             filteredStudents={filteredStudents}

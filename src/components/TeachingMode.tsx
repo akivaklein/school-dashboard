@@ -24,6 +24,7 @@ export default function TeachingMode({
   setStudents,
   onExit,
   isAdmin,
+  userName,
   initialClass = null,
   S,
   STAFF,
@@ -59,6 +60,22 @@ export default function TeachingMode({
   const [lateClassStaffSearch, setLateClassStaffSearch] = useState('')
   const [lateClassStaffId, setLateClassStaffId] = useState('')
   const [lateClassNote, setLateClassNote] = useState('')
+  const actingStaffName = userName || 'Staff'
+
+  function buildClassLogEntry(type, note, extra = {}) {
+    return {
+      time: new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }),
+      type,
+      note,
+      staffId: extra.staffId || null,
+      staffName: actingStaffName,
+      recordedAt: new Date().toISOString(),
+    }
+  }
 
   // Session + intervals
   const [sessionActive, setSessionActive] = useState(false)
@@ -216,14 +233,12 @@ export default function TeachingMode({
 
     const updatedClassLog = [
       ...(s.classLog || []),
-      {
-        time: timeStr,
-        type: 'in',
-        note: wasNotInSchool
-          ? 'Arrived late to yeshiva'
-          : 'Returned to class',
-        staffId: null
-      }
+      buildClassLogEntry(
+        'in',
+        wasNotInSchool
+          ? `Arrived late to yeshiva (marked by ${actingStaffName})`
+          : `Returned to class (marked by ${actingStaffName})`
+      )
     ]
 
     const fields = wasNotInSchool
@@ -242,14 +257,29 @@ export default function TeachingMode({
             ? {
                 timeArrived: timeStr,
                 reason: 'arrived-late',
-                note: 'Marked present from School-Wide Mode'
+                note: 'Marked present from School-Wide Mode',
+                markedBy: actingStaffName,
+                markedAt: new Date().toISOString(),
               }
             : x.lateDetails
         }
       })
     )
 
-    const success = await persistStudentFields(s.id, fields)
+    const fieldsWithAudit = wasNotInSchool
+      ? {
+          ...fields,
+          lateDetails: {
+            timeArrived: timeStr,
+            reason: 'arrived-late',
+            note: 'Marked present from School-Wide Mode',
+            markedBy: actingStaffName,
+            markedAt: new Date().toISOString(),
+          },
+        }
+      : fields
+
+    const success = await persistStudentFields(s.id, fieldsWithAudit)
 
     if (!success) {
       setStudents(prev =>
@@ -314,12 +344,11 @@ export default function TeachingMode({
               withStaff: leaveStaffId || null,
               classLog: [
                 ...(x.classLog || []),
-                {
-                  time: timeStr,
-                  type: 'out',
-                  note,
-                  staffId: leaveStaffId || null
-                }
+                buildClassLogEntry(
+                  'out',
+                  `${note} (recorded by ${actingStaffName})`,
+                  { staffId: leaveStaffId || null }
+                )
               ]
             }
           : x
@@ -331,6 +360,7 @@ export default function TeachingMode({
       if (updatedStudent) {
         persistStudentFields(studentId, {
           status: newStatus,
+          withStaff: leaveStaffId || null,
           classLog: updatedStudent.classLog
         }).catch(error => {
           console.error('Unable to save student status to Supabase:', error)
@@ -447,17 +477,37 @@ export default function TeachingMode({
                   const studentId = lateClassPopup
                   if (!studentId) return
                   const original = students.find(x => x.id === studentId)
-                  const now = new Date()
-                  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
                   const staffObj = lateClassStaffId ? STAFF.find(st => st.id === lateClassStaffId) : null
                   const note = staffObj ? `Came late — was with ${staffObj.name}${lateClassNote ? `: ${lateClassNote}` : ''}` : lateClassNote ? `Came late — ${lateClassNote}` : 'Came late to class'
+                  const classLogEntry = buildClassLogEntry(
+                    'in',
+                    `${note} (recorded by ${actingStaffName})`,
+                    { staffId: lateClassStaffId || null }
+                  )
+                  const lateDetails = {
+                    timeArrived: new Date().toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }),
+                    reason: 'late-to-class',
+                    note,
+                    markedBy: actingStaffName,
+                    markedAt: new Date().toISOString(),
+                  }
+
                   setStudents(prev => prev.map(x => x.id === studentId ? {
                     ...x, status: 'present',
-                    classLog: [...(x.classLog||[]), { time: timeStr, type: 'in', note, staffId: lateClassStaffId || null }]
+                    classLog: [...(x.classLog||[]), classLogEntry],
+                    lateDetails,
                   } : x))
                   setLateClassPopup(null); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote('')
 
-                  const success = await persistStudentFields(studentId, { status: 'present', withStaff: null })
+                  const success = await persistStudentFields(studentId, {
+                    status: 'present',
+                    withStaff: null,
+                    lateDetails,
+                    classLog: [...(original?.classLog || []), classLogEntry],
+                  })
                   if (!success && original) {
                     setStudents(prev => prev.map(x => x.id === studentId ? original : x))
                     alert('Unable to save student status to Supabase.')
