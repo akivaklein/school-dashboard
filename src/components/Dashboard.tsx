@@ -20,6 +20,7 @@ import SetupAccountsSection from './SetupAccountsSection'
 import AlertsPage from './AlertsPage'
 import CallsPage from './CallsPage'
 import StudentsListPage from './StudentsListPage'
+import StaffDirectoryPage from './StaffDirectoryPage'
 import AdminMainDashboard from './AdminMainDashboard'
 import {
   createPointsEvent,
@@ -4656,6 +4657,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const adminNav = [
     { id: 'dashboard', label: 'Dashboard', icon: 'DB' },
     { id: 'support', label: `Student Support (${alerts.length})`, icon: 'SS' },
+    { id: 'staff-directory', label: 'Staff Directory', icon: 'SD' },
     { id: 'intake', label: 'Intake / Admissions', icon: 'IN' },
     { id: 'attendance', label: 'Attendance', icon: 'AT' },
     { id: 'academics', label: 'Academics', icon: 'AC' },
@@ -4667,6 +4669,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const teacherNav = [
     { id: 'dashboard', label: 'My Class', icon: 'MC' },
     { id: 'support', label: `Student Support (${alerts.length})`, icon: 'SS' },
+    { id: 'staff-directory', label: 'Staff Directory', icon: 'SD' },
     { id: 'attendance', label: 'Attendance', icon: 'AT' },
     { id: 'academics', label: 'Academics', icon: 'AC' },
     { id: 'schedule', label: 'Schedule', icon: 'SC' },
@@ -4675,6 +4678,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const therapistNav = [
     { id: 'dashboard', label: 'My Students', icon: 'MS' },
     { id: 'support', label: 'Student Support', icon: 'SS' },
+    { id: 'staff-directory', label: 'Staff Directory', icon: 'SD' },
     { id: 'schedule', label: 'Schedule', icon: 'SC' },
   ]
   const storeNav = [
@@ -5460,6 +5464,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
             daysSince={daysSince}
+            initials={initials}
+          />
+        )}
+
+        {page === 'staff-directory' && (
+          <StaffDirectoryPage
+            S={S}
+            staff={STAFF}
+            therapistOptions={THERAPIST_OPTIONS}
+            supportStaffOptions={SUPPORT_STAFF_OPTIONS}
             initials={initials}
           />
         )}
