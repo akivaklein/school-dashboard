@@ -354,6 +354,67 @@ export default function AttendancePage({
     }
   }
 
+  async function resolveFlaggedStudentsForClass(classId) {
+    const classStudents = students.filter(s => STUDENT_CLASSES[s.id] === classId)
+    const flaggedStudents = classStudents.filter(
+      s => s.status === 'unknown' || s.status === 'not-arrived'
+    )
+
+    if (flaggedStudents.length === 0) return
+
+    const snapshot = flaggedStudents.map(student => ({
+      id: student.id,
+      status: student.status,
+      dailyStatus: student.dailyStatus,
+      withStaff: student.withStaff,
+      classLog: student.classLog || [],
+    }))
+
+    const updatesById = {}
+    flaggedStudents.forEach(student => {
+      const logEntry = buildClassLogEntry(
+        'status-update',
+        `Resolved from status board by ${actingStaffName}`
+      )
+
+      const nextDailyStatus =
+        student.dailyStatus === 'absent' ? 'late' : (student.dailyStatus || 'present')
+
+      updatesById[student.id] = {
+        status: 'present',
+        dailyStatus: nextDailyStatus,
+        withStaff: null,
+        classLog: [...(student.classLog || []), logEntry],
+      }
+    })
+
+    setStudents(prev => prev.map(student => {
+      const update = updatesById[student.id]
+      return update ? { ...student, ...update } : student
+    }))
+
+    const success = await persistStudentFieldsBulk(
+      flaggedStudents.map(student => ({
+        id: student.id,
+        fields: updatesById[student.id],
+      }))
+    )
+
+    if (!success) {
+      const rollbackById = {}
+      snapshot.forEach(saved => {
+        rollbackById[saved.id] = saved
+      })
+
+      setStudents(prev => prev.map(student => {
+        const rollback = rollbackById[student.id]
+        return rollback ? { ...student, ...rollback } : student
+      }))
+
+      alert('Could not resolve all flagged students for this class.')
+    }
+  }
+
   const leaveStudent = leavePopup ? students.find(s => s.id === leavePopup) : null
 
   return (
@@ -457,6 +518,7 @@ export default function AttendancePage({
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={() => setDailyView('daily')} style={{ ...S.btn(dailyView === 'daily' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>📅 Daily Check-In</button>
           <button onClick={() => setDailyView('class')} style={{ ...S.btn(dailyView === 'class' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>🏫 Class Toggle</button>
+          <button onClick={() => setDailyView('status-board')} style={{ ...S.btn(dailyView === 'status-board' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>📍 Status Board</button>
           <button onClick={() => setDailyView('weekly')} style={{ ...S.btn(dailyView === 'weekly' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>📊 Weekly Record</button>
         </div>
       </div>
@@ -631,6 +693,74 @@ export default function AttendancePage({
                     <div onClick={() => role !== 'therapist' && handleToggle(s)} style={{ width: 44, height: 24, borderRadius: 12, background: inClass ? '#56765f' : '#e5e7eb', position: 'relative', cursor: role !== 'therapist' ? 'pointer' : 'default', transition: 'background 0.2s' }}>
                       <div style={{ position: 'absolute', top: 2, left: inClass ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                     </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {dailyView === 'status-board' && (
+        <div style={{ ...S.card, marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 10 }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>Class-wide Live Status Board</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>Live counts of In Class / Absent / Therapy / Unknown with quick class-level resolution.</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+            {CLASSES.map(cls => {
+              const classStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
+              if (classStudents.length === 0) return null
+
+              const inClassCount = classStudents.filter(s => s.status === 'present').length
+              const absentCount = classStudents.filter(s => (s.dailyStatus || s.status) === 'absent').length
+              const therapyCount = classStudents.filter(s => s.status === 'therapy' || s.status === 'with-bt').length
+              const unknownCount = classStudents.filter(s => s.status === 'unknown' || s.status === 'not-arrived').length
+              const flaggedCount = classStudents.filter(s => s.status === 'unknown' || s.status === 'not-arrived').length
+
+              return (
+                <div key={cls.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, background: '#fff', padding: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b' }}>{cls.name}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{cls.grade} · {cls.teacher}</div>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: flaggedCount > 0 ? '#9f1239' : '#4b6854' }}>
+                      {flaggedCount > 0 ? `${flaggedCount} flagged` : 'Clear'}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 10 }}>
+                    <div style={{ borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '8px 6px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#166534' }}>{inClassCount}</div>
+                      <div style={{ fontSize: 10, color: '#166534' }}>In Class</div>
+                    </div>
+                    <div style={{ borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', padding: '8px 6px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#9f1239' }}>{absentCount}</div>
+                      <div style={{ fontSize: 10, color: '#9f1239' }}>Absent</div>
+                    </div>
+                    <div style={{ borderRadius: 8, background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '8px 6px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#6d28d9' }}>{therapyCount}</div>
+                      <div style={{ fontSize: 10, color: '#6d28d9' }}>Therapy</div>
+                    </div>
+                    <div style={{ borderRadius: 8, background: '#fff7ed', border: '1px solid #fed7aa', padding: '8px 6px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#9a3412' }}>{unknownCount}</div>
+                      <div style={{ fontSize: 10, color: '#9a3412' }}>Unknown</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>{classStudents.length} students total</div>
+                    <button
+                      onClick={() => resolveFlaggedStudentsForClass(cls.id)}
+                      disabled={flaggedCount === 0}
+                      style={{ ...S.btn(flaggedCount > 0 ? 'primary' : 'ghost'), padding: '6px 10px', fontSize: 11 }}
+                    >
+                      Mark Now
+                    </button>
                   </div>
                 </div>
               )
