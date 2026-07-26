@@ -71,7 +71,16 @@ import {
   getStaffByName,
   staffMatchesAnyRole,
 } from '../services/staffService'
+import {
+  persistStudentFields,
+  persistStudentFieldsBulk,
+} from '../services/studentPersistenceService'
 import { recordLoginSession, recordLogoutSession } from '../services/loginSessionService'
+import {
+  clearStudentFallbackPatch,
+  getStudentFallbackPatchCount,
+  readStudentFallbackPatches,
+} from '../utils/studentFallbackCache'
 import StaffLoginPanel from './StaffLoginPanel'
 import StaffManagementModal from './StaffManagementModal'
 import LoginActivityView from './LoginActivityView'
@@ -113,99 +122,6 @@ import {
   statusLabel,
   statusEmoji,
 } from './dashboardData'
-
-
-async function persistStudentFields(id, fields, options = {}) {
-  const allowFallback = options.allowFallback !== false
-
-  // Map React field names to database column names
-  const mappedFields = { ...fields }
-  if ('att' in mappedFields) {
-    mappedFields.attendance = mappedFields.att
-    delete mappedFields.att
-  }
-  if ('behaviorLog' in mappedFields) {
-    mappedFields.behavior_log = mappedFields.behaviorLog
-    delete mappedFields.behaviorLog
-  }
-  if ('parentCalls' in mappedFields) {
-    mappedFields.parent_calls = mappedFields.parentCalls
-    delete mappedFields.parentCalls
-  }
-  if ('testScores' in mappedFields) {
-    mappedFields.test_scores = mappedFields.testScores
-    delete mappedFields.testScores
-  }
-  if ('classLog' in mappedFields) {
-    mappedFields.class_log = mappedFields.classLog
-    delete mappedFields.classLog
-  }
-  if ('dailyStatus' in mappedFields) {
-    mappedFields.daily_status = mappedFields.dailyStatus
-    delete mappedFields.dailyStatus
-  }
-  if ('lateDetails' in mappedFields) {
-    mappedFields.late_details = mappedFields.lateDetails
-    delete mappedFields.lateDetails
-  }
-  if ('withStaff' in mappedFields) {
-    mappedFields.with_staff = mappedFields.withStaff
-    delete mappedFields.withStaff
-  }
-
-  const payload = { ...mappedFields }
-  const missingColumnPattern = /column\s+"?([a-zA-Z0-9_]+)"?\s+of\s+relation\s+"?students"?\s+does\s+not\s+exist|could not find the ['"]([a-zA-Z0-9_]+)['"] column of ['"]students['"]/i
-
-  while (true) {
-    const { error } = await supabase.from('students').update(payload).eq('id', id)
-    if (!error) {
-      clearStudentFallbackPatch(id)
-      return true
-    }
-
-    const message = error.message || ''
-    const match = message.match(missingColumnPattern)
-    const missingColumn = match?.[1] || match?.[2]
-
-    if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
-      delete payload[missingColumn]
-
-      if (Object.keys(payload).length === 0) {
-        console.error(
-          `Supabase student update skipped for ${id}: all requested fields are missing from schema. Original fields:`,
-          fields,
-          'Last error:',
-          error
-        )
-        return false
-      }
-
-      console.warn(
-        `Supabase students schema missing column "${missingColumn}". Retrying update for student ${id} with fallback payload keys:`,
-        Object.keys(payload)
-      )
-      continue
-    }
-
-    console.error(`Supabase student update failed for ${id}:`, error, 'Payload keys:', Object.keys(payload))
-
-    if (allowFallback) {
-      mergeStudentFallbackPatch(id, fields)
-      console.warn(`Saved student ${id} changes to local fallback cache due to Supabase write failure.`)
-      return true
-    }
-
-    return false
-  }
-}
-
-async function persistStudentFieldsBulk(updates) {
-  const results = await Promise.all(
-    updates.map(({ id, fields }) => persistStudentFields(id, fields))
-  )
-  return results.every(Boolean)
-}
-
 
 const INTAKE_ASSESSMENT_AREAS = [
   {
@@ -282,99 +198,6 @@ function isVIP(s, rules: { minimumPoints: number; maximumReminders: number; mini
   const presentCount = s.att.filter((d: string) => d === 'P').length
   const attPct = s.att.length > 0 ? (presentCount / s.att.length) * 100 : 100
   const checks = [
-    s.points >= rules.minimumPoints,
-    s.reminders <= rules.maximumReminders,
-    attPct >= rules.minimumAttendance,
-  ]
-  return rules.requireAll ? checks.every(Boolean) : checks.some(Boolean)
-}
-
-function isStoreItemRestrictedForStudent(student, item) {
-  if (!student || !item) return false
-  const studentName = (student.name || '').toLowerCase()
-  const itemName = (item.name || '').toLowerCase()
-  const isChaimGoldberg = studentName === 'goldberg chaim' || studentName === 'chaim goldberg'
-  const isCandyItem = itemName.includes('sour') || itemName.includes('candy') || itemName.includes('candies') || itemName.includes('lolly') || item.emoji === '🍬' || item.emoji === '🍭'
-  return isChaimGoldberg && isCandyItem
-}
-
-const S = {
-  app: { fontFamily: "'Inter','DM Sans','Segoe UI',sans-serif", minHeight: '100vh', background: '#f3f6fa', color: '#223046', display: 'flex', letterSpacing: '-0.01em' },
-  sidebar: { width: 244, background: '#1f2c3f', color: '#fff', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, overflowY: 'auto', overflowX: 'hidden', boxShadow: '8px 0 24px rgba(31,44,63,0.10)' },
-  sidebarLogo: { padding: '22px 18px 18px', borderBottom: '1px solid rgba(255,255,255,0.10)', marginBottom: 10, flexShrink: 0 },
-  sidebarItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', borderRadius: 10, margin: '3px 10px', background: active ? '#eef4fb' : 'transparent', color: active ? '#223046' : 'rgba(255,255,255,0.78)', fontSize: 13.5, fontWeight: active ? 700 : 500, transition: 'background 0.15s, color 0.15s, transform 0.15s', flexShrink: 0 }),
-  main: { marginLeft: 244, padding: '32px 56px 50px 40px', minHeight: '100vh', flex: 1, width: 'calc(100% - 244px)', boxSizing: 'border-box' },
-  card: { background: '#ffffff', borderRadius: 16, padding: '22px', boxShadow: '0 8px 22px rgba(30,41,59,0.05)', border: '1px solid #e2e8f0' },
-  statCard: (color) => ({ background: '#ffffff', borderRadius: 16, padding: '18px 20px', boxShadow: '0 8px 22px rgba(30,41,59,0.05)', border: '1px solid #e2e8f0', borderLeft: `3px solid ${color}` }),
-  badge: (color, bg) => ({ display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, color, background: bg }),
-  btn: (variant) => {
-    const map = { primary: ['#48698d','#fff'], danger: ['#a24860','#fff'], ghost: ['#eef3f8','#41556d'], success: ['#5a7a66','#fff'], purple: ['#6b7088','#fff'], gold: ['#8a7245','#fff8df'] }
-    return { padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, background: map[variant][0], color: map[variant][1], transition: 'transform 0.15s, box-shadow 0.15s' }
-  },
-  tag: (color) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: color + '10', color, border: `1px solid ${color}22` }),
-  avatar: (idx, size = 36) => ({ width: size, height: size, borderRadius: '50%', background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size > 30 ? 13 : 10, flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.18)' }),
-}
-
-function DrillDown({ title, students, onClose, onSelectStudent, isVIP }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 600, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 70px rgba(15,23,42,0.22)' }}>
-        <div style={{ background: '#0f172a', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{title} <span style={{ opacity: 0.6, fontSize: 13 }}>({students.length})</span></div>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', fontSize: 14 }}>✕</button>
-        </div>
-        <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
-          {students.length === 0 && <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No students</div>}
-          {students.map((s, i) => {
-            const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
-            const vip = isVIP ? isVIP(s) : false
-            return (
-              <div key={s.id} onClick={() => onSelectStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 8, cursor: 'pointer', background: '#ffffff' }}>
-                <div style={S.avatar(i, 40)}>{initials(s.name)}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {s.name}{vip && <span style={{ background: '#854d0e', color: '#fef9c3', padding: '1px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>⭐ VIP</span>}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
-                    <span style={S.tag(statusColor[s.status])}>{statusEmoji[s.status]} {statusLabel[s.status]}</span>
-                    {withStaffObj && <span style={{ fontSize: 11, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</span>}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 12, textAlign: 'center' }}>
-                  <div><div style={{ fontSize: 16, fontWeight: 700, color: '#9a6a2a' }}>{s.points}</div><div style={{ fontSize: 10, color: '#94a3b8' }}>pts</div></div>
-                  <div><div style={{ fontSize: 16, fontWeight: 700, color: s.reminders >= 4 ? '#9f1239' : '#334155' }}>{s.reminders}</div><div style={{ fontSize: 10, color: '#94a3b8' }}>remind.</div></div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function LoginPage({ onLogin }) {
-  const [role, setRole] = useState('admin')
-  const [emailInput, setEmailInput] = useState('')
-  const [showSuggestion, setShowSuggestion] = useState(false)
-  const accounts = [
-    { role: 'admin', name: 'Rabbi Baum', email: 'rbaum@hadranacademy.org' },
-    { role: 'admin', name: 'Eli Bloom', email: 'ebloom@hadranacademy.org' },
-    { role: 'admin', name: 'Zev Reisman', email: 'zreisman@hadranacademy.org' },
-    { role: 'admin', name: 'Eli Stern', email: 'estern@hadranacademy.org' },
-    { role: 'therapist', name: 'Shelly Wagschal', email: 'swagschal@hadranacademy.org' },
-    { role: 'therapist', name: 'Aryeh Schechter', email: 'aschechter@hadranacademy.org' },
-    { role: 'therapist', name: 'Tzvi Malks', email: 'tmalks@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Ehrnreich', email: 'rehrnreich@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Weiss', email: 'rweiss@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Hillel', email: 'rhillel@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Fried', email: 'rfried@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Blau', email: 'rblau@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Abramowitz', email: 'rabramowitz@hadranacademy.org' },
-    { role: 'store', name: 'Canteen Register', email: 'register@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Klein', email: 'rklein@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Schults', email: 'rschults@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Schimborski', email: 'rschimborski@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Goldstein', email: 'rgoldstein@hadranacademy.org' },
     { role: 'admin', name: 'Rabbi Lefkowitz', email: 'rlefkowitz@hadranacademy.org' },
     { role: 'teacher', name: 'Rabbi Ambush', email: 'rambush@hadranacademy.org' },
@@ -1648,49 +1471,6 @@ interface DashboardProps {
 
 const AUTH_USER_STORAGE_KEY = 'schoolDashboardAuthUser'
 const ATTENDANCE_RESET_STORAGE_KEY = 'schoolDashboardLastAttendanceResetDate'
-const STUDENT_PATCH_FALLBACK_KEY = 'schoolDashboardStudentPatchFallback'
-
-function readStudentFallbackPatches() {
-  if (typeof window === 'undefined') return {}
-  try {
-    const raw = localStorage.getItem(STUDENT_PATCH_FALLBACK_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === 'object' ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
-function writeStudentFallbackPatches(patches) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STUDENT_PATCH_FALLBACK_KEY, JSON.stringify(patches))
-  } catch {
-    // Ignore localStorage errors.
-  }
-}
-
-function mergeStudentFallbackPatch(id, fields) {
-  const patches = readStudentFallbackPatches()
-  patches[String(id)] = {
-    ...(patches[String(id)] || {}),
-    ...fields,
-    _savedAt: new Date().toISOString(),
-  }
-  writeStudentFallbackPatches(patches)
-}
-
-function clearStudentFallbackPatch(id) {
-  const patches = readStudentFallbackPatches()
-  if (!(String(id) in patches)) return
-  delete patches[String(id)]
-  writeStudentFallbackPatches(patches)
-}
-
-function getStudentFallbackPatchCount() {
-  return Object.keys(readStudentFallbackPatches()).length
-}
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
