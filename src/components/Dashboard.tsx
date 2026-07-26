@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import playSound from '../utils/playSound'
 import AttendancePage from './AttendancePage'
@@ -66,7 +66,11 @@ import {
   loadStaffAccounts,
   saveStaffAccount,
 } from '../services/setupCenterService'
-import { loadStaffMembers, getStaffByName } from '../services/staffService'
+import {
+  loadStaffMembers,
+  getStaffByName,
+  staffMatchesAnyRole,
+} from '../services/staffService'
 import { recordLoginSession, recordLogoutSession } from '../services/loginSessionService'
 import StaffLoginPanel from './StaffLoginPanel'
 import StaffManagementModal from './StaffManagementModal'
@@ -684,6 +688,21 @@ const STAFF = [
   { id: 's25', name: 'Rabbi Altshull', role: 'Teacher' },
 ]
 
+function matchesStaffRole(role, matcher) {
+  return matcher(String(role || '').toLowerCase())
+}
+
+function getStaffNameOptions(staffList, roleMatcher) {
+  return Array.from(new Set(
+    (staffList || [])
+      .filter(staff => matchesStaffRole(staff.role, roleMatcher))
+      .map(staff => staff.name)
+  )).sort()
+}
+
+const TEACHING_STAFF_OPTIONS = getStaffNameOptions(STAFF, role => /teacher|rebbe/i.test(role))
+const TOUR_STAFF_OPTIONS = getStaffNameOptions(STAFF, role => /admin|menahel|teacher|rebbe/i.test(role))
+
 const THERAPIST_OPTIONS = [
   { name: 'Shelly Wagschal', email: 'swagschal@hadranacademy.org', specialty: 'Therapist' },
   { name: 'Aryeh Schechter', email: 'aschechter@hadranacademy.org', specialty: 'Therapist' },
@@ -732,8 +751,6 @@ const SETUP_PEOPLE = [
     service: person.service
   }))
 ]
-
-const TOUR_STAFF_OPTIONS = ['Rabbi Baum', 'Rabbi Fried']
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 
@@ -2855,6 +2872,20 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [students, setStudents] = useState(() => initialStudents.slice())
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState(null)
+  const [staffMembers, setStaffMembers] = useState([])
+  const [staffLoadError, setStaffLoadError] = useState(null)
+
+  const refreshStaffMembers = useCallback(async () => {
+    try {
+      setStaffLoadError(null)
+      const members = await loadStaffMembers()
+      setStaffMembers(Array.isArray(members) ? members : [])
+    } catch (error) {
+      console.error('Unable to load staff members:', error)
+      setStaffLoadError('Unable to load staff members.')
+      setStaffMembers([])
+    }
+  }, [])
 
   // Auto-login with teacher portal user info
   useEffect(() => {
@@ -2862,6 +2893,127 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       handleLogin(teacherUser.role, teacherUser.name)
     }
   }, [teacherUser])
+
+  useEffect(() => {
+    refreshStaffMembers()
+  }, [refreshStaffMembers])
+
+  const STAFF = useMemo(
+    () =>
+      (staffMembers || [])
+        .filter(member => member.active)
+        .map(member => ({
+          id: String(member.id),
+          name: member.name,
+          role: member.role,
+          roles: member.roles || [],
+          email: member.email || '',
+          phone: member.phone || '',
+          active: member.active,
+        })),
+    [staffMembers],
+  )
+
+  const TEACHING_STAFF_OPTIONS = useMemo(
+    () => getStaffNameOptions(STAFF, role => /teacher|rebbe/i.test(role)),
+    [STAFF],
+  )
+
+  const TOUR_STAFF_OPTIONS = useMemo(
+    () => getStaffNameOptions(STAFF, role => /admin|menahel|teacher|rebbe/i.test(role)),
+    [STAFF],
+  )
+
+  const THERAPIST_OPTIONS = useMemo(() => {
+    const specialtyForMember = member => {
+      const roleText = [member.role, ...(member.roles || [])].join(' ').toLowerCase()
+      if (roleText.includes('speech')) return 'Speech'
+      if (roleText.includes('ot')) return 'OT'
+      if (roleText.includes('pt')) return 'PT'
+      if (roleText.includes('bcba')) return 'BCBA'
+      if (roleText.includes('social-counseling') || roleText.includes('social counseling')) return 'Social Counseling'
+      if (roleText.includes('bt')) return 'BT'
+      return 'Therapist'
+    }
+
+    return STAFF
+      .filter(member =>
+        staffMatchesAnyRole(member, /therapist|speech|ot|pt|bcba|social-counseling|bt/i),
+      )
+      .map(member => ({
+        name: member.name,
+        email: member.email || '',
+        specialty: specialtyForMember(member),
+      }))
+  }, [STAFF])
+
+  const SUPPORT_STAFF_OPTIONS = useMemo(() => {
+    const entries = []
+    const seen = new Set()
+
+    const roleMap = [
+      { matcher: /bt/i, staffType: 'BT', service: 'BT Support' },
+      { matcher: /social-counseling|social counseling|counsel/i, staffType: 'Social Counseling', service: 'Social Counseling' },
+      { matcher: /speech/i, staffType: 'Speech', service: 'Speech' },
+      { matcher: /\bot\b/i, staffType: 'OT', service: 'OT' },
+      { matcher: /\bpt\b/i, staffType: 'PT', service: 'PT' },
+      { matcher: /bcba/i, staffType: 'BCBA', service: 'BCBA Observation' },
+      { matcher: /therapist/i, staffType: 'Therapist', service: 'Therapy' },
+      { matcher: /teacher|rebbe|admin|menahel|sgan|mashgiach/i, staffType: 'General Staff', service: 'Therapy' },
+    ]
+
+    STAFF.forEach(member => {
+      const roleText = [member.role, ...(member.roles || [])].join(' ').toLowerCase()
+
+      roleMap.forEach(config => {
+        if (!config.matcher.test(roleText)) return
+
+        const key = `${member.name}|${config.staffType}|${config.service}`
+        if (seen.has(key)) return
+        seen.add(key)
+
+        entries.push({
+          name: member.name,
+          staffType: config.staffType,
+          service: config.service,
+        })
+      })
+    })
+
+    return entries
+  }, [STAFF])
+
+  const SETUP_PEOPLE = useMemo(
+    () => {
+      const byName = new Map()
+
+      STAFF.forEach(person => {
+        if (staffMatchesAnyRole(person, /teacher|rebbe|menahel|sgan|mashgiach/i)) {
+          byName.set(person.name, {
+            id: person.id,
+            name: person.name,
+            type: 'teacher',
+            specialty: person.role,
+          })
+        }
+      })
+
+      SUPPORT_STAFF_OPTIONS.forEach((person, index) => {
+        if (byName.has(person.name)) return
+
+        byName.set(person.name, {
+          id: `support-${index + 1}`,
+          name: person.name,
+          type: 'support',
+          specialty: person.staffType,
+          service: person.service,
+        })
+      })
+
+      return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name))
+    },
+    [STAFF, SUPPORT_STAFF_OPTIONS],
+  )
 
   useEffect(() => {
     async function loadStudents() {
@@ -4015,9 +4167,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }
 
   async function handleAddStaffLogin(staff) {
-    // Auto-login the staff member as their role
-    const roleMap = { admin: 'admin', teacher: 'teacher', therapist: 'therapist', staff: 'admin' }
-    const role = roleMap[staff.role] || 'admin'
+    const roleText = [staff.role, ...(staff.roles || [])].join(' ').toLowerCase()
+    const role = /teacher|rebbe/.test(roleText)
+      ? 'teacher'
+      : /therap|speech|ot|pt|bcba|counsel|bt/.test(roleText)
+        ? 'therapist'
+        : 'admin'
     
     setLoggedInStaff(prev => {
       if (prev.some(existing => existing.id === staff.id)) {
@@ -4028,7 +4183,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     if (!activeSessionIds[staff.id]) {
       try {
-        const session = await recordLoginSession(staff.id, staff.name, staff.role)
+        const session = await recordLoginSession(staff.id, staff.name, role)
         if (session) {
           setActiveSessionIds(prev => ({
             ...prev,
@@ -5617,10 +5772,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         {page === 'staff-directory' && (
           <StaffDirectoryPage
             S={S}
-            staff={STAFF}
-            therapistOptions={THERAPIST_OPTIONS}
-            supportStaffOptions={SUPPORT_STAFF_OPTIONS}
+            staffMembers={staffMembers}
             initials={initials}
+            onStaffChanged={refreshStaffMembers}
           />
         )}
 
@@ -5682,6 +5836,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             role={role}
             userName={userName}
             teacherClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null}
+            teacherAssignedStudentIds={assignedTeacherStudentIds}
+            teacherAssignedClassIds={assignedTeacherClassIds}
+            academicTeacherOptions={Array.from(new Set([
+              ...Object.keys(ACADEMIC_AREAS),
+              ...TEACHING_STAFF_OPTIONS
+            ])).sort()}
             openStudent={openStudent}
             S={S}
             CLASSES={CLASSES}
@@ -6864,6 +7024,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             ACADEMIC_AREAS={ACADEMIC_AREAS}
             SKILL_RATINGS={SKILL_RATINGS}
             RATING_SCORE={RATING_SCORE}
+            academicTeacherOptions={Array.from(new Set([
+              ...Object.keys(ACADEMIC_AREAS),
+              ...TEACHING_STAFF_OPTIONS
+            ])).sort()}
             academicPct={academicPct}
             academicDisplay={academicDisplay}
             academicStatus={academicStatus}

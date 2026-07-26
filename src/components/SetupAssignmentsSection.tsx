@@ -20,6 +20,45 @@ export default function SetupAssignmentsSection({
 }) {
   const [pendingAssignmentChange, setPendingAssignmentChange] = useState(null)
 
+  function getCurrentAssignmentOwner(studentId, type) {
+    if (!studentId) return null
+
+    const ownerEntries = Object.entries(setupAssignments || {}).filter(([, assignment]) => {
+      if (!assignment) return false
+
+      if (type === 'period') {
+        return [1, 2, 3].some(period => (assignment.periods?.[period] || []).includes(Number(studentId)))
+      }
+
+      return (assignment.caseload || []).includes(Number(studentId))
+    })
+
+    const [ownerName] = ownerEntries[0] || []
+    return ownerName || null
+  }
+
+  function getAssignmentConfirmationText(change) {
+    if (!change) return ''
+
+    const currentOwner = getCurrentAssignmentOwner(change.studentId, change.type === 'period' ? 'period' : 'caseload')
+    const isReassigning = change.action === 'add' && currentOwner && currentOwner !== currentPerson?.name
+    const targetLabel = currentPerson?.name || 'this staff member'
+
+    if (isReassigning) {
+      if (change.type === 'period') {
+        return `${change.studentName} is currently assigned to ${currentOwner}. This will move them from ${currentOwner} to ${targetLabel} for Morning Period ${change.period}. Continue?`
+      }
+
+      return `${change.studentName} is currently assigned to ${currentOwner}. This will move them from ${currentOwner} to ${targetLabel}. Continue?`
+    }
+
+    if (change.type === 'period') {
+      return `${change.action === 'add' ? 'Add' : 'Remove'} ${change.studentName} ${change.action === 'add' ? 'to' : 'from'} Morning Period ${change.period}?`
+    }
+
+    return `${change.action === 'add' ? 'Add' : 'Remove'} ${change.studentName} ${change.action === 'add' ? 'to' : 'from'} this caseload?`
+  }
+
   async function confirmAssignmentChange() {
     if (!pendingAssignmentChange) return
 
@@ -46,10 +85,8 @@ export default function SetupAssignmentsSection({
                             </div>
                             <div style={{ padding: 18 }}>
                               <div style={{ fontSize: 14, color: '#334155', marginBottom: 16 }}>
-                                {pendingAssignmentChange.action === 'add' ? 'Add' : 'Remove'} <b>{pendingAssignmentChange.studentName}</b>{' '}
-                                {pendingAssignmentChange.type === 'period'
-                                  ? `in Morning Period ${pendingAssignmentChange.period}`
-                                  : 'from this caseload'}?
+                                <b>{pendingAssignmentChange.studentName}</b>{' '}
+                                {getAssignmentConfirmationText(pendingAssignmentChange)}
                               </div>
                               <div style={{ display: 'flex', gap: 8 }}>
                                 <button onClick={() => setPendingAssignmentChange(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>

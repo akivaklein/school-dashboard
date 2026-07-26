@@ -11,14 +11,17 @@ export function StudentScoresTab({
   ACADEMIC_AREAS,
   SKILL_RATINGS,
   RATING_SCORE,
+  academicTeacherOptions = [],
   academicPct,
   academicDisplay,
   academicStatus,
   academicStatusColor,
   persistStudentFields,
 }) {
+  const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS || {})].filter(Boolean)))
+  const initialTeacher = userName && teacherOptions.includes(userName) ? userName : teacherOptions[0] || DEFAULT_ACADEMIC_TEACHER
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ teacher: userName?.startsWith('Rabbi') ? userName : DEFAULT_ACADEMIC_TEACHER, subject: 'Math', skill: '2-digit', assessmentName: '', date: new Date().toISOString().slice(0,10), scoreType: 'points', score: '', maxScore: '100', rating: 'Good', notes: '' })
+  const [form, setForm] = useState({ teacher: initialTeacher, subject: 'Math', skill: '2-digit', assessmentName: '', date: new Date().toISOString().slice(0,10), scoreType: 'points', score: '', maxScore: '100', rating: 'Good', notes: '' })
   const s = students.find(x => x.id === student.id) || student
   const scores = s.testScores || []
   const numeric = scores.filter(x => x.scoreType !== 'rating' && x.maxScore)
@@ -122,7 +125,7 @@ export function StudentScoresTab({
           <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, boxShadow: '0 24px 80px rgba(15,23,42,0.28)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #eef0f7', display: 'flex', justifyContent: 'space-between' }}><div style={{ fontWeight: 700, color: '#263241' }}>Add Score — {s.name}</div><button onClick={() => setShowAdd(false)} style={{ border:'none', background:'#f4f5f8', borderRadius:'50%', width:30, height:30, cursor:'pointer' }}>×</button></div>
             <div style={{ padding: 18, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <select value={form.teacher} onChange={e=>updateForm('teacher', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}><option>Rabbi Abowitz</option><option>Rabbi Abramowitz</option></select>
+              <select value={form.teacher} onChange={e=>updateForm('teacher', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{teacherOptions.map(option => <option key={option} value={option}>{option}</option>)}</select>
               <input type="date" value={form.date} onChange={e=>updateForm('date', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
               <select value={form.subject} onChange={e=>updateForm('subject', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{subjectOptions.map(x=><option key={x}>{x}</option>)}</select>
               <select value={form.skill} onChange={e=>updateForm('skill', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{skillOptions.map(x=><option key={x}>{x}</option>)}</select>
@@ -145,6 +148,9 @@ export default function AcademicsPage({
   role,
   userName,
   teacherClass,
+  teacherAssignedStudentIds = [],
+  teacherAssignedClassIds = [],
+  academicTeacherOptions = [],
   openStudent,
   S,
   CLASSES,
@@ -157,6 +163,10 @@ export default function AcademicsPage({
   academicStatusColor,
   persistStudentFields,
 }) {
+  const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS)]))
+  const initialTeacher = role === 'teacher' && userName && teacherOptions.includes(userName)
+    ? userName
+    : teacherOptions[0] || (academicTeacherOptions?.[0] || 'Rabbi Abowitz')
   const [classFilter, setClassFilter] = useState(role === 'teacher' && teacherClass ? teacherClass : 'all')
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [skillFilter, setSkillFilter] = useState('all')
@@ -167,7 +177,7 @@ export default function AcademicsPage({
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkStudentStates, setBulkStudentStates] = useState({})
   const [bulkForm, setBulkForm] = useState({
-    teacher: userName?.startsWith('Rabbi') ? userName : 'Rabbi Abowitz',
+    teacher: initialTeacher,
     subject: 'Math',
     skill: '2-digit',
     assessmentName: '',
@@ -178,9 +188,21 @@ export default function AcademicsPage({
     notes: '',
     fillAllScore: '',
   })
-  const visibleStudents = students.filter(s => classFilter === 'all' || STUDENT_CLASSES[s.id] === classFilter)
-  const bulkSubjectOptions = Object.keys(ACADEMIC_AREAS[bulkForm.teacher] || ACADEMIC_AREAS['Rabbi Abowitz'] || { Math: ['2-digit'] })
-  const bulkSkillOptions = (ACADEMIC_AREAS[bulkForm.teacher]?.[bulkForm.subject] || ACADEMIC_AREAS['Rabbi Abowitz']?.[bulkForm.subject] || ['General'])
+  const scopedStudents = (role === 'teacher' || role === 'rebbe')
+    ? (
+        teacherAssignedStudentIds?.length
+          ? students.filter(s => teacherAssignedStudentIds.includes(Number(s.id)))
+          : []
+      )
+    : students
+  const visibleStudents = scopedStudents.filter(s => classFilter === 'all' || STUDENT_CLASSES[s.id] === classFilter)
+
+  function getTeacherAcademicAreaMap(teacherName) {
+    return ACADEMIC_AREAS[teacherName] || ACADEMIC_AREAS[teacherOptions[0]] || ACADEMIC_AREAS[academicTeacherOptions?.[0]] || ACADEMIC_AREAS['Rabbi Abowitz'] || {}
+  }
+
+  const bulkSubjectOptions = Object.keys(getTeacherAcademicAreaMap(bulkForm.teacher))
+  const bulkSkillOptions = (getTeacherAcademicAreaMap(bulkForm.teacher)[bulkForm.subject] || ['General'])
 
   function scoreStatusValue(score) {
     if (score.attemptStatus === 'absent' || score.attemptStatus === 'missed') {
@@ -199,18 +221,23 @@ export default function AcademicsPage({
     setBulkForm(prev => {
       const next = { ...prev, [key]: value }
       if (key === 'teacher') {
-        const firstSubject = Object.keys(ACADEMIC_AREAS[value] || ACADEMIC_AREAS['Rabbi Abowitz'] || { Math: ['2-digit'] })[0]
+        const teacherAreas = getTeacherAcademicAreaMap(value)
+        const firstSubject = Object.keys(teacherAreas)[0]
         next.subject = firstSubject
-        next.skill = (ACADEMIC_AREAS[value] || ACADEMIC_AREAS['Rabbi Abowitz'])[firstSubject][0]
+        next.skill = (teacherAreas[firstSubject] || ['General'])[0]
       }
       if (key === 'subject') {
-        next.skill = (ACADEMIC_AREAS[next.teacher]?.[value] || ACADEMIC_AREAS['Rabbi Abowitz']?.[value] || ['General'])[0]
+        next.skill = (getTeacherAcademicAreaMap(next.teacher)[value] || ['General'])[0]
       }
       return next
     })
   }
 
   function openBulkEntry() {
+    if (visibleStudents.length === 0) {
+      alert('No students are currently assigned to you for bulk grading.')
+      return
+    }
     const initialStates = {}
     visibleStudents.forEach(student => {
       initialStates[student.id] = { mode: 'score', score: '' }
@@ -369,16 +396,17 @@ export default function AcademicsPage({
   allScores.filter(x=>x.scoreType==='rating').forEach(x => { ratingCounts[x.rating] = (ratingCounts[x.rating] || 0) + 1 })
   const subjects = ['all','Math','Reading','Writing']
   const skills = ['all', ...new Set(Object.values(ACADEMIC_AREAS).flatMap(area => Object.values(area).flat()))]
+  const teacherFilterOptions = role === 'admin' ? ['all', ...teacherOptions] : []
 
   return (
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap: 12, marginBottom:18 }}>
         <div><h1 style={{ fontSize:22, fontWeight:900, color:'#1e293b', margin:'0 0 6px' }}>Academics</h1><div style={{ fontSize:13, color:'#64748b' }}>Class view for test scores and skill ratings</div></div>
-        <button onClick={openBulkEntry} style={{ ...S.btn('primary'), whiteSpace: 'nowrap' }}>Bulk Grade Entry</button>
+        <button onClick={openBulkEntry} disabled={visibleStudents.length === 0} style={{ ...S.btn(visibleStudents.length ? 'primary' : 'ghost'), whiteSpace: 'nowrap' }}>Bulk Grade Entry</button>
       </div>
 
       <div style={{ ...S.card, marginBottom:16, display:'grid', gridTemplateColumns: role === 'admin' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap:10 }}>
-        {role === 'admin' && <select value={teacherFilter} onChange={e=>setTeacherFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="all">All teachers</option><option>Rabbi Abowitz</option><option>Rabbi Abramowitz</option></select>}
+        {role === 'admin' && <select value={teacherFilter} onChange={e=>setTeacherFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{teacherFilterOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All teachers' : option}</option>)}</select>}
         <select value={classFilter} onChange={e=>setClassFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="all">All classes</option>{CLASSES.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <select value={subjectFilter} onChange={e=>{setSubjectFilter(e.target.value); setSkillFilter('all')}} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{subjects.map(x=><option key={x} value={x}>{x === 'all' ? 'All subjects' : x}</option>)}</select>
         <select value={skillFilter} onChange={e=>setSkillFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{skills.filter(x=> subjectFilter==='all' || x==='all' || Object.values(ACADEMIC_AREAS).some(area => (area[subjectFilter] || []).includes(x))).map(x=><option key={x} value={x}>{x === 'all' ? 'All skills' : x}</option>)}</select>
@@ -476,14 +504,14 @@ export default function AcademicsPage({
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 18, color: '#1e293b' }}>Bulk Grade Entry</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{visibleStudents.length} students in current class filter</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{visibleStudents.length} students in current scope</div>
               </div>
               <button onClick={() => setShowBulkEntry(false)} style={{ border:'none', background:'#f4f5f8', borderRadius:'50%', width:30, height:30, cursor:'pointer' }}>×</button>
             </div>
 
             <div style={{ padding: 16, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
               <select value={bulkForm.teacher} onChange={e => updateBulkForm('teacher', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
-                {Object.keys(ACADEMIC_AREAS).map(name => <option key={name}>{name}</option>)}
+                {teacherOptions.map(name => <option key={name}>{name}</option>)}
               </select>
               <select value={bulkForm.subject} onChange={e => updateBulkForm('subject', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
                 {bulkSubjectOptions.map(option => <option key={option}>{option}</option>)}

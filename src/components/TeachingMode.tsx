@@ -154,7 +154,9 @@ export default function TeachingMode({
     })
   }
 
-  const filteredStaff = leaveStaffSearch.length > 0 ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase())) : STAFF
+  const filteredStaff = leaveStaffSearch.length > 0
+    ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase()) || (st.role || '').toLowerCase().includes(leaveStaffSearch.toLowerCase()))
+    : STAFF
 
   const classStudents = selectedClass
     ? students.filter(s => STUDENT_CLASSES[s.id] === selectedClass)
@@ -457,10 +459,10 @@ export default function TeachingMode({
               <input value={lateClassStaffSearch} onChange={e => { setLateClassStaffSearch(e.target.value); setLateClassStaffId('') }} placeholder="Start typing name (Rabbi Ehrnreich, Rabbi Baum...)" style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', marginBottom: 6 }} />
               {lateClassStaffSearch.length > 0 && (
                 <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
-                  {[...STAFF, { id: 's1', name: 'Rabbi Baum', role: 'Menahel' }, { id: 's2', name: 'Rabbi Ehrnreich', role: 'Sgan Menahel' }]
+                  {[...STAFF]
                     .filter((st, i, arr) => arr.findIndex(x => x.id === st.id) === i)
-                    .filter(st => st.name.toLowerCase().includes(lateClassStaffSearch.toLowerCase()))
-                    .slice(0, 6)
+                    .filter(st => st.name.toLowerCase().includes(lateClassStaffSearch.toLowerCase()) || (st.role || '').toLowerCase().includes(lateClassStaffSearch.toLowerCase()))
+                    .slice(0, 8)
                     .map(st => (
                       <div key={st.id} onClick={() => { setLateClassStaffId(st.id); setLateClassStaffSearch(st.name) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, background: lateClassStaffId === st.id ? '#f8fafc' : '#fff', borderBottom: '1px solid #f8fafc', display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ fontWeight: 600 }}>{st.name}</span>

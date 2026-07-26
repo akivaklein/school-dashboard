@@ -99,7 +99,7 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
 
   const supportStaff = useMemo(
     () => staff.filter(member =>
-      ['BT', 'Speech Therapist', 'OT', 'Counselor', 'Speech'].includes(member.role),
+      /teacher|rebbe|admin|menahel|sgan|mashgiach|bt|speech|ot|counselor/i.test(member.role || ''),
     ),
     [staff],
   )

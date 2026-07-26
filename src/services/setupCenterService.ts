@@ -379,3 +379,74 @@ export async function saveStaffAccount(staffName: string, accountData: any) {
   }
   return true
 }
+
+  export async function renameSetupStaffReferences(oldName: string, newName: string) {
+    if (!oldName || !newName || oldName === newName) return true
+
+    try {
+      const { data: assignmentRow, error: assignmentLoadError } = await supabase
+        .from('setup_assignments')
+        .select('assignments_data')
+        .eq('staff_name', oldName)
+        .maybeSingle()
+
+      if (assignmentLoadError) {
+        console.error('Error loading setup assignment to rename:', assignmentLoadError)
+        return false
+      }
+
+      if (assignmentRow) {
+        const assignmentSaved = await saveSetupAssignment(newName, assignmentRow.assignments_data || {
+          periods: { 1: [], 2: [], 3: [] },
+          caseload: [],
+        })
+
+        if (!assignmentSaved) return false
+
+        const { error: assignmentDeleteError } = await supabase
+          .from('setup_assignments')
+          .delete()
+          .eq('staff_name', oldName)
+
+        if (assignmentDeleteError) {
+          console.error('Error deleting old setup assignment row:', assignmentDeleteError)
+          return false
+        }
+      }
+
+      const { data: accountRow, error: accountLoadError } = await supabase
+        .from('staff_accounts')
+        .select('account_data')
+        .eq('staff_name', oldName)
+        .maybeSingle()
+
+      if (accountLoadError) {
+        console.error('Error loading staff account to rename:', accountLoadError)
+        return false
+      }
+
+      if (accountRow) {
+        const accountSaved = await saveStaffAccount(newName, accountRow.account_data || {
+          active: true,
+          divisions: 'both',
+        })
+
+        if (!accountSaved) return false
+
+        const { error: accountDeleteError } = await supabase
+          .from('staff_accounts')
+          .delete()
+          .eq('staff_name', oldName)
+
+        if (accountDeleteError) {
+          console.error('Error deleting old staff account row:', accountDeleteError)
+          return false
+        }
+      }
+
+      return true
+    } catch (error) {
+      console.error('Error renaming setup staff references:', error)
+      return false
+    }
+  }

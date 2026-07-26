@@ -5,6 +5,9 @@ interface StaffMember {
   id: number
   name: string
   role: string
+  roles?: string[]
+  email?: string
+  phone?: string
   active: boolean
   created_at?: string
 }
@@ -31,7 +34,7 @@ export default function StaffManagementModal({ onClose }: StaffManagementModalPr
   }
 
   async function handleUpdateRole(id: number, newRole: string) {
-    await updateStaffMember(id, { role: newRole })
+    await updateStaffMember(id, { roles: [newRole] })
     setEditingId(null)
     await loadStaff()
   }
@@ -223,7 +226,7 @@ export default function StaffManagementModal({ onClose }: StaffManagementModalPr
                         <button
                           onClick={() => {
                             setEditingId(s.id)
-                            setEditingRole(s.role)
+                            setEditingRole(s.roles?.[0] || 'staff')
                           }}
                           style={{
                             padding: '2px 6px',

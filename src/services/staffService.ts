@@ -1,10 +1,145 @@
 import { supabase } from '../supabaseClient'
 
+export const STAFF_ROLE_OPTIONS = [
+  'admin',
+  'teacher',
+  'rebbe',
+  'menahel',
+  'mashgiach',
+  'therapist',
+  'speech',
+  'ot',
+  'pt',
+  'bcba',
+  'social-counseling',
+  'bt',
+  'support',
+  'office',
+  'store',
+  'staff',
+] as const
+
+export type StaffRole = typeof STAFF_ROLE_OPTIONS[number]
+
+export interface StaffMemberRecord {
+  id: number
+  name: string
+  role: string
+  roles: string[]
+  email: string
+  phone: string
+  active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+interface AddStaffInput {
+  name: string
+  roles?: string[]
+  email?: string
+  phone?: string
+  active?: boolean
+}
+
+interface UpdateStaffInput {
+  name?: string
+  role?: string
+  roles?: string[]
+  email?: string
+  phone?: string
+  active?: boolean
+}
+
+function normalizeRole(role: string): string {
+  const value = String(role || '').trim().toLowerCase()
+  if (!value) return ''
+
+  if (value === 'social counseling' || value === 'social-counseling') {
+    return 'social-counseling'
+  }
+
+  if (value === 'yeshiva ketana rebbe' || value === 'rebbe') {
+    return 'rebbe'
+  }
+
+  if (value === 'admin / office') {
+    return 'admin'
+  }
+
+  return value.replace(/\s+/g, '-')
+}
+
+function humanizeRole(role: string): string {
+  const normalized = normalizeRole(role)
+
+  if (!normalized) return 'Staff'
+  if (normalized === 'bt') return 'BT'
+  if (normalized === 'bcba') return 'BCBA'
+  if (normalized === 'ot') return 'OT'
+  if (normalized === 'pt') return 'PT'
+  if (normalized === 'social-counseling') return 'Social Counseling'
+
+  return normalized
+    .split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+export function normalizeStaffRoles(input: unknown): string[] {
+  const values = Array.isArray(input)
+    ? input
+    : typeof input === 'string'
+      ? input.split(/[,/|]/)
+      : []
+
+  const unique = new Set<string>()
+
+  values
+    .map(value => normalizeRole(String(value || '')))
+    .filter(Boolean)
+    .forEach(value => unique.add(value))
+
+  if (unique.size === 0) {
+    unique.add('staff')
+  }
+
+  return Array.from(unique)
+}
+
+export function formatStaffRoleLabel(roles: string[] | undefined, fallbackRole?: string): string {
+  const normalized = normalizeStaffRoles(roles && roles.length > 0 ? roles : fallbackRole || 'staff')
+  return normalized.map(humanizeRole).join(' + ')
+}
+
+export function staffMatchesAnyRole(member: Pick<StaffMemberRecord, 'role' | 'roles'>, rolePattern: RegExp): boolean {
+  const roleText = [member.role, ...(member.roles || [])]
+    .join(' ')
+    .toLowerCase()
+
+  return rolePattern.test(roleText)
+}
+
+function mapStaffRecord(row: any): StaffMemberRecord {
+  const roles = normalizeStaffRoles(row.roles || row.role)
+
+  return {
+    id: Number(row.id),
+    name: row.name || '',
+    role: formatStaffRoleLabel(roles, row.role),
+    roles,
+    email: row.email || '',
+    phone: row.phone || '',
+    active: Boolean(row.active),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
 export async function loadStaffMembers() {
   try {
     const { data, error } = await supabase
       .from('staff')
-      .select('id, name, role, active')
+      .select('id, name, role, roles, email, phone, active, created_at, updated_at')
       .order('name')
 
     if (error) {
@@ -12,7 +147,7 @@ export async function loadStaffMembers() {
       return []
     }
 
-    return data || []
+    return (data || []).map(mapStaffRecord)
   } catch (error) {
     console.error('Error loading staff members:', error)
     return []
@@ -23,7 +158,7 @@ export async function getStaffById(id) {
   try {
     const { data, error } = await supabase
       .from('staff')
-      .select('id, name, role, active')
+      .select('id, name, role, roles, email, phone, active, created_at, updated_at')
       .eq('id', id)
       .single()
 
@@ -32,7 +167,7 @@ export async function getStaffById(id) {
       return null
     }
 
-    return data
+    return mapStaffRecord(data)
   } catch (error) {
     console.error('Error getting staff member:', error)
     return null
@@ -43,7 +178,7 @@ export async function getStaffByName(name) {
   try {
     const { data, error } = await supabase
       .from('staff')
-      .select('id, name, role, active')
+      .select('id, name, role, roles, email, phone, active, created_at, updated_at')
       .eq('name', name)
       .single()
 
@@ -52,18 +187,32 @@ export async function getStaffByName(name) {
       return null
     }
 
-    return data
+    return mapStaffRecord(data)
   } catch (error) {
     console.error('Error getting staff member by name:', error)
     return null
   }
 }
 
-export async function addStaffMember(name, role = 'staff') {
+export async function addStaffMember(nameOrInput: string | AddStaffInput, role = 'staff') {
+  const normalizedInput: AddStaffInput =
+    typeof nameOrInput === 'string'
+      ? { name: nameOrInput, roles: [role] }
+      : nameOrInput
+
+  const roles = normalizeStaffRoles(normalizedInput.roles || role)
+
   try {
     const { data, error } = await supabase
       .from('staff')
-      .insert([{ name, role, active: true }])
+      .insert([{
+        name: normalizedInput.name,
+        role: roles[0],
+        roles,
+        email: normalizedInput.email || null,
+        phone: normalizedInput.phone || null,
+        active: normalizedInput.active ?? true,
+      }])
       .select()
 
     if (error) {
@@ -71,7 +220,7 @@ export async function addStaffMember(name, role = 'staff') {
       return null
     }
 
-    return data?.[0] || null
+    return data?.[0] ? mapStaffRecord(data[0]) : null
   } catch (error) {
     console.error('Error adding staff member:', error)
     return null
@@ -79,12 +228,27 @@ export async function addStaffMember(name, role = 'staff') {
 }
 
 export async function updateStaffMember(id, updates) {
+  const normalizedUpdates: UpdateStaffInput = { ...updates }
+
+  if (normalizedUpdates.roles || normalizedUpdates.role) {
+    const roles = normalizeStaffRoles(normalizedUpdates.roles || normalizedUpdates.role)
+    normalizedUpdates.roles = roles
+    normalizedUpdates.role = roles[0]
+  }
+
+  if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'email')) {
+    normalizedUpdates.email = normalizedUpdates.email || ''
+  }
+
+  if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'phone')) {
+    normalizedUpdates.phone = normalizedUpdates.phone || ''
+  }
+
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('staff')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update({ ...normalizedUpdates, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select()
 
     if (error) {
       console.error('Failed to update staff member:', error)
