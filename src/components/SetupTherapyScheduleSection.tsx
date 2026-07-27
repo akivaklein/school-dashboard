@@ -14,6 +14,7 @@ export default function SetupTherapyScheduleSection({
   CLASSES,
   STUDENT_CLASSES,
   CLASS_DIVISION,
+  DIVISIONS,
   SUPPORT_STAFF_OPTIONS,
   S,
 }) {

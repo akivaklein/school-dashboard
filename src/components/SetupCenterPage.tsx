@@ -62,6 +62,7 @@ export default function SetupCenterPage({
   CLASSES,
   STUDENT_CLASSES,
   CLASS_DIVISION,
+  DIVISIONS,
   SUPPORT_STAFF_OPTIONS,
   setupNavItems,
   students,
@@ -228,6 +229,7 @@ export default function SetupCenterPage({
               CLASSES={CLASSES}
               STUDENT_CLASSES={STUDENT_CLASSES}
               CLASS_DIVISION={CLASS_DIVISION}
+              DIVISIONS={DIVISIONS}
               SUPPORT_STAFF_OPTIONS={SUPPORT_STAFF_OPTIONS}
               S={S}
             />
@@ -294,6 +296,7 @@ export default function SetupCenterPage({
               setupAccounts={setupAccounts}
               setSetupAccounts={setSetupAccounts}
               S={S}
+              DIVISIONS={DIVISIONS}
             />
           )}
         </div>

@@ -3,6 +3,7 @@ export default function SetupAccountsSection({
   setupAccounts,
   setSetupAccounts,
   S,
+  DIVISIONS,
 }) {
   return (
                     <div style={S.card}>
