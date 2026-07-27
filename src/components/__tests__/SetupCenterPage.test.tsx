@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import SetupCenterPage from '../SetupCenterPage'
+import Dashboard from '../Dashboard'
 
 const baseProps = {
   S: {
@@ -79,5 +80,11 @@ describe('SetupCenterPage', () => {
     const markup = renderToStaticMarkup(<SetupCenterPage {...baseProps} />)
 
     expect(markup).toContain('data-layout="setup-shell"')
+  })
+
+  it('renders the dashboard login view without crashing', () => {
+    const markup = renderToStaticMarkup(<Dashboard />)
+
+    expect(markup).toContain('Teacher Login')
   })
 })

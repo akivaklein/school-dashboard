@@ -1520,6 +1520,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [showStaffPanel, setShowStaffPanel] = useState(true)
   const [showLoginActivity, setShowLoginActivity] = useState(false)
   const [page, setPage] = useState('dashboard')
+  const [pageTransition, setPageTransition] = useState<'idle' | 'enter'>('idle')
   const [students, setStudents] = useState<StudentLike[]>(() => initialStudents.slice() as StudentLike[])
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState<string | null>(null)
@@ -1541,6 +1542,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStaffMembers(FALLBACK_STAFF_MEMBERS)
     }
   }, [])
+
+  useEffect(() => {
+    setPageTransition('enter')
+    const timer = window.setTimeout(() => setPageTransition('idle'), 220)
+    return () => window.clearTimeout(timer)
+  }, [page])
 
   // Auto-login with teacher portal user info
   useEffect(() => {
@@ -3943,12 +3950,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const navItems = role === 'admin' ? adminNav : (role === 'teacher' || role === 'rebbe') ? teacherNav : role === 'store' ? storeNav : therapistNav
   const showSetupSidebarOnly = page === 'setup' && role === 'admin'
-  const [pageTransition, setPageTransition] = useState<'idle' | 'enter'>('idle')
-  useEffect(() => {
-    setPageTransition('enter')
-    const timer = window.setTimeout(() => setPageTransition('idle'), 220)
-    return () => window.clearTimeout(timer)
-  }, [page])
   const mainStyle = showSetupSidebarOnly ? { ...S.main, marginLeft: 0, width: '100%', padding: '32px 44px 50px 28px' } : S.main
   const setupNavItems = [
     { id: 'staff-directory', label: 'Staff Directory', icon: '👥', group: 'People & Staff' },
