@@ -1,3 +1,78 @@
+type StudentServiceEntry = {
+  staffId?: string | null
+  type?: string
+  hrs?: number
+}
+
+type StudentNoteEntry = {
+  date?: string
+  staff?: string
+  notes?: string
+  duration?: string
+  author?: string
+  text?: string
+}
+
+type StudentFamilyDetails = {
+  fatherName: string
+  fatherPhone: string
+  fatherEmail: string
+  motherName: string
+  motherPhone: string
+  motherEmail: string
+  address: string
+  emergencyContact: string
+  emergencyPhone: string
+}
+
+type StudentMedicalDetails = {
+  allergies: Array<{ name: string; severity: string }>
+  medications: Array<{ name: string; dosage: string; frequency: string }>
+  conditions: string[]
+  doctorName: string
+  doctorPhone: string
+  lastPhysical: string
+  notes: string
+}
+
+type StudentRecord = {
+  id: number
+  name: string
+  points: number
+  reminders: number
+  lastWeekReminders: number
+  att: string[]
+  breakfast: string[]
+  detention: boolean
+  status: string
+  withStaff: string | null
+  services: StudentServiceEntry[]
+  parentCalls: StudentNoteEntry[]
+  notes: StudentNoteEntry[]
+  behaviorLog: unknown[]
+  testScores: Array<{
+    id: string
+    teacher: string
+    subject: string
+    skill: string
+    assessmentName: string
+    date: string
+    scoreType: string
+    score: number | null
+    maxScore: number | null
+    rating: string | null
+    notes: string
+  }>
+  iep: boolean
+  iepDetails: string
+  classLog: Array<{ time: string; type: string; note?: string; staffId?: string | null }>
+  lateDetails: { timeArrived?: string; reason?: string; note?: string } | null
+  family: StudentFamilyDetails
+  medical: StudentMedicalDetails
+  dailyStatus?: string
+  [key: string]: unknown
+}
+
 export const STORE_ITEMS = [
   // Drinks
   { id: 1, name: 'Water Bottle', cost: 8, emoji: '💧', category: 'drinks', vip: false, stock: 48, lowStockAt: 12, imageUrl: '' },
@@ -911,7 +986,21 @@ export const THERAPY_SCHEDULE = [
   { student: 'Barber Chaim', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
 ]
 
-export const mkStudent = (id, name, points, reminders, att, status, withStaff = null, services = [], parentCalls = [], notes = [], iep = false, iepDetails = '', detention = false) => ({
+export const mkStudent = (
+  id: number,
+  name: string,
+  points: number,
+  reminders: number,
+  att: string[],
+  status: string,
+  withStaff: string | null = null,
+  services: StudentServiceEntry[] = [],
+  parentCalls: StudentNoteEntry[] = [],
+  notes: StudentNoteEntry[] = [],
+  iep = false,
+  iepDetails = '',
+  detention = false,
+): StudentRecord => ({
   id, name, points, reminders, lastWeekReminders: reminders + Math.floor(Math.random() * 3),
   att, breakfast: att.map(() => Math.random() > 0.3 ? 'Y' : 'N'),
   detention, status, withStaff, services, parentCalls, notes, behaviorLog: [], testScores: [], iep, iepDetails,
@@ -1024,7 +1113,7 @@ export const LEVITZ_CLASS_LOG = [
   { time: '14:25', type: 'end', note: 'End of English', staffId: null },
 ]
 
-export const initialStudents = [
+export const initialStudents: StudentRecord[] = [
   mkStudent(1, 'Bloom Yair', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Klein',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Klein',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
   mkStudent(2, 'Friedlander Zev', 80, 0, ['P','P','P','P','P','P'], 'late'),
   mkStudent(3, 'Haddad Moshe Chaim', 60, 3, ['P','L','A','P','P','P'], 'therapy', 's8', [{staffId:'s8',type:'Counseling',hrs:3}], [{date:'2025-06-01',staff:'Rabbi Klein',notes:'Left voicemail',duration:'2 min'}]),
@@ -1055,123 +1144,188 @@ export const initialStudents = [
   mkStudent(28, 'Sigman Shmuel', 55, 1, ['P','P','L','P','P','P'], 'present')
 ]
 
-initialStudents.find(s => s.id === 6).classLog = LEVITZ_CLASS_LOG
-
-initialStudents.find(s => s.id === 1).testScores = [
-  { id:'ts1', teacher:'Rabbi Abowitz', subject:'Math', skill:'2-digit', assessmentName:'Addition Quiz', date:'2026-01-07', scoreType:'points', score:18, maxScore:20, rating:null, notes:'Strong with regrouping.' },
-  { id:'ts2', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Decoding', assessmentName:'January Reading Check', date:'2026-01-08', scoreType:'rating', score:null, maxScore:null, rating:'Good', notes:'Reads most words accurately.' },
-  { id:'ts3', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Fluency', assessmentName:'Fluency Observation', date:'2026-01-09', scoreType:'rating', score:null, maxScore:null, rating:'Developing', notes:'Needs smoother pacing.' },
-]
-initialStudents.find(s => s.id === 3).testScores = [
-  { id:'ts4', teacher:'Rabbi Abowitz', subject:'Math', skill:'3-digit', assessmentName:'Subtraction Quiz', date:'2026-01-07', scoreType:'points', score:14, maxScore:20, rating:null, notes:'Needs review with borrowing.' },
-  { id:'ts5', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Comprehension', assessmentName:'Story Questions', date:'2026-01-08', scoreType:'rating', score:null, maxScore:null, rating:'Weak', notes:'Needs support answering in full sentences.' },
-]
-initialStudents.find(s => s.id === 6).testScores = [
-  { id:'ts6', teacher:'Rabbi Abowitz', subject:'Math', skill:'2-digit', assessmentName:'Addition Quiz', date:'2026-01-07', scoreType:'points', score:16, maxScore:20, rating:null, notes:'Good effort.' },
-  { id:'ts7', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Fluency', assessmentName:'Fluency Observation', date:'2026-01-09', scoreType:'rating', score:null, maxScore:null, rating:'Good', notes:'Much more confident.' },
-]
-initialStudents.find(s => s.id === 7).testScores = [
-  { id:'ts8', teacher:'Rabbi Abowitz', subject:'Math', skill:'3-digit', assessmentName:'Subtraction Quiz', date:'2026-01-07', scoreType:'points', score:19, maxScore:20, rating:null, notes:'Excellent accuracy.' },
-  { id:'ts9', teacher:'Rabbi Abowitz', subject:'Writing', skill:'Writing Project', assessmentName:'Personal Narrative', date:'2026-01-10', scoreType:'rating', score:null, maxScore:null, rating:'Great', notes:'Clear ideas and structure.' },
-]
-
-initialStudents.find(s => s.id === 5).dailyStatus = 'absent'
-initialStudents.find(s => s.id === 7).dailyStatus = 'late'
-initialStudents.find(s => s.id === 7).lateDetails = { timeArrived: '10:45', reason: 'parent-called', note: 'Father called, said coming after doctor' }
-initialStudents.find(s => s.id === 11).dailyStatus = 'absent'
-initialStudents.find(s => s.id === 16).dailyStatus = 'absent'
-initialStudents.find(s => s.id === 20).dailyStatus = 'late'
-initialStudents.find(s => s.id === 20).lateDetails = { timeArrived: '11:10', reason: 'transport', note: '' }
-
-initialStudents.find(s => s.id === 6).family = {
-  fatherName: 'Moshe Levitz', fatherPhone: '718-555-0101', fatherEmail: 'mlevitz@email.com',
-  motherName: 'Rivka Levitz', motherPhone: '718-555-0102', motherEmail: 'rlevitz@email.com',
-  address: '1423 54th St, Brooklyn NY 11219',
-  emergencyContact: 'Moshe Levitz (Father)', emergencyPhone: '718-555-0101'
-}
-initialStudents.find(s => s.id === 6).medical = {
-  allergies: [{ name: 'Penicillin', severity: 'severe' }, { name: 'Tree nuts', severity: 'moderate' }],
-  medications: [{ name: 'Ritalin', dosage: '10mg', frequency: 'Daily morning' }],
-  conditions: ['ADHD', 'Sensory Processing Disorder'],
-  doctorName: 'Dr. Shmuel Katz', doctorPhone: '718-555-9876', lastPhysical: '2025-09-15', notes: 'Needs sensory breaks. Has OT IEP.'
-}
-initialStudents.find(s => s.id === 1).family = {
-  fatherName: 'Yisrael Bloom', fatherPhone: '718-555-0201', fatherEmail: 'ybloom@email.com',
-  motherName: 'Chana Bloom', motherPhone: '718-555-0202', motherEmail: '',
-  address: '1567 48th St, Brooklyn NY 11219',
-  emergencyContact: 'Yisrael Bloom (Father)', emergencyPhone: '718-555-0201'
-}
-initialStudents.find(s => s.id === 1).medical = {
-  allergies: [{ name: 'Shellfish', severity: 'mild' }],
-  medications: [],
-  conditions: ['Speech delay'],
-  doctorName: 'Dr. Rachel Stern', doctorPhone: '718-555-8765', lastPhysical: '2025-08-20', notes: 'Speech therapy twice weekly.'
-}
-initialStudents.find(s => s.id === 3).family = {
-  fatherName: 'Yaakov Haddad', fatherPhone: '718-555-0301', fatherEmail: 'yhaddad@email.com',
-  motherName: 'Leah Haddad', motherPhone: '718-555-0302', motherEmail: 'lhaddad@email.com',
-  address: '892 Ocean Pkwy, Brooklyn NY 11230',
-  emergencyContact: 'Yaakov Haddad (Father)', emergencyPhone: '718-555-0301'
-}
-initialStudents.find(s => s.id === 3).medical = {
-  allergies: [{ name: 'Latex', severity: 'moderate' }, { name: 'Bee stings', severity: 'severe' }],
-  medications: [{ name: 'EpiPen', dosage: '0.3mg', frequency: 'As needed' }, { name: 'Prozac', dosage: '10mg', frequency: 'Daily' }],
-  conditions: ['Anxiety', 'Bee sting allergy - carries EpiPen'],
-  doctorName: 'Dr. Avigdor Weiss', doctorPhone: '718-555-7654', lastPhysical: '2025-10-01', notes: 'EpiPen in office at all times. Counseling weekly.'
+const levitzStudent = initialStudents.find(s => s.id === 6)
+if (levitzStudent) {
+  levitzStudent.classLog = LEVITZ_CLASS_LOG
 }
 
-initialStudents.find(s => s.id === 1).classLog = [
-  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
-  { time: '10:50', type: 'out', note: 'Left with Mrs. Goldberg (Speech)', staffId: 's6' },
-  { time: '11:35', type: 'in', note: 'Returned to class', staffId: null },
-  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
-  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
-  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
-]
-initialStudents.find(s => s.id === 3).classLog = [
-  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
-  { time: '10:25', type: 'out', note: 'Left with Mrs. Friedman (Counseling)', staffId: 's8' },
-  { time: '11:25', type: 'in', note: 'Returned to class', staffId: null },
-  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
-  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
-  { time: '14:00', type: 'out', note: 'Location unknown', staffId: null },
-  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
-]
-initialStudents.find(s => s.id === 8).classLog = [
-  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
-  { time: '11:20', type: 'out', note: 'Left with Mrs. Friedman (Counseling)', staffId: 's8' },
-  { time: '11:50', type: 'in', note: 'Returned to class', staffId: null },
-  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
-  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
-  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
-]
-initialStudents.find(s => s.id === 12).classLog = [
-  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
-  { time: '10:30', type: 'out', note: 'Left with Ezriel (BT)', staffId: 's10' },
-  { time: '10:55', type: 'in', note: 'Returned to class', staffId: null },
-  { time: '11:15', type: 'out', note: 'Left with Dovid (BT)', staffId: 's11' },
-  { time: '11:50', type: 'in', note: 'Returned to class', staffId: null },
-  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
-  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
-  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
-]
-initialStudents.find(s => s.id === 14).classLog = [
-  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
-  { time: '10:15', type: 'out', note: 'Left with Yitzi Liebowitz (Therapy)', staffId: 's9' },
-  { time: '11:00', type: 'in', note: 'Returned to class', staffId: null },
-  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
-  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
-  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
-]
-initialStudents.find(s => s.id === 18).classLog = [
-  { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
-  { time: '10:40', type: 'out', note: 'Left with Dovid (BT)', staffId: 's11' },
-  { time: '11:10', type: 'in', note: 'Returned to class', staffId: null },
-  { time: '11:30', type: 'out', note: 'Location unknown', staffId: null },
-  { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
-  { time: '13:45', type: 'in', note: 'English class started', staffId: null },
-  { time: '14:25', type: 'end', note: 'End of English', staffId: null },
-]
+const bloomStudent = initialStudents.find(s => s.id === 1)
+if (bloomStudent) {
+  bloomStudent.testScores = [
+    { id:'ts1', teacher:'Rabbi Abowitz', subject:'Math', skill:'2-digit', assessmentName:'Addition Quiz', date:'2026-01-07', scoreType:'points', score:18, maxScore:20, rating:null, notes:'Strong with regrouping.' },
+    { id:'ts2', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Decoding', assessmentName:'January Reading Check', date:'2026-01-08', scoreType:'rating', score:null, maxScore:null, rating:'Good', notes:'Reads most words accurately.' },
+    { id:'ts3', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Fluency', assessmentName:'Fluency Observation', date:'2026-01-09', scoreType:'rating', score:null, maxScore:null, rating:'Developing', notes:'Needs smoother pacing.' },
+  ]
+}
+
+const haddadStudent = initialStudents.find(s => s.id === 3)
+if (haddadStudent) {
+  haddadStudent.testScores = [
+    { id:'ts4', teacher:'Rabbi Abowitz', subject:'Math', skill:'3-digit', assessmentName:'Subtraction Quiz', date:'2026-01-07', scoreType:'points', score:14, maxScore:20, rating:null, notes:'Needs review with borrowing.' },
+    { id:'ts5', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Comprehension', assessmentName:'Story Questions', date:'2026-01-08', scoreType:'rating', score:null, maxScore:null, rating:'Weak', notes:'Needs support answering in full sentences.' },
+  ]
+}
+
+if (levitzStudent) {
+  levitzStudent.testScores = [
+    { id:'ts6', teacher:'Rabbi Abowitz', subject:'Math', skill:'2-digit', assessmentName:'Addition Quiz', date:'2026-01-07', scoreType:'points', score:16, maxScore:20, rating:null, notes:'Good effort.' },
+    { id:'ts7', teacher:'Rabbi Abowitz', subject:'Reading', skill:'Fluency', assessmentName:'Fluency Observation', date:'2026-01-09', scoreType:'rating', score:null, maxScore:null, rating:'Good', notes:'Much more confident.' },
+  ]
+}
+
+const rosenfeldStudent = initialStudents.find(s => s.id === 7)
+if (rosenfeldStudent) {
+  rosenfeldStudent.testScores = [
+    { id:'ts8', teacher:'Rabbi Abowitz', subject:'Math', skill:'3-digit', assessmentName:'Subtraction Quiz', date:'2026-01-07', scoreType:'points', score:19, maxScore:20, rating:null, notes:'Excellent accuracy.' },
+    { id:'ts9', teacher:'Rabbi Abowitz', subject:'Writing', skill:'Writing Project', assessmentName:'Personal Narrative', date:'2026-01-10', scoreType:'rating', score:null, maxScore:null, rating:'Great', notes:'Clear ideas and structure.' },
+  ]
+}
+
+const student5 = initialStudents.find(s => s.id === 5)
+if (student5) student5.dailyStatus = 'absent'
+const student7 = initialStudents.find(s => s.id === 7)
+if (student7) {
+  student7.dailyStatus = 'late'
+  student7.lateDetails = { timeArrived: '10:45', reason: 'parent-called', note: 'Father called, said coming after doctor' }
+}
+const student11 = initialStudents.find(s => s.id === 11)
+if (student11) student11.dailyStatus = 'absent'
+const student16 = initialStudents.find(s => s.id === 16)
+if (student16) student16.dailyStatus = 'absent'
+const student20 = initialStudents.find(s => s.id === 20)
+if (student20) {
+  student20.dailyStatus = 'late'
+  student20.lateDetails = { timeArrived: '11:10', reason: 'transport', note: '' }
+}
+
+const levitzFamilyStudent = initialStudents.find(s => s.id === 6)
+if (levitzFamilyStudent) {
+  levitzFamilyStudent.family = {
+    fatherName: 'Moshe Levitz', fatherPhone: '718-555-0101', fatherEmail: 'mlevitz@email.com',
+    motherName: 'Rivka Levitz', motherPhone: '718-555-0102', motherEmail: 'rlevitz@email.com',
+    address: '1423 54th St, Brooklyn NY 11219',
+    emergencyContact: 'Moshe Levitz (Father)', emergencyPhone: '718-555-0101'
+  }
+}
+
+if (levitzFamilyStudent) {
+  levitzFamilyStudent.medical = {
+    allergies: [{ name: 'Penicillin', severity: 'severe' }, { name: 'Tree nuts', severity: 'moderate' }],
+    medications: [{ name: 'Ritalin', dosage: '10mg', frequency: 'Daily morning' }],
+    conditions: ['ADHD', 'Sensory Processing Disorder'],
+    doctorName: 'Dr. Shmuel Katz', doctorPhone: '718-555-9876', lastPhysical: '2025-09-15', notes: 'Needs sensory breaks. Has OT IEP.'
+  }
+}
+
+if (bloomStudent) {
+  bloomStudent.family = {
+    fatherName: 'Yisrael Bloom', fatherPhone: '718-555-0201', fatherEmail: 'ybloom@email.com',
+    motherName: 'Chana Bloom', motherPhone: '718-555-0202', motherEmail: '',
+    address: '1567 48th St, Brooklyn NY 11219',
+    emergencyContact: 'Yisrael Bloom (Father)', emergencyPhone: '718-555-0201'
+  }
+}
+
+if (bloomStudent) {
+  bloomStudent.medical = {
+    allergies: [{ name: 'Shellfish', severity: 'mild' }],
+    medications: [],
+    conditions: ['Speech delay'],
+    doctorName: 'Dr. Rachel Stern', doctorPhone: '718-555-8765', lastPhysical: '2025-08-20', notes: 'Speech therapy twice weekly.'
+  }
+}
+
+if (haddadStudent) {
+  haddadStudent.family = {
+    fatherName: 'Yaakov Haddad', fatherPhone: '718-555-0301', fatherEmail: 'yhaddad@email.com',
+    motherName: 'Leah Haddad', motherPhone: '718-555-0302', motherEmail: 'lhaddad@email.com',
+    address: '892 Ocean Pkwy, Brooklyn NY 11230',
+    emergencyContact: 'Yaakov Haddad (Father)', emergencyPhone: '718-555-0301'
+  }
+}
+
+if (haddadStudent) {
+  haddadStudent.medical = {
+    allergies: [{ name: 'Latex', severity: 'moderate' }, { name: 'Bee stings', severity: 'severe' }],
+    medications: [{ name: 'EpiPen', dosage: '0.3mg', frequency: 'As needed' }, { name: 'Prozac', dosage: '10mg', frequency: 'Daily' }],
+    conditions: ['Anxiety', 'Bee sting allergy - carries EpiPen'],
+    doctorName: 'Dr. Avigdor Weiss', doctorPhone: '718-555-7654', lastPhysical: '2025-10-01', notes: 'EpiPen in office at all times. Counseling weekly.'
+  }
+}
+
+if (bloomStudent) {
+  bloomStudent.classLog = [
+    { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+    { time: '10:50', type: 'out', note: 'Left with Mrs. Goldberg (Speech)', staffId: 's6' },
+    { time: '11:35', type: 'in', note: 'Returned to class', staffId: null },
+    { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+    { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+    { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+  ]
+}
+
+if (haddadStudent) {
+  haddadStudent.classLog = [
+    { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+    { time: '10:25', type: 'out', note: 'Left with Mrs. Friedman (Counseling)', staffId: 's8' },
+    { time: '11:25', type: 'in', note: 'Returned to class', staffId: null },
+    { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+    { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+    { time: '14:00', type: 'out', note: 'Location unknown', staffId: null },
+    { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+  ]
+}
+
+const student8 = initialStudents.find(s => s.id === 8)
+if (student8) {
+  student8.classLog = [
+    { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+    { time: '11:20', type: 'out', note: 'Left with Mrs. Friedman (Counseling)', staffId: 's8' },
+    { time: '11:50', type: 'in', note: 'Returned to class', staffId: null },
+    { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+    { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+    { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+  ]
+}
+
+const student12 = initialStudents.find(s => s.id === 12)
+if (student12) {
+  student12.classLog = [
+    { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+    { time: '10:30', type: 'out', note: 'Left with Ezriel (BT)', staffId: 's10' },
+    { time: '10:55', type: 'in', note: 'Returned to class', staffId: null },
+    { time: '11:15', type: 'out', note: 'Left with Dovid (BT)', staffId: 's11' },
+    { time: '11:50', type: 'in', note: 'Returned to class', staffId: null },
+    { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+    { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+    { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+  ]
+}
+
+const student14 = initialStudents.find(s => s.id === 14)
+if (student14) {
+  student14.classLog = [
+    { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+    { time: '10:15', type: 'out', note: 'Left with Yitzi Liebowitz (Therapy)', staffId: 's9' },
+    { time: '11:00', type: 'in', note: 'Returned to class', staffId: null },
+    { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+    { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+    { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+  ]
+}
+
+const student18 = initialStudents.find(s => s.id === 18)
+if (student18) {
+  student18.classLog = [
+    { time: '10:10', type: 'in', note: 'Arrived to class', staffId: null },
+    { time: '10:40', type: 'out', note: 'Left with Dovid (BT)', staffId: 's11' },
+    { time: '11:10', type: 'in', note: 'Returned to class', staffId: null },
+    { time: '11:30', type: 'out', note: 'Location unknown', staffId: null },
+    { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
+    { time: '13:45', type: 'in', note: 'English class started', staffId: null },
+    { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+  ]
+}
 
 export const yeshivaKetanaStudents = [
   mkStudent(101, 'Goldberger Yossi', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Schults',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Schults',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
@@ -1192,16 +1346,28 @@ export const yeshivaKetanaStudents = [
 ]
 initialStudents.push(...yeshivaKetanaStudents)
 
-initialStudents.find(s => s.id === 105).dailyStatus = 'absent'
-initialStudents.find(s => s.id === 107).dailyStatus = 'late'
-initialStudents.find(s => s.id === 107).lateDetails = { timeArrived: '10:45', reason: 'parent-called', note: 'Father called, said coming after doctor' }
-initialStudents.find(s => s.id === 108).dailyStatus = 'left-early'
-initialStudents.find(s => s.id === 108).status = 'left-early'
-initialStudents.find(s => s.id === 111).dailyStatus = 'absent'
-initialStudents.find(s => s.id === 115).dailyStatus = 'absent'
+const student105 = initialStudents.find(s => s.id === 105)
+if (student105) student105.dailyStatus = 'absent'
+const student107 = initialStudents.find(s => s.id === 107)
+if (student107) {
+  student107.dailyStatus = 'late'
+  student107.lateDetails = { timeArrived: '10:45', reason: 'parent-called', note: 'Father called, said coming after doctor' }
+}
+const student108 = initialStudents.find(s => s.id === 108)
+if (student108) {
+  student108.dailyStatus = 'left-early'
+  student108.status = 'left-early'
+}
+const student111 = initialStudents.find(s => s.id === 111)
+if (student111) student111.dailyStatus = 'absent'
+const student115 = initialStudents.find(s => s.id === 115)
+if (student115) student115.dailyStatus = 'absent'
 
-initialStudents.find(s => s.id === 26).dailyStatus = 'left-early'
-initialStudents.find(s => s.id === 26).status = 'left-early'
+const student26 = initialStudents.find(s => s.id === 26)
+if (student26) {
+  student26.dailyStatus = 'left-early'
+  student26.status = 'left-early'
+}
 
 export const statusColor = { present: '#475569', absent: '#9f1239', late: '#9a6a2a', 'left-early': '#6b7280', therapy: '#5b5f7a', 'with-bt': '#3f6b76', unknown: '#6b7280', 'not-arrived': '#94a3b8' }
 export const statusLabel = { present: 'Present', absent: 'Absent', late: 'Late', 'left-early': 'Left Early', therapy: 'In Therapy', 'with-bt': 'With BT', unknown: 'Location Unknown', 'not-arrived': 'Not Arrived' }

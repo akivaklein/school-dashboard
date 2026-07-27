@@ -92,6 +92,7 @@ import LoginPage from './dashboard/LoginPage'
 import StaffLoginPanel from './StaffLoginPanel'
 import StaffManagementModal from './StaffManagementModal'
 import LoginActivityView from './LoginActivityView'
+import { getLookupValue } from './dashboardUtils'
 
 import {
   STORE_ITEMS,
@@ -171,34 +172,17 @@ type StudentLike = {
   id?: number | string
   name?: string
   att?: string[]
-  lateDetails?: { timeArrived?: string; reason?: string; note?: string } | null
+  lateDetails?: { timeArrived?: string; reason?: string; note?: string }
   classLog?: Array<{ type: string; time: string; note?: string; staffId?: number | string }>
   points?: number
   reminders?: number
   lastWeekReminders?: number
-  services?: Array<{ type?: string }>
-  classId?: string | number
-  class_id?: string | number
-  className?: string
-  status?: string
-  dailyStatus?: string
-  withStaff?: number | string | null
-  medical?: Record<string, unknown>
-  family?: Record<string, unknown>
-  parentCalls?: Array<unknown>
-  notes?: Array<{ date: string; author: string; text: string }>
-  testScores?: Array<unknown>
-  behaviorLog?: Array<unknown>
-  breakfast?: Array<unknown>
   [key: string]: unknown
 }
 
 type StoreItemLike = {
-  id?: number | string
   name?: string
   emoji?: string
-  cost?: number
-  stock?: number
   [key: string]: unknown
 }
 
@@ -215,15 +199,11 @@ type StaffMemberLike = {
   id?: number | string
   name?: string
   role?: string
-  roles?: string[]
-  email?: string
-  phone?: string
-  active?: boolean
   [key: string]: unknown
 }
 
 type StudentFlagLike = {
-  id: string
+  id: string | number
   studentId?: number | string
   goal?: string
   startDate?: string
@@ -916,7 +896,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 {selectedClass ? CLASSES.find(c=>c.id===selectedClass)?.name : 'All Students'} — Quick Actions</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
           {classStudents.map((s: StudentLike, i: number) => {
-            const withStaffObj = s.withStaff ? staffMembers.find((st: StaffMemberLike) => String(st.id) === String(s.withStaff)) : null
+            const withStaffObj = s.withStaff ? STAFF.find((st: StaffMemberLike) => st.id === s.withStaff) : null
             const vip = isVIP ? isVIP(s) : false
             const studentName = typeof s.name === 'string' ? s.name : 'Student'
             const studentStatus = typeof s.status === 'string' ? s.status : 'present'
@@ -937,10 +917,10 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
                   {(typeof s.reminders === 'number' ? s.reminders : 0) > 0 && <span style={S.badge('#9f1239', '#fee2e2')}>⚠️ {typeof s.reminders === 'number' ? s.reminders : 0}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 4 }}>
-                  <button onClick={() => quickPoints(String(s.id ?? ''), 2)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
-                  <button onClick={() => quickPoints(String(s.id ?? ''), 5)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
-                  <button onClick={() => quickPoints(String(s.id ?? ''), 10)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+10</button>
-                  <button onClick={() => quickReminder(String(s.id ?? ''))} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#9f1239', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
+                  <button onClick={() => quickPoints(s.id, 2)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
+                  <button onClick={() => quickPoints(s.id, 5)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
+                  <button onClick={() => quickPoints(s.id, 10)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+10</button>
+                  <button onClick={() => quickReminder(s.id)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#9f1239', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
                 </div>
               </div>
             )
@@ -952,7 +932,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
 }
 
 function TherapistDashboard({ students, userName, setSelectedStudent, staffMembers, therapySchedule }: { students: StudentLike[]; userName: string | null; setSelectedStudent: (student: StudentLike) => void; staffMembers: StaffMemberLike[]; therapySchedule: Array<{ day?: string; student?: string; type?: string; duration?: string; time?: string; staffId?: number | string }> }) {
-  const myStudents = students.filter((s: StudentLike) => Array.isArray(s.services) && s.services.length > 0)
+  const myStudents = students.filter((s: StudentLike) => Array.isArray((s as StudentLike).services) && (s as StudentLike).services.length > 0)
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -976,7 +956,7 @@ function TherapistDashboard({ students, userName, setSelectedStudent, staffMembe
                     <span style={{ fontSize: 11, color: imp.color, fontWeight: 600 }}>{imp.icon}</span>
                   </div>
                 </div>
-                <div>{(Array.isArray(s.services) ? s.services : []).map((svc: { type?: string }, j: number) => <div key={j} style={{ fontSize: 11, color: '#5b5f7a', fontWeight: 600 }}>{svc.type}</div>)}</div>
+                <div>{(Array.isArray((s as StudentLike).services) ? (s as StudentLike).services : []).map((svc: { type?: string }, j: number) => <div key={j} style={{ fontSize: 11, color: '#5b5f7a', fontWeight: 600 }}>{svc.type}</div>)}</div>
               </div>
             )
           })}
@@ -1024,7 +1004,7 @@ function StudentFlagsPanel({
   const [note, setNote] = useState('')
   const [staffName, setStaffName] = useState(currentStaffName || 'Staff Member')
 
-  const studentName = (id: number | string | undefined) =>
+  const studentName = (id: number | string) =>
     students.find((student: StudentLike) => Number(student.id) === Number(id))?.name ||
     'Unknown Student'
 
@@ -1100,7 +1080,7 @@ function StudentFlagsPanel({
     setObserved('yes')
   }
 
-  const card: CSSProperties = {
+  const card = {
     background: '#ffffff',
     border: '1px solid #dfe6ee',
     borderRadius: 14,
@@ -1108,7 +1088,7 @@ function StudentFlagsPanel({
     boxShadow: '0 4px 14px rgba(30,41,59,0.045)'
   }
 
-  const input: CSSProperties = {
+  const input = {
     width: '100%',
     padding: '9px 11px',
     borderRadius: 9,
@@ -1535,17 +1515,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [userName, setUserName] = useState('')
   const [loggedInStaff, setLoggedInStaff] = useState<StaffMemberLike[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
-  const [activeSessionIds, setActiveSessionIds] = useState<Record<string, number>>({})
+  const [activeSessionIds, setActiveSessionIds] = useState<Record<number, number>>({})
   const [showStaffManagement, setShowStaffManagement] = useState(false)
   const [showStaffPanel, setShowStaffPanel] = useState(true)
   const [showLoginActivity, setShowLoginActivity] = useState(false)
   const [page, setPage] = useState('dashboard')
-  const [students, setStudents] = useState<StudentLike[]>(() => initialStudents.slice() as unknown as StudentLike[])
+  const [students, setStudents] = useState<StudentLike[]>(() => initialStudents.slice() as StudentLike[])
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState<string | null>(null)
   const [studentFallbackPatchCount, setStudentFallbackPatchCount] = useState(() => getStudentFallbackPatchCount())
   const [studentFallbackSyncState, setStudentFallbackSyncState] = useState('idle')
-  const [staffMembers, setStaffMembers] = useState<StaffMemberLike[]>(() => FALLBACK_STAFF_MEMBERS as unknown as StaffMemberLike[])
+  const [staffMembers, setStaffMembers] = useState<StaffMemberLike[]>(FALLBACK_STAFF_MEMBERS as StaffMemberLike[])
   const [staffLoadError, setStaffLoadError] = useState<string | null>(null)
   const fallbackSyncInFlightRef = useRef(false)
 
@@ -1554,11 +1534,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStaffLoadError(null)
       const members = await loadStaffMembers()
       const nextMembers = Array.isArray(members) && members.length > 0 ? members : FALLBACK_STAFF_MEMBERS
-      setStaffMembers(nextMembers as unknown as StaffMemberLike[])
+      setStaffMembers(nextMembers)
     } catch (error) {
       console.error('Unable to load staff members:', error)
       setStaffLoadError('Unable to load staff members.')
-      setStaffMembers(FALLBACK_STAFF_MEMBERS as unknown as StaffMemberLike[])
+      setStaffMembers(FALLBACK_STAFF_MEMBERS)
     }
   }, [])
 
@@ -1608,10 +1588,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     try {
       for (const [studentId, patch] of patchEntries) {
-        const fields = Object.entries(patch || {}).reduce<Record<string, unknown>>((acc, [key, value]) => {
-          if (key !== '_savedAt') acc[key] = value
-          return acc
-        }, {})
+        const { _savedAt, ...fields } = patch || {}
 
         if (Object.keys(fields).length === 0) {
           clearStudentFallbackPatch(studentId)
@@ -1655,32 +1632,32 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const STAFF = useMemo(
     () =>
       (staffMembers || [])
-        .filter(member => member.active !== false)
+        .filter(member => member.active)
         .map(member => ({
-          id: String(member.id ?? ''),
-          name: member.name ?? '',
-          role: member.role ?? '',
+          id: String(member.id),
+          name: member.name,
+          role: member.role,
           roles: member.roles || [],
           email: member.email || '',
           phone: member.phone || '',
-          active: member.active ?? true,
+          active: member.active,
         })),
     [staffMembers],
   )
 
   const TEACHING_STAFF_OPTIONS = useMemo(
-    () => getStaffNameOptions(STAFF, (role: string) => /teacher|rebbe/i.test(role)),
+    () => getStaffNameOptions(STAFF, role => /teacher|rebbe/i.test(role)),
     [STAFF],
   )
 
   const TOUR_STAFF_OPTIONS = useMemo(
-    () => getStaffNameOptions(STAFF, (role: string) => /admin|menahel|teacher|rebbe/i.test(role)),
+    () => getStaffNameOptions(STAFF, role => /admin|menahel|teacher|rebbe/i.test(role)),
     [STAFF],
   )
 
   const THERAPIST_OPTIONS = useMemo(() => {
-    const specialtyForMember = (member: { role?: string; roles?: string[] }) => {
-      const roleText = [member.role || '', ...(member.roles || [])].join(' ').toLowerCase()
+    const specialtyForMember = member => {
+      const roleText = [member.role, ...(member.roles || [])].join(' ').toLowerCase()
       if (roleText.includes('speech')) return 'Speech'
       if (roleText.includes('ot')) return 'OT'
       if (roleText.includes('pt')) return 'PT'
@@ -1702,8 +1679,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }, [STAFF])
 
   const SUPPORT_STAFF_OPTIONS = useMemo(() => {
-    const entries: Array<{ name: string; staffType: string; service: string }> = []
-    const seen = new Set<string>()
+    const entries = []
+    const seen = new Set()
 
     const roleMap = [
       { matcher: /bt/i, staffType: 'BT', service: 'BT Support' },
@@ -1717,7 +1694,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ]
 
     STAFF.forEach(member => {
-      const roleText = [member.role || '', ...(member.roles || [])].join(' ').toLowerCase()
+      const roleText = [member.role, ...(member.roles || [])].join(' ').toLowerCase()
 
       roleMap.forEach(config => {
         if (!config.matcher.test(roleText)) return
@@ -1727,7 +1704,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         seen.add(key)
 
         entries.push({
-          name: member.name ?? '',
+          name: member.name,
           staffType: config.staffType,
           service: config.service,
         })
@@ -1739,25 +1716,25 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const SETUP_PEOPLE = useMemo(
     () => {
-      const byName = new Map<string, { id: string; name: string; type: string; specialty?: string; service?: string }>()
+      const byName = new Map()
 
       STAFF.forEach(person => {
         if (staffMatchesAnyRole(person, /teacher|rebbe|menahel|sgan|mashgiach/i)) {
-          byName.set(person.name ?? '', {
+          byName.set(person.name, {
             id: person.id,
-            name: person.name ?? '',
+            name: person.name,
             type: 'teacher',
-            specialty: person.role ?? '',
+            specialty: person.role,
           })
         }
       })
 
       SUPPORT_STAFF_OPTIONS.forEach((person, index) => {
-        if (byName.has(person.name ?? '')) return
+        if (byName.has(person.name)) return
 
-        byName.set(person.name ?? '', {
+        byName.set(person.name, {
           id: `support-${index + 1}`,
-          name: person.name ?? '',
+          name: person.name,
           type: 'support',
           specialty: person.staffType,
           service: person.service,
@@ -2389,7 +2366,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     // Pre-fill teacher rosters from each student's current class.
     initialStudents.forEach(student => {
-      const classId = STUDENT_CLASSES[Number(student.id)]
+      const classId = getLookupValue(STUDENT_CLASSES, student.id)
       const classInfo = CLASSES.find(cls => cls.id === classId)
 
       if (classInfo?.teacher && assignments[classInfo.teacher]) {
@@ -2615,7 +2592,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   })
   const [setupVipRulesLoaded, setSetupVipRulesLoaded] = useState(false)
 
-  const checkIsVIP = (s: StudentLike) => isVIP(s as { att: string[]; points: number; reminders: number }, setupVipRules)
+  const checkIsVIP = (s: any) => isVIP(s, setupVipRules)
 
   const [setupSales, setSetupSales] = useState<StoreSale[]>([])
   const [setupSalesLoaded, setSetupSalesLoaded] = useState(false)
@@ -2634,9 +2611,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     if (role !== 'teacher' && role !== 'rebbe') return
     if (!userName) return
 
-    const classIds = getTeacherAssignedClassIds(userName, setupAssignments, students) as Array<string | number>
+    const classIds = getTeacherAssignedClassIds(userName, setupAssignments, students)
     setTeacherClassIds(classIds)
-    setTeacherClass(classIds[0] || TEACHER_CLASS_MAP[userName as keyof typeof TEACHER_CLASS_MAP] || null)
+    setTeacherClass(classIds[0] || TEACHER_CLASS_MAP[userName] || null)
   }, [role, userName, setupAssignments, students])
 
   // Persist staff accounts changes
@@ -2707,10 +2684,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       '2:20 PM'
     ]
 
-    const rows: Array<Record<string, unknown>> = []
+    const rows = []
     let counter = 0
 
-    const timeToMinutes = (value: string) => {
+    const timeToMinutes = value => {
       const match = value.match(/(\\d+):(\\d+)\\s*(AM|PM)/i)
       if (!match) return 0
 
@@ -2724,7 +2701,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       return hour * 60 + minute
     }
 
-    const minutesToTime = (value: number) => {
+    const minutesToTime = value => {
       const total = value % (24 * 60)
       let hour = Math.floor(total / 60)
       const minute = total % 60
@@ -2736,7 +2713,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       return `${hour}:${String(minute).padStart(2, '0')} ${period}`
     }
 
-    const missedClassForTime = (time: string, classInfo?: { teacher?: string }) => {
+    const missedClassForTime = (time, classInfo) => {
       const minutes = timeToMinutes(time)
 
       if (minutes >= 825 && minutes < 885) {
@@ -2785,20 +2762,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       location,
       supervisingBcba = '',
       note = ''
-    }: {
-      student: StudentLike
-      staffName: string
-      staffType: string
-      service: string
-      day: string
-      time: string
-      duration: number
-      frequency: string
-      location: string
-      supervisingBcba?: string
-      note?: string
     }) => {
-      const classId = STUDENT_CLASSES[Number(student.id)]
+      const classId = STUDENT_CLASSES[student.id]
       const classInfo = CLASSES.find(cls => cls.id === classId)
       const missed = missedClassForTime(time, classInfo)
 
@@ -2819,7 +2784,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         missedSubject: missed.subject,
         classId: classId || '',
         className: classInfo?.name || 'Unassigned Class',
-        division: CLASS_DIVISION[classId as keyof typeof CLASS_DIVISION] || 'mesivta',
+        division: CLASS_DIVISION[classId] || 'mesivta',
         note
       })
     }
@@ -2830,7 +2795,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
      */
     initialStudents.forEach((student, studentIndex) => {
       const assignedBt = btNames[studentIndex % btNames.length]
-      const assignedBcba = btBcbaMap[assignedBt as keyof typeof btBcbaMap]
+      const assignedBcba = btBcbaMap[assignedBt]
       const btCaseloadPosition = Math.floor(studentIndex / btNames.length)
 
       // Daily BT support, Monday through Thursday.
@@ -3072,9 +3037,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     setLoggedIn(true)
     setPage(r === 'store' ? 'store' : 'dashboard')
     if (r === 'teacher') {
-      const classIds = getTeacherAssignedClassIds(name, setupAssignments, students) as Array<string | number>
+      const classIds = getTeacherAssignedClassIds(name, setupAssignments, students)
       setTeacherClassIds(classIds)
-      setTeacherClass(classIds[0] || TEACHER_CLASS_MAP[name as keyof typeof TEACHER_CLASS_MAP] || null)
+      setTeacherClass(classIds[0] || TEACHER_CLASS_MAP[name] || null)
     } else {
       setTeacherClass(null)
       setTeacherClassIds([])
@@ -3104,13 +3069,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }
 
-  async function handleAddStaffLogin(staff: StaffMemberLike) {
+  async function handleAddStaffLogin(staff) {
     if (staff?.active === false) {
       console.warn(`Blocked session creation for inactive staff member ${staff?.name || 'Unknown'}.`)
       return
     }
 
-    const roleText = [staff.role ?? '', ...(staff.roles || [])].join(' ').toLowerCase()
+    const roleText = [staff.role, ...(staff.roles || [])].join(' ').toLowerCase()
     const role = /teacher|rebbe/.test(roleText)
       ? 'teacher'
       : /therap|speech|ot|pt|bcba|counsel|bt/.test(roleText)
@@ -3124,15 +3089,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       return [...prev, staff]
     })
 
-    const staffId = typeof staff.id === 'number' || typeof staff.id === 'string' ? String(staff.id) : ''
-
-    if (!activeSessionIds[staffId]) {
+    if (!activeSessionIds[staff.id]) {
       try {
-        const session = await recordLoginSession(Number(staff.id ?? 0), staff.name ?? 'Staff', role)
+        const session = await recordLoginSession(staff.id, staff.name, role)
         if (session) {
           setActiveSessionIds(prev => ({
             ...prev,
-            [staffId]: session.id,
+            [staff.id]: session.id,
           }))
         }
       } catch (error) {
@@ -3142,14 +3105,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     
     // Also set as primary user if no one else is logged in
     if (!loggedIn) {
-      handleLogin(role, staff.name ?? 'Staff')
+      handleLogin(role, staff.name)
     }
   }
 
-  async function handleRemoveStaffLogin(staffId: number | string) {
+  async function handleRemoveStaffLogin(staffId) {
     setLoggedInStaff(prev => prev.filter(s => s.id !== staffId))
 
-    const sessionId = activeSessionIds[String(staffId)]
+    const sessionId = activeSessionIds[staffId]
     if (sessionId) {
       try {
         await recordLogoutSession(sessionId)
@@ -3158,17 +3121,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       } finally {
         setActiveSessionIds(prev => {
           const next = { ...prev }
-          delete next[String(staffId)]
+          delete next[staffId]
           return next
         })
       }
     }
     
     // If we're removing the currently logged-in user, log them out
-    const removedStaff = loggedInStaff.find(s => String(s.id) === String(staffId))
+    const removedStaff = loggedInStaff.find(s => s.id === staffId)
     if (removedStaff && userName === removedStaff.name) {
       const remainingSessionIds = Object.entries(activeSessionIds)
-        .filter(([id]) => id !== String(staffId))
+        .filter(([id]) => Number(id) !== Number(staffId))
         .map(([, sessionIdValue]) => sessionIdValue)
 
       if (remainingSessionIds.length > 0) {
@@ -3227,7 +3190,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }
 
-  async function saveStudentField(id: number | string, field: string, value: unknown) {
+  async function saveStudentField(id, field, value) {
     const payload = { [field]: value }
     const { error } = await supabase.from('students').update(payload).eq('id', id)
     if (error) {
@@ -3248,16 +3211,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     sourceContext,
     note = null,
     metadata = {},
-  }: {
-    studentId: number | string
-    pointsDelta: number
-    reminderDelta?: number
-    reason: string
-    eventType: string
-    category: string
-    sourceContext: string
-    note?: string | null
-    metadata?: Record<string, unknown>
   }) {
     const originalStudent = students.find(
       student => Number(student.id) === Number(studentId)
@@ -3300,7 +3253,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     try {
       eventId = await createPointsEvent({
         studentId: Number(originalStudent.id),
-        studentName: originalStudent.name ?? 'Student',
+        studentName: originalStudent.name,
         staffName: userName || 'Staff',
         staffRole: role || 'staff',
         pointsDelta: Number(pointsDelta || 0),
@@ -3348,7 +3301,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }
 
-  async function undoPointsEvent(event: Record<string, unknown> & { student_id?: number | string; points_delta?: number; metadata?: Record<string, unknown>; event_type?: string; category?: string; source_page?: string; reason?: string; id?: number | string }) {
+  async function undoPointsEvent(event) {
     const currentStudent = students.find(
       student => Number(student.id) === Number(event.student_id)
     )
@@ -3358,9 +3311,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
 
     const originalPointsDelta = Number(event.points_delta || 0)
-    const metadata = (event.metadata || {}) as Record<string, unknown>
     const originalReminderDelta = Number(
-      metadata.reminderDelta || (event.event_type === 'reminder' ? 1 : 0)
+      event?.metadata?.reminderDelta || (event.event_type === 'reminder' ? 1 : 0)
     )
     const reversalPointsDelta = -originalPointsDelta
     const reversalReminderDelta = -originalReminderDelta
@@ -3397,15 +3349,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     try {
       undoEventId = await createPointsEvent({
         studentId: Number(currentStudent.id),
-        studentName: currentStudent.name ?? 'Student',
+        studentName: currentStudent.name,
         staffName: userName || 'Staff',
         staffRole: role || 'staff',
         pointsDelta: reversalPointsDelta,
         eventType: 'reversal',
-        category: String(event.category || 'points'),
+        category: event.category,
         reason: `Undo: ${event.reason}`,
         note: `Reversed event #${event.id}`,
-        sourcePage: String(event.source_page || event.category || 'dashboard'),
+        sourcePage: event.source_page || event.category,
         sourceContext: 'history-undo',
         relatedEventId: Number(event.id),
         metadata: {
@@ -3459,7 +3411,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }
 
-  async function updateStatus(id: number | string, status: string) {
+  async function updateStatus(id, status) {
     const original = students.find(s => s.id === id)
     setStudents(prev => prev.map(s => s.id === id ? { ...s, status } : s))
     const success = await saveStudentField(id, 'status', status)
@@ -3467,9 +3419,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStudents(prev => prev.map(s => s.id === id ? { ...s, status: original.status } : s))
     }
   }
-  async function buyItem(studentId, item) {
+  async function buyItem(studentId: number | string, item: StoreItemLike) {
     const s = students.find(x => x.id === studentId)
-    if (!s || s.points < item.cost) { alert('Not enough points!'); return }
+    if (!s || (s.points ?? 0) < (item.cost ?? 0)) { alert('Not enough points!'); return }
     if ((item.stock ?? 0) <= 0) { alert(`${item.name} is out of stock.`); return }
     if (isStoreItemRestrictedForStudent(s, item)) { alert(`${s.name} cannot redeem candy items.`); return }
     if (!storePersistenceReady) {
@@ -3618,14 +3570,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }
 
-  function updateStoreItem(id, field, value) {
+  function updateStoreItem(id: number | string, field: string, value: unknown) {
     if (!storePersistenceReady) {
       alert('Token Store is not synced to Supabase yet.')
       return
     }
 
-    let previousItem = null
-    let nextItem = null
+    let previousItem: StoreItemLike | null = null
+    let nextItem: StoreItemLike | null = null
 
     setStoreSyncState('pending-sync')
 
@@ -3692,7 +3644,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       })
   }
 
-  function adjustStoreStock(id, amount) {
+  function adjustStoreStock(id: number | string, amount: number | string) {
     if (!storePersistenceReady) {
       alert('Token Store is not synced to Supabase yet.')
       return
@@ -3721,7 +3673,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }
 
   async function addStoreItem() {
-    if (!newStoreItem.name.trim()) { alert('Add an item name first.'); return }
+    if (!String(newStoreItem.name).trim()) { alert('Add an item name first.'); return }
     if (!storePersistenceReady) {
       alert('Token Store is not synced to Supabase yet.')
       return
@@ -3750,7 +3702,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }
 
-  async function removeStoreItem(id) {
+  async function removeStoreItem(id: number | string) {
     if (!confirm('Remove this store item from the demo?')) return
     if (!storePersistenceReady) {
       alert('Token Store is not synced to Supabase yet.')
@@ -3770,7 +3722,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }
 
-  function updateUnknownLocation(studentId, newStatus, label) {
+  function updateUnknownLocation(studentId: number | string, newStatus: string, label: string) {
     const note = (unknownNotes[studentId] || '').trim()
     const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     const studentBeforeUpdate = students.find(s => s.id === studentId)
@@ -3839,8 +3791,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ? (
         teacherClassIds.length > 0
           ? teacherClassIds
-          : (teacherClass || TEACHER_CLASS_MAP[userName])
-            ? [teacherClass || TEACHER_CLASS_MAP[userName]]
+          : (teacherClass || getLookupValue(TEACHER_CLASS_MAP, userName))
+            ? [teacherClass || getLookupValue(TEACHER_CLASS_MAP, userName)]
             : []
       )
     : []
@@ -3889,8 +3841,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ? (
         teacherClassIds.length > 0
           ? teacherClassIds
-          : (teacherClass || TEACHER_CLASS_MAP[userName])
-            ? [teacherClass || TEACHER_CLASS_MAP[userName]]
+          : (teacherClass || getLookupValue(TEACHER_CLASS_MAP, userName))
+            ? [teacherClass || getLookupValue(TEACHER_CLASS_MAP, userName)]
             : []
       )
     : []
@@ -3924,11 +3876,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const leftEarlyStudents = visibleStudents.filter(s => s.dailyStatus === 'left-early')
   const absentTodayStudents = visibleStudents.filter(s => (s.dailyStatus || 'present') === 'absent')
   const cameTodayRate = total ? Math.round(cameToday / total * 100) : 0
-  const improved = visibleStudents.filter(s => s.reminders < s.lastWeekReminders).length
-  const needsAttention = visibleStudents.filter(s => s.reminders > s.lastWeekReminders).length
+  const improved = visibleStudents.filter(s => (s.reminders ?? 0) < (s.lastWeekReminders ?? 0)).length
+  const needsAttention = visibleStudents.filter(s => (s.reminders ?? 0) > (s.lastWeekReminders ?? 0)).length
   const vipStudents = visibleStudents.filter(s => checkIsVIP(s))
-  const urgentStudents = visibleStudents.filter(s => s.reminders >= 6 || s.detention || s.att.filter(d=>d==='A').length >= 3 || s.status === 'unknown')
-  const callsDueStudents = visibleStudents.filter(s => { const lc = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length-1] : null; return !lc || daysSince(lc.date) > 14 })
+  const urgentStudents = visibleStudents.filter(s => (s.reminders ?? 0) >= 6 || Boolean(s.detention) || (s.att ?? []).filter(d => d === 'A').length >= 3 || s.status === 'unknown')
+  const callsDueStudents = visibleStudents.filter(s => { const parentCalls = Array.isArray(s.parentCalls) ? s.parentCalls : []; const lc = parentCalls.length > 0 ? parentCalls[parentCalls.length - 1] as { date?: string } | undefined : null; return !lc?.date || daysSince(lc.date) > 14 })
   const divisionSummaries = userAccess.divisions.map(key => {
     const list = students.filter(s => studentDivision(s) === key)
     return {
@@ -3943,15 +3895,19 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   })
 
   const alerts = visibleStudents.flatMap(s => {
-    const a = []; const absCount = s.att.filter(d => d === 'A').length; const lateCount = s.att.filter(d => d === 'L').length
-    const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null
+    const a: Array<{ student?: string; id?: number | string; msg: string; type: 'danger' | 'warn' | 'info' }> = []
+    const attendance = Array.isArray(s.att) ? s.att : []
+    const absCount = attendance.filter(d => d === 'A').length
+    const lateCount = attendance.filter(d => d === 'L').length
+    const parentCalls = Array.isArray(s.parentCalls) ? s.parentCalls : []
+    const lastCall = parentCalls.length > 0 ? parentCalls[parentCalls.length - 1] as { date?: string } | undefined : null
     if (s.status === 'unknown') a.push({ student: s.name, id: s.id, msg: '❓ Location unknown — please locate immediately!', type: 'danger' })
     if (s.detention) a.push({ student: s.name, id: s.id, msg: 'Has active detention', type: 'danger' })
-    if (s.reminders >= 6) a.push({ student: s.name, id: s.id, msg: '6 reminders — consequence required!', type: 'danger' })
-    if (s.reminders >= 4 && s.reminders < 6) a.push({ student: s.name, id: s.id, msg: `${s.reminders} reminders this week`, type: 'warn' })
+    if ((s.reminders ?? 0) >= 6) a.push({ student: s.name, id: s.id, msg: '6 reminders — consequence required!', type: 'danger' })
+    if ((s.reminders ?? 0) >= 4 && (s.reminders ?? 0) < 6) a.push({ student: s.name, id: s.id, msg: `${s.reminders ?? 0} reminders this week`, type: 'warn' })
     if (absCount >= 2) a.push({ student: s.name, id: s.id, msg: `Absent ${absCount} days this week`, type: absCount >= 3 ? 'danger' : 'warn' })
     if (lateCount >= 3) a.push({ student: s.name, id: s.id, msg: `Late ${lateCount} days`, type: 'warn' })
-    if (!lastCall || daysSince(lastCall.date) > 14) a.push({ student: s.name, id: s.id, msg: lastCall ? `No parent call in ${daysSince(lastCall.date)} days` : 'Parent never called', type: 'info' })
+    if (!lastCall?.date || daysSince(lastCall.date) > 14) a.push({ student: s.name, id: s.id, msg: lastCall?.date ? `No parent call in ${daysSince(lastCall.date)} days` : 'Parent never called', type: 'info' })
     return a
   }).sort((a, b) => {
     const order = { danger: 0, warn: 1, info: 2 }
