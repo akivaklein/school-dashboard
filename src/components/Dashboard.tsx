@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, type Dispatch, type SetStateAction, type CSSProperties } from 'react'
 import { supabase } from '../supabaseClient'
 import playSound from '../utils/playSound'
 import AttendancePage from './AttendancePage'
@@ -25,6 +25,7 @@ import {
   createPointsEvent,
   deletePointsEvent,
   listPointsEventsForStudent,
+  type PointsEventRecord,
 } from '../services/pointsEventsService'
 import { applyDailyAttendanceReset } from '../services/attendanceService'
 import {
@@ -47,6 +48,7 @@ import {
   createTodo,
   updateTodo,
   deleteTodo,
+  type Todo,
 } from '../services/todosService'
 import {
   listTeachingActions,
@@ -64,6 +66,8 @@ import {
   saveTherapySchedule,
   loadStaffAccounts,
   saveStaffAccount,
+  type TeachingAction,
+  type StoreSale,
 } from '../services/setupCenterService'
 import {
   loadStaffMembers,
@@ -195,6 +199,25 @@ type StaffMemberLike = {
   [key: string]: unknown
 }
 
+type StudentFlagLike = {
+  id: string | number
+  studentId?: number | string
+  goal?: string
+  startDate?: string
+  endDate?: string
+  completed?: boolean
+  createdBy?: string
+  observations?: Array<{
+    id: string | number
+    observed: boolean
+    note: string
+    staffName: string
+    date: string
+    time: string
+  }>
+  [key: string]: unknown
+}
+
 const intakeScoreLabel = (val: number) => val === 0 ? '—' : val === 1 ? 'Needs Support' : val === 2 ? 'Emerging' : val === 3 ? 'Developing' : val === 4 ? 'Proficient' : 'Strong'
 const intakeScoreColor = (val: number) => val >= 4 ? '#56765f' : val >= 3 ? '#5b6f95' : val > 0 ? '#9a6a2a' : '#94a3b8'
 
@@ -212,6 +235,14 @@ function getGreeting(hour: number) {
   if (hour < 12) return 'Good morning'
   if (hour < 17) return 'Good afternoon'
   return 'Good evening'
+}
+
+function asStringMap(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object') return {}
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, string>>((acc, [key, entryValue]) => {
+    acc[key] = typeof entryValue === 'string' ? entryValue : String(entryValue ?? '')
+    return acc
+  }, {})
 }
 
 function LiveClock() {
@@ -466,7 +497,7 @@ function TrackingTab({ s, students, staffMembers }: { s: StudentLike; students: 
 
             {/* Per-day breakdown */}
             <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8, textTransform: 'uppercase' }}>By Day</div>
-            {breakdownData.map((d: { date: string; mins: number; staff?: string; pct: number }, i: number) => (
+            {breakdownData.map((d: { date: string; mins: number; staff?: string | null; pct: number }, i: number) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #f8fafc' }}>
                 <div style={{ minWidth: 80, fontSize: 12, color: '#64748b' }}>{d.date}</div>
                 <div style={{ flex: 1, height: 6, background: '#f8fafc', borderRadius: 3, overflow: 'hidden' }}>
@@ -591,7 +622,7 @@ function TrackingTab({ s, students, staffMembers }: { s: StudentLike; students: 
   )
 }
 
-function FamilyEditorPopup({ s, setStudents, userName }) {
+function FamilyEditorPopup({ s, setStudents, userName }: { s: StudentLike; setStudents: React.Dispatch<React.SetStateAction<StudentLike[]>>; userName: string | null }) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -611,7 +642,7 @@ function FamilyEditorPopup({ s, setStudents, userName }) {
   )
 }
 
-function MedicalEditorPopup({ s, setStudents, userName }) {
+function MedicalEditorPopup({ s, setStudents, userName }: { s: StudentLike; setStudents: React.Dispatch<React.SetStateAction<StudentLike[]>>; userName: string | null }) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -632,8 +663,8 @@ function MedicalEditorPopup({ s, setStudents, userName }) {
 }
 
 
-function FamilyEditor({ s, setStudents, userName, onCancel = null, onSaved = null }) {
-  const [f, setF] = useState(s.family || {})
+function FamilyEditor({ s, setStudents, userName, onCancel = null, onSaved = null }: { s: StudentLike; setStudents: React.Dispatch<React.SetStateAction<StudentLike[]>>; userName: string | null; onCancel?: (() => void) | null; onSaved?: (() => void) | null }) {
+  const [f, setF] = useState<Record<string, string>>((s.family as Record<string, string>) || {})
 
   async function save() {
     const nextFamily = {
@@ -670,8 +701,8 @@ function FamilyEditor({ s, setStudents, userName, onCancel = null, onSaved = nul
   )
 }
 
-function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = null }) {
-  const [m, setM] = useState(s.medical || {})
+function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = null }: { s: StudentLike; setStudents: React.Dispatch<React.SetStateAction<StudentLike[]>>; userName: string | null; onCancel?: (() => void) | null; onSaved?: (() => void) | null }) {
+  const [m, setM] = useState<Record<string, string>>(() => asStringMap(s.medical))
 
   async function save() {
     const nextMedical = {
@@ -722,15 +753,16 @@ function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = nu
 }
 
 
-function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP }) {
+function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP, staffMembers }: { students: StudentLike[]; setStudents: Dispatch<SetStateAction<StudentLike[]>>; userName: string | null; setSelectedStudent: (student: StudentLike) => void; setTeachingMode: Dispatch<SetStateAction<boolean>>; initialClass?: string | number | null; setDrillDown: Dispatch<SetStateAction<{ title: string; students: StudentLike[] } | null>>; recordStudentPointsAction: (payload: Record<string, unknown>) => Promise<void>; isVIP: (student: StudentLike) => boolean; staffMembers: StaffMemberLike[] }) {
   const [selectedClass, setSelectedClass] = useState(initialClass)
 
   useEffect(() => {
     setSelectedClass(initialClass)
   }, [initialClass])
 
-  const getStudentClassId = student => {
-    const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
+  const getStudentClassId = (student: StudentLike) => {
+    const studentId = Number(student.id)
+    const mappedClass = (STUDENT_CLASSES as Record<string | number, string>)[studentId] || (STUDENT_CLASSES as Record<string | number, string>)[String(student.id)]
     if (mappedClass) return mappedClass
 
     const explicitClassId = student.classId || student.class_id
@@ -745,17 +777,17 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
   }
 
   const classStudents = selectedClass
-    ? students.filter(s => getStudentClassId(s) === selectedClass)
+    ? students.filter((s: StudentLike) => getStudentClassId(s) === selectedClass)
     : students
 
-  const present = classStudents.filter(s => s.status === 'present').length
-  const absent = classStudents.filter(s => s.status === 'absent').length
-  const late = classStudents.filter(s => s.status === 'late').length
-  const inTherapy = classStudents.filter(s => s.status === 'therapy').length
-  const withBT = classStudents.filter(s => s.status === 'with-bt').length
-  const unknown = classStudents.filter(s => s.status === 'unknown').length
+  const present = classStudents.filter((s: StudentLike) => s.status === 'present').length
+  const absent = classStudents.filter((s: StudentLike) => s.status === 'absent').length
+  const late = classStudents.filter((s: StudentLike) => s.status === 'late').length
+  const inTherapy = classStudents.filter((s: StudentLike) => s.status === 'therapy').length
+  const withBT = classStudents.filter((s: StudentLike) => s.status === 'with-bt').length
+  const unknown = classStudents.filter((s: StudentLike) => s.status === 'unknown').length
 
-  async function quickPoints(id, amount) {
+  async function quickPoints(id: number | string, amount: number) {
     playSound(amount > 0 ? 'positive' : 'negative')
     await recordStudentPointsAction({
       studentId: id,
@@ -767,7 +799,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
       sourceContext: 'teacher-dashboard-quick-action',
     })
   }
-  async function quickReminder(id) {
+  async function quickReminder(id: number | string) {
     playSound('negative')
     await recordStudentPointsAction({
       studentId: id,
@@ -838,17 +870,17 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 20 }}>
-        {[
-          ['Present', present, '#4f6687', classStudents.filter(s=>s.status==='present')],
-          ['Absent', absent, '#9f1239', classStudents.filter(s=>s.status==='absent')],
-          ['Late', late, '#9a6a2a', classStudents.filter(s=>s.status==='late')],
-          ['Therapy', inTherapy, '#6d28d9', classStudents.filter(s=>s.status==='therapy')],
-          ['With BT', withBT, '#3f6b76', classStudents.filter(s=>s.status==='with-bt')],
-          ['Unknown', unknown, '#9f1239', classStudents.filter(s=>s.status==='unknown')],
-        ].map(([label, val, color, filtered]) => (
-          <div key={label} onClick={() => (filtered as any[]).length > 0 && setDrillDown({ title: `${label}`, students: filtered as any[] })}
-            style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e2e8f0', textAlign: 'center', borderTop: `3px solid ${color}`, cursor: (filtered as any[]).length > 0 ? 'pointer' : 'default' }}
-            onMouseEnter={e => { if ((filtered as any[]).length > 0) (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)' }}
+        {([
+          ['Present', present, '#4f6687', classStudents.filter((s: StudentLike) => s.status === 'present')],
+          ['Absent', absent, '#9f1239', classStudents.filter((s: StudentLike) => s.status === 'absent')],
+          ['Late', late, '#9a6a2a', classStudents.filter((s: StudentLike) => s.status === 'late')],
+          ['Therapy', inTherapy, '#6d28d9', classStudents.filter((s: StudentLike) => s.status === 'therapy')],
+          ['With BT', withBT, '#3f6b76', classStudents.filter((s: StudentLike) => s.status === 'with-bt')],
+          ['Unknown', unknown, '#9f1239', classStudents.filter((s: StudentLike) => s.status === 'unknown')],
+        ] as Array<[string, number, string, StudentLike[]]>).map(([label, val, color, filtered]) => (
+          <div key={label} onClick={() => filtered.length > 0 && setDrillDown({ title: `${label}`, students: filtered })}
+            style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e2e8f0', textAlign: 'center', borderTop: `3px solid ${color}`, cursor: filtered.length > 0 ? 'pointer' : 'default' }}
+            onMouseEnter={e => { if (filtered.length > 0) (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)' }}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.boxShadow = 'none'}>
             <div style={{ fontSize: 28, fontWeight: 700, color }}>{val}</div>
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{label}</div>
@@ -860,24 +892,26 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
       <div style={S.card}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 {selectedClass ? CLASSES.find(c=>c.id===selectedClass)?.name : 'All Students'} — Quick Actions</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {classStudents.map((s, i) => {
-            const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
+          {classStudents.map((s: StudentLike, i: number) => {
+            const withStaffObj = s.withStaff ? STAFF.find((st: StaffMemberLike) => st.id === s.withStaff) : null
             const vip = isVIP ? isVIP(s) : false
+            const studentName = typeof s.name === 'string' ? s.name : 'Student'
+            const studentStatus = typeof s.status === 'string' ? s.status : 'present'
             return (
-              <div key={s.id} style={{ background: vip ? '#fefce8' : s.status === 'unknown' ? '#fef2f2' : '#ffffff', border: `1px solid ${vip ? '#ca8a04' : s.status === 'unknown' ? '#fecaca' : '#e2e8f0'}`, borderRadius: 10, padding: '12px 14px' }}>
+              <div key={s.id} style={{ background: vip ? '#fefce8' : studentStatus === 'unknown' ? '#fef2f2' : '#ffffff', border: `1px solid ${vip ? '#ca8a04' : studentStatus === 'unknown' ? '#fecaca' : '#e2e8f0'}`, borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => setSelectedStudent(s)}>
-                  <div style={S.avatar(i, 34)}>{initials(s.name)}</div>
+                  <div style={S.avatar(i, 34)}>{initials(studentName)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}{vip && ' ⭐'}</div>
+                    <div style={{ fontWeight: 700, fontSize: 12 }}>{studentName}{vip && ' ⭐'}</div>
                     <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
-                      <span style={{ ...S.tag(statusColor[s.status]), fontSize: 10 }}>{statusEmoji[s.status]}</span>
+                      <span style={{ ...S.tag(statusColor[studentStatus as keyof typeof statusColor]), fontSize: 10 }}>{statusEmoji[studentStatus as keyof typeof statusEmoji]}</span>
                       {withStaffObj && <span style={{ fontSize: 10, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</span>}
                     </div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={S.badge('#92400e', '#fef3c7')}>{s.points} pts</span>
-                  {s.reminders > 0 && <span style={S.badge('#9f1239', '#fee2e2')}>⚠️ {s.reminders}</span>}
+                  <span style={S.badge('#92400e', '#fef3c7')}>{s.points ?? 0} pts</span>
+                  {(typeof s.reminders === 'number' ? s.reminders : 0) > 0 && <span style={S.badge('#9f1239', '#fee2e2')}>⚠️ {typeof s.reminders === 'number' ? s.reminders : 0}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button onClick={() => quickPoints(s.id, 2)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
@@ -894,8 +928,8 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
   )
 }
 
-function TherapistDashboard({ students, userName, setSelectedStudent }) {
-  const myStudents = students.filter(s => s.services.length > 0)
+function TherapistDashboard({ students, userName, setSelectedStudent, staffMembers, therapySchedule }: { students: StudentLike[]; userName: string | null; setSelectedStudent: (student: StudentLike) => void; staffMembers: StaffMemberLike[]; therapySchedule: Array<{ day?: string; student?: string; type?: string; duration?: string; time?: string; staffId?: number | string }> }) {
+  const myStudents = students.filter((s: StudentLike) => Array.isArray((s as StudentLike).services) && (s as StudentLike).services.length > 0)
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -905,27 +939,29 @@ function TherapistDashboard({ students, userName, setSelectedStudent }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div style={S.card}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>🧠 My Students</div>
-          {myStudents.map((s, i) => {
-            const imp = getImprovement(s)
+          {myStudents.map((s: StudentLike, i: number) => {
+            const imp = getImprovement(s as { lastWeekReminders: number; reminders: number })
+            const studentName = typeof s.name === 'string' ? s.name : 'Student'
+            const studentStatus = typeof s.status === 'string' ? s.status : 'present'
             return (
               <div key={s.id} onClick={() => setSelectedStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}>
-                <div style={S.avatar(i, 36)}>{initials(s.name)}</div>
+                <div style={S.avatar(i, 36)}>{initials(studentName)}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{studentName}</div>
                   <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                    <span style={S.tag(statusColor[s.status])}>{statusEmoji[s.status]} {statusLabel[s.status]}</span>
+                    <span style={S.tag(statusColor[studentStatus as keyof typeof statusColor])}>{statusEmoji[studentStatus as keyof typeof statusEmoji]} {statusLabel[studentStatus as keyof typeof statusLabel]}</span>
                     <span style={{ fontSize: 11, color: imp.color, fontWeight: 600 }}>{imp.icon}</span>
                   </div>
                 </div>
-                <div>{s.services.map((svc, j) => <div key={j} style={{ fontSize: 11, color: '#5b5f7a', fontWeight: 600 }}>{svc.type}</div>)}</div>
+                <div>{(Array.isArray((s as StudentLike).services) ? (s as StudentLike).services : []).map((svc: { type?: string }, j: number) => <div key={j} style={{ fontSize: 11, color: '#5b5f7a', fontWeight: 600 }}>{svc.type}</div>)}</div>
               </div>
             )
           })}
         </div>
         <div style={S.card}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>📅 This Week's Sessions</div>
-          {THERAPY_SCHEDULE_STATE.map((t, i) => {
-            const staffMember = STAFF.find(st => st.id === t.staffId)
+          {therapySchedule.map((t: { day?: string; student?: string; type?: string; duration?: string; time?: string; staffId?: number | string }, i: number) => {
+            const staffMember = staffMembers.find((st: StaffMemberLike) => st.id === t.staffId)
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f8fafc' }}>
                 <div style={{ width: 40, height: 40, borderRadius: 8, background: '#5b5f7a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{t.day}</div>
@@ -948,11 +984,16 @@ function StudentFlagsPanel({
   flags,
   setFlags,
   currentStaffName
+}: {
+  students: StudentLike[]
+  flags: StudentFlagLike[]
+  setFlags: Dispatch<SetStateAction<StudentFlagLike[]>>
+  currentStaffName: string | null
 }) {
   const today = new Date().toISOString().slice(0, 10)
-  const [expandedId, setExpandedId] = useState(null)
+  const [expandedId, setExpandedId] = useState<string | number | null>(null)
   const [showCreate, setShowCreate] = useState(false)
-  const [studentId, setStudentId] = useState(students[0]?.id || '')
+  const [studentId, setStudentId] = useState<string | number>(students[0]?.id || '')
   const [goal, setGoal] = useState('')
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState('')
@@ -960,22 +1001,22 @@ function StudentFlagsPanel({
   const [note, setNote] = useState('')
   const [staffName, setStaffName] = useState(currentStaffName || 'Staff Member')
 
-  const studentName = id =>
-    students.find(student => Number(student.id) === Number(id))?.name ||
+  const studentName = (id: number | string) =>
+    students.find((student: StudentLike) => Number(student.id) === Number(id))?.name ||
     'Unknown Student'
 
-  const normalizedFlags = flags.map(flag => ({
+  const normalizedFlags = flags.map((flag: StudentFlagLike) => ({
     ...flag,
-    completed: flag.completed || flag.endDate < today
+    completed: Boolean(flag.completed || (flag.endDate || '') < today)
   }))
 
   const activeFlags = normalizedFlags
-    .filter(flag => !flag.completed)
-    .sort((a, b) => a.endDate.localeCompare(b.endDate))
+    .filter((flag: StudentFlagLike) => !flag.completed)
+    .sort((a: StudentFlagLike, b: StudentFlagLike) => String(a.endDate || '').localeCompare(String(b.endDate || '')))
 
   const completedFlags = normalizedFlags
-    .filter(flag => flag.completed)
-    .sort((a, b) => b.endDate.localeCompare(a.endDate))
+    .filter((flag: StudentFlagLike) => flag.completed)
+    .sort((a: StudentFlagLike, b: StudentFlagLike) => String(b.endDate || '').localeCompare(String(a.endDate || '')))
 
   const createFlag = () => {
     if (!studentId || !goal.trim() || !startDate || !endDate) return
@@ -1005,11 +1046,11 @@ function StudentFlagsPanel({
     setShowCreate(false)
   }
 
-  const addObservation = flagId => {
+  const addObservation = (flagId: string | number) => {
     if (!staffName.trim()) return
 
     setFlags(previous =>
-      previous.map(flag =>
+      previous.map((flag: StudentFlagLike) =>
         flag.id !== flagId
           ? flag
           : {
@@ -1054,7 +1095,7 @@ function StudentFlagsPanel({
     boxSizing: 'border-box'
   }
 
-  const renderFlag = (flag, completed = false) => {
+  const renderFlag = (flag: StudentFlagLike, completed = false) => {
     const isOpen = expandedId === flag.id
     const yesCount = (flag.observations || []).filter(item => item.observed).length
     const noCount = (flag.observations || []).filter(item => !item.observed).length
@@ -1386,16 +1427,16 @@ function StudentFlagsPanel({
   )
 }
 
-function FlagDashboardWidget({ flags, onOpen }) {
+function FlagDashboardWidget({ flags, onOpen }: { flags: StudentFlagLike[]; onOpen: () => void }) {
   const today = new Date().toISOString().slice(0, 10)
   const inSevenDays = new Date()
   inSevenDays.setDate(inSevenDays.getDate() + 7)
   const sevenDayIso = inSevenDays.toISOString().slice(0, 10)
 
-  const active = flags.filter(flag => !flag.completed && flag.endDate >= today)
-  const dueSoon = active.filter(flag => flag.endDate <= sevenDayIso)
+  const active = flags.filter((flag: StudentFlagLike) => !flag.completed && (flag.endDate || '') >= today)
+  const dueSoon = active.filter((flag: StudentFlagLike) => (flag.endDate || '') <= sevenDayIso)
   const observationsToday = active.reduce(
-    (sum, flag) =>
+    (sum: number, flag: StudentFlagLike) =>
       sum + (flag.observations || []).filter(item => item.date === today).length,
     0
   )
@@ -1469,20 +1510,20 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
-  const [loggedInStaff, setLoggedInStaff] = useState([])
+  const [loggedInStaff, setLoggedInStaff] = useState<StaffMemberLike[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
   const [activeSessionIds, setActiveSessionIds] = useState<Record<number, number>>({})
   const [showStaffManagement, setShowStaffManagement] = useState(false)
   const [showStaffPanel, setShowStaffPanel] = useState(true)
   const [showLoginActivity, setShowLoginActivity] = useState(false)
   const [page, setPage] = useState('dashboard')
-  const [students, setStudents] = useState(() => initialStudents.slice())
+  const [students, setStudents] = useState<StudentLike[]>(() => initialStudents.slice() as StudentLike[])
   const [studentsLoaded, setStudentsLoaded] = useState(false)
-  const [studentLoadError, setStudentLoadError] = useState(null)
+  const [studentLoadError, setStudentLoadError] = useState<string | null>(null)
   const [studentFallbackPatchCount, setStudentFallbackPatchCount] = useState(() => getStudentFallbackPatchCount())
   const [studentFallbackSyncState, setStudentFallbackSyncState] = useState('idle')
-  const [staffMembers, setStaffMembers] = useState(FALLBACK_STAFF_MEMBERS)
-  const [staffLoadError, setStaffLoadError] = useState(null)
+  const [staffMembers, setStaffMembers] = useState<StaffMemberLike[]>(FALLBACK_STAFF_MEMBERS as StaffMemberLike[])
+  const [staffLoadError, setStaffLoadError] = useState<string | null>(null)
   const fallbackSyncInFlightRef = useRef(false)
 
   const refreshStaffMembers = useCallback(async () => {
@@ -1947,7 +1988,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     loadStudents()
   }, [])
 
-  const [studentFlags, setStudentFlags] = useState(() => [
+  const [studentFlags, setStudentFlags] = useState<StudentFlagLike[]>([
       {
         id: 'flag-demo-1',
         studentId: 16,
@@ -2081,14 +2122,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [attendanceReportStatus, setAttendanceReportStatus] = useState('all')
   const [attendanceReportStudentId, setAttendanceReportStudentId] = useState('all')
   const [attendanceReportSearch, setAttendanceReportSearch] = useState('')
-  const [selectedStudent, setSelectedStudent] = useState(null)
+  const [selectedStudent, setSelectedStudent] = useState<StudentLike | null>(null)
   const [selectedStudentTab, setSelectedStudentTab] = useState('overview')
-  const [selectedStudentPointsEvents, setSelectedStudentPointsEvents] = useState([])
-  const [storeStudent, setStoreStudent] = useState(null)
+  const [selectedStudentPointsEvents, setSelectedStudentPointsEvents] = useState<PointsEventRecord[]>([])
+  const [storeStudent, setStoreStudent] = useState<StudentLike | null>(null)
   const [storeCategoryFilter, setStoreCategoryFilter] = useState('all')
   const [storeItemSearch, setStoreItemSearch] = useState('')
-  const [storeItems, setStoreItems] = useState(() => STORE_ITEMS.slice())
-  const [purchaseLog, setPurchaseLog] = useState([])
+  const [storeItems, setStoreItems] = useState<StoreItemLike[]>(() => STORE_ITEMS.slice() as StoreItemLike[])
+  const [purchaseLog, setPurchaseLog] = useState<Array<{ id: number | string; time: string; studentId: number | null; studentName: string; itemName: string; cost: number; staff: string; division: string }>>([])
   const [storePersistenceReady, setStorePersistenceReady] = useState(false)
   const [storeSyncState, setStoreSyncState] = useState('loading')
   const [storeLastLoadError, setStoreLastLoadError] = useState('')
@@ -2097,15 +2138,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [attFilter, setAttFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [teachingMode, setTeachingMode] = useState(false)
-  const [teacherClass, setTeacherClass] = useState(null)
-  const [teacherClassIds, setTeacherClassIds] = useState([])
+  const [teacherClass, setTeacherClass] = useState<string | number | null>(null)
+  const [teacherClassIds, setTeacherClassIds] = useState<Array<string | number>>([])
   const [divisionView, setDivisionView] = useState('all')
-  const [drillDown, setDrillDown] = useState(null)
+  const [drillDown, setDrillDown] = useState<{ title: string; students: StudentLike[] } | null>(null)
   const [showUnknownPopup, setShowUnknownPopup] = useState(false)
-  const [unknownNotes, setUnknownNotes] = useState({})
+  const [unknownNotes, setUnknownNotes] = useState<Record<string, string>>({})
 
   // Open a student profile with optional tab
-  const openStudent = (student, tab = 'overview') => {
+  const openStudent = (student: StudentLike, tab = 'overview') => {
     const isTeacherPortalRole = role === 'teacher' || role === 'rebbe'
 
     if (isTeacherPortalRole) {
@@ -2119,7 +2160,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         }
       } else {
         const assignedClassIds = getTeacherAssignedClassIds(userName, setupAssignments, students)
-        const fallbackClassId = teacherClass || TEACHER_CLASS_MAP[userName] || null
+        const fallbackClassId = teacherClass || TEACHER_CLASS_MAP[userName as keyof typeof TEACHER_CLASS_MAP] || null
         const allowedClassIds = assignedClassIds.length > 0
           ? assignedClassIds
           : (fallbackClassId ? [fallbackClassId] : [])
@@ -2303,10 +2344,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }, [])
 
   const [setupTab, setSetupTab] = useState('assignments')
-  const [setupAssignmentError, setSetupAssignmentError] = useState(null)
+  const [setupAssignmentError, setSetupAssignmentError] = useState<string | null>(null)
   const [setupPerson, setSetupPerson] = useState('Rabbi Klein')
-  const [setupAssignments, setSetupAssignments] = useState(() => {
-    const assignments = {}
+  const [setupAssignments, setSetupAssignments] = useState<Record<string, { periods: Record<number, Array<number | string>>; caseload: Array<number | string> }>>(() => {
+    const assignments: Record<string, { periods: Record<number, Array<number | string>>; caseload: Array<number | string> }> = {}
 
     SETUP_PEOPLE.forEach(person => {
       assignments[person.name] = {
@@ -2530,7 +2571,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     })
   }, [emptyAssignment, setupPerson])
 
-  const [setupCustomActions, setSetupCustomActions] = useState([])
+  const [setupCustomActions, setSetupCustomActions] = useState<TeachingAction[]>([])
   const [setupCustomActionsLoaded, setSetupCustomActionsLoaded] = useState(false)
 
   const [setupActionDraft, setSetupActionDraft] = useState({
@@ -2549,7 +2590,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const checkIsVIP = (s: any) => isVIP(s, setupVipRules)
 
-  const [setupSales, setSetupSales] = useState([])
+  const [setupSales, setSetupSales] = useState<StoreSale[]>([])
   const [setupSalesLoaded, setSetupSalesLoaded] = useState(false)
 
   const [setupSaleDraft, setSetupSaleDraft] = useState({
@@ -2558,7 +2599,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     value: 5
   })
 
-  const [setupAccounts, setSetupAccounts] = useState({})
+  const [setupAccounts, setSetupAccounts] = useState<Record<string, Record<string, unknown>>>({})
 
   const [THERAPY_SCHEDULE_STATE, setTHERAPY_SCHEDULE] = useState(THERAPY_SCHEDULE)
 
@@ -2872,11 +2913,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     return rows
   }
 
-  const [setupTherapySchedule, setSetupTherapySchedule] = useState(
+  const [setupTherapySchedule, setSetupTherapySchedule] = useState<Array<Record<string, unknown>>>(
     createFakeTherapySchedule
   )
   const [setupTherapyView, setSetupTherapyView] = useState('therapist')
-  const [setupTherapyFilters, setSetupTherapyFilters] = useState([])
+  const [setupTherapyFilters, setSetupTherapyFilters] = useState<Array<{ id: number | string; field: string; value: string }>>([])
 
   const addSetupTherapyFilter = () => {
     setSetupTherapyFilters(previous => [
@@ -2889,7 +2930,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ])
   }
 
-  const updateSetupTherapyFilter = (id, changes) => {
+  const updateSetupTherapyFilter = (id: number | string, changes: Partial<{ field: string; value: string }>) => {
     setSetupTherapyFilters(previous =>
       previous.map(filter =>
         filter.id === id
@@ -2899,7 +2940,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     )
   }
 
-  const removeSetupTherapyFilter = id => {
+  const removeSetupTherapyFilter = (id: number | string) => {
     setSetupTherapyFilters(previous =>
       previous.filter(filter => filter.id !== id)
     )
@@ -2947,9 +2988,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 10, name: 'Moshe Berger', phone: '718-555-1010', program: 'yeshiva-ketana', status: 'tour-scheduled', callNotes: 'Looking for 8th grade.', tourDate: '2026-06-11', tourTime: '09:30', interviewDate: '', interviewTime: '', followUpNotes: '' },
   ])
   const [selectedPreIntake, setSelectedPreIntake] = useState(null)
-  const [todos, setTodos] = useState([])
+  const [todos, setTodos] = useState<Todo[]>([])
   const [todosLoaded, setTodosLoaded] = useState(false)
-  const [todoLoadError, setTodoLoadError] = useState(null)
+  const [todoLoadError, setTodoLoadError] = useState<string | null>(null)
   const [newTodo, setNewTodo] = useState('')
   const [newTodoCategory, setNewTodoCategory] = useState('general')
   const [newTodoTime, setNewTodoTime] = useState('')
@@ -2973,7 +3014,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }
 
-  async function handleLogin(r, name) { 
+  async function handleLogin(r: string, name: string) { 
     const staff = await getStaffByName(name)
     if (staff && staff.active === false) {
       console.warn(`Blocked login for inactive staff member ${name}.`)
