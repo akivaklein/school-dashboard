@@ -41,6 +41,31 @@ function categoryForRoles(roles: string[] = []) {
   return 'Support Staff'
 }
 
+function normalizeDirectoryMembers(input: StaffDirectoryMember[] | null | undefined): StaffDirectoryMember[] {
+  const normalized = (Array.isArray(input) ? input : [])
+    .filter((member): member is StaffDirectoryMember => !!member && typeof member === 'object' && typeof member.name === 'string' && member.name.trim().length > 0)
+    .map(member => ({
+      ...member,
+      name: member.name.trim(),
+      roles: Array.isArray(member.roles) && member.roles.length > 0
+        ? member.roles.filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
+        : (typeof member.role === 'string' && member.role.trim().length > 0 ? [member.role.trim()] : ['staff']),
+      active: member.active !== false,
+      email: typeof member.email === 'string' ? member.email : '',
+      phone: typeof member.phone === 'string' ? member.phone : '',
+    }))
+
+  return normalized.length > 0 ? normalized : FALLBACK_STAFF_MEMBERS.map(member => ({
+    id: member.id,
+    name: member.name,
+    role: member.role,
+    roles: member.roles,
+    email: member.email,
+    phone: member.phone,
+    active: member.active,
+  }))
+}
+
 function RoleSelector({
   selected,
   onChange,
@@ -116,7 +141,7 @@ export default function StaffDirectoryPage({
   const [draftById, setDraftById] = useState<Record<number, StaffDraft>>({})
   const [showInactive, setShowInactive] = useState(false)
 
-  const directoryMembers = Array.isArray(staffMembers) && staffMembers.length > 0 ? staffMembers : FALLBACK_STAFF_MEMBERS
+  const directoryMembers = normalizeDirectoryMembers(staffMembers)
 
   const grouped = useMemo(() => {
     const base = {

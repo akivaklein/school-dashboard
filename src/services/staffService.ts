@@ -149,6 +149,19 @@ function mapStaffRecord(row: Record<string, unknown> | null | undefined): StaffM
   }
 }
 
+function normalizeStaffRows(input: unknown): StaffMemberRecord[] {
+  if (!Array.isArray(input)) {
+    return FALLBACK_STAFF_MEMBERS
+  }
+
+  const normalized = input
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map(item => mapStaffRecord(item))
+    .filter(member => typeof member.name === 'string' && member.name.trim().length > 0)
+
+  return normalized.length > 0 ? normalized : FALLBACK_STAFF_MEMBERS
+}
+
 export async function loadStaffMembers() {
   try {
     const { data, error } = await supabase
@@ -165,7 +178,7 @@ export async function loadStaffMembers() {
       return FALLBACK_STAFF_MEMBERS
     }
 
-    return data.filter(Boolean).map(row => mapStaffRecord(row as Record<string, unknown>))
+    return normalizeStaffRows(data)
   } catch (error) {
     console.error('Error loading staff members:', error)
     return FALLBACK_STAFF_MEMBERS
