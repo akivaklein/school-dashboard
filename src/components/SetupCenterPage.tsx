@@ -5,6 +5,7 @@ import SetupVipRulesSection from './SetupVipRulesSection'
 import SetupStoreSalesSection from './SetupStoreSalesSection'
 import SetupAccountsSection from './SetupAccountsSection'
 import SetupSchoolStructureSection from './SetupSchoolStructureSection'
+import StaffDirectoryPage from './StaffDirectoryPage'
 import {
   loadSetupAssignments,
   saveSetupAssignment,
@@ -156,16 +157,19 @@ export default function SetupCenterPage({
             </div>
           )}
 
-          <div style={{ ...S.card, marginBottom: 16, padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ ...S.card, marginBottom: 16, padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', border: '1px solid #dbe7f1', background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 100%)' }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 999, background: '#edf4fb', color: '#31506f', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                🛠️ Admin Tools
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196', marginTop: 8 }}>
                 Home / Setup Center
               </div>
               <div style={{ fontSize: 20, fontWeight: 900, color: '#223046', marginTop: 4 }}>
                 {safeSetupNavItems.find(item => item.id === setupTab)?.label || 'Setup Center'}
               </div>
               <div style={{ fontSize: 12, color: '#718096', marginTop: 4, maxWidth: 700 }}>
-                Manage teaching rosters, therapist caseloads, behavior actions, VIP rules, canteen sales, and staff access.
+                Keep school-wide settings organized and easy to review for the principal demo.
               </div>
             </div>
             <button

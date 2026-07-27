@@ -3992,7 +3992,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         </div>
         <div style={{ flex: 1, paddingTop: 4 }}>
           {navItems.map(item => (
-            <div key={item.id} style={S.sidebarItem(page === item.id)} onClick={() => setPage(item.id)}>
+            <div
+              key={item.id}
+              style={{
+                ...S.sidebarItem(page === item.id),
+                transition: 'transform 160ms ease, background 160ms ease, box-shadow 160ms ease',
+                boxShadow: page === item.id ? 'inset 0 0 0 1px rgba(255,255,255,0.16), 0 10px 20px rgba(15,23,42,0.16)' : 'inset 0 0 0 1px rgba(255,255,255,0.04)',
+                transform: page === item.id ? 'translateX(2px)' : 'none',
+              }}
+              onClick={() => setPage(item.id)}
+            >
               <span style={{ width: 26, height: 26, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, letterSpacing: '0.03em', background: page === item.id ? '#35506f' : 'rgba(255,255,255,0.10)', color: page === item.id ? '#fff' : 'rgba(255,255,255,0.78)', flexShrink: 0 }}>{item.icon}</span>
               <span style={{ flex: 1 }}>{item.label}</span>
               {item.id === 'support' && alerts.filter(a => a.type === 'danger').length > 0 && (
@@ -4050,14 +4059,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       <div style={mainStyle}>
         <div style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto' }}>
         <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#eaf2fb', color: '#2f4b68', fontSize: 12, fontWeight: 700 }}>
-            {contextInfo.roleLabel}
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#eaf2fb', color: '#2f4b68', fontSize: 12, fontWeight: 700, border: '1px solid #d8e3ef' }}>
+            🧭 {contextInfo.roleLabel}
           </span>
-          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontSize: 12, fontWeight: 600 }}>
-            {contextInfo.pageLabel}
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontSize: 12, fontWeight: 600, border: '1px solid #e2e8f0' }}>
+            📍 {contextInfo.pageLabel}
           </span>
-          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#fefce8', color: '#854d0e', fontSize: 12, fontWeight: 600 }}>
-            {contextInfo.divisionLabel}
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#fefce8', color: '#854d0e', fontSize: 12, fontWeight: 600, border: '1px solid #f4e2a5' }}>
+            🏫 {contextInfo.divisionLabel}
           </span>
           {studentFallbackPatchCount > 0 && (
             <span style={{ padding: '6px 10px', borderRadius: 999, background: '#fef2f2', color: '#9f1239', fontSize: 12, fontWeight: 700 }}>

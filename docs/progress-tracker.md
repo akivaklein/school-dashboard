@@ -2,6 +2,7 @@
 
 ## Status Overview
 - [x] Setup Center blank-page regression resolved
+- [x] Setup Center navigation regrouping and sectioned layout
 - [x] Intake navigation restored
 - [x] Staff directory populated with fallback roster
 - [ ] Daily attendance reset regression check
