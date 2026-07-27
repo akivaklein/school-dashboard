@@ -161,11 +161,45 @@ const INTAKE_PLACEMENT_LEVELS = [
   { key: 'independent', label: 'Independent', color: '#56765f', bg: '#eef4f0' },
 ]
 
-const intakeScoreLabel = (val) => val === 0 ? '—' : val === 1 ? 'Needs Support' : val === 2 ? 'Emerging' : val === 3 ? 'Developing' : val === 4 ? 'Proficient' : 'Strong'
-const intakeScoreColor = (val) => val >= 4 ? '#56765f' : val >= 3 ? '#5b6f95' : val > 0 ? '#9a6a2a' : '#94a3b8'
+type StudentLike = {
+  id?: number | string
+  name?: string
+  att?: string[]
+  lateDetails?: { timeArrived?: string; reason?: string; note?: string }
+  classLog?: Array<{ type: string; time: string; note?: string; staffId?: number | string }>
+  points?: number
+  reminders?: number
+  lastWeekReminders?: number
+  [key: string]: unknown
+}
 
-function daysSince(dateStr) { return Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 86400000) }
-function initials(name) { return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() }
+type StoreItemLike = {
+  name?: string
+  emoji?: string
+  [key: string]: unknown
+}
+
+type AttendanceHistoryEntry = {
+  date: string
+  inMins: number
+  outMins: number
+  pct: number
+  staffName?: string
+  [key: string]: unknown
+}
+
+type StaffMemberLike = {
+  id?: number | string
+  name?: string
+  role?: string
+  [key: string]: unknown
+}
+
+const intakeScoreLabel = (val: number) => val === 0 ? '—' : val === 1 ? 'Needs Support' : val === 2 ? 'Emerging' : val === 3 ? 'Developing' : val === 4 ? 'Proficient' : 'Strong'
+const intakeScoreColor = (val: number) => val >= 4 ? '#56765f' : val >= 3 ? '#5b6f95' : val > 0 ? '#9a6a2a' : '#94a3b8'
+
+function daysSince(dateStr: string) { return Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 86400000) }
+function initials(name: string) { return name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() }
 const AVATAR_COLORS = ['#334155','#475569','#3f4f63','#526070','#5f6c7a','#3f5f68','#5b5f7a','#606f64','#6f6254','#495867','#56616d','#4b6470','#6b6259','#576070','#425466','#6a5d68','#536157','#6a5848','#465a69','#64748b','#596475']
 
 function useNow() {
@@ -174,7 +208,7 @@ function useNow() {
   return now
 }
 
-function getGreeting(hour) {
+function getGreeting(hour: number) {
   if (hour < 12) return 'Good morning'
   if (hour < 17) return 'Good afternoon'
   return 'Good evening'
@@ -190,14 +224,14 @@ function LiveClock() {
   return <span style={{ color: '#64748b', fontSize: 13 }}>{date} · {time}</span>
 }
 
-function getImprovement(s) {
+function getImprovement(s: { lastWeekReminders: number; reminders: number }) {
   if (s.lastWeekReminders === 0 && s.reminders === 0) return { label: 'No reminders', color: '#56765f', icon: '✅' }
   if (s.reminders < s.lastWeekReminders) return { label: `Improved (${s.lastWeekReminders}→${s.reminders})`, color: '#56765f', icon: '📈' }
   if (s.reminders > s.lastWeekReminders) return { label: 'More reminders', color: '#9f1239', icon: '📉' }
   return { label: 'Same as last week', color: '#9a6a2a', icon: '➡️' }
 }
 
-function isVIP(s, rules: { minimumPoints: number; maximumReminders: number; minimumAttendance: number; requireAll: boolean }) {
+function isVIP(s: { att: string[]; points: number; reminders: number }, rules: { minimumPoints: number; maximumReminders: number; minimumAttendance: number; requireAll: boolean }) {
   const presentCount = s.att.filter((d: string) => d === 'P').length
   const attPct = s.att.length > 0 ? (presentCount / s.att.length) * 100 : 100
   const checks = [
@@ -208,7 +242,7 @@ function isVIP(s, rules: { minimumPoints: number; maximumReminders: number; mini
   return rules.requireAll ? checks.every(Boolean) : checks.some(Boolean)
 }
 
-function isStoreItemRestrictedForStudent(student, item) {
+function isStoreItemRestrictedForStudent(student: StudentLike | null | undefined, item: StoreItemLike | null | undefined) {
   if (!student || !item) return false
   const studentName = (student.name || '').toLowerCase()
   const itemName = (item.name || '').toLowerCase()
@@ -221,46 +255,48 @@ const S = {
   app: { fontFamily: "'Inter','DM Sans','Segoe UI',sans-serif", minHeight: '100vh', background: '#f3f6fa', color: '#223046', display: 'flex', letterSpacing: '-0.01em' },
   sidebar: { width: 244, background: '#1f2c3f', color: '#fff', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, overflowY: 'auto', overflowX: 'hidden', boxShadow: '8px 0 24px rgba(31,44,63,0.10)' },
   sidebarLogo: { padding: '22px 18px 18px', borderBottom: '1px solid rgba(255,255,255,0.10)', marginBottom: 10, flexShrink: 0 },
-  sidebarItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', borderRadius: 10, margin: '3px 10px', background: active ? '#eef4fb' : 'transparent', color: active ? '#223046' : 'rgba(255,255,255,0.78)', fontSize: 13.5, fontWeight: active ? 700 : 500, transition: 'background 0.15s, color 0.15s, transform 0.15s', flexShrink: 0 }),
+  sidebarItem: (active: boolean) => ({ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', borderRadius: 10, margin: '3px 10px', background: active ? '#eef4fb' : 'transparent', color: active ? '#223046' : 'rgba(255,255,255,0.78)', fontSize: 13.5, fontWeight: active ? 700 : 500, transition: 'background 0.15s, color 0.15s, transform 0.15s', flexShrink: 0 }),
   main: { marginLeft: 244, padding: '32px 56px 50px 40px', minHeight: '100vh', flex: 1, width: 'calc(100% - 244px)', boxSizing: 'border-box' },
   card: { background: '#ffffff', borderRadius: 16, padding: '22px', boxShadow: '0 8px 22px rgba(30,41,59,0.05)', border: '1px solid #e2e8f0' },
-  statCard: (color) => ({ background: '#ffffff', borderRadius: 16, padding: '18px 20px', boxShadow: '0 8px 22px rgba(30,41,59,0.05)', border: '1px solid #e2e8f0', borderLeft: `3px solid ${color}` }),
-  badge: (color, bg) => ({ display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, color, background: bg }),
-  btn: (variant) => {
-    const map = { primary: ['#48698d','#fff'], danger: ['#a24860','#fff'], ghost: ['#eef3f8','#41556d'], success: ['#5a7a66','#fff'], purple: ['#6b7088','#fff'], gold: ['#8a7245','#fff8df'] }
+  statCard: (color: string) => ({ background: '#ffffff', borderRadius: 16, padding: '18px 20px', boxShadow: '0 8px 22px rgba(30,41,59,0.05)', border: '1px solid #e2e8f0', borderLeft: `3px solid ${color}` }),
+  badge: (color: string, bg: string) => ({ display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, color, background: bg }),
+  btn: (variant: keyof typeof buttonVariants) => {
+    const map = { primary: ['#48698d','#fff'], danger: ['#a24860','#fff'], ghost: ['#eef3f8','#41556d'], success: ['#5a7a66','#fff'], purple: ['#6b7088','#fff'], gold: ['#8a7245','#fff8df'] } as const
     return { padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, background: map[variant][0], color: map[variant][1], transition: 'transform 0.15s, box-shadow 0.15s' }
   },
-  tag: (color) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: color + '10', color, border: `1px solid ${color}22` }),
-  avatar: (idx, size = 36) => ({ width: size, height: size, borderRadius: '50%', background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size > 30 ? 13 : 10, flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.18)' }),
+  tag: (color: string) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: color + '10', color, border: `1px solid ${color}22` }),
+  avatar: (idx: number, size = 36) => ({ width: size, height: size, borderRadius: '50%', background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size > 30 ? 13 : 10, flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.18)' }),
 }
 
+const buttonVariants = { primary: true, danger: true, ghost: true, success: true, purple: true, gold: true } as const
+
 // ── TRACKING TAB COMPONENT ────────────────────────────────────────────────────
-function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; staffMembers: any[] }) {
+function TrackingTab({ s, students, staffMembers }: { s: StudentLike; students: StudentLike[]; staffMembers: StaffMemberLike[] }) {
   const [period, setPeriod] = useState('today')
-  const [drillType, setDrillType] = useState(null) // 'in', 'out', or a date string
-  const student = students.find(x => x.id === s.id) || s
-  const histData = HISTORICAL_DATA[student.id] || []
+  const [drillType, setDrillType] = useState<string | null>(null) // 'in', 'out', or a date string
+  const student = students.find((x: StudentLike) => x.id === s.id) || s
+  const histData: AttendanceHistoryEntry[] = (HISTORICAL_DATA as Record<string | number, AttendanceHistoryEntry[]>)[String(student.id)] || []
 
   const filterData = () => {
     const now = new Date()
     const today = now.toISOString().slice(0,10)
     switch(period) {
-      case 'today': return histData.filter(d => d.date === today).length > 0 ? histData.filter(d => d.date === today) : histData.slice(0,1)
-      case 'week': { const weekAgo = new Date(now - 7*86400000).toISOString().slice(0,10); return histData.filter(d => d.date >= weekAgo) }
-      case 'month': { const monthAgo = new Date(now - 30*86400000).toISOString().slice(0,10); return histData.filter(d => d.date >= monthAgo) }
-      case 'thismonth': return histData.filter(d => d.date.startsWith(now.toISOString().slice(0,7)))
-      case 'year': return histData.filter(d => d.date.startsWith(new Date().getFullYear().toString()))
+      case 'today': return histData.filter((d: AttendanceHistoryEntry) => d.date === today).length > 0 ? histData.filter((d: AttendanceHistoryEntry) => d.date === today) : histData.slice(0,1)
+      case 'week': { const weekAgo = new Date(now.getTime() - 7*86400000).toISOString().slice(0,10); return histData.filter((d: AttendanceHistoryEntry) => d.date >= weekAgo) }
+      case 'month': { const monthAgo = new Date(now.getTime() - 30*86400000).toISOString().slice(0,10); return histData.filter((d: AttendanceHistoryEntry) => d.date >= monthAgo) }
+      case 'thismonth': return histData.filter((d: AttendanceHistoryEntry) => d.date.startsWith(now.toISOString().slice(0,7)))
+      case 'year': return histData.filter((d: AttendanceHistoryEntry) => d.date.startsWith(new Date().getFullYear().toString()))
       default: return histData
     }
   }
 
   const data = filterData()
-  const totalIn = data.reduce((acc, d) => acc + d.inMins, 0)
-  const totalOut = data.reduce((acc, d) => acc + d.outMins, 0)
+  const totalIn = data.reduce((acc: number, d: AttendanceHistoryEntry) => acc + d.inMins, 0)
+  const totalOut = data.reduce((acc: number, d: AttendanceHistoryEntry) => acc + d.outMins, 0)
   const avgPct = data.length > 0 ? Math.round(totalIn / (totalIn + totalOut) * 100) : 0
   const pctColor = avgPct >= 70 ? '#56765f' : avgPct >= 50 ? '#9a6a2a' : '#9f1239'
-  const staffTime = {}
-  data.forEach(d => { if (d.staffName) staffTime[d.staffName] = (staffTime[d.staffName] || 0) + d.outMins })
+  const staffTime: Record<string, number> = {}
+  data.forEach((d: AttendanceHistoryEntry) => { if (d.staffName) staffTime[d.staffName] = (staffTime[d.staffName] || 0) + d.outMins })
 
   const periods = [
     { id: 'today', label: 'Today' },
@@ -288,7 +324,7 @@ function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; s
 
     // Late drill-down
     if (drillType === 'late') {
-      const lateDays = DAYS.map((day, i) => ({ day, i, status: student.att?.[i] })).filter(d => d.status === 'L' || d.status === 'LE')
+      const lateDays = DAYS.map((day: string, i: number) => ({ day, i, status: student.att?.[i] })).filter((d: { day: string; i: number; status?: string }) => d.status === 'L' || d.status === 'LE')
       return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 24px 70px rgba(15,23,42,0.22)', overflow: 'hidden' }}>
@@ -299,7 +335,7 @@ function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; s
             <div style={{ padding: 16 }}>
               {lateDays.length === 0 ? (
                 <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No late days this week</div>
-              ) : lateDays.map((d, i) => {
+              ) : lateDays.map((d: { day: string; i: number; status?: string }, i: number) => {
                 const fullDays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday']
                 const lateDetail = student.lateDetails
                 return (
@@ -327,7 +363,7 @@ function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; s
 
     if (isDateDrill && drillType !== 'late') {
       // Show specific day breakdown
-      const dayData = histData.find(d => d.date === drillType) || data[0]
+      const dayData = histData.find((d: AttendanceHistoryEntry) => d.date === drillType) || data[0]
       const dayName = dayData ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(dayData.date).getDay()] : ''
       const todayLog = student.classLog || []
       return (
@@ -349,9 +385,9 @@ function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; s
                   {todayLog.length > 0 && (
                     <>
                       <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Timeline:</div>
-                      {todayLog.map((ev, i) => {
-                        const staffObj = ev.staffId ? staffMembers.find(st => st.id === ev.staffId) : null
-                        const period = SCHEDULE_PERIODS.find(p => { if (p.type !== 'class') return false; const [sh, sm] = p.time.split(' - ')[0].split(':').map(Number); const [eh, em] = p.time.split(' - ')[1].split(':').map(Number); const [ch, cm] = ev.time.split(':').map(Number); return (ch*60+cm) >= (sh*60+sm) && (ch*60+cm) <= (eh*60+em) })
+                      {todayLog.map((ev: { type: string; time: string; note?: string; staffId?: number | string }, i: number) => {
+                        const staffObj = ev.staffId ? staffMembers.find((st: StaffMemberLike) => st.id === ev.staffId) : null
+                        const period = SCHEDULE_PERIODS.find((p: { type: string; time: string; subject?: string; teachers?: string[] }) => { if (p.type !== 'class') return false; const [sh, sm] = p.time.split(' - ')[0].split(':').map(Number); const [eh, em] = p.time.split(' - ')[1].split(':').map(Number); const [ch, cm] = ev.time.split(':').map(Number); return (ch*60+cm) >= (sh*60+sm) && (ch*60+cm) <= (eh*60+em) })
                         return (
                           <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
                             <span style={{ fontSize: 12, color: '#64748b', minWidth: 44 }}>{ev.time}</span>
@@ -376,7 +412,7 @@ function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; s
     const title = isIn ? '✅ Time In Class' : '🚪 Time Out of Class'
 
     // Build per-day, per-period breakdown from classLog + histData
-    const breakdownData = data.map(d => ({
+    const breakdownData = data.map((d: AttendanceHistoryEntry) => ({
       date: d.date,
       mins: isIn ? d.inMins : d.outMins,
       staff: isIn ? null : d.staffName,
@@ -403,13 +439,13 @@ function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; s
             {hasDetailedLog && (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8, textTransform: 'uppercase' }}>Today's Timeline</div>
-                {todayLog.filter(e => isIn ? e.type === 'in' : e.type === 'out').map((ev, i) => {
+                {todayLog.filter((e: { type: string; time: string; note?: string; staffId?: number | string }) => isIn ? e.type === 'in' : e.type === 'out').map((ev: { type: string; time: string; note?: string; staffId?: number | string }, i: number) => {
                   const next = todayLog[todayLog.indexOf(ev) + 1]
-                  const staffObj = ev.staffId ? staffMembers.find(st => st.id === ev.staffId) : null
+                  const staffObj = ev.staffId ? staffMembers.find((st: StaffMemberLike) => st.id === ev.staffId) : null
                   const [ch, cm] = ev.time.split(':').map(Number)
                   const mins = next ? (() => { const [nh, nm] = next.time.split(':').map(Number); return (nh*60+nm)-(ch*60+cm) })() : null
                   // Find which class period this falls in
-                  const period = SCHEDULE_PERIODS.find(p => {
+                  const period = SCHEDULE_PERIODS.find((p: { type: string; time: string; subject?: string; teachers?: string[] }) => {
                     const [sh, sm] = p.time.split(' - ')[0].split(':').map(Number)
                     const [eh, em] = p.time.split(' - ')[1].split(':').map(Number)
                     return p.type === 'class' && (ch*60+cm) >= (sh*60+sm) && (ch*60+cm) <= (eh*60+em)
@@ -430,7 +466,7 @@ function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; s
 
             {/* Per-day breakdown */}
             <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8, textTransform: 'uppercase' }}>By Day</div>
-            {breakdownData.map((d, i) => (
+            {breakdownData.map((d: { date: string; mins: number; staff?: string; pct: number }, i: number) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #f8fafc' }}>
                 <div style={{ minWidth: 80, fontSize: 12, color: '#64748b' }}>{d.date}</div>
                 <div style={{ flex: 1, height: 6, background: '#f8fafc', borderRadius: 3, overflow: 'hidden' }}>
@@ -507,7 +543,7 @@ function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; s
           {Object.keys(staffTime).length > 0 && (
             <div style={{ ...S.card, marginBottom: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>👤 Time Out — By Staff Member</div>
-              {Object.entries(staffTime).sort((a,b) => b[1]-a[1]).map(([name, mins]) => (
+              {Object.entries(staffTime).sort((a: [string, number], b: [string, number]) => b[1]-a[1]).map(([name, mins]: [string, number]) => (
                 <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #f8fafc' }}>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>👤 {name}</span>
                   <div style={{ width: 120, height: 6, background: '#f8fafc', borderRadius: 3, overflow: 'hidden' }}>
@@ -522,7 +558,7 @@ function TrackingTab({ s, students, staffMembers }: { s: any; students: any[]; s
           {/* Daily breakdown — clickable rows */}
           <div style={S.card}>
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>📅 Daily Breakdown <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400 }}>(click any day for details)</span></div>
-            {data.map((d, i) => {
+            {data.map((d: AttendanceHistoryEntry, i: number) => {
               const color = d.pct >= 70 ? '#56765f' : d.pct >= 50 ? '#9a6a2a' : '#9f1239'
               const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d.date).getDay()]
               // Find which teacher was teaching that day based on day of week
@@ -3844,7 +3880,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'classes-divisions', label: 'Classes & Divisions', icon: '🏫', group: 'School Structure' },
     { id: 'schedule-setup', label: 'Schedule Setup', icon: '🗓️', group: 'School Structure' },
   ]
-  const searchedStudents = search ? visibleStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : visibleStudents
+  const normalizedSearch = String(search || '').trim().toLowerCase()
+  const searchedStudents = normalizedSearch
+    ? visibleStudents.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
+    : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
   const contextInfo = useMemo(() => getDashboardContextInfo(page, role, divisionView), [page, role, divisionView])
 
