@@ -57,26 +57,11 @@ export default function TokenStorePage({
   storeSyncState,
   storeLastLoadError,
 }: Props) {
-  const syncLabel =
-    storeSyncState === 'ready'
-      ? 'Connected'
-      : storeSyncState === 'loading'
-        ? 'Checking...'
-        : 'Not connected'
-
-  const syncColor =
-    storeSyncState === 'ready'
-      ? '#166534'
-      : storeSyncState === 'loading'
-        ? '#7c2d12'
-        : '#9f1239'
-
-  const syncBackground =
-    storeSyncState === 'ready'
-      ? '#dcfce7'
-      : storeSyncState === 'loading'
-        ? '#ffedd5'
-        : '#ffe4e6'
+  const syncUi = getStoreSyncUiState({
+    persistenceReady: storePersistenceReady,
+    pendingSync: storeSyncState === 'pending-sync',
+    syncState: storeSyncState,
+  })
 
   const lastErrorText = storeLastLoadError || 'none'
 
@@ -100,13 +85,13 @@ export default function TokenStorePage({
               )}
             </div>
 
-            <div style={{ ...S.card, marginBottom: 12, padding: '10px 12px', borderLeft: `3px solid ${syncColor}` }}>
+            <div style={{ ...S.card, marginBottom: 12, padding: '10px 12px', borderLeft: `3px solid ${syncUi.color}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Sync
                 </span>
-                <span style={{ ...S.badge(syncColor, syncBackground), fontWeight: 700 }}>
-                  {syncLabel}
+                <span style={{ ...S.badge(syncUi.color, syncUi.background), fontWeight: 700 }}>
+                  {syncUi.label}
                 </span>
                 <span style={{ fontSize: 11, color: '#475569' }}>
                   Last load error: {lastErrorText}

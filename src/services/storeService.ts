@@ -309,3 +309,59 @@ export async function deleteStoreRedemption(id: number): Promise<void> {
 
   if (error) throw error
 }
+
+export type StoreSyncUiState = {
+  label: string
+  color: string
+  background: string
+  isReady: boolean
+  isPending: boolean
+}
+
+export function getStoreSyncUiState(input: {
+  persistenceReady: boolean
+  pendingSync?: boolean
+  syncState?: string
+}): StoreSyncUiState {
+  const persistenceReady = !!input.persistenceReady
+  const pendingSync = !!input.pendingSync
+  const syncState = input.syncState || (persistenceReady ? 'ready' : 'error')
+
+  if (pendingSync) {
+    return {
+      label: 'Pending sync',
+      color: '#9a6a2a',
+      background: '#f7f1e8',
+      isReady: false,
+      isPending: true,
+    }
+  }
+
+  if (syncState === 'loading') {
+    return {
+      label: 'Checking...',
+      color: '#7c2d12',
+      background: '#ffedd5',
+      isReady: false,
+      isPending: true,
+    }
+  }
+
+  if (persistenceReady) {
+    return {
+      label: 'Connected',
+      color: '#166534',
+      background: '#dcfce7',
+      isReady: true,
+      isPending: false,
+    }
+  }
+
+  return {
+    label: 'Not connected',
+    color: '#9f1239',
+    background: '#ffe4e6',
+    isReady: false,
+    isPending: false,
+  }
+}

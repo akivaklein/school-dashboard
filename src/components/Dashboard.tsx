@@ -3378,6 +3378,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     let stockAdjusted = false
 
     try {
+      setStoreSyncState('pending-sync')
+
       const stockRow = await adjustStoreItemStockBy(
         Number(item.id),
         -1,
@@ -3452,6 +3454,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         return
       }
 
+      setStoreSyncState('ready')
+
       setPurchaseLog(prev => [{
         id: redemption.id,
         time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
@@ -3493,6 +3497,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         }
       }
 
+      setStoreSyncState('error')
       console.error('Store redemption failed:', error)
 
       alert(
@@ -3511,6 +3516,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     let previousItem = null
     let nextItem = null
+
+    setStoreSyncState('pending-sync')
 
     setStoreItems(prev => prev.map(item => {
       if (Number(item.id) !== Number(id)) return item
@@ -3542,6 +3549,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         )))
       })
       .catch(error => {
+        setStoreSyncState('error')
         console.error('Unable to save store item:', error)
 
         if (previousItem) {
@@ -3562,8 +3570,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       return
     }
 
+    setStoreSyncState('pending-sync')
+
     adjustStoreItemStockBy(Number(id), Number(amount || 0), userName || 'Store Manager')
       .then(savedItem => {
+        setStoreSyncState('ready')
         setStoreItems(prev => prev.map(item => (
           Number(item.id) === Number(savedItem.id)
             ? { ...item, ...savedItem }
@@ -3571,6 +3582,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         )))
       })
       .catch(error => {
+        setStoreSyncState('error')
         console.error('Unable to adjust stock:', error)
         alert(
           error instanceof Error
@@ -3588,6 +3600,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
 
     try {
+      setStoreSyncState('pending-sync')
+
       const item = await createStoreItem({
         name: newStoreItem.name.trim(),
         category: (newStoreItem.category || 'nosh').trim() || 'nosh',
@@ -3598,9 +3612,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         lowStockAt: Math.max(0, Number(newStoreItem.lowStockAt) || 0),
       }, userName || 'Store Manager')
 
+      setStoreSyncState('ready')
       setStoreItems(prev => [...prev, item])
       setNewStoreItem({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', category: 'nosh', vip: false })
     } catch (error) {
+      setStoreSyncState('error')
       console.error('Unable to add store item:', error)
       alert('Unable to add store item.')
     }
@@ -3614,9 +3630,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
 
     try {
+      setStoreSyncState('pending-sync')
+
       await setStoreItemActive(Number(id), false, userName || 'Store Manager')
+      setStoreSyncState('ready')
       setStoreItems(prev => prev.filter(item => Number(item.id) !== Number(id)))
     } catch (error) {
+      setStoreSyncState('error')
       console.error('Unable to remove store item:', error)
       alert('Unable to remove store item.')
     }
