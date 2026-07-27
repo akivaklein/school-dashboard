@@ -3797,6 +3797,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'academics', label: 'Academics', icon: 'AC' },
     { id: 'store', label: 'Token Store', icon: 'TS' },
     { id: 'todo', label: 'To-Do List', icon: 'TD' },
+    { id: 'intake', label: 'Intake / Admissions', icon: 'IA' },
     { id: 'setup', label: 'Setup Center', icon: 'SE' },
   ]
   const teacherNav = [
