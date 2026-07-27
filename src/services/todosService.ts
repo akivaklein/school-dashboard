@@ -47,14 +47,21 @@ export async function createTodo(input: {
   text: string
   category: string
 }): Promise<Todo> {
+  const normalizedText = String(input.text || '').trim()
+  const normalizedCategory = String(input.category || 'general').trim().toLowerCase() || 'general'
+
+  if (!normalizedText) {
+    throw new Error('Todo text is required.')
+  }
+
   const { data, error } = await supabase
     .from('todos')
     .insert([
       {
         date: input.date,
         time: input.time || null,
-        text: input.text,
-        category: input.category,
+        text: normalizedText,
+        category: normalizedCategory,
         done: false,
       }
     ])
@@ -70,8 +77,8 @@ export async function createTodo(input: {
     id: data.id,
     date: data.date,
     time: data.time || '',
-    text: data.text,
-    category: data.category,
+    text: normalizedText,
+    category: normalizedCategory,
     done: data.done,
     created_at: data.created_at,
     updated_at: data.updated_at,
