@@ -2383,6 +2383,139 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [setupPersonSearch, setSetupPersonSearch] = useState('')
   const [setupStudentSearch, setSetupStudentSearch] = useState('')
 
+  const emptyAssignment = useMemo(() => ({
+    periods: { 1: [], 2: [], 3: [] },
+    caseload: [],
+  }), [])
+
+  const currentPerson = useMemo(() => {
+    return SETUP_PEOPLE.find(person => person.name === setupPerson) || null
+  }, [SETUP_PEOPLE, setupPerson])
+
+  const visiblePeople = useMemo(() => {
+    const search = setupPersonSearch.trim().toLowerCase()
+    if (!search) return SETUP_PEOPLE
+
+    return SETUP_PEOPLE.filter(person => {
+      const haystack = `${person.name} ${person.specialty || ''}`.toLowerCase()
+      return haystack.includes(search)
+    })
+  }, [SETUP_PEOPLE, setupPersonSearch])
+
+  const filteredSetupStudents = useMemo(() => {
+    const search = setupStudentSearch.trim().toLowerCase()
+    if (!search) return students || []
+
+    return (students || []).filter(student => {
+      const haystack = `${student.name || ''} ${student.className || ''} ${student.id || ''}`.toLowerCase()
+      return haystack.includes(search)
+    })
+  }, [students, setupStudentSearch])
+
+  const currentAssignment = useMemo(() => {
+    if (!currentPerson?.name) return emptyAssignment
+    return setupAssignments[currentPerson.name] || emptyAssignment
+  }, [currentPerson, setupAssignments, emptyAssignment])
+
+  const overlapWarnings = useMemo(() => {
+    const warnings: Array<{ period: number; studentName: string; teacherNames: string[] }> = []
+
+    ;[1, 2, 3].forEach(period => {
+      const ownerMap = new Map<string, string[]>()
+
+      Object.entries(setupAssignments).forEach(([ownerName, assignment]) => {
+        const studentIds = assignment?.periods?.[period] || []
+        if (!studentIds.length) return
+
+        studentIds.forEach(studentId => {
+          const existing = ownerMap.get(String(studentId)) || []
+          ownerMap.set(String(studentId), [...existing, ownerName])
+        })
+      })
+
+      ownerMap.forEach((teacherNames, studentId) => {
+        if (teacherNames.length < 2) return
+
+        const student = students.find(item => String(item.id) === String(studentId))
+        warnings.push({
+          period,
+          studentName: student?.name || `Student ${studentId}`,
+          teacherNames: teacherNames.filter((name, index) => teacherNames.indexOf(name) === index),
+        })
+      })
+    })
+
+    return warnings
+  }, [setupAssignments, students])
+
+  const togglePeriodStudent = useCallback(async (period: number, studentId: number | string) => {
+    if (!setupPerson) return
+
+    setSetupAssignments(prev => {
+      const prevAssignment = prev?.[setupPerson] || emptyAssignment
+      const existingPeriodIds = prevAssignment.periods?.[period] || []
+      const nextPeriodIds = existingPeriodIds.includes(studentId)
+        ? existingPeriodIds.filter(id => id !== studentId)
+        : [...existingPeriodIds, studentId]
+
+      const nextAssignment = {
+        ...prevAssignment,
+        periods: {
+          ...(prevAssignment.periods || { 1: [], 2: [], 3: [] }),
+          [period]: nextPeriodIds,
+        },
+      }
+
+      return {
+        ...prev,
+        [setupPerson]: nextAssignment,
+      }
+    })
+  }, [emptyAssignment, setupPerson])
+
+  const toggleCaseloadStudent = useCallback(async (studentId: number | string) => {
+    if (!setupPerson) return
+
+    setSetupAssignments(prev => {
+      const prevAssignment = prev?.[setupPerson] || emptyAssignment
+      const existingCaseload = prevAssignment.caseload || []
+      const nextCaseload = existingCaseload.includes(studentId)
+        ? existingCaseload.filter(id => id !== studentId)
+        : [...existingCaseload, studentId]
+
+      const nextAssignment = {
+        ...prevAssignment,
+        caseload: nextCaseload,
+      }
+
+      return {
+        ...prev,
+        [setupPerson]: nextAssignment,
+      }
+    })
+  }, [emptyAssignment, setupPerson])
+
+  const copyPeriodOneToTwo = useCallback(() => {
+    if (!setupPerson) return
+
+    setSetupAssignments(prev => {
+      const prevAssignment = prev?.[setupPerson] || emptyAssignment
+      const periodOne = prevAssignment.periods?.[1] || []
+      const nextAssignment = {
+        ...prevAssignment,
+        periods: {
+          ...(prevAssignment.periods || { 1: [], 2: [], 3: [] }),
+          2: [...periodOne],
+        },
+      }
+
+      return {
+        ...prev,
+        [setupPerson]: nextAssignment,
+      }
+    })
+  }, [emptyAssignment, setupPerson])
+
   const [setupCustomActions, setSetupCustomActions] = useState([])
   const [setupCustomActionsLoaded, setSetupCustomActionsLoaded] = useState(false)
 
