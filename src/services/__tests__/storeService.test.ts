@@ -1,5 +1,50 @@
 import { describe, expect, it } from 'vitest'
-import { getStoreSyncUiState } from '../storeService'
+import {
+  getStoreSyncUiState,
+  normalizeStoreItemInput,
+  normalizeStoreRedemptionInput,
+} from '../storeService'
+
+describe('normalizeStoreItemInput', () => {
+  it('trims names, clamps numeric values, and defaults empty category values', () => {
+    expect(
+      normalizeStoreItemInput({
+        name: '  Gummies  ',
+        category: '   candy   ',
+        cost: -5,
+        stock: -1,
+        lowStockAt: -3,
+        emoji: '   ',
+        vip: true,
+      })
+    ).toMatchObject({
+      name: 'Gummies',
+      category: 'candy',
+      cost: 0,
+      stock: 0,
+      lowStockAt: 0,
+      emoji: '▪️',
+      vip: true,
+    })
+  })
+})
+
+describe('normalizeStoreRedemptionInput', () => {
+  it('trims names and provides a default source for token-store redemptions', () => {
+    expect(
+      normalizeStoreRedemptionInput({
+        studentName: '  Avi  ',
+        itemName: '   Candy   ',
+        cost: '12',
+      } as never)
+    ).toMatchObject({
+      studentName: 'Avi',
+      itemName: 'Candy',
+      cost: 12,
+      source: 'token-store',
+    })
+  })
+})
 
 describe('getStoreSyncUiState', () => {
   it('reports pending sync when local changes are waiting to be sent', () => {

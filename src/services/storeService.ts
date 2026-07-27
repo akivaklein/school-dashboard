@@ -81,6 +81,62 @@ export type CreateStoreRedemptionInput = {
   metadata?: Record<string, unknown>
 }
 
+export function normalizeStoreItemInput(input: Partial<CreateStoreItemInput> & Partial<StoreItem>): {
+  name: string
+  category: string
+  cost: number
+  emoji: string
+  vip: boolean
+  stock: number
+  lowStockAt: number
+  imageUrl: string
+  updatedBy: string | null
+} {
+  const name = String(input.name || '').trim()
+  const category = String(input.category || 'nosh').trim() || 'nosh'
+  const cost = Math.max(0, Number(input.cost || 0))
+  const emoji = String(input.emoji || '').trim() || '▪️'
+  const vip = !!input.vip
+  const stock = Math.max(0, Number(input.stock || 0))
+  const lowStockAt = Math.max(0, Number(input.lowStockAt || 0))
+  const imageUrl = String(input.imageUrl || '')
+  const updatedBy = input.updatedBy ?? null
+
+  return {
+    name,
+    category,
+    cost,
+    emoji,
+    vip,
+    stock,
+    lowStockAt,
+    imageUrl,
+    updatedBy,
+  }
+}
+
+export function normalizeStoreRedemptionInput(input: Partial<CreateStoreRedemptionInput>): {
+  studentId: number | null
+  studentName: string
+  itemId: number | null
+  itemName: string
+  cost: number
+  staffName: string
+  source: string
+  metadata: Record<string, unknown>
+} {
+  return {
+    studentId: input.studentId ?? null,
+    studentName: String(input.studentName || '').trim(),
+    itemId: input.itemId ?? null,
+    itemName: String(input.itemName || '').trim(),
+    cost: Math.max(0, Number(input.cost || 0)),
+    staffName: String(input.staffName || '').trim(),
+    source: String(input.source || 'token-store').trim() || 'token-store',
+    metadata: input.metadata || {},
+  }
+}
+
 function toStoreItem(row: StoreItemRow): StoreItem {
   return {
     id: Number(row.id),
@@ -135,19 +191,22 @@ export async function seedStoreItems(items: Array<Partial<StoreItem>>): Promise<
   if (existingError) throw existingError
   if ((existingRows || []).length > 0) return
 
-  const payload = items.map(item => ({
-    id: item.id,
-    name: String(item.name || '').trim(),
-    category: String(item.category || 'nosh').trim() || 'nosh',
-    cost: Math.max(0, Number(item.cost || 0)),
-    emoji: String(item.emoji || ''),
-    vip: !!item.vip,
-    stock: Math.max(0, Number(item.stock || 0)),
-    low_stock_at: Math.max(0, Number(item.lowStockAt || 0)),
-    image_url: String(item.imageUrl || ''),
-    active: true,
-    updated_at: new Date().toISOString(),
-  }))
+  const payload = items.map(item => {
+    const normalized = normalizeStoreItemInput(item)
+    return {
+      id: item.id,
+      name: normalized.name,
+      category: normalized.category,
+      cost: normalized.cost,
+      emoji: normalized.emoji,
+      vip: normalized.vip,
+      stock: normalized.stock,
+      low_stock_at: normalized.lowStockAt,
+      image_url: normalized.imageUrl,
+      active: true,
+      updated_at: new Date().toISOString(),
+    }
+  })
 
   if (payload.length === 0) return
 
@@ -159,18 +218,19 @@ export async function seedStoreItems(items: Array<Partial<StoreItem>>): Promise<
 }
 
 export async function updateStoreItem(item: StoreItem, updatedBy?: string): Promise<StoreItem> {
+  const normalized = normalizeStoreItemInput({ ...item, updatedBy })
   const payload = {
     id: Number(item.id),
-    name: String(item.name || '').trim(),
-    category: String(item.category || 'nosh').trim() || 'nosh',
-    cost: Math.max(0, Number(item.cost || 0)),
-    emoji: String(item.emoji || ''),
-    vip: !!item.vip,
-    stock: Math.max(0, Number(item.stock || 0)),
-    low_stock_at: Math.max(0, Number(item.lowStockAt || 0)),
-    image_url: String(item.imageUrl || ''),
+    name: normalized.name,
+    category: normalized.category,
+    cost: normalized.cost,
+    emoji: normalized.emoji,
+    vip: normalized.vip,
+    stock: normalized.stock,
+    low_stock_at: normalized.lowStockAt,
+    image_url: normalized.imageUrl,
     active: item.active !== false,
-    updated_by: updatedBy || null,
+    updated_by: normalized.updatedBy,
     updated_at: new Date().toISOString(),
   }
 
@@ -185,17 +245,18 @@ export async function updateStoreItem(item: StoreItem, updatedBy?: string): Prom
 }
 
 export async function createStoreItem(input: CreateStoreItemInput, updatedBy?: string): Promise<StoreItem> {
+  const normalized = normalizeStoreItemInput({ ...input, updatedBy })
   const payload = {
-    name: String(input.name || '').trim(),
-    category: String(input.category || 'nosh').trim() || 'nosh',
-    cost: Math.max(0, Number(input.cost || 0)),
-    emoji: String(input.emoji || ''),
-    vip: !!input.vip,
-    stock: Math.max(0, Number(input.stock || 0)),
-    low_stock_at: Math.max(0, Number(input.lowStockAt || 0)),
-    image_url: String(input.imageUrl || ''),
+    name: normalized.name,
+    category: normalized.category,
+    cost: normalized.cost,
+    emoji: normalized.emoji,
+    vip: normalized.vip,
+    stock: normalized.stock,
+    low_stock_at: normalized.lowStockAt,
+    image_url: normalized.imageUrl,
     active: true,
-    updated_by: updatedBy || input.updatedBy || null,
+    updated_by: normalized.updatedBy,
     updated_at: new Date().toISOString(),
   }
 
@@ -282,17 +343,18 @@ export async function listStoreRedemptions(limit = 25): Promise<StoreRedemption[
 export async function createStoreRedemption(
   input: CreateStoreRedemptionInput,
 ): Promise<StoreRedemption> {
+  const normalized = normalizeStoreRedemptionInput(input)
   const { data, error } = await supabase
     .from('store_redemptions')
     .insert({
-      student_id: input.studentId ?? null,
-      student_name: input.studentName,
-      item_id: input.itemId ?? null,
-      item_name: input.itemName,
-      cost: Math.max(0, Number(input.cost || 0)),
-      staff_name: input.staffName,
-      source: input.source || 'token-store',
-      metadata: input.metadata || {},
+      student_id: normalized.studentId,
+      student_name: normalized.studentName,
+      item_id: normalized.itemId,
+      item_name: normalized.itemName,
+      cost: normalized.cost,
+      staff_name: normalized.staffName,
+      source: normalized.source,
+      metadata: normalized.metadata,
     })
     .select('*')
     .single()

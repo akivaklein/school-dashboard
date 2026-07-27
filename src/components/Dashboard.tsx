@@ -39,6 +39,8 @@ import {
   deleteStoreRedemption,
   listStoreItems,
   listStoreRedemptions,
+  normalizeStoreItemInput,
+  normalizeStoreRedemptionInput,
   seedStoreItems,
   setStoreItemActive,
   updateStoreItem as saveStoreItem,
@@ -3446,7 +3448,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           : entry
       )))
 
-      const redemption = await createStoreRedemption({
+      const redemption = await createStoreRedemption(normalizeStoreRedemptionInput({
         studentId: Number(s.id),
         studentName: s.name,
         itemId: Number(item.id),
@@ -3458,7 +3460,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           division: studentDivision(s),
           staffRole: role || 'staff',
         },
-      })
+      }))
 
       redemptionId = redemption.id
 
@@ -3592,7 +3594,21 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     if (!nextItem) return
 
-    saveStoreItem(nextItem, userName || 'Store Manager')
+    const normalizedItem = normalizeStoreItemInput(nextItem)
+    const persistedItem = {
+      ...nextItem,
+      ...normalizedItem,
+      id: Number(nextItem.id),
+      cost: normalizedItem.cost,
+      stock: normalizedItem.stock,
+      lowStockAt: normalizedItem.lowStockAt,
+      emoji: normalizedItem.emoji,
+      vip: normalizedItem.vip,
+      category: normalizedItem.category,
+      name: normalizedItem.name,
+    }
+
+    saveStoreItem(persistedItem as typeof nextItem, userName || 'Store Manager')
       .then(savedItem => {
         setStoreItems(prev => prev.map(item => (
           Number(item.id) === Number(savedItem.id)
@@ -3654,15 +3670,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     try {
       setStoreSyncState('pending-sync')
 
-      const item = await createStoreItem({
-        name: newStoreItem.name.trim(),
-        category: (newStoreItem.category || 'nosh').trim() || 'nosh',
-        cost: Math.max(0, Number(newStoreItem.cost) || 0),
-        emoji: newStoreItem.emoji.trim() || '▪️',
-        vip: !!newStoreItem.vip,
-        stock: Math.max(0, Number(newStoreItem.stock) || 0),
-        lowStockAt: Math.max(0, Number(newStoreItem.lowStockAt) || 0),
-      }, userName || 'Store Manager')
+      const item = await createStoreItem(normalizeStoreItemInput({
+        name: newStoreItem.name,
+        category: newStoreItem.category,
+        cost: newStoreItem.cost,
+        emoji: newStoreItem.emoji,
+        vip: newStoreItem.vip,
+        stock: newStoreItem.stock,
+        lowStockAt: newStoreItem.lowStockAt,
+      }), userName || 'Store Manager')
 
       setStoreSyncState('ready')
       setStoreItems(prev => [...prev, item])
