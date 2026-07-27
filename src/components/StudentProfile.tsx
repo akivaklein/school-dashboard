@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import StudentNotes from './StudentNotes'
+import { resolveActorName } from './dashboardData'
 
 export default function StudentProfile({
   student,
@@ -29,7 +30,7 @@ export default function StudentProfile({
 }) {
   const [tab, setTab] = useState(defaultTab)
   const [callNotes, setCallNotes] = useState('')
-  const [callStaff, setCallStaff] = useState(userName || 'Staff')
+  const [callStaff, setCallStaff] = useState(resolveActorName(userName, role))
   const [callDuration, setCallDuration] = useState('')
   const [pendingUndoEvent, setPendingUndoEvent] = useState(null)
   const [undoSaving, setUndoSaving] = useState(false)
@@ -87,9 +88,10 @@ export default function StudentProfile({
 
   function addCall() { 
     if (!callNotes.trim()) return
+    const resolvedCaller = resolveActorName(callStaff || userName, role).trim()
     const newCall = {
       date: new Date().toISOString().slice(0,10),
-      staff: (callStaff || userName || 'Staff').trim(),
+      staff: resolvedCaller,
       notes: callNotes,
       duration: callDuration,
     }
