@@ -26,6 +26,7 @@ import {
   deletePointsEvent,
   listPointsEventsForStudent,
 } from '../services/pointsEventsService'
+import { applyDailyAttendanceReset } from '../services/attendanceService'
 import {
   listStudentFlags,
   replaceStudentFlags,
@@ -1426,32 +1427,6 @@ const ATTENDANCE_RESET_STORAGE_KEY = 'schoolDashboardLastAttendanceResetDate'
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
-}
-
-function applyDailyAttendanceReset(studentsList, resetDate) {
-  return studentsList.map(student => {
-    const resetLogEntry = {
-      time: new Date().toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      }),
-      type: 'day-reset',
-      note: `Daily attendance reset for ${resetDate}`,
-      staffId: null,
-      staffName: 'System',
-      recordedAt: new Date().toISOString(),
-    }
-
-    return {
-      ...student,
-      dailyStatus: 'not-arrived',
-      status: 'not-arrived',
-      withStaff: null,
-      lateDetails: null,
-      classLog: [...(student.classLog || []), resetLogEntry],
-    }
-  })
 }
 
 export default function Dashboard({ teacherUser, onTeacherSessionLogout }: DashboardProps) {
