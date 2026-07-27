@@ -103,7 +103,7 @@ export async function getLoginStats(days = 30) {
   try {
     const { data, error } = await supabase
       .from('login_sessions')
-      .select('staff_name, role, login_time, logout_time, session_duration_seconds')
+      .select('staff_id, staff_name, role, login_time, logout_time, session_duration_seconds')
       .gte('login_time', new Date(Date.now() - days * 86400000).toISOString())
 
     if (error) {
@@ -114,9 +114,15 @@ export async function getLoginStats(days = 30) {
     const stats: Record<string, any> = {}
 
     (data || []).forEach(session => {
-      if (!stats[session.staff_name]) {
-        stats[session.staff_name] = {
-          name: session.staff_name,
+      const staffId = session.staff_id != null ? Number(session.staff_id) : null
+      const statsKey = staffId != null
+        ? `staff-${staffId}`
+        : (session.staff_name || 'unknown-staff')
+      const staffName = session.staff_name || 'Unknown staff'
+
+      if (!stats[statsKey]) {
+        stats[statsKey] = {
+          name: staffName,
           role: session.role,
           loginCount: 0,
           totalSessionSeconds: 0,
@@ -126,7 +132,7 @@ export async function getLoginStats(days = 30) {
         }
       }
 
-      stats[session.staff_name].loginCount += 1
+      stats[statsKey].loginCount += 1
 
       const hasStoredDuration =
         typeof session.session_duration_seconds === 'number' &&
@@ -143,14 +149,14 @@ export async function getLoginStats(days = 30) {
             0,
             Math.floor((Date.now() - loginMs) / 1000)
           )
-          stats[session.staff_name].activeSessions += 1
+          stats[statsKey].activeSessions += 1
         }
       }
 
-      stats[session.staff_name].totalSessionSeconds += sessionDurationSeconds
+      stats[statsKey].totalSessionSeconds += sessionDurationSeconds
 
       if (sessionDurationSeconds > 0) {
-        stats[session.staff_name].sessionsWithDuration += 1
+        stats[statsKey].sessionsWithDuration += 1
       }
     })
 
