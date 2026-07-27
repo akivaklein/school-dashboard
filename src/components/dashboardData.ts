@@ -591,6 +591,14 @@ export function resolveActorName(actorName, role = 'admin') {
   return 'Staff'
 }
 
+export function getDashboardContextInfo(page, role, divisionView) {
+  const roleLabel = role === 'teacher' ? 'Teacher' : role === 'therapist' ? 'Therapist' : role === 'store' ? 'Store' : 'Admin'
+  const pageLabel = page === 'dashboard' ? 'Dashboard' : page === 'attendance' ? 'Attendance' : page === 'behavior' ? 'Behavior' : page === 'academics' ? 'Academics' : page === 'schedule' ? 'Schedule' : page === 'store' ? 'Token Store' : page === 'setup' ? 'Setup Center' : page === 'support' ? 'Student Support' : page === 'staff-directory' ? 'Staff Directory' : page === 'intake' ? 'Intake' : page === 'calls' ? 'Calls' : page === 'alerts' ? 'Alerts' : page === 'todos' ? 'Todos' : 'Dashboard'
+  const divisionLabel = divisionView === 'all' ? 'All Students' : divisionView === 'yeshiva-ketana' ? 'Yeshiva Ketana' : divisionView === 'mesivta' ? 'Mesivta' : String(divisionView || 'All Students')
+
+  return { roleLabel, pageLabel, divisionLabel }
+}
+
 export const STAFF = [
   { id: 's1', name: 'Rabbi Baum', role: 'Menahel' },
   { id: 's2', name: 'Rabbi Ehrnreich', role: 'Sgan Menahel' },

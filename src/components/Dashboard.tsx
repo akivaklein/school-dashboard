@@ -102,6 +102,7 @@ import {
   academicStatus,
   academicStatusColor,
   getStaffNameOptions,
+  getDashboardContextInfo,
   DAYS,
   TEACHER_CLASS_MAP,
   CLASSES,
@@ -3850,6 +3851,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   ]
   const searchedStudents = search ? visibleStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
+  const contextInfo = useMemo(() => getDashboardContextInfo(page, role, divisionView), [page, role, divisionView])
 
   function ClickCard({ label, val, color, sub, filterStudents, goToPage = null }) {
     return (
@@ -3939,6 +3941,22 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
       <div style={mainStyle}>
         <div style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto' }}>
+        <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#eaf2fb', color: '#2f4b68', fontSize: 12, fontWeight: 700 }}>
+            {contextInfo.roleLabel}
+          </span>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontSize: 12, fontWeight: 600 }}>
+            {contextInfo.pageLabel}
+          </span>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#fefce8', color: '#854d0e', fontSize: 12, fontWeight: 600 }}>
+            {contextInfo.divisionLabel}
+          </span>
+          {studentFallbackPatchCount > 0 && (
+            <span style={{ padding: '6px 10px', borderRadius: 999, background: '#fef2f2', color: '#9f1239', fontSize: 12, fontWeight: 700 }}>
+              Pending sync: {studentFallbackPatchCount}
+            </span>
+          )}
+        </div>
         {studentFallbackPatchCount > 0 && (
           <div
             style={{
