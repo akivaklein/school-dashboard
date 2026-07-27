@@ -87,12 +87,23 @@ function RoleSelector({
   )
 }
 
+type StaffDirectoryPageProps = {
+  S: {
+    card: React.CSSProperties
+    btn: (variant: string) => React.CSSProperties
+    avatar: (index: number, size: number) => React.CSSProperties
+  }
+  staffMembers: StaffDirectoryMember[]
+  initials: (name: string) => string
+  onStaffChanged: () => Promise<void>
+}
+
 export default function StaffDirectoryPage({
   S,
   staffMembers,
   initials,
   onStaffChanged,
-}) {
+}: StaffDirectoryPageProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [addForm, setAddForm] = useState<StaffDraft>({
