@@ -11,13 +11,8 @@ import SchedulePage from './SchedulePage'
 import TodoPage from './TodoPage'
 import TokenStorePage from './TokenStorePage'
 import AcademicsPage, { StudentScoresTab } from './AcademicsPage'
-import SetupAssignmentsSection from './SetupAssignmentsSection'
-import SetupTherapyScheduleSection from './SetupTherapyScheduleSection'
-import SetupTeachingConfigSection from './SetupTeachingConfigSection'
-import SetupVipRulesSection from './SetupVipRulesSection'
-import SetupStoreSalesSection from './SetupStoreSalesSection'
-import SetupAccountsSection from './SetupAccountsSection'
-import SetupSchoolStructureSection from './SetupSchoolStructureSection'
+import SetupCenterPage from './SetupCenterPage'
+import AdminOfficeDashboardPage from './AdminOfficeDashboardPage'
 import AlertsPage from './AlertsPage'
 import CallsPage from './CallsPage'
 import StudentsListPage from './StudentsListPage'
@@ -3883,559 +3878,105 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={visibleStudents} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
 
         {page === 'dashboard' && role === 'admin' && isOfficeUser && (
-          <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-            {(() => {
-              const docKeys = ['applicationForm','birthCertificate','immunization','iepEvaluation','reportCard','schoolRecords','parentQuestionnaire','tuitionPaperwork','emergencyContacts','medicalAllergies']
-              const applicants = intakeList || []
-              const preLeads = preIntakeList || []
-
-              const accepted = applicants.filter(x => ['Accepted','Accepted with supports','accepted','enrolled'].includes(x.decision || x.status))
-              const missingDocApplicants = applicants.filter(x => docKeys.some(k => !x.requiredDocsComplete?.[k]))
-              const openFollowUps = applicants.flatMap(x => (x.followUps || []).filter(t => !t.done).map(t => ({ ...t, applicant: x.name })))
-              const tours = [
-                ...preLeads.filter(x => x.tourDate).map(x => ({ name: x.name, date: x.tourDate, time: x.tourTime, by: x.tourBy || 'Rabbi Baum', type: 'Lead' })),
-                ...applicants.filter(x => x.tourDate).map(x => ({ name: x.name, date: x.tourDate, time: x.tourTime, by: x.tourBy || 'Rabbi Baum', type: 'Applicant' }))
-              ].slice(0, 6)
-
-              const documentsNeeded = missingDocApplicants.reduce((sum, x) => sum + docKeys.filter(k => !x.requiredDocsComplete?.[k]).length, 0)
-              const callsDue = callsDueStudents.slice(0, 5)
-
-              return (
-                <>
-                  <div style={{ marginBottom: 22, background: '#ffffff', borderRadius: 14, padding: '24px 26px', color: '#223046', boxShadow: '0 8px 22px rgba(30,41,59,0.05)', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 18 }}>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196', marginBottom: 9 }}>Office Command Desk</div>
-                        <h1 style={{ fontSize: 30, fontWeight: 800, margin: 0, letterSpacing: '-0.045em', color: '#111827' }}>{getGreeting(new Date().getHours())}, {userName}</h1>
-                        <p style={{ color: '#64748b', margin: '9px 0 0', fontSize: 13 }}><LiveClock /> · Admissions, calls, documents, and office follow-ups</p>
-                      </div>
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        <button onClick={() => { setPage('intake'); setIntakeSection('pre') }} style={S.btn('primary')}>Open Pre-Intake</button>
-                        <button onClick={() => { setPage('intake'); setIntakeSection('applicants') }} style={S.btn('ghost')}>Open Applicants</button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, marginBottom: 18 }}>
-                    <ClickCard label="Pre-Intake Leads" val={preLeads.length} color="#334155" sub="calls, tours, early inquiries" goToPage="intake" />
-                    <ClickCard label="Applicants" val={applicants.length} color="#4f6687" sub={`${accepted.length} accepted/enrolled`} goToPage="intake" />
-                    <ClickCard label="Missing Docs" val={documentsNeeded} color="#9a3412" sub={`${missingDocApplicants.length} boys need paperwork`} goToPage="intake" />
-                    <ClickCard label="Open Follow-Ups" val={openFollowUps.length} color="#7c3aed" sub="office tasks still open" goToPage="intake" />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 16, marginBottom: 18 }}>
-                    <div style={S.card}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <div>
-                          <div style={{ fontSize: 16, fontWeight: 800, color: '#172033' }}>Admissions Office Work Queue</div>
-                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>What the office should handle next.</div>
-                        </div>
-                        <button onClick={() => setPage('intake')} style={S.btn('ghost')}>Go to Intake</button>
-                      </div>
-
-                      {[
-                        { title: 'Collect missing documents', count: documentsNeeded, note: `${missingDocApplicants.length} applicants have incomplete packets`, page: 'intake' },
-                        { title: 'Follow up with parents', count: openFollowUps.length, note: 'open intake follow-up tasks', page: 'intake' },
-                        { title: 'Parent calls due', count: callsDueStudents.length, note: 'students needing parent contact', page: 'calls' },
-                        { title: 'Store low-stock review', count: storeItems.filter(i => (i.stock || 0) <= (i.lowStockAt || 0)).length, note: 'canteen items below threshold', page: 'store' },
-                      ].map(item => (
-                        <div key={item.title} onClick={() => setPage(item.page)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', marginBottom: 9, cursor: 'pointer' }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: '#172033' }}>{item.count}</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 800, fontSize: 13, color: '#172033' }}>{item.title}</div>
-                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{item.note}</div>
-                          </div>
-                          <div style={{ fontSize: 18, color: '#94a3b8' }}>›</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div style={S.card}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: '#172033', marginBottom: 4 }}>Upcoming Tours</div>
-                      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Usually handled by Rabbi Baum or Rabbi Fried.</div>
-
-                      {tours.length === 0 && (
-                        <div style={{ padding: 16, borderRadius: 10, background: '#f8fafc', color: '#64748b', fontSize: 13 }}>No tours scheduled yet.</div>
-                      )}
-
-                      {tours.map(tour => (
-                        <div key={`${tour.name}-${tour.date}-${tour.type}`} style={{ padding: '12px 0', borderBottom: '1px solid #eef2f7' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                            <div style={{ fontWeight: 800, fontSize: 13, color: '#172033' }}>{tour.name}</div>
-                            <div style={{ fontSize: 11, color: '#64748b' }}>{tour.type}</div>
-                          </div>
-                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>{tour.date}{tour.time ? ` · ${tour.time}` : ''} · {tour.by}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <div style={S.card}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: '#172033', marginBottom: 10 }}>Open Intake Follow-Ups</div>
-                      {openFollowUps.slice(0, 6).map(task => (
-                        <div key={`${task.applicant}-${task.id}`} style={{ padding: '10px 0', borderBottom: '1px solid #eef2f7' }}>
-                          <div style={{ fontWeight: 700, fontSize: 13 }}>{task.text}</div>
-                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{task.applicant} · Due {task.due || 'no date'} · {task.assigned || 'Office'}</div>
-                        </div>
-                      ))}
-                      {openFollowUps.length === 0 && <div style={{ fontSize: 13, color: '#64748b' }}>No open follow-ups. The office desk is sparkling.</div>}
-                    </div>
-
-                    <div style={S.card}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: '#172033', marginBottom: 10 }}>Parent Calls Due</div>
-                      {callsDue.map(stu => (
-                        <div key={stu.id} onClick={() => openStudent(stu, 'calls')} style={{ padding: '10px 0', borderBottom: '1px solid #eef2f7', cursor: 'pointer' }}>
-                          <div style={{ fontWeight: 700, fontSize: 13 }}>{stu.name}</div>
-                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{stu.className} · parent call follow-up needed</div>
-                        </div>
-                      ))}
-                      {callsDue.length === 0 && <div style={{ fontSize: 13, color: '#64748b' }}>No parent calls due right now.</div>}
-                    </div>
-                  </div>
-                </>
-              )
-            })()}
-          </div>
+          <AdminOfficeDashboardPage
+            S={S}
+            getGreeting={getGreeting}
+            userName={userName}
+            LiveClock={LiveClock}
+            setPage={setPage}
+            setIntakeSection={setIntakeSection}
+            storeItems={storeItems}
+            openStudent={openStudent}
+            intakeList={intakeList}
+            preIntakeList={preIntakeList}
+            callsDueStudents={callsDueStudents}
+            alerts={alerts}
+            students={students}
+            setDrillDown={setDrillDown}
+            setShowUnknownPopup={setShowUnknownPopup}
+            divisionLabel={divisionLabel}
+            divisionView={divisionView}
+            divisionSummaries={divisionSummaries}
+            DIVISIONS={DIVISIONS}
+            inClassrooms={inClassrooms}
+            inClassroomsStudents={inClassroomsStudents}
+            late={late}
+            lateStudents={lateStudents}
+            inTherapy={inTherapy}
+            withBT={withBT}
+            leftEarlyStudents={leftEarlyStudents}
+            absentTodayStudents={absentTodayStudents}
+            cameTodayRate={cameTodayRate}
+            cameToday={cameToday}
+            stillInYeshiva={stillInYeshiva}
+            unknown={unknown}
+            urgentStudents={urgentStudents}
+            userAccess={userAccess}
+          />
         )}
 
 
         {page === 'setup' && role === 'admin' && (
-          <div style={{ maxWidth: 1260, margin: '0 auto' }}>
-            {(() => {
-              const visiblePeople = SETUP_PEOPLE.filter(person =>
-                `${person.name} ${person.specialty}`
-                  .toLowerCase()
-                  .includes(setupPersonSearch.toLowerCase())
-              )
-
-              const currentPerson =
-                SETUP_PEOPLE.find(person => person.name === setupPerson) ||
-                SETUP_PEOPLE[0]
-
-              const emptyAssignment = {
-                periods: {
-                  1: [],
-                  2: [],
-                  3: []
-                },
-                caseload: []
-              }
-
-              const currentAssignment =
-                setupAssignments[currentPerson?.name] || emptyAssignment
-
-              const updateCurrentAssignment = updater => {
-                if (!currentPerson) return
-
-                setSetupAssignments(previous => {
-                  const existing =
-                    previous[currentPerson.name] || emptyAssignment
-
-                  const updated = updater(existing)
-
-                  // Persist the changes
-                  setTimeout(async () => {
-                    await saveSetupAssignment(currentPerson.name, updated)
-                  }, 0)
-
-                  return {
-                    ...previous,
-                    [currentPerson.name]: updated
-                  }
-                })
-              }
-
-              const togglePeriodStudent = async (period, studentId) => {
-                if (!currentPerson || currentPerson.type !== 'teacher') {
-                  return
-                }
-
-                const currentlySelected =
-                  (
-                    setupAssignments[currentPerson.name]
-                      ?.periods?.[period] || []
-                  ).includes(studentId)
-
-                const previousAssignments = setupAssignments
-                const persistedAssignments = await loadSetupAssignments()
-                const baseAssignments =
-                  Object.keys(persistedAssignments || {}).length > 0
-                    ? {
-                        ...setupAssignments,
-                        ...persistedAssignments,
-                      }
-                    : setupAssignments
-
-                const next = { ...baseAssignments }
-                const affectedTeachers = [currentPerson.name]
-
-                if (currentlySelected) {
-                  const existing =
-                    next[currentPerson.name] || emptyAssignment
-
-                  next[currentPerson.name] = {
-                    ...existing,
-                    periods: {
-                      ...existing.periods,
-                      [period]:
-                        (existing.periods?.[period] || [])
-                          .filter(id => id !== studentId)
-                    }
-                  }
-                } else {
-                  // Hard enforcement: one teacher per student per period.
-                  teacherPeople.forEach(person => {
-                    const existing =
-                      next[person.name] || emptyAssignment
-
-                    next[person.name] = {
-                      ...existing,
-                      periods: {
-                        ...existing.periods,
-                        [period]:
-                          (existing.periods?.[period] || [])
-                            .filter(id => id !== studentId)
-                      }
-                    }
-
-                    if (person.name !== currentPerson.name) {
-                      affectedTeachers.push(person.name)
-                    }
-                  })
-
-                  const selectedTeacher =
-                    next[currentPerson.name] || emptyAssignment
-
-                  next[currentPerson.name] = {
-                    ...selectedTeacher,
-                    periods: {
-                      ...selectedTeacher.periods,
-                      [period]: [
-                        ...(selectedTeacher.periods?.[period] || []),
-                        studentId
-                      ]
-                    }
-                  }
-                }
-
-                setSetupAssignments(next)
-                setSetupAssignmentError(null)
-
-                const saveResults = await Promise.all(
-                  affectedTeachers.map(teacher =>
-                    saveSetupAssignment(teacher, next[teacher])
-                  )
-                )
-
-                if (!saveResults.every(Boolean)) {
-                  setSetupAssignments(previousAssignments)
-                  setSetupAssignmentError(
-                    'Could not save assignment changes. No assignment updates were kept.'
-                  )
-                  return
-                }
-              }
-
-              const toggleCaseloadStudent = studentId => {
-                updateCurrentAssignment(existing => {
-                  const currentIds = existing.caseload || []
-                  const nextIds = currentIds.includes(studentId)
-                    ? currentIds.filter(id => id !== studentId)
-                    : [...currentIds, studentId]
-
-                  return {
-                    ...existing,
-                    caseload: nextIds
-                  }
-                })
-              }
-
-              const copyPeriodOneToTwo = () => {
-                updateCurrentAssignment(existing => ({
-                  ...existing,
-                  periods: {
-                    ...existing.periods,
-                    2: [...(existing.periods?.[1] || [])]
-                  }
-                }))
-              }
-
-              const teacherPeople =
-                SETUP_PEOPLE.filter(person => person.type === 'teacher')
-
-              const overlapWarnings = []
-
-              ;[1, 2, 3].forEach(period => {
-                const studentTeachers = {}
-
-                teacherPeople.forEach(person => {
-                  const ids =
-                    setupAssignments[person.name]?.periods?.[period] || []
-
-                  ids.forEach(studentId => {
-                    if (!studentTeachers[studentId]) {
-                      studentTeachers[studentId] = []
-                    }
-
-                    studentTeachers[studentId].push(person.name)
-                  })
-                })
-
-                Object.entries(studentTeachers).forEach(
-                  ([studentId, teacherNames]) => {
-                    if (teacherNames.length < 2) return
-
-                    const student = students.find(
-                      item => String(item.id) === String(studentId)
-                    )
-
-                    overlapWarnings.push({
-                      period,
-                      studentName: student?.name || `Student ${studentId}`,
-                      teacherNames
-                    })
-                  }
-                )
-              })
-
-              const filteredSetupStudents = students.filter(student =>
-                `${student.name} ${student.className || ''}`
-                  .toLowerCase()
-                  .includes(setupStudentSearch.toLowerCase())
-              )
-
-              return (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
-                    <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
-                      <div style={{ padding: '18px 18px 10px', borderBottom: '1px solid #e2e8f0' }}>
-                        <button
-                          onClick={() => setPage('dashboard')}
-                          style={{
-                            marginBottom: 10,
-                            border: '1px solid #dbe7f1',
-                            background: '#f8fbff',
-                            color: '#31506f',
-                            borderRadius: 8,
-                            padding: '7px 10px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            width: '100%',
-                            textAlign: 'left',
-                          }}
-                        >
-                          ← Back to dashboard
-                        </button>
-                        <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196' }}>Setup Center</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#172033', marginTop: 6 }}>Administration & Config</div>
-                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Tucked-away tools for staff, assignments, rules, and store settings.</div>
-                      </div>
-                      <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {['People & Staff', 'Rules & Configuration', 'School Structure'].map(groupName => {
-                          const groupItems = setupNavItems.filter(item => item.group === groupName)
-                          if (groupItems.length === 0) return null
-                          return (
-                            <div key={groupName} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                              <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196', padding: '2px 4px' }}>{groupName}</div>
-                              {groupItems.map(item => {
-                                const isActive = setupTab === item.id
-                                return (
-                                  <button
-                                    key={item.id}
-                                    onClick={() => setSetupTab(item.id)}
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 10,
-                                      padding: '10px 12px',
-                                      borderRadius: 10,
-                                      border: isActive ? '1px solid #7897bb' : '1px solid #e2e8f0',
-                                      background: isActive ? '#edf4fb' : '#ffffff',
-                                      color: isActive ? '#2f4f72' : '#5f6f81',
-                                      fontSize: 12,
-                                      fontWeight: 800,
-                                      cursor: 'pointer',
-                                      textAlign: 'left',
-                                    }}
-                                  >
-                                    <span style={{ fontSize: 14 }}>{item.icon}</span>
-                                    <span>{item.label}</span>
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    <div>
-                      {setupAssignmentError && (
-                    <div style={{
-                      ...S.card,
-                      marginBottom: 16,
-                      border: '1px solid #fecaca',
-                      background: '#fef2f2',
-                      color: '#991b1b',
-                      fontSize: 13,
-                      fontWeight: 700,
-                    }}>
-                      {setupAssignmentError}
-                    </div>
-                  )}
-
-                      <div style={{ ...S.card, marginBottom: 16, padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196' }}>
-                            Home / Setup Center
-                          </div>
-                          <div style={{ fontSize: 20, fontWeight: 900, color: '#223046', marginTop: 4 }}>
-                            {setupNavItems.find(item => item.id === setupTab)?.label || 'Setup Center'}
-                          </div>
-                          <div style={{ fontSize: 12, color: '#718096', marginTop: 4, maxWidth: 700 }}>
-                            Manage teaching rosters, therapist caseloads, behavior actions, VIP rules, canteen sales, and staff access.
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setPage('dashboard')}
-                          style={{
-                            border: '1px solid #dbe7f1',
-                            background: '#ffffff',
-                            color: '#31506f',
-                            borderRadius: 999,
-                            padding: '8px 12px',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          ← Back to dashboard
-                        </button>
-                      </div>
-
-                                    {setupTab === 'staff-directory' && (
-                    <StaffDirectoryPage
-                      S={S}
-                      staffMembers={staffMembers}
-                      initials={initials}
-                      onStaffChanged={refreshStaffMembers}
-                    />
-                  )}
-
-                                    {setupTab === 'assignments' && (
-                    <SetupAssignmentsSection
-                      overlapWarnings={overlapWarnings}
-                      S={S}
-                      setupPersonSearch={setupPersonSearch}
-                      setSetupPersonSearch={setSetupPersonSearch}
-                      visiblePeople={visiblePeople}
-                      currentPerson={currentPerson}
-                      setupAssignments={setupAssignments}
-                      emptyAssignment={emptyAssignment}
-                      setSetupPerson={setSetupPerson}
-                      setupStudentSearch={setupStudentSearch}
-                      setSetupStudentSearch={setSetupStudentSearch}
-                      currentAssignment={currentAssignment}
-                      copyPeriodOneToTwo={copyPeriodOneToTwo}
-                      filteredSetupStudents={filteredSetupStudents}
-                      togglePeriodStudent={togglePeriodStudent}
-                      toggleCaseloadStudent={toggleCaseloadStudent}
-                    />
-                  )}
-
-                                    {setupTab === 'therapy-schedule' && (
-                    <SetupTherapyScheduleSection
-                      setupTherapySchedule={setupTherapySchedule}
-                      setSetupTherapySchedule={setSetupTherapySchedule}
-                      students={students}
-                      setupTherapyFilters={setupTherapyFilters}
-                      setSetupTherapyFilters={setSetupTherapyFilters}
-                      setupTherapyView={setupTherapyView}
-                      setSetupTherapyView={setSetupTherapyView}
-                      addSetupTherapyFilter={addSetupTherapyFilter}
-                      updateSetupTherapyFilter={updateSetupTherapyFilter}
-                      removeSetupTherapyFilter={removeSetupTherapyFilter}
-                      createFakeTherapySchedule={createFakeTherapySchedule}
-                      THERAPIST_OPTIONS={THERAPIST_OPTIONS}
-                      CLASSES={CLASSES}
-                      STUDENT_CLASSES={STUDENT_CLASSES}
-                      CLASS_DIVISION={CLASS_DIVISION}
-                      SUPPORT_STAFF_OPTIONS={SUPPORT_STAFF_OPTIONS}
-                      S={S}
-                    />
-                  )}
-
-                                    {setupTab === 'teaching' && (
-                    <SetupTeachingConfigSection
-                      setupActionDraft={setupActionDraft}
-                      setSetupActionDraft={setSetupActionDraft}
-                      setSetupCustomActions={setSetupCustomActions}
-                      setupCustomActions={setupCustomActions}
-                      S={S}
-                    />
-                  )}
-
-                                    {setupTab === 'classes-divisions' && (
-                    <SetupSchoolStructureSection S={S} />
-                  )}
-
-                                    {setupTab === 'schedule-setup' && (
-                    <div style={{ display: 'grid', gap: 12 }}>
-                      <div style={S.card}>
-                        <div style={{ fontSize: 18, fontWeight: 900, color: '#223046', marginBottom: 6 }}>Schedule Setup</div>
-                        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Use these school-structure settings to keep daily schedules aligned with classes, divisions, and support staff.</div>
-                        <div style={{ display: 'grid', gap: 8 }}>
-                          <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: '#223046', marginBottom: 4 }}>Daily Scheduling Snapshot</div>
-                            <div style={{ fontSize: 12, color: '#64748b' }}>Active class templates: {CLASSES.length} · Active divisions: {Object.keys(DIVISIONS || {}).length}</div>
-                          </div>
-                          <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12 }}>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: '#223046', marginBottom: 4 }}>Suggested next steps</div>
-                            <ul style={{ margin: 0, paddingLeft: 16, color: '#64748b', fontSize: 12, display: 'grid', gap: 4 }}>
-                              <li>Confirm class rosters and division assignments before publishing schedule changes.</li>
-                              <li>Review therapy and support coverage from the People & Staff group.</li>
-                              <li>Keep school-wide schedule updates in one place for easy review.</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                                    {setupTab === 'vip' && (
-                    <SetupVipRulesSection
-                      setupVipRules={setupVipRules}
-                      setSetupVipRules={setSetupVipRules}
-                      S={S}
-                    />
-                  )}
-
-                                    {setupTab === 'store' && (
-                    <SetupStoreSalesSection
-                      setupSaleDraft={setupSaleDraft}
-                      setSetupSaleDraft={setSetupSaleDraft}
-                      setSetupSales={setSetupSales}
-                      setupSales={setupSales}
-                      S={S}
-                    />
-                  )}
-
-                                    {setupTab === 'accounts' && (
-                    <SetupAccountsSection
-                      SETUP_PEOPLE={SETUP_PEOPLE}
-                      setupAccounts={setupAccounts}
-                      setSetupAccounts={setSetupAccounts}
-                      S={S}
-                    />
-                  )}
-                    </div>
-                  </div>
-                </>
-              )
-            })()}
-          </div>
+          <SetupCenterPage
+            S={S}
+            role={role}
+            userName={userName}
+            setupTab={setupTab}
+            setSetupTab={setSetupTab}
+            setupAssignmentError={setupAssignmentError}
+            setSetupAssignmentError={setSetupAssignmentError}
+            setupPersonSearch={setupPersonSearch}
+            setSetupPersonSearch={setSetupPersonSearch}
+            setupStudentSearch={setupStudentSearch}
+            setSetupStudentSearch={setSetupStudentSearch}
+            setupAssignments={setupAssignments}
+            setSetupAssignments={setSetupAssignments}
+            setupPerson={setupPerson}
+            setSetupPerson={setSetupPerson}
+            emptyAssignment={emptyAssignment}
+            currentPerson={currentPerson}
+            visiblePeople={visiblePeople}
+            filteredSetupStudents={filteredSetupStudents}
+            togglePeriodStudent={togglePeriodStudent}
+            toggleCaseloadStudent={toggleCaseloadStudent}
+            copyPeriodOneToTwo={copyPeriodOneToTwo}
+            overlapWarnings={overlapWarnings}
+            setupActionDraft={setupActionDraft}
+            setSetupActionDraft={setSetupActionDraft}
+            setSetupCustomActions={setSetupCustomActions}
+            setupCustomActions={setupCustomActions}
+            setupVipRules={setupVipRules}
+            setSetupVipRules={setSetupVipRules}
+            setupSaleDraft={setupSaleDraft}
+            setSetupSaleDraft={setSetupSaleDraft}
+            setSetupSales={setSetupSales}
+            setupSales={setupSales}
+            setupAccounts={setupAccounts}
+            setSetupAccounts={setSetupAccounts}
+            setupTherapySchedule={setupTherapySchedule}
+            setSetupTherapySchedule={setSetupTherapySchedule}
+            setupTherapyFilters={setupTherapyFilters}
+            setSetupTherapyFilters={setSetupTherapyFilters}
+            setupTherapyView={setupTherapyView}
+            setSetupTherapyView={setSetupTherapyView}
+            addSetupTherapyFilter={addSetupTherapyFilter}
+            updateSetupTherapyFilter={updateSetupTherapyFilter}
+            removeSetupTherapyFilter={removeSetupTherapyFilter}
+            createFakeTherapySchedule={createFakeTherapySchedule}
+            THERAPIST_OPTIONS={THERAPIST_OPTIONS}
+            CLASSES={CLASSES}
+            STUDENT_CLASSES={STUDENT_CLASSES}
+            CLASS_DIVISION={CLASS_DIVISION}
+            SUPPORT_STAFF_OPTIONS={SUPPORT_STAFF_OPTIONS}
+            setupNavItems={setupNavItems}
+            students={students}
+            staffMembers={staffMembers}
+            initials={initials}
+            refreshStaffMembers={refreshStaffMembers}
+            currentAssignment={currentAssignment}
+            setPage={setPage}
+            SETUP_PEOPLE={SETUP_PEOPLE}
+          />
         )}
 
         {page === 'therapists' && role === 'admin' && (
