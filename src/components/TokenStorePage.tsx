@@ -1,4 +1,5 @@
 import type { CSSProperties, Dispatch, SetStateAction } from 'react'
+import { getStoreSyncUiState } from '../services/storeService'
 
 type StudentLike = {
   id: number
@@ -120,7 +121,6 @@ export default function TokenStorePage({
       {(() => {
         const lowStockItems = storeItems.filter(item => (item.stock || 0) > 0 && (item.stock || 0) <= (item.lowStockAt || 0))
         const outOfStockItems = storeItems.filter(item => (item.stock || 0) <= 0)
-        const totalStock = storeItems.reduce((sum, item) => sum + (item.stock || 0), 0)
         return (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
@@ -278,7 +278,7 @@ export default function TokenStorePage({
       {(() => {
         const s = storeStudent ? students.find(x => x.id === storeStudent) : null
         const vip = s && isVIP(s)
-        const getStoreUnavailableReason = (item: any) => {
+        const getStoreUnavailableReason = (item: StoreItemLike) => {
           if (!s) return ''
           if ((item.stock || 0) <= 0) return 'Out of stock'
           if (isStoreItemRestrictedForStudent(s, item)) return 'Restricted'
