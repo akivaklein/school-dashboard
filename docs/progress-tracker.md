@@ -1,0 +1,34 @@
+# Project Progress Tracker
+
+## Status Overview
+- [x] Setup Center blank-page regression resolved
+- [x] Intake navigation restored
+- [x] Staff directory populated with fallback roster
+- [ ] Daily attendance reset regression check
+- [x] Newly-assigned students appear for teacher
+- [x] Staff-name tracking across all actions
+- [ ] Login activity analytics accuracy
+- [ ] Local pending sync indicator visibility
+- [x] Deactivated staff blocked from active sessions/login
+- [x] Teacher Portal login list uses live staff source
+- [x] Bulk grading dropdown shows full staff list
+- [x] Teacher-restricted student profile view complete
+- [ ] Setup Center visual polish
+- [ ] Persistent context indicators
+- [ ] Student profile tab navigation arrows
+- [ ] Collapsible dense sections
+- [ ] Dashboard/attendance/behavior/store/academics spacing consistency
+- [ ] Dedicated Reports section
+- [ ] Class-wide live status board
+- [ ] Unknown-location smart rules
+- [ ] Custom pattern-based VIP rules
+- [ ] Scheduling conflict enforcement + multi-class teacher support
+- [ ] Assignment-change confirmation modal complete
+- [ ] Compact/sortable/searchable/paginated student table view
+- [ ] Email invite account system UI
+- [ ] Contextual search
+- [ ] Points history undo display polish
+- [ ] Real-time sync scope and implementation
+- [ ] Expand admin-configurable dropdowns principle
+- [ ] Dashboard.tsx size reduction
+- [ ] TypeScript implicit-any cleanup in touched files

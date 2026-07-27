@@ -582,6 +582,15 @@ export function academicStatusFromRating(rating) { return rating === 'Great' ? '
 export function academicStatus(score) { return score.scoreType === 'rating' ? academicStatusFromRating(score.rating) : academicStatusFromPct(academicPct(score)) }
 export function academicStatusColor(status) { return status === 'Excellent' ? '#4b6854' : status === 'Doing Well' ? '#4f6687' : status === 'Watch' ? '#9a6a2a' : status === 'Needs Support' ? '#9f1239' : '#64748b' }
 
+export function resolveActorName(actorName, role = 'admin') {
+  const trimmedName = String(actorName || '').trim()
+  if (trimmedName) return trimmedName
+
+  if (role === 'teacher') return 'Teacher'
+  if (role === 'therapist') return 'Therapist'
+  return 'Staff'
+}
+
 export const STAFF = [
   { id: 's1', name: 'Rabbi Baum', role: 'Menahel' },
   { id: 's2', name: 'Rabbi Ehrnreich', role: 'Sgan Menahel' },
@@ -756,34 +765,7 @@ export function resolveStudentClassId(student) {
   return null
 }
 
-export function getTeacherAssignedClassIds(name, setupAssignments, students) {
-  const assignment = setupAssignments?.[name]
-  const classIds = new Set()
-
-  if (assignment?.periods) {
-    ;[1, 2, 3].forEach(period => {
-      const periodStudentIds = assignment.periods?.[period] || []
-
-      periodStudentIds.forEach(studentId => {
-        const student = students.find(item => Number(item.id) === Number(studentId))
-        if (!student) return
-
-        const classId = resolveStudentClassId(student)
-        if (classId) classIds.add(classId)
-      })
-    })
-  }
-
-  const fallbackClass = TEACHER_CLASS_MAP[name]
-  if (classIds.size === 0 && fallbackClass) {
-    classIds.add(fallbackClass)
-  }
-
-  return Array.from(classIds)
-}
-
-export function getTeacherAssignedStudentIds(name, setupAssignments) {
-  const assignment = setupAssignments?.[name]
+function collectAssignmentStudentIds(assignment) {
   const studentIds = new Set()
 
   if (assignment?.periods) {
@@ -798,7 +780,41 @@ export function getTeacherAssignedStudentIds(name, setupAssignments) {
     })
   }
 
+  if (assignment?.caseload) {
+    assignment.caseload.forEach(studentId => {
+      const numericId = Number(studentId)
+      if (!Number.isNaN(numericId)) {
+        studentIds.add(numericId)
+      }
+    })
+  }
+
   return Array.from(studentIds)
+}
+
+export function getTeacherAssignedClassIds(name, setupAssignments, students) {
+  const assignment = setupAssignments?.[name]
+  const classIds = new Set()
+
+  collectAssignmentStudentIds(assignment).forEach(studentId => {
+    const student = students.find(item => Number(item.id) === Number(studentId))
+    if (!student) return
+
+    const classId = resolveStudentClassId(student)
+    if (classId) classIds.add(classId)
+  })
+
+  const fallbackClass = TEACHER_CLASS_MAP[name]
+  if (classIds.size === 0 && fallbackClass) {
+    classIds.add(fallbackClass)
+  }
+
+  return Array.from(classIds)
+}
+
+export function getTeacherAssignedStudentIds(name, setupAssignments) {
+  const assignment = setupAssignments?.[name]
+  return collectAssignmentStudentIds(assignment)
 }
 
 export function teacherDivisionForName(name) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import playSound from '../utils/playSound'
+import { resolveActorName } from './dashboardData'
 
 const BEHAVIORS_POSITIVE = [
   { id: 'p1', label: 'Appropriate appearance', points: 1 },
@@ -60,7 +61,7 @@ export default function TeachingMode({
   const [lateClassStaffSearch, setLateClassStaffSearch] = useState('')
   const [lateClassStaffId, setLateClassStaffId] = useState('')
   const [lateClassNote, setLateClassNote] = useState('')
-  const actingStaffName = userName || 'Staff'
+  const actingStaffName = resolveActorName(userName, isAdmin ? 'admin' : 'teacher')
 
   function buildClassLogEntry(type, note, extra = {}) {
     return {

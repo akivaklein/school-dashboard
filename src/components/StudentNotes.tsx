@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { resolveActorName } from './dashboardData'
 import { supabase } from '../supabaseClient'
 
 export default function StudentNotes({ student, students, setStudents, userName, S }) {
@@ -12,7 +13,7 @@ export default function StudentNotes({ student, students, setStudents, userName,
 
     const newNote = {
       date: new Date().toISOString().slice(0, 10),
-      author: userName || 'Staff',
+      author: resolveActorName(userName, 'admin'),
       text: noteText.trim(),
     }
 

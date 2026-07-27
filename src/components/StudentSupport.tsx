@@ -1,5 +1,6 @@
 import { useEffect, useState, type Dispatch, type SetStateAction, type ComponentType } from 'react'
 import SupportSessions from './support/SupportSessions'
+import { resolveActorName } from './dashboardData'
 
 type StudentSupportProps = {
   students: any[]
@@ -57,7 +58,7 @@ export default function StudentSupport({
   const [updateMeasure, setUpdateMeasure] = useState('')
   const [parentFollowUp, setParentFollowUp] = useState(false)
 
-  const currentStaffName = userName || 'Staff Member'
+  const currentStaffName = resolveActorName(userName, role)
   const currentStaffRole =
     role === 'admin'
       ? 'Administration'

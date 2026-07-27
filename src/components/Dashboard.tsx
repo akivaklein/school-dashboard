@@ -2962,6 +2962,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }
 
   async function handleLogin(r, name) { 
+    const staff = await getStaffByName(name)
+    if (staff && staff.active === false) {
+      console.warn(`Blocked login for inactive staff member ${name}.`)
+      clearStoredAuthUser()
+      setLoggedIn(false)
+      setUserName('')
+      setRole('admin')
+      return
+    }
+
     const access = getUserAccess(name, r)
     setRole(r)
     setUserName(name)
@@ -3003,6 +3013,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }
 
   async function handleAddStaffLogin(staff) {
+    if (staff?.active === false) {
+      console.warn(`Blocked session creation for inactive staff member ${staff?.name || 'Unknown'}.`)
+      return
+    }
+
     const roleText = [staff.role, ...(staff.roles || [])].join(' ').toLowerCase()
     const role = /teacher|rebbe/.test(roleText)
       ? 'teacher'
@@ -4504,7 +4519,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             RATING_SCORE={RATING_SCORE}
             academicTeacherOptions={Array.from(new Set([
               ...Object.keys(ACADEMIC_AREAS),
-              ...TEACHING_STAFF_OPTIONS
+              ...TEACHING_STAFF_OPTIONS,
+              ...STAFF.map(member => member.name),
             ])).sort()}
             academicPct={academicPct}
             academicDisplay={academicDisplay}

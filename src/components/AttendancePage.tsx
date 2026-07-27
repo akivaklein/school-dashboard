@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { resolveActorName } from './dashboardData'
 
 export default function AttendancePage({
   students,
@@ -34,7 +35,7 @@ export default function AttendancePage({
   const [lateTime, setLateTime] = useState('')
   const [lateReason, setLateReason] = useState('no-reason')
   const [lateNote, setLateNote] = useState('')
-  const actingStaffName = userName || 'Staff'
+  const actingStaffName = resolveActorName(userName, role)
 
   function buildClassLogEntry(type, note, extra = {}) {
     return {
