@@ -1655,7 +1655,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const STAFF = useMemo(
     () =>
       (staffMembers || [])
-        .filter(member => member.active)
+        .filter(member => member.active !== false)
         .map(member => ({
           id: String(member.id ?? ''),
           name: member.name ?? '',

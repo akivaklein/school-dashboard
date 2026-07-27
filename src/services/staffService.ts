@@ -130,19 +130,22 @@ export function staffMatchesAnyRole(member: Pick<StaffMemberRecord, 'role' | 'ro
   return rolePattern.test(roleText)
 }
 
-function mapStaffRecord(row: any): StaffMemberRecord {
-  const roles = normalizeStaffRoles(row.roles || row.role)
+function mapStaffRecord(row: Record<string, unknown> | null | undefined): StaffMemberRecord {
+  const source = (row || {}) as Record<string, unknown>
+  const roles = normalizeStaffRoles(source.roles || source.role)
+  const rawActive = source.active
+  const active = rawActive === false ? false : true
 
   return {
-    id: Number(row.id),
-    name: row.name || '',
-    role: formatStaffRoleLabel(roles, row.role),
+    id: Number(source.id ?? 0),
+    name: String(source.name || ''),
+    role: formatStaffRoleLabel(roles, String(source.role || '')),
     roles,
-    email: row.email || '',
-    phone: row.phone || '',
-    active: Boolean(row.active),
-    created_at: row.created_at,
-    updated_at: row.updated_at,
+    email: String(source.email || ''),
+    phone: String(source.phone || ''),
+    active,
+    created_at: typeof source.created_at === 'string' ? source.created_at : undefined,
+    updated_at: typeof source.updated_at === 'string' ? source.updated_at : undefined,
   }
 }
 
@@ -158,11 +161,11 @@ export async function loadStaffMembers() {
       return FALLBACK_STAFF_MEMBERS
     }
 
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
       return FALLBACK_STAFF_MEMBERS
     }
 
-    return data.map(mapStaffRecord)
+    return data.filter(Boolean).map(row => mapStaffRecord(row as Record<string, unknown>))
   } catch (error) {
     console.error('Error loading staff members:', error)
     return FALLBACK_STAFF_MEMBERS

@@ -128,7 +128,7 @@ export default function StaffDirectoryPage({
     }
 
     directoryMembers
-      .filter(member => showInactive || member.active)
+      .filter(member => showInactive || member.active !== false)
       .forEach(member => {
         const category = categoryForRoles(member.roles || [])
         base[category].push(member)
