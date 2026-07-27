@@ -49,6 +49,7 @@ export async function createTodo(input: {
 }): Promise<Todo> {
   const normalizedText = String(input.text || '').trim()
   const normalizedCategory = String(input.category || 'general').trim().toLowerCase() || 'general'
+  const normalizedDate = String(input.date || '').trim() || new Date().toISOString().slice(0, 10)
 
   if (!normalizedText) {
     throw new Error('Todo text is required.')
@@ -58,7 +59,7 @@ export async function createTodo(input: {
     .from('todos')
     .insert([
       {
-        date: input.date,
+        date: normalizedDate,
         time: input.time || null,
         text: normalizedText,
         category: normalizedCategory,
@@ -92,13 +93,17 @@ export async function updateTodo(
   id: number,
   updates: Partial<Omit<Todo, 'id' | 'created_at' | 'updated_at'>>
 ): Promise<Todo> {
+  const normalizedText = updates.text !== undefined ? String(updates.text || '').trim() : undefined
+  const normalizedCategory = updates.category !== undefined ? String(updates.category || 'general').trim().toLowerCase() || 'general' : undefined
+  const normalizedDate = updates.date !== undefined ? String(updates.date || '').trim() || new Date().toISOString().slice(0, 10) : undefined
+
   const { data, error } = await supabase
     .from('todos')
     .update({
-      ...(updates.date !== undefined && { date: updates.date }),
+      ...(normalizedDate !== undefined && { date: normalizedDate }),
       ...(updates.time !== undefined && { time: updates.time || null }),
-      ...(updates.text !== undefined && { text: updates.text }),
-      ...(updates.category !== undefined && { category: updates.category }),
+      ...(normalizedText !== undefined && { text: normalizedText }),
+      ...(normalizedCategory !== undefined && { category: normalizedCategory }),
       ...(updates.done !== undefined && { done: updates.done }),
     })
     .eq('id', id)
