@@ -71,7 +71,10 @@ export default function SetupCenterPage({
   refreshStaffMembers,
   currentAssignment,
   setPage,
+  SETUP_PEOPLE,
 }) {
+  const safeSetupNavItems = Array.isArray(setupNavItems) ? setupNavItems : []
+  const safeDivisions = DIVISIONS || {}
   return (
     <div style={{ maxWidth: 1260, margin: '0 auto' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
@@ -101,7 +104,7 @@ export default function SetupCenterPage({
           </div>
           <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {['People & Staff', 'Rules & Configuration', 'School Structure'].map(groupName => {
-              const groupItems = setupNavItems.filter(item => item.group === groupName)
+              const groupItems = safeSetupNavItems.filter(item => item.group === groupName)
               if (groupItems.length === 0) return null
               return (
                 <div key={groupName} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -159,7 +162,7 @@ export default function SetupCenterPage({
                 Home / Setup Center
               </div>
               <div style={{ fontSize: 20, fontWeight: 900, color: '#223046', marginTop: 4 }}>
-                {setupNavItems.find(item => item.id === setupTab)?.label || 'Setup Center'}
+                {safeSetupNavItems.find(item => item.id === setupTab)?.label || 'Setup Center'}
               </div>
               <div style={{ fontSize: 12, color: '#718096', marginTop: 4, maxWidth: 700 }}>
                 Manage teaching rosters, therapist caseloads, behavior actions, VIP rules, canteen sales, and staff access.
@@ -229,7 +232,7 @@ export default function SetupCenterPage({
               CLASSES={CLASSES}
               STUDENT_CLASSES={STUDENT_CLASSES}
               CLASS_DIVISION={CLASS_DIVISION}
-              DIVISIONS={DIVISIONS}
+              DIVISIONS={safeDivisions}
               SUPPORT_STAFF_OPTIONS={SUPPORT_STAFF_OPTIONS}
               S={S}
             />
@@ -257,7 +260,7 @@ export default function SetupCenterPage({
                 <div style={{ display: 'grid', gap: 8 }}>
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: '#223046', marginBottom: 4 }}>Daily Scheduling Snapshot</div>
-                    <div style={{ fontSize: 12, color: '#64748b' }}>Active class templates: {CLASSES.length} · Active divisions: {Object.keys(DIVISIONS || {}).length}</div>
+                    <div style={{ fontSize: 12, color: '#64748b' }}>Active class templates: {CLASSES.length} · Active divisions: {Object.keys(safeDivisions).length}</div>
                   </div>
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: '#223046', marginBottom: 4 }}>Suggested next steps</div>
@@ -296,7 +299,7 @@ export default function SetupCenterPage({
               setupAccounts={setupAccounts}
               setSetupAccounts={setSetupAccounts}
               S={S}
-              DIVISIONS={DIVISIONS}
+              DIVISIONS={safeDivisions}
             />
           )}
         </div>
