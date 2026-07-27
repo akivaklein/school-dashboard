@@ -1520,7 +1520,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [showStaffPanel, setShowStaffPanel] = useState(true)
   const [showLoginActivity, setShowLoginActivity] = useState(false)
   const [page, setPage] = useState('dashboard')
-  const [pageTransition, setPageTransition] = useState<'idle' | 'enter'>('idle')
+  const [pageTransition, setPageTransition] = useState<'idle' | 'enter' | 'exit'>('idle')
   const [students, setStudents] = useState<StudentLike[]>(() => initialStudents.slice() as StudentLike[])
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState<string | null>(null)
@@ -1544,9 +1544,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }, [])
 
   useEffect(() => {
-    setPageTransition('enter')
-    const timer = window.setTimeout(() => setPageTransition('idle'), 220)
-    return () => window.clearTimeout(timer)
+    setPageTransition('exit')
+    const exitTimer = window.setTimeout(() => {
+      setPageTransition('enter')
+    }, 90)
+    const enterTimer = window.setTimeout(() => {
+      setPageTransition('idle')
+    }, 320)
+    return () => {
+      window.clearTimeout(exitTimer)
+      window.clearTimeout(enterTimer)
+    }
   }, [page])
 
   // Auto-login with teacher portal user info
@@ -3988,8 +3996,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     <div style={S.app}>
       <style>{`
         @keyframes dashboardPageFade {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
+          0% { opacity: 0; transform: translateY(8px) scale(0.995); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes dashboardPageFadeOut {
+          0% { opacity: 1; transform: translateY(0) scale(1); }
+          100% { opacity: 0; transform: translateY(-6px) scale(0.995); }
         }
       `}</style>
       {!showSetupSidebarOnly && (
@@ -4070,7 +4082,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       )}
 
       <div style={mainStyle}>
-        <div key={page} data-page-transition={pageTransition} style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto', animation: pageTransition === 'enter' ? 'dashboardPageFade 220ms cubic-bezier(0.22, 1, 0.36, 1) both' : 'none' }}>
+        <div key={page} data-page-transition={pageTransition} style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto', animation: pageTransition === 'enter' ? 'dashboardPageFade 320ms cubic-bezier(0.22, 1, 0.36, 1) both' : pageTransition === 'exit' ? 'dashboardPageFadeOut 140ms ease-out both' : 'none' }}>
         <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           <span style={{ padding: '6px 10px', borderRadius: 999, background: '#eaf2fb', color: '#2f4b68', fontSize: 12, fontWeight: 700, border: '1px solid #d8e3ef' }}>
             🧭 {contextInfo.roleLabel}
