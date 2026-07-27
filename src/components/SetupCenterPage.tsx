@@ -77,10 +77,10 @@ export default function SetupCenterPage({
   const safeSetupNavItems = Array.isArray(setupNavItems) ? setupNavItems : []
   const safeDivisions = DIVISIONS || {}
   return (
-    <div style={{ maxWidth: 1260, margin: '0 auto' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
-        <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '18px 18px 10px', borderBottom: '1px solid #e2e8f0' }}>
+    <div data-layout="setup-shell" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: '4px 0 8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '244px minmax(0, 1fr)', gap: 16, alignItems: 'start', width: '100%' }}>
+        <div style={{ ...S.card, padding: 0, overflow: 'hidden', border: '1px solid #dfe8f2', boxShadow: '0 12px 30px rgba(15, 23, 42, 0.04)' }}>
+          <div style={{ padding: '18px 18px 10px', borderBottom: '1px solid #e3ebf2', background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 100%)' }}>
             <button
               onClick={() => setPage('dashboard')}
               style={{
@@ -95,6 +95,7 @@ export default function SetupCenterPage({
                 cursor: 'pointer',
                 width: '100%',
                 textAlign: 'left',
+                boxShadow: 'inset 0 0 0 1px rgba(49, 80, 111, 0.06)',
               }}
             >
               ← Back to dashboard
@@ -122,9 +123,10 @@ export default function SetupCenterPage({
                           gap: 10,
                           padding: '10px 12px',
                           borderRadius: 10,
-                          border: isActive ? '1px solid #7897bb' : '1px solid #e2e8f0',
+                          border: isActive ? '1px solid #7897bb' : '1px solid #e3ebf2',
                           background: isActive ? '#edf4fb' : '#ffffff',
                           color: isActive ? '#2f4f72' : '#5f6f81',
+                          boxShadow: isActive ? '0 8px 18px rgba(72, 105, 141, 0.10)' : 'none',
                           fontSize: 12,
                           fontWeight: 800,
                           cursor: 'pointer',
@@ -157,7 +159,7 @@ export default function SetupCenterPage({
             </div>
           )}
 
-          <div style={{ ...S.card, marginBottom: 16, padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', border: '1px solid #dbe7f1', background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 100%)' }}>
+          <div style={{ ...S.card, marginBottom: 16, padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', border: '1px solid #dfe8f2', background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 100%)', boxShadow: '0 12px 30px rgba(15, 23, 42, 0.04)' }}>
             <div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 999, background: '#edf4fb', color: '#31506f', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
                 🛠️ Admin Tools

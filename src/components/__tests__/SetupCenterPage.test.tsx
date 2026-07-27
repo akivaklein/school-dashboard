@@ -74,4 +74,10 @@ describe('SetupCenterPage', () => {
 
     expect(markup).toContain('Staff Directory')
   })
+
+  it('renders the setup shell in a full-width layout', () => {
+    const markup = renderToStaticMarkup(<SetupCenterPage {...baseProps} />)
+
+    expect(markup).toContain('data-layout="setup-shell"')
+  })
 })

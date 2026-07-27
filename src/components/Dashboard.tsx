@@ -286,13 +286,13 @@ function isStoreItemRestrictedForStudent(student: StudentLike | null | undefined
 }
 
 const S = {
-  app: { fontFamily: "'Inter','DM Sans','Segoe UI',sans-serif", minHeight: '100vh', background: '#f3f6fa', color: '#223046', display: 'flex', letterSpacing: '-0.01em' },
-  sidebar: { width: 244, background: '#1f2c3f', color: '#fff', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, overflowY: 'auto', overflowX: 'hidden', boxShadow: '8px 0 24px rgba(31,44,63,0.10)' },
+  app: { fontFamily: "'Inter','DM Sans','Segoe UI',sans-serif", minHeight: '100vh', background: 'linear-gradient(180deg, #f4f8fc 0%, #f8fbff 100%)', color: '#223046', display: 'flex', letterSpacing: '-0.01em' },
+  sidebar: { width: 244, background: 'linear-gradient(180deg, #23344b 0%, #1d2b3c 100%)', color: '#fff', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, overflowY: 'auto', overflowX: 'hidden', boxShadow: '8px 0 24px rgba(31,44,63,0.10)' },
   sidebarLogo: { padding: '22px 18px 18px', borderBottom: '1px solid rgba(255,255,255,0.10)', marginBottom: 10, flexShrink: 0 },
   sidebarItem: (active: boolean) => ({ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', borderRadius: 10, margin: '3px 10px', background: active ? '#eef4fb' : 'transparent', color: active ? '#223046' : 'rgba(255,255,255,0.78)', fontSize: 13.5, fontWeight: active ? 700 : 500, transition: 'background 0.15s, color 0.15s, transform 0.15s', flexShrink: 0 }),
   main: { marginLeft: 244, padding: '32px 56px 50px 40px', minHeight: '100vh', flex: 1, width: 'calc(100% - 244px)', boxSizing: 'border-box' },
-  card: { background: '#ffffff', borderRadius: 16, padding: '22px', boxShadow: '0 8px 22px rgba(30,41,59,0.05)', border: '1px solid #e2e8f0' },
-  statCard: (color: string) => ({ background: '#ffffff', borderRadius: 16, padding: '18px 20px', boxShadow: '0 8px 22px rgba(30,41,59,0.05)', border: '1px solid #e2e8f0', borderLeft: `3px solid ${color}` }),
+  card: { background: '#ffffff', borderRadius: 16, padding: '22px', boxShadow: '0 12px 30px rgba(15,23,42,0.04)', border: '1px solid #dfe8f2' },
+  statCard: (color: string) => ({ background: '#ffffff', borderRadius: 16, padding: '18px 20px', boxShadow: '0 12px 30px rgba(15,23,42,0.04)', border: '1px solid #dfe8f2', borderLeft: `3px solid ${color}` }),
   badge: (color: string, bg: string) => ({ display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, color, background: bg }),
   btn: (variant: keyof typeof buttonVariants) => {
     const map = { primary: ['#48698d','#fff'], danger: ['#a24860','#fff'], ghost: ['#eef3f8','#41556d'], success: ['#5a7a66','#fff'], purple: ['#6b7088','#fff'], gold: ['#8a7245','#fff8df'] } as const
@@ -3943,7 +3943,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const navItems = role === 'admin' ? adminNav : (role === 'teacher' || role === 'rebbe') ? teacherNav : role === 'store' ? storeNav : therapistNav
   const showSetupSidebarOnly = page === 'setup' && role === 'admin'
-  const mainStyle = showSetupSidebarOnly ? { ...S.main, marginLeft: 0, width: '100%' } : S.main
+  const [pageTransition, setPageTransition] = useState<'idle' | 'enter'>('idle')
+  useEffect(() => {
+    setPageTransition('enter')
+    const timer = window.setTimeout(() => setPageTransition('idle'), 220)
+    return () => window.clearTimeout(timer)
+  }, [page])
+  const mainStyle = showSetupSidebarOnly ? { ...S.main, marginLeft: 0, width: '100%', padding: '32px 44px 50px 28px' } : S.main
   const setupNavItems = [
     { id: 'staff-directory', label: 'Staff Directory', icon: '👥', group: 'People & Staff' },
     { id: 'assignments', label: 'Staff Assignments', icon: '🧑‍🏫', group: 'People & Staff' },
@@ -3979,6 +3985,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   return (
     <div style={S.app}>
+      <style>{`
+        @keyframes dashboardPageFade {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
       {!showSetupSidebarOnly && (
       <div style={S.sidebar}>
         <div style={S.sidebarLogo}>
@@ -4057,7 +4069,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       )}
 
       <div style={mainStyle}>
-        <div style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto' }}>
+        <div key={page} data-page-transition={pageTransition} style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto', animation: pageTransition === 'enter' ? 'dashboardPageFade 220ms cubic-bezier(0.22, 1, 0.36, 1) both' : 'none' }}>
         <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           <span style={{ padding: '6px 10px', borderRadius: 999, background: '#eaf2fb', color: '#2f4b68', fontSize: 12, fontWeight: 700, border: '1px solid #d8e3ef' }}>
             🧭 {contextInfo.roleLabel}
