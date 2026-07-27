@@ -112,16 +112,18 @@ export async function getLoginStats(days = 30) {
     }
 
     const stats: Record<string, any> = {}
+    const seenSessionIds: Record<string, boolean> = {}
 
     (data || []).forEach(session => {
       const staffId = session.staff_id != null ? Number(session.staff_id) : null
-      const statsKey = staffId != null
+      const stableStaffKey = staffId != null
         ? `staff-${staffId}`
-        : (session.staff_name || 'unknown-staff')
+        : `staff-${String(session.staff_name || 'unknown-staff').trim().toLowerCase()}`
       const staffName = session.staff_name || 'Unknown staff'
 
-      if (!stats[statsKey]) {
-        stats[statsKey] = {
+      if (!stats[stableStaffKey]) {
+        stats[stableStaffKey] = {
+          key: stableStaffKey,
           name: staffName,
           role: session.role,
           loginCount: 0,
@@ -132,7 +134,7 @@ export async function getLoginStats(days = 30) {
         }
       }
 
-      stats[statsKey].loginCount += 1
+      stats[stableStaffKey].loginCount += 1
 
       const hasStoredDuration =
         typeof session.session_duration_seconds === 'number' &&
@@ -142,25 +144,31 @@ export async function getLoginStats(days = 30) {
         ? Math.max(0, Math.round(session.session_duration_seconds))
         : 0
 
-      if (!hasStoredDuration && !session.logout_time) {
+      const sessionId = Number(session.id)
+      const sessionIdKey = Number.isFinite(sessionId) ? String(sessionId) : null
+      const isDuplicateSession = sessionIdKey ? seenSessionIds[sessionIdKey] : false
+      if (!isDuplicateSession && !hasStoredDuration && !session.logout_time) {
         const loginMs = new Date(session.login_time).getTime()
         if (Number.isFinite(loginMs)) {
           sessionDurationSeconds = Math.max(
             0,
             Math.floor((Date.now() - loginMs) / 1000)
           )
-          stats[statsKey].activeSessions += 1
+          stats[stableStaffKey].activeSessions += 1
         }
       }
 
-      stats[statsKey].totalSessionSeconds += sessionDurationSeconds
+      if (sessionIdKey) {
+        seenSessionIds[sessionIdKey] = true
+      }
+
+      stats[stableStaffKey].totalSessionSeconds += sessionDurationSeconds
 
       if (sessionDurationSeconds > 0) {
-        stats[statsKey].sessionsWithDuration += 1
+        stats[stableStaffKey].sessionsWithDuration += 1
       }
     })
 
-    // Calculate averages
     Object.values(stats).forEach((stat: any) => {
       stat.avgSessionSeconds = stat.sessionsWithDuration > 0
         ? Math.round(stat.totalSessionSeconds / stat.sessionsWithDuration)
