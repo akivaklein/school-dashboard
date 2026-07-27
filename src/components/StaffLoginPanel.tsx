@@ -18,10 +18,8 @@ interface StaffLoginPanelProps {
 
 export default function StaffLoginPanel({ loggedInStaff, onAddLogin, onRemoveLogin, onShowManagement, onClose }: StaffLoginPanelProps) {
   const [staff, setStaff] = useState<StaffMember[]>([])
-  const [filteredStaff, setFilteredStaff] = useState<StaffMember[]>([])
   const [searchInput, setSearchInput] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [newStaffName, setNewStaffName] = useState('')
   const [newStaffRole, setNewStaffRole] = useState('staff')
   const [showAddForm, setShowAddForm] = useState(false)
@@ -39,24 +37,17 @@ export default function StaffLoginPanel({ loggedInStaff, onAddLogin, onRemoveLog
   }, [])
 
   async function loadStaffList() {
-    setLoading(true)
     const members = await loadStaffMembers()
     setStaff(members.filter(s => s.active))
-    setLoading(false)
   }
 
-  useEffect(() => {
-    if (searchInput.length > 0) {
-      const filtered = staff.filter(
+  const filteredStaff = searchInput.length > 0
+    ? staff.filter(
         s =>
           s.name.toLowerCase().includes(searchInput.toLowerCase()) &&
           !loggedInStaff.some(logged => logged.id === s.id)
       )
-      setFilteredStaff(filtered)
-    } else {
-      setFilteredStaff([])
-    }
-  }, [searchInput, staff, loggedInStaff])
+    : []
 
   async function handleAddStaff() {
     if (!newStaffName.trim()) return
@@ -72,8 +63,6 @@ export default function StaffLoginPanel({ loggedInStaff, onAddLogin, onRemoveLog
     }
     setAddingStaff(false)
   }
-
-  const loggedInIds = new Set(loggedInStaff.map(s => s.id))
 
   useEffect(() => {
     if (!isDragging) return

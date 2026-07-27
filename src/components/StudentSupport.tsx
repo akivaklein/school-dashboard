@@ -1,25 +1,57 @@
-import { useEffect, useState, type Dispatch, type SetStateAction, type ComponentType } from 'react'
+import { useState, type Dispatch, type SetStateAction, type ComponentType, type CSSProperties } from 'react'
 import SupportSessions from './support/SupportSessions'
 import { resolveActorName } from './dashboardData'
 
+type StudentLike = {
+  id: number | string
+  name?: string
+  [key: string]: unknown
+}
+
+type GoalLike = {
+  id: string
+  studentId: number | string
+  title: string
+  category: string
+  description: string
+  target: string
+  nextTarget: string
+  startingLevel: string
+  currentLevel: string
+  progressPercent: number
+  status: string
+  createdBy: string
+  createdByRole: string
+  assignedTo: string
+  createdAt: string
+  reviewDate: string
+  archived: boolean
+}
+
 type StudentSupportProps = {
-  students: any[]
-  setStudents: Dispatch<SetStateAction<any[]>>
+  students: StudentLike[]
+  setStudents: Dispatch<SetStateAction<StudentLike[]>>
   userName: string
   role: string
-  alerts: any[]
-  openStudent: (student: any) => void
+  alerts: Array<{ id: string | number; [key: string]: unknown }>
+  openStudent: (student: StudentLike) => void
   setPage: Dispatch<SetStateAction<string>>
-  flags: any[]
-  setFlags: Dispatch<SetStateAction<any[]>>
+  flags: Array<{ id: string | number; [key: string]: unknown }>
+  setFlags: Dispatch<SetStateAction<Array<{ id: string | number; [key: string]: unknown }>>>
   initialSection?: string
-  S: any
+  S: {
+    btn: (variant: string) => CSSProperties
+    card: CSSProperties
+    tag: (color: string, bg?: string) => CSSProperties
+    statCard: (color: string) => CSSProperties
+    [key: string]: unknown
+  }
   initials: (name: string) => string
-  staff: any[]
+  staff: Array<{ id: string | number; name?: string; [key: string]: unknown }>
   FlagsPanel: ComponentType<{
-    students: any[]
-    flags: any[]
-    setFlags: Dispatch<SetStateAction<any[]>>
+    students: StudentLike[]
+    flags: Array<{ id: string | number; [key: string]: unknown }>
+    setFlags: Dispatch<SetStateAction<Array<{ id: string | number; [key: string]: unknown }>>>
     currentStaffName: string
   }>
 }
@@ -30,7 +62,6 @@ export default function StudentSupport({
   userName,
   role,
   alerts,
-  openStudent,
   setPage,
   flags,
   setFlags,
@@ -41,7 +72,6 @@ export default function StudentSupport({
   FlagsPanel,
 }: StudentSupportProps) {
   const [section, setSection] = useState(initialSection)
-  useEffect(() => setSection(initialSection), [initialSection])
   const [studentFilter, setStudentFilter] = useState('all')
   const [goalStudentId, setGoalStudentId] = useState(students[0]?.id || '')
   const [goalTitle, setGoalTitle] = useState('')
@@ -75,7 +105,7 @@ export default function StudentSupport({
       minute: '2-digit'
     })
 
-  const [goals, setGoals] = useState(() => [
+  const [goals, setGoals] = useState<GoalLike[]>(() => [
     {
       id: 'goal-davening-1',
       studentId: 22,

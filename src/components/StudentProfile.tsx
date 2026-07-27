@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import StudentNotes from './StudentNotes'
 import { resolveActorName } from './dashboardData'
 
@@ -35,7 +35,6 @@ export default function StudentProfile({
   const [pendingUndoEvent, setPendingUndoEvent] = useState(null)
   const [undoSaving, setUndoSaving] = useState(false)
   const [undoFeedback, setUndoFeedback] = useState(null)
-  const [expandedSections, setExpandedSections] = useState({ overview: true, contacts: false, medical: false, support: false })
   const isTeacherRole = role === 'teacher' || role === 'rebbe'
   const availableTabs = isTeacherRole
     ? ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes']
@@ -76,15 +75,7 @@ export default function StudentProfile({
     }
   }
 
-  useEffect(() => {
-    if (!availableTabs.includes(tab)) {
-      setTab('overview')
-    }
-  }, [availableTabs, tab])
-
-  function toggleSection(section: string) {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
-  }
+  const effectiveTab = availableTabs.includes(tab) ? tab : 'overview'
 
   function addCall() { 
     if (!callNotes.trim()) return
@@ -132,11 +123,11 @@ export default function StudentProfile({
         </div>
         <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', padding: '0 24px', background: '#ffffff', overflowX: 'auto', overflowY: 'hidden', flexShrink: 0 }}>
           {availableTabs.map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t ? 700 : 400, borderBottom: tab === t ? '2px solid #0f172a' : '2px solid transparent', color: tab === t ? '#0f172a' : '#64748b', textTransform: 'capitalize', whiteSpace: 'nowrap', flexShrink: 0 }}>{t}</button>
+            <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: effectiveTab === t ? 700 : 400, borderBottom: effectiveTab === t ? '2px solid #0f172a' : '2px solid transparent', color: effectiveTab === t ? '#0f172a' : '#64748b', textTransform: 'capitalize', whiteSpace: 'nowrap', flexShrink: 0 }}>{t}</button>
           ))}
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', background: '#f8fafc' }}>
-          {tab === 'overview' && (
+          {effectiveTab === 'overview' && (
             <div style={{ display: 'grid', gap: 12 }}>
               {vip && <div style={{ background: 'linear-gradient(135deg, #fef9c3, #fef08a)', border: '2px solid #ca8a04', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 32 }}>⭐</span><div><div style={{ fontWeight: 700, fontSize: 15, color: '#854d0e' }}>VIP Student!</div><div style={{ fontSize: 13, color: '#92400e' }}>Perfect week — eligible for VIP rewards!</div></div></div>}
 
@@ -175,7 +166,7 @@ export default function StudentProfile({
               </div>
             </div>
           )}
-          {tab === 'attendance' && (
+          {effectiveTab === 'attendance' && (
             <div style={S.card}>
               <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14 }}>Attendance Record</div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -197,11 +188,11 @@ export default function StudentProfile({
               </table>
             </div>
           )}
-          {tab === 'tracking' && (
+          {effectiveTab === 'tracking' && (
             <TrackingTab s={s} students={students} staffMembers={STAFF} />
           )}
 
-          {tab === 'behavior' && (
+          {effectiveTab === 'behavior' && (
             <div>
               <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
                 <div style={{ ...S.statCard('#9a6a2a'), flex: 1 }}><div style={{ fontSize: 11, color: '#64748b' }}>Points</div><div style={{ fontSize: 26, fontWeight: 700, color: '#9a6a2a' }}>{s.points}</div></div>
@@ -218,7 +209,7 @@ export default function StudentProfile({
               </div>
             </div>
           )}
-          {tab === 'pointsHistory' && (
+          {effectiveTab === 'pointsHistory' && (
             <div style={S.card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
                 <div>
@@ -306,7 +297,7 @@ export default function StudentProfile({
               )}
             </div>
           )}
-          {tab === 'therapy' && (
+          {effectiveTab === 'therapy' && (
             <div style={S.card}>
               <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14 }}>Therapy & Services</div>
               {s.services.length === 0 ? <div style={{ color: '#94a3b8' }}>No therapy services assigned.</div> : s.services.map((svc, i) => {
@@ -315,11 +306,11 @@ export default function StudentProfile({
               })}
             </div>
           )}
-          {tab === 'testScores' && (
+          {effectiveTab === 'testScores' && (
             <StudentScoresTab student={s} students={students} setStudents={setStudents} role={role} userName={userName} />
           )}
 
-          {tab === 'calls' && (
+          {effectiveTab === 'calls' && (
             <div style={S.card}>
               <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>📞 Parent Call Log</div>
               {s.parentCalls.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16 }}>No calls recorded yet.</div> : s.parentCalls.map((c, i) => (
@@ -339,11 +330,11 @@ export default function StudentProfile({
               )}
             </div>
           )}
-          {tab === 'notes' && (
+          {effectiveTab === 'notes' && (
             <StudentNotes student={s} students={students} setStudents={setStudents} userName={userName} S={S} />
           )}
 
-          {tab === 'info' && (
+          {effectiveTab === 'info' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
               {/* Allergies alert */}
