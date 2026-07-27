@@ -3695,6 +3695,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     if (students.filter(s => s.status === 'unknown' && s.id !== studentId).length === 0) setShowUnknownPopup(false)
   }
 
+  const contextInfo = useMemo(() => getDashboardContextInfo(page, role, divisionView), [page, role, divisionView])
+
   if (!loggedIn) {
     return (
       <div>
@@ -3885,7 +3887,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ? visibleStudents.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
     : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
-  const contextInfo = useMemo(() => getDashboardContextInfo(page, role, divisionView), [page, role, divisionView])
 
   function ClickCard({ label, val, color, sub, filterStudents, goToPage = null }) {
     return (
