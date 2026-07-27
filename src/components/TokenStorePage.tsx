@@ -1,27 +1,75 @@
+import type { CSSProperties, Dispatch, SetStateAction } from 'react'
+
+type StudentLike = {
+  id: number
+  name: string
+  points: number
+  [key: string]: unknown
+}
+
+type StoreItemLike = {
+  id: number
+  name: string
+  cost: number
+  stock: number
+  lowStockAt: number
+  category: string
+  vip: boolean
+  emoji: string
+  imageUrl: string
+  [key: string]: unknown
+}
+
+type StorePurchaseLog = {
+  id: number
+  time: string
+  studentName: string
+  itemName: string
+  cost: number
+}
+
+type NewStoreItemState = {
+  emoji: string
+  name: string
+  cost: number | string
+  stock: number | string
+  lowStockAt: number | string
+  category: string
+  vip: boolean
+}
+
+type StyleBag = {
+  btn: (variant: string) => CSSProperties
+  badge: (color: string, bg: string) => CSSProperties
+  card: CSSProperties
+  tag: (color: string) => CSSProperties
+  [key: string]: unknown
+}
+
 type Props = {
-  S: any
-  userAccess: any
+  S: StyleBag
+  userAccess: { canManageStore: boolean }
   showStoreManager: boolean
   setShowStoreManager: (value: boolean) => void
-  storeItems: any[]
-  updateStoreItem: (id: number, field: string, value: any) => void
+  storeItems: StoreItemLike[]
+  updateStoreItem: (id: number, field: string, value: unknown) => void
   adjustStoreStock: (id: number, amount: number) => void
   removeStoreItem: (id: number) => void
-  newStoreItem: any
-  setNewStoreItem: React.Dispatch<React.SetStateAction<any>>
+  newStoreItem: NewStoreItemState
+  setNewStoreItem: Dispatch<SetStateAction<NewStoreItemState>>
   addStoreItem: () => void
   storeStudent: number | null
   setStoreStudent: (id: number | null) => void
-  visibleStudents: any[]
-  isVIP: (student: any) => boolean
-  students: any[]
+  visibleStudents: StudentLike[]
+  isVIP: (student: StudentLike) => boolean
+  students: StudentLike[]
   storeCategoryFilter: string
   setStoreCategoryFilter: (value: string) => void
   storeItemSearch: string
   setStoreItemSearch: (value: string) => void
-  buyItem: (studentId: number, item: any) => void
-  purchaseLog: any[]
-  isStoreItemRestrictedForStudent: (student: any, item: any) => boolean
+  buyItem: (studentId: number, item: StoreItemLike) => void
+  purchaseLog: StorePurchaseLog[]
+  isStoreItemRestrictedForStudent: (student: StudentLike, item: StoreItemLike) => boolean
   STORE_CATEGORY_OPTIONS: Array<{ key: string; label: string }>
   storePersistenceReady: boolean
   storeSyncState: string
