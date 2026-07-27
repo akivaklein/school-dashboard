@@ -74,6 +74,7 @@ type Props = {
   storePersistenceReady: boolean
   storeSyncState: string
   storeLastLoadError: string
+  refreshStoreData: () => void
 }
 
 export default function TokenStorePage({
@@ -104,6 +105,7 @@ export default function TokenStorePage({
   storePersistenceReady,
   storeSyncState,
   storeLastLoadError,
+  refreshStoreData,
 }: Props) {
   const syncUi = getStoreSyncUiState({
     persistenceReady: storePersistenceReady,
@@ -145,9 +147,17 @@ export default function TokenStorePage({
                   Last load error: {lastErrorText}
                 </span>
                 {!storePersistenceReady && storeSyncState !== 'loading' && (
-                  <span style={{ fontSize: 11, color: '#9f1239', fontWeight: 600 }}>
-                    Writes are currently blocked.
-                  </span>
+                  <>
+                    <span style={{ fontSize: 11, color: '#9f1239', fontWeight: 600 }}>
+                      Writes are currently blocked.
+                    </span>
+                    <button
+                      onClick={refreshStoreData}
+                      style={{ ...S.btn('ghost'), padding: '4px 8px', fontSize: 11 }}
+                    >
+                      Retry sync
+                    </button>
+                  </>
                 )}
               </div>
             </div>

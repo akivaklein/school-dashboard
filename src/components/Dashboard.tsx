@@ -2181,55 +2181,56 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     if (tab) setSelectedStudentTab(tab)
   }
 
+  const refreshStoreData = useCallback(async () => {
+    try {
+      setStoreSyncState('loading')
+      setStoreLastLoadError('')
+
+      let loadedItems = await listStoreItems()
+
+      if (loadedItems.length === 0) {
+        await seedStoreItems(STORE_ITEMS)
+        loadedItems = await listStoreItems()
+      }
+
+      const loadedRedemptions = await listStoreRedemptions(25)
+
+      setStoreItems(loadedItems.length > 0 ? loadedItems : STORE_ITEMS.slice())
+      setPurchaseLog(
+        loadedRedemptions.map(redemption => ({
+          id: redemption.id,
+          time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          studentId: redemption.studentId,
+          studentName: redemption.studentName,
+          itemName: redemption.itemName,
+          cost: redemption.cost,
+          staff: redemption.staffName,
+          division: String(redemption.metadata?.division || ''),
+        })),
+      )
+      setStorePersistenceReady(true)
+      setStoreSyncState('ready')
+    } catch (error) {
+      console.error('Unable to load token store data from Supabase:', error)
+      setStorePersistenceReady(false)
+      setStoreSyncState('error')
+      setStoreLastLoadError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to load token store data from Supabase.',
+      )
+    }
+  }, [])
+
   useEffect(() => {
     let active = true
 
     async function loadStoreData() {
-      try {
-        setStoreSyncState('loading')
-        setStoreLastLoadError('')
-
-        let loadedItems = await listStoreItems()
-
-        if (loadedItems.length === 0) {
-          await seedStoreItems(STORE_ITEMS)
-          loadedItems = await listStoreItems()
-        }
-
-        const loadedRedemptions = await listStoreRedemptions(25)
-
-        if (!active) return
-
-        setStoreItems(loadedItems.length > 0 ? loadedItems : STORE_ITEMS.slice())
-        setPurchaseLog(
-          loadedRedemptions.map(redemption => ({
-            id: redemption.id,
-            time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            studentId: redemption.studentId,
-            studentName: redemption.studentName,
-            itemName: redemption.itemName,
-            cost: redemption.cost,
-            staff: redemption.staffName,
-            division: String(redemption.metadata?.division || ''),
-          })),
-        )
-        setStorePersistenceReady(true)
-        setStoreSyncState('ready')
-      } catch (error) {
-        console.error('Unable to load token store data from Supabase:', error)
-        if (active) {
-          setStorePersistenceReady(false)
-          setStoreSyncState('error')
-          setStoreLastLoadError(
-            error instanceof Error
-              ? error.message
-              : 'Unable to load token store data from Supabase.',
-          )
-        }
-      }
+      if (!active) return
+      await refreshStoreData()
     }
 
     loadStoreData()
@@ -2237,7 +2238,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     return () => {
       active = false
     }
-  }, [])
+  }, [refreshStoreData])
 
   useEffect(() => {
     let cancelled = false
@@ -3480,11 +3481,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     })
 
       if (!pointsSaved) {
+        let rollbackFailed = false
+
         if (redemptionId) {
           try {
             await deleteStoreRedemption(redemptionId)
           } catch (deleteError) {
             console.error('Unable to roll back store redemption row:', deleteError)
+            rollbackFailed = true
           }
         }
 
@@ -3502,8 +3506,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             )))
           } catch (rollbackError) {
             console.error('Unable to roll back store stock:', rollbackError)
+            rollbackFailed = true
           }
         }
+
+        setStoreSyncState(rollbackFailed ? 'error' : 'ready')
 
         return
       }
@@ -3592,7 +3599,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       return nextItem
     }))
 
-    if (!nextItem) return
+    if (!nextItem) {
+      setStoreSyncState('ready')
+      return
+    }
 
     const normalizedItem = normalizeStoreItemInput(nextItem)
     const persistedItem = {
@@ -3610,6 +3620,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     saveStoreItem(persistedItem as typeof nextItem, userName || 'Store Manager')
       .then(savedItem => {
+        setStoreSyncState('ready')
         setStoreItems(prev => prev.map(item => (
           Number(item.id) === Number(savedItem.id)
             ? { ...item, ...savedItem }
@@ -4462,6 +4473,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             storePersistenceReady={storePersistenceReady}
             storeSyncState={storeSyncState}
             storeLastLoadError={storeLastLoadError}
+            refreshStoreData={refreshStoreData}
           />
         )}
 
