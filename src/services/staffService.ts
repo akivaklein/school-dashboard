@@ -50,7 +50,7 @@ interface UpdateStaffInput {
   active?: boolean
 }
 
-const FALLBACK_STAFF_MEMBERS: StaffMemberRecord[] = [
+export const FALLBACK_STAFF_MEMBERS: StaffMemberRecord[] = [
   { id: 1, name: 'Rabbi Baum', role: 'admin', roles: ['admin'], email: '', phone: '', active: true },
   { id: 2, name: 'Rabbi Fried', role: 'admin', roles: ['admin'], email: '', phone: '', active: true },
   { id: 3, name: 'Rabbi Klein', role: 'teacher', roles: ['teacher'], email: '', phone: '', active: true },

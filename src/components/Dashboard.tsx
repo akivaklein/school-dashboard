@@ -68,6 +68,7 @@ import {
   loadStaffMembers,
   getStaffByName,
   staffMatchesAnyRole,
+  FALLBACK_STAFF_MEMBERS,
 } from '../services/staffService'
 import {
   persistStudentFields,
@@ -1468,7 +1469,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [studentLoadError, setStudentLoadError] = useState(null)
   const [studentFallbackPatchCount, setStudentFallbackPatchCount] = useState(() => getStudentFallbackPatchCount())
   const [studentFallbackSyncState, setStudentFallbackSyncState] = useState('idle')
-  const [staffMembers, setStaffMembers] = useState([])
+  const [staffMembers, setStaffMembers] = useState(FALLBACK_STAFF_MEMBERS)
   const [staffLoadError, setStaffLoadError] = useState(null)
   const fallbackSyncInFlightRef = useRef(false)
 
@@ -1476,11 +1477,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     try {
       setStaffLoadError(null)
       const members = await loadStaffMembers()
-      setStaffMembers(Array.isArray(members) ? members : [])
+      const nextMembers = Array.isArray(members) && members.length > 0 ? members : FALLBACK_STAFF_MEMBERS
+      setStaffMembers(nextMembers)
     } catch (error) {
       console.error('Unable to load staff members:', error)
       setStaffLoadError('Unable to load staff members.')
-      setStaffMembers([])
+      setStaffMembers(FALLBACK_STAFF_MEMBERS)
     }
   }, [])
 

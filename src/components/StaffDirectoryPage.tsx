@@ -4,6 +4,7 @@ import {
   STAFF_ROLE_OPTIONS,
   formatStaffRoleLabel,
   updateStaffMember,
+  FALLBACK_STAFF_MEMBERS,
 } from '../services/staffService'
 import { renameSetupStaffReferences } from '../services/setupCenterService'
 
@@ -104,6 +105,8 @@ export default function StaffDirectoryPage({
   const [draftById, setDraftById] = useState<Record<number, StaffDraft>>({})
   const [showInactive, setShowInactive] = useState(false)
 
+  const directoryMembers = Array.isArray(staffMembers) && staffMembers.length > 0 ? staffMembers : FALLBACK_STAFF_MEMBERS
+
   const grouped = useMemo(() => {
     const base = {
       Administration: [] as StaffDirectoryMember[],
@@ -113,7 +116,7 @@ export default function StaffDirectoryPage({
       'Support Staff': [] as StaffDirectoryMember[],
     }
 
-    staffMembers
+    directoryMembers
       .filter(member => showInactive || member.active)
       .forEach(member => {
         const category = categoryForRoles(member.roles || [])
@@ -125,7 +128,7 @@ export default function StaffDirectoryPage({
     })
 
     return base
-  }, [staffMembers, showInactive])
+  }, [directoryMembers, showInactive])
 
   function startEdit(member: StaffDirectoryMember) {
     setEditingId(member.id)
@@ -173,7 +176,7 @@ export default function StaffDirectoryPage({
   async function saveEdit(memberId: number) {
     const draft = draftById[memberId]
     if (!draft || !draft.name.trim()) return
-    const existing = staffMembers.find(member => member.id === memberId)
+    const existing = directoryMembers.find(member => member.id === memberId)
     const oldName = existing?.name || ''
     const newName = draft.name.trim()
 
