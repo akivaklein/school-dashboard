@@ -59,7 +59,7 @@ export default function SetupVipRulesSection({
                       <div style={{
                         display: 'grid',
                         gridTemplateColumns:
-                          'repeat(3, minmax(0, 1fr))',
+                          'repeat(auto-fit, minmax(180px, 1fr))',
                         gap: 12
                       }}>
                         <label style={{ fontSize: 12, color: '#627286' }}>

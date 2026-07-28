@@ -14,12 +14,12 @@ export default function SetupAccountsSection({
   return (
                     <div style={S.card}>
                       <div style={{
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: 900,
                         color: '#102a43',
                         marginBottom: 4
                       }}>
-                        User Management & Permissions
+                        Staff Accounts and Permissions
                       </div>
 
                       <div style={{
@@ -27,10 +27,10 @@ export default function SetupAccountsSection({
                         color: '#52667e',
                         marginBottom: 14
                       }}>
-                        Manage account status, division scope, and access controls for staff.
+                        Manage account status, division scope, and access controls.
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 14 }}>
                         {[
                           { label: 'Total Users', value: totalUsers, accent: '#5b7ea5' },
                           { label: 'Admins', value: adminLikeCount, accent: '#5b7ea5' },
@@ -47,10 +47,12 @@ export default function SetupAccountsSection({
                         ))}
                       </div>
 
-                      <div style={{
-                        display: 'grid',
-                        gap: 8
-                      }}>
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        {people.length === 0 && (
+                          <div style={{ border: '1px dashed #dbe5f0', borderRadius: 8, background: '#fff', padding: '14px 12px', fontSize: 12, color: '#64748b' }}>
+                            No staff accounts are available yet.
+                          </div>
+                        )}
                         {people.map(person => {
                           const account =
                             setupAccounts[person.name] || {
@@ -63,8 +65,7 @@ export default function SetupAccountsSection({
                               key={`account-${person.name}`}
                               style={{
                                 display: 'grid',
-                                gridTemplateColumns:
-                                  '1.2fr 0.8fr 0.8fr auto',
+                                gridTemplateColumns: 'minmax(170px, 1.2fr) minmax(140px, 0.9fr) minmax(120px, 0.8fr) auto',
                                 gap: 10,
                                 alignItems: 'center',
                                 padding: '10px 12px',

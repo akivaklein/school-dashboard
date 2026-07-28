@@ -87,7 +87,7 @@ export default function SetupCenterPage({
       },
       {
         id: 'assignments',
-        label: 'Assignments',
+        label: 'Configuration',
         subtitle: 'Configure teaching actions, VIP policies, and store settings.',
         itemIds: ['teaching', 'vip', 'store'],
       },
@@ -218,7 +218,7 @@ export default function SetupCenterPage({
                 cursor: 'pointer',
               }}
             >
-              Back to dashboard
+              Back to Dashboard
             </button>
           </div>
         </div>
@@ -250,7 +250,7 @@ export default function SetupCenterPage({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '198px minmax(0, 1fr)', gap: 12, alignItems: 'start', width: '100%' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12, alignItems: 'start', width: '100%' }}>
         <div style={{ ...S.card, padding: '8px', overflow: 'hidden', border: '1px solid #dbe5f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)', position: 'sticky', top: 14, borderRadius: 8 }}>
           {activeTopTabId === 'scheduling' && schedulingSubmenuGroups.length > 1 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -362,7 +362,7 @@ export default function SetupCenterPage({
               <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f2942', margin: 0 }}>{activeTabLabel}</h2>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{currentSectionSubtitle}</div>
             </div>
-            <span style={{ padding: '6px 9px', borderRadius: 999, background: '#f2f6fb', color: '#415a77', fontSize: 11, fontWeight: 700 }}>
+            <span style={{ padding: '6px 9px', borderRadius: 8, background: '#f2f6fb', color: '#415a77', fontSize: 11, fontWeight: 700 }}>
               {activeTopTab.label}
             </span>
           </div>
@@ -437,7 +437,7 @@ export default function SetupCenterPage({
           {setupTab === 'schedule-setup' && (
             <div style={{ display: 'grid', gap: 12 }}>
               <div style={S.card}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#223046', marginBottom: 6 }}>Schedule Setup</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#223046', marginBottom: 6 }}>Schedule Setup</div>
                 <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Use these school-structure settings to keep daily schedules aligned with classes, divisions, and support staff.</div>
                 <div style={{ display: 'grid', gap: 8 }}>
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 12, background: '#f8fafc' }}>

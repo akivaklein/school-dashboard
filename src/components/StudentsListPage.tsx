@@ -102,7 +102,7 @@ export default function StudentsListPage({
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
               <div>
-                <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>All Students</h1>
+                <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4, color: '#16243a' }}>Students</h1>
                 <div style={{ fontSize: 12, color: '#64748b' }}>{searchedStudents.length} students</div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -113,10 +113,12 @@ export default function StudentsListPage({
                     setPage(1)
                   }}
                   placeholder="Search name, class, id"
-                  style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12, minWidth: 220 }}
+                  spellCheck
+                  lang="en"
+                  style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12, width: 'min(100%, 260px)' }}
                 />
-                <button onClick={() => setViewMode('cards')} style={{ ...S.btn(viewMode === 'cards' ? 'primary' : 'ghost'), padding: '7px 12px', fontSize: 12 }}>Cards</button>
-                <button onClick={() => setViewMode('table')} style={{ ...S.btn(viewMode === 'table' ? 'primary' : 'ghost'), padding: '7px 12px', fontSize: 12 }}>Table</button>
+                <button onClick={() => setViewMode('cards')} style={{ ...S.btn(viewMode === 'cards' ? 'primary' : 'ghost'), padding: '8px 12px', fontSize: 12 }}>Cards</button>
+                <button onClick={() => setViewMode('table')} style={{ ...S.btn(viewMode === 'table' ? 'primary' : 'ghost'), padding: '8px 12px', fontSize: 12 }}>Table</button>
               </div>
             </div>
 
@@ -133,8 +135,8 @@ export default function StudentsListPage({
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                         {s.name}
-                        {vip && <span style={{ background: '#fef9c3', color: '#854d0e', padding: '1px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>⭐ VIP</span>}
-                        {s.status === 'unknown' && <span style={{ background: '#fee2e2', color: '#9f1239', padding: '1px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>❓ Unknown</span>}
+                        {vip && <span style={{ background: '#fef9c3', color: '#854d0e', padding: '1px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>VIP</span>}
+                        {s.status === 'unknown' && <span style={{ background: '#fee2e2', color: '#9f1239', padding: '1px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>Unknown</span>}
                       </div>
                       <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                         <span style={S.tag(statusColor[s.status])}>{statusEmoji[s.status]} {statusLabel[s.status]}</span>
@@ -200,9 +202,9 @@ export default function StudentsListPage({
                             <td style={{ padding: 10 }}>{presentDays}/6</td>
                             <td style={{ padding: 10 }}>
                               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                <button onClick={() => openStudent(student)} style={{ ...S.btn('ghost'), padding: '4px 8px', fontSize: 11 }}>Open</button>
-                                <button onClick={() => openStudent(student, 'calls')} style={{ ...S.btn('ghost'), padding: '4px 8px', fontSize: 11 }}>Calls</button>
-                                <button onClick={() => openStudent(student, 'notes')} style={{ ...S.btn('ghost'), padding: '4px 8px', fontSize: 11 }}>Notes</button>
+                                <button onClick={() => openStudent(student)} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Open</button>
+                                <button onClick={() => openStudent(student, 'calls')} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Calls</button>
+                                <button onClick={() => openStudent(student, 'notes')} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Notes</button>
                               </div>
                             </td>
                           </tr>
@@ -220,8 +222,8 @@ export default function StudentsListPage({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
                   <div style={{ fontSize: 11, color: '#64748b' }}>Page {safePage} of {totalPages}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => setPage(prev => Math.max(1, prev - 1))} disabled={safePage === 1} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11 }}>Previous</button>
-                    <button onClick={() => setPage(prev => Math.min(totalPages, prev + 1))} disabled={safePage === totalPages} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11 }}>Next</button>
+                    <button onClick={() => setPage(prev => Math.max(1, prev - 1))} disabled={safePage === 1} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Previous</button>
+                    <button onClick={() => setPage(prev => Math.min(totalPages, prev + 1))} disabled={safePage === totalPages} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Next</button>
                   </div>
                 </div>
               </div>

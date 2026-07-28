@@ -91,7 +91,10 @@ export default function TodoPage({
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 18 }}>📋 To-Do List</h1>
+      <div style={{ marginBottom: 18 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 4px', color: '#16243a' }}>Tasks and Follow-Up</h1>
+        <div style={{ fontSize: 12, color: '#64748b' }}>Track calls, announcements, meetings, and reminders.</div>
+      </div>
 
       <div style={{ ...S.card, marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Add New Task</div>
@@ -167,7 +170,7 @@ export default function TodoPage({
 
         {pendingTodos.length === 0 && (
           <div style={{ ...S.card, textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>
-            All done! ✅
+            All tasks are complete.
           </div>
         )}
 

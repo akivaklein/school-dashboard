@@ -140,7 +140,7 @@ export default function SetupAssignmentsSection({
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                           <div>
                             <div style={{ fontSize: 18, fontWeight: 900, color: '#102a43' }}>Assignments</div>
-                            <div style={{ fontSize: 12, color: '#52667e', marginTop: 3 }}>Assign students to staff using Staff View or Student View.</div>
+                            <div style={{ fontSize: 12, color: '#52667e', marginTop: 3 }}>Assign students by staff roster or student roster view.</div>
                           </div>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <button onClick={() => setAssignmentView('staff')} style={assignmentView === 'staff' ? S.btn('primary') : S.btn('ghost')}>Staff View</button>
@@ -309,7 +309,7 @@ export default function SetupAssignmentsSection({
                               }
                               placeholder="Search students..."
                               style={{
-                                width: 240,
+                                width: 'min(100%, 240px)',
                                 padding: '9px 11px',
                                 border: '1px solid #dce4ed',
                                 borderRadius: 9,

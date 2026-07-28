@@ -59,7 +59,7 @@ export default function SetupStoreSalesSection({
   return (
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: '0.8fr 1.2fr',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                       gap: 16
                     }}>
                       <div style={S.card}>
@@ -81,6 +81,8 @@ export default function SetupStoreSalesSection({
                             }))
                           }
                           placeholder="Sale name"
+                          spellCheck
+                          lang="en"
                           style={{
                             width: '100%',
                             boxSizing: 'border-box',

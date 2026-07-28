@@ -457,12 +457,12 @@ export default function AcademicsPage({
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap: 12, marginBottom:18 }}>
-        <div><h1 style={{ fontSize:22, fontWeight:900, color:'#1e293b', margin:'0 0 6px' }}>Academics</h1><div style={{ fontSize:13, color:'#64748b' }}>Class view for test scores and skill ratings</div></div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap: 12, marginBottom:18, flexWrap: 'wrap' }}>
+        <div><h1 style={{ fontSize:24, fontWeight:800, color:'#16243a', margin:'0 0 6px' }}>Academics and Grades</h1><div style={{ fontSize:13, color:'#64748b' }}>Class view for test scores and skill ratings</div></div>
         <button onClick={openBulkEntry} disabled={bulkVisibleStudents.length === 0} style={{ ...S.btn(bulkVisibleStudents.length ? 'primary' : 'ghost'), whiteSpace: 'nowrap' }}>Bulk Grade Entry</button>
       </div>
 
-      <div style={{ ...S.card, marginBottom:16, display:'grid', gridTemplateColumns: role === 'admin' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap:10 }}>
+      <div style={{ ...S.card, marginBottom:16, display:'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap:10 }}>
         {role === 'admin' && <select value={teacherFilter} onChange={e=>setTeacherFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{teacherFilterOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All teachers' : option}</option>)}</select>}
         <select value={classFilter} onChange={e=>setClassFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="all">All classes</option>{CLASSES.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <select value={subjectFilter} onChange={e=>{setSubjectFilter(e.target.value); setSkillFilter('all')}} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{subjects.map(x=><option key={x} value={x}>{x === 'all' ? 'All subjects' : x}</option>)}</select>
@@ -481,6 +481,8 @@ export default function AcademicsPage({
             value={gradeSearch}
             onChange={e => setGradeSearch(e.target.value)}
             placeholder="Search student, assessment, teacher, notes..."
+            spellCheck
+            lang="en"
             style={{ width: 340, maxWidth: '100%', padding: 9, border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13 }}
           />
         </div>
@@ -520,7 +522,7 @@ export default function AcademicsPage({
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:12, marginBottom:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:12, marginBottom:16 }}>
         <div style={S.card}><div style={{ fontSize:11, color:'#64748b' }}>Class Avg</div><div style={{ fontSize:26, fontWeight:900, color:'#1e293b' }}>{classAvg !== null ? `${classAvg}%` : '—'}</div></div>
         <div style={S.card}><div style={{ fontSize:11, color:'#64748b' }}>Doing Well+</div><div style={{ fontSize:26, fontWeight:900, color:'#4b6854' }}>{statusCounts.Excellent + statusCounts['Doing Well']}</div></div>
         <div style={S.card}><div style={{ fontSize:11, color:'#64748b' }}>Needs Support</div><div style={{ fontSize:26, fontWeight:900, color:'#9f1239' }}>{statusCounts['Needs Support']}</div></div>
@@ -528,7 +530,7 @@ export default function AcademicsPage({
         <div style={S.card}><div style={{ fontSize:11, color:'#64748b' }}>Missing</div><div style={{ fontSize:26, fontWeight:900, color:'#64748b' }}>{statusCounts.Missing}</div></div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1.3fr 0.7fr', gap:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))', gap:16 }}>
         <div style={S.card}>
           <div style={{ fontWeight:900, fontSize:15, marginBottom:12 }}>Class Student View</div>
           {latestByStudent.map(row => <div key={row.student.id} style={{ display:'grid', gridTemplateColumns:'1.2fr 0.6fr 1.2fr 0.8fr 0.7fr', gap:12, alignItems:'center', padding:'11px 0', borderTop:'1px solid #f0f1f6' }}>

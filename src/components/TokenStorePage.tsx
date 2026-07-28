@@ -108,6 +108,7 @@ export default function TokenStorePage({
   storeLastLoadError,
   refreshStoreData,
 }: Props) {
+  const managerGridTemplate = 'minmax(220px, 1.4fr) 80px 120px 90px 110px 70px 96px'
   const syncUi = getStoreSyncUiState({
     persistenceReady: storePersistenceReady,
     pendingSync: storeSyncState === 'pending-sync',
@@ -126,7 +127,7 @@ export default function TokenStorePage({
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Token Store</h1>
+                <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: '#16243a' }}>Token Store</h1>
                 <span style={{ fontSize: 12, color: '#64748b' }}>Select student, then checkout</span>
               </div>
               {userAccess.canManageStore && (
@@ -172,13 +173,15 @@ export default function TokenStorePage({
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 80px 90px 90px 90px 100px 70px 96px', gap: 8, padding: '0 4px 8px', fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  <div>Item</div><div>Cost</div><div>Stock</div><div>Low At</div><div>Category</div><div>VIP</div><div></div>
-                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ minWidth: 790 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: managerGridTemplate, gap: 8, padding: '0 4px 8px', fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <div>Item</div><div>Cost</div><div>Stock</div><div>Low At</div><div>Category</div><div>VIP</div><div></div>
+                    </div>
 
-                {storeItems.map(item => (
-                  <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 80px 90px 90px 90px 100px 70px 96px', gap: 8, alignItems: 'center', padding: '8px 4px', borderTop: '1px solid #eef2f7' }}>
-                    <input value={item.name} onChange={e => updateStoreItem(item.id, 'name', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    {storeItems.map(item => (
+                      <div key={item.id} style={{ display: 'grid', gridTemplateColumns: managerGridTemplate, gap: 8, alignItems: 'center', padding: '8px 4px', borderTop: '1px solid #eef2f7' }}>
+                    <input value={item.name} onChange={e => updateStoreItem(item.id, 'name', e.target.value)} spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={item.cost} onChange={e => updateStoreItem(item.id, 'cost', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => adjustStoreStock(item.id, -1)} style={{ ...S.btn('ghost'), padding: '6px 8px' }}>−</button>
@@ -193,14 +196,16 @@ export default function TokenStorePage({
                     </select>
                     <input type="checkbox" checked={item.vip} onChange={e => updateStoreItem(item.id, 'vip', e.target.checked)} />
                     <button onClick={() => removeStoreItem(item.id)} style={{ ...S.btn('ghost'), color: '#9f1239' }}>Remove</button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
 
                 <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 14, paddingTop: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Add Store Item</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 90px 90px 90px 100px 100px 110px', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 90px) minmax(180px, 1.4fr) repeat(4, minmax(90px, 120px)) minmax(90px, 100px) minmax(110px, 130px)', gap: 8, alignItems: 'center' }}>
                     <input value={newStoreItem.emoji} onChange={e => setNewStoreItem(prev => ({ ...prev, emoji: e.target.value }))} placeholder="Icon" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input value={newStoreItem.name} onChange={e => setNewStoreItem(prev => ({ ...prev, name: e.target.value }))} placeholder="Item name" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.name} onChange={e => setNewStoreItem(prev => ({ ...prev, name: e.target.value }))} placeholder="Item name" spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.cost} onChange={e => setNewStoreItem(prev => ({ ...prev, cost: e.target.value }))} placeholder="Cost" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.stock} onChange={e => setNewStoreItem(prev => ({ ...prev, stock: e.target.value }))} placeholder="Stock" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.lowStockAt} onChange={e => setNewStoreItem(prev => ({ ...prev, lowStockAt: e.target.value }))} placeholder="Low at" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
@@ -311,6 +316,8 @@ export default function TokenStorePage({
                   value={storeItemSearch}
                   onChange={e => setStoreItemSearch(e.target.value)}
                   placeholder="Search item..."
+                  spellCheck
+                  lang="en"
                   style={{ padding: '9px 11px', borderRadius: 10, border: '1px solid #d8dee9', fontSize: 13, outline: 'none' }}
                 />
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -323,7 +330,7 @@ export default function TokenStorePage({
                         onClick={() => setStoreCategoryFilter(cat.key)}
                         style={{
                           padding: '7px 10px',
-                          borderRadius: 999,
+                          borderRadius: 8,
                           border: `1px solid ${active ? '#334155' : '#d8dee9'}`,
                           background: active ? '#334155' : '#fff',
                           color: active ? '#fff' : '#334155',
@@ -345,7 +352,7 @@ export default function TokenStorePage({
               )}
             </div>
 
-            {vip && <div style={{ background: '#fefce8', border: '2px solid #ca8a04', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ fontSize: 24 }}>⭐</span><div><div style={{ fontWeight: 700, color: '#854d0e' }}>VIP Student — VIP items included when in stock and affordable</div></div></div>}
+            {vip && <div style={{ background: '#fefce8', border: '1px solid #e6cf8b', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}><div><div style={{ fontWeight: 700, color: '#854d0e' }}>VIP student: VIP items are included when in stock and affordable.</div></div></div>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
               {visibleStoreItems.map(item => {
                 const unavailableReason = getStoreUnavailableReason(item)
@@ -383,10 +390,10 @@ export default function TokenStorePage({
                 const outOfStockItems = storeItems.filter(item => (item.stock || 0) <= 0)
                 const totalStock = storeItems.reduce((sum, item) => sum + (item.stock || 0), 0)
                 return (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.25fr', gap: 14, alignItems: 'start' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, alignItems: 'start' }}>
                     <div style={{ ...S.card, padding: 16 }}>
                       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Store Summary</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: 8 }}>
                         <div style={{ background: '#f8fafc', border: '1px solid #e7edf3', borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}><div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Items</div><div style={{ fontSize: 18, fontWeight: 700 }}>{storeItems.length}</div></div>
                         <div style={{ background: '#f8fafc', border: '1px solid #e7edf3', borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}><div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Units</div><div style={{ fontSize: 18, fontWeight: 700 }}>{totalStock}</div></div>
                         <div style={{ background: '#f8fafc', border: '1px solid #e7edf3', borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}><div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Low</div><div style={{ fontSize: 18, fontWeight: 700 }}>{lowStockItems.length}</div></div>

@@ -276,7 +276,7 @@ export default function StaffDirectoryPage({
     <div>
       <div style={{ marginBottom: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1e293b', margin: '0 0 6px' }}>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#16243a', margin: '0 0 6px' }}>
           Staff Directory
           </h1>
           <div style={{ fontSize: 13, color: '#64748b' }}>
@@ -345,6 +345,8 @@ export default function StaffDirectoryPage({
                               ...prev,
                               [person.id]: { ...draft, name: event.target.value },
                             }))}
+                            spellCheck
+                            lang="en"
                             style={{ padding: '8px 9px', border: '1px solid #dce4ed', borderRadius: 8, fontSize: 12 }}
                           />
                           <input
@@ -452,6 +454,8 @@ export default function StaffDirectoryPage({
                   value={addForm.name}
                   onChange={event => setAddForm(prev => ({ ...prev, name: event.target.value }))}
                   placeholder="Full name"
+                  spellCheck
+                  lang="en"
                   style={{ padding: '9px 10px', border: '1px solid #dce4ed', borderRadius: 9, fontSize: 12 }}
                 />
                 <input

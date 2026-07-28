@@ -4018,6 +4018,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ? visibleStudents.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
     : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
+  const currentHour = new Date().getHours()
+  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening'
+  const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
 
   function ClickCard({ label, val, color, sub, filterStudents, goToPage = null }) {
     return (
@@ -4204,7 +4207,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             {!showSetupSidebarOnly && (
               <div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#16243a', letterSpacing: '-0.02em' }}>{contextInfo.pageLabel}</div>
-                <div style={{ fontSize: 12, color: '#51657d', marginTop: 4 }}>{contextInfo.roleLabel} · {contextInfo.divisionLabel}</div>
+                <div style={{ fontSize: 12, color: '#51657d', marginTop: 4 }}>{greeting} · {todayLabel} · {contextInfo.roleLabel} · {contextInfo.divisionLabel}</div>
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -4232,16 +4235,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                 </button>
               )}
             </div>
-          </div>
-        )}
-        {!showSetupSidebarOnly && (
-          <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            <span style={{ padding: '6px 10px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontSize: 12, fontWeight: 600, border: '1px solid #e2e8f0' }}>
-              Role: {contextInfo.roleLabel}
-            </span>
-            <span style={{ padding: '6px 10px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontSize: 12, fontWeight: 600, border: '1px solid #e2e8f0' }}>
-              Division: {contextInfo.divisionLabel}
-            </span>
           </div>
         )}
         {studentFallbackPatchCount > 0 && (
@@ -4288,13 +4281,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           <div style={{ marginBottom: showSetupSidebarOnly ? 10 : 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {divisionOptions.map(option => (
-                <button key={option} onClick={() => setDivisionView(option)} style={{ padding: '8px 12px', borderRadius: 999, border: `1px solid ${divisionView === option ? '#5f83aa' : '#d8e1ec'}`, background: divisionView === option ? '#dbe8f5' : '#ffffff', color: divisionView === option ? '#112f4d' : '#334155', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: 'none' }}>
+                <button key={option} onClick={() => setDivisionView(option)} style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${divisionView === option ? '#5f83aa' : '#d8e1ec'}`, background: divisionView === option ? '#dbe8f5' : '#ffffff', color: divisionView === option ? '#112f4d' : '#334155', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: 'none' }}>
                   {divisionLabel(option)}
                 </button>
               ))}
             </div>
             {!showSetupSidebarOnly && <div style={{ position: 'relative' }}>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #dde6f0', fontSize: 13, width: 280, background: '#fcfdff', boxShadow: '0 6px 18px rgba(30,41,59,0.04)', outline: 'none' }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." spellCheck lang="en" style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #dde6f0', fontSize: 13, width: 'min(100%, 280px)', background: '#fcfdff', boxShadow: '0 6px 18px rgba(30,41,59,0.04)', outline: 'none' }} />
               {search && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, width: 300, background: '#fff', border: '1px solid #e5ebf2', borderRadius: 10, boxShadow: '0 10px 24px rgba(30,41,59,0.10)', zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
                   {searchedStudents.slice(0,6).map((s,i) => (

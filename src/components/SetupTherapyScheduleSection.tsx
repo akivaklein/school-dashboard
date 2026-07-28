@@ -31,9 +31,7 @@ export default function SetupTherapyScheduleSection({
                           .filter(row => row.student)
 
                         const getTimeOfDay = time => {
-                          const normalized = String(time || '').toUpperCase()
                           const match = normalized.match(/(\d+):(\d+)\s*(AM|PM)/)
-
                           if (!match) return 'Other'
 
                           let hour = Number(match[1])
@@ -879,9 +877,9 @@ export default function SetupTherapyScheduleSection({
                                         createFakeTherapySchedule()
                                       )
                                     }
-                                    style={S.btn('purple')}
+                                    style={S.btn('primary')}
                                   >
-                                    Generate New Demo Schedule
+                                    Generate Demo Schedule
                                   </button>
                                 </div>
                               </div>

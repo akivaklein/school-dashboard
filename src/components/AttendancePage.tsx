@@ -422,9 +422,9 @@ export default function AttendancePage({
     <div>
       {latePopup && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 14, width: 420, boxShadow: '0 24px 70px rgba(15,23,42,0.22)', overflow: 'hidden' }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: 'min(94vw, 420px)', boxShadow: '0 24px 70px rgba(15,23,42,0.22)', overflow: 'hidden' }}>
             <div style={{ background: '#9a6a2a', padding: '14px 20px', color: '#fff' }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>⏰ {students.find(s => s.id === latePopup)?.name} — Late Details</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{students.find(s => s.id === latePopup)?.name} - Late Details</div>
               <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Optional — fill in what you know</div>
             </div>
             <div style={{ padding: 18 }}>
@@ -435,7 +435,7 @@ export default function AttendancePage({
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8 }}>Reason</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {[['no-reason','❓ No reason given'],['parent-called','📞 Parent called ahead'],['sick','🤒 Sick / not feeling well'],['transport','🚌 Transportation issue'],['appointment','🏥 Doctor appointment'],['other','📝 Other']].map(([val, label]) => (
+                  {[['no-reason','No reason given'],['parent-called','Parent called ahead'],['sick','Sick / not feeling well'],['transport','Transportation issue'],['appointment','Doctor appointment'],['other','Other']].map(([val, label]) => (
                     <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, border: `2px solid ${lateReason === val ? '#9a6a2a' : '#e5e7eb'}`, cursor: 'pointer', background: lateReason === val ? '#fffbeb' : '#fff' }}>
                       <input type="radio" name="lateReason" value={val} checked={lateReason === val} onChange={() => setLateReason(val)} />
                       <span style={{ fontWeight: lateReason === val ? 700 : 400, fontSize: 13 }}>{label}</span>
@@ -445,7 +445,7 @@ export default function AttendancePage({
               </div>
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Note (optional)</div>
-                <input value={lateNote} onChange={e => setLateNote(e.target.value)} placeholder="e.g. Father called at 9am, said coming by 10..." style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+                <input value={lateNote} onChange={e => setLateNote(e.target.value)} placeholder="e.g. Father called at 9am, said coming by 10..." spellCheck lang="en" style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setLatePopup(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Skip</button>
@@ -458,9 +458,9 @@ export default function AttendancePage({
 
       {leavePopup && leaveStudent && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 14, width: 420, boxShadow: '0 24px 70px rgba(15,23,42,0.22)', overflow: 'hidden' }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: 'min(94vw, 420px)', boxShadow: '0 24px 70px rgba(15,23,42,0.22)', overflow: 'hidden' }}>
             <div style={{ background: '#0f172a', padding: '16px 20px', color: '#fff' }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>🚪 {leaveStudent.name} is leaving class</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{leaveStudent.name} is leaving class</div>
               <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>Select reason for leaving</div>
             </div>
             <div style={{ padding: 20 }}>
@@ -468,11 +468,11 @@ export default function AttendancePage({
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8 }}>Reason</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
-                    ['therapy', '🧠 Therapy'],
-                    ['with-bt', '👤 With BT'],
-                    ['menahel', '🎓 Called to Menahel'],
-                    ['hallway', '❓ Location Unknown'],
-                    ['other', '📝 Other'],
+                    ['therapy', 'Therapy'],
+                    ['with-bt', 'With BT'],
+                    ['menahel', 'Called to Menahel'],
+                    ['hallway', 'Location Unknown'],
+                    ['other', 'Other'],
                   ].map(([val, label]) => (
                     <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: `2px solid ${leaveReason === val ? '#0f172a' : '#e5e7eb'}`, cursor: 'pointer', background: leaveReason === val ? '#f8fafc' : '#fff' }}>
                       <input type="radio" name="reason" value={val} checked={leaveReason === val} onChange={() => setLeaveReason(val)} />
@@ -489,6 +489,8 @@ export default function AttendancePage({
                     value={leaveStaffSearch}
                     onChange={e => { setLeaveStaffSearch(e.target.value); setLeaveStaffId('') }}
                     placeholder="Type staff name..."
+                    spellCheck
+                    lang="en"
                     style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', marginBottom: 6 }}
                   />
                   {leaveStaffSearch.length > 0 && (
@@ -514,24 +516,27 @@ export default function AttendancePage({
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Attendance</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, gap: 10, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: '#16243a' }}>School Day</h1>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Attendance, arrivals, and live class status</div>
+        </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={() => setDailyView('daily')} style={{ ...S.btn(dailyView === 'daily' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>📅 Daily Check-In</button>
-          <button onClick={() => setDailyView('class')} style={{ ...S.btn(dailyView === 'class' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>🏫 Class Toggle</button>
-          <button onClick={() => setDailyView('status-board')} style={{ ...S.btn(dailyView === 'status-board' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>📍 Status Board</button>
-          <button onClick={() => setDailyView('weekly')} style={{ ...S.btn(dailyView === 'weekly' ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 12 }}>📊 Weekly Record</button>
+          <button onClick={() => setDailyView('daily')} style={{ ...S.btn(dailyView === 'daily' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Daily Check-In</button>
+          <button onClick={() => setDailyView('class')} style={{ ...S.btn(dailyView === 'class' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Class Toggle</button>
+          <button onClick={() => setDailyView('status-board')} style={{ ...S.btn(dailyView === 'status-board' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Status Board</button>
+          <button onClick={() => setDailyView('weekly')} style={{ ...S.btn(dailyView === 'weekly' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Weekly Record</button>
         </div>
       </div>
 
       {dailyView === 'daily' && (
         <div style={S.card}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
             {[
-              ['✅ Present', students.filter(s => (s.dailyStatus || 'present') === 'present').length, '#56765f', 'present'],
-              ['❌ Absent', students.filter(s => s.dailyStatus === 'absent').length, '#9f1239', 'absent'],
-              ['⏰ Late', students.filter(s => s.dailyStatus === 'late').length, '#9a6a2a', 'late'],
-              ['🚪 Left Early', students.filter(s => s.dailyStatus === 'left-early').length, '#6d28d9', 'left-early'],
+              ['Present', students.filter(s => (s.dailyStatus || 'present') === 'present').length, '#56765f', 'present'],
+              ['Absent', students.filter(s => s.dailyStatus === 'absent').length, '#9f1239', 'absent'],
+              ['Late', students.filter(s => s.dailyStatus === 'late').length, '#9a6a2a', 'late'],
+              ['Left Early', students.filter(s => s.dailyStatus === 'left-early').length, '#6d28d9', 'left-early'],
             ].map(([label, val, color, status]) => (
               <div key={label} onClick={() => { const filtered = students.filter(s => (s.dailyStatus || 'present') === status); if (filtered.length > 0) { } }} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px', cursor: 'pointer', border: '2px solid transparent' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.border = `2px solid ${color}` }}
@@ -543,10 +548,10 @@ export default function AttendancePage({
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>📅 Who came to Yeshiva today?</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Who came to yeshiva today?</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>↩️ Undo</button>}
-              <button onClick={() => setCollapsed(c => !c)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>{collapsed ? '⬇️ Expand All' : '⬆️ Collapse All'}</button>
+              {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>Undo</button>}
+              <button onClick={() => setCollapsed(c => !c)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>{collapsed ? 'Expand All' : 'Collapse All'}</button>
               <button onClick={async () => {
                 const targetIds = new Set(filteredStudents.map(s => Number(s.id)))
                 if (targetIds.size === 0) return
@@ -596,14 +601,14 @@ export default function AttendancePage({
                   }))
                   alert('Unable to save all attendance statuses to Supabase.')
                 }
-              }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+              }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>Mark All Present</button>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: collapsed ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: collapsed ? 'repeat(auto-fit, minmax(180px, 1fr))' : 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
             {students.map((s, i) => {
               const daily = s.dailyStatus || 'present'
               const colors = { present: '#56765f', absent: '#9f1239', late: '#9a6a2a', 'left-early': '#6d28d9' }
-              const labels = { present: '✅ Present', absent: '❌ Absent', late: '⏰ Late', 'left-early': '🚪 Left Early' }
+              const labels = { present: 'Present', absent: 'Absent', late: 'Late', 'left-early': 'Left Early' }
               return (
                 <div key={s.id} style={{ background: '#ffffff', border: `1px solid ${daily !== 'present' ? colors[daily] + '40' : '#e2e8f0'}`, borderLeft: `4px solid ${colors[daily]}`, borderRadius: 10, padding: collapsed ? '10px 12px' : '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: collapsed ? 0 : 8 }}>
@@ -618,7 +623,7 @@ export default function AttendancePage({
                   </div>
                   {!collapsed && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                      {[['present','✅ Present'],['absent','❌ Absent'],['late','⏰ Late'],['left-early','🚪 Left Early']].map(([val, label]) => (
+                      {[['present','Present'],['absent','Absent'],['late','Late'],['left-early','Left Early']].map(([val, label]) => (
                         <button key={val} onClick={() => updateDailyStatus(s.id, val)}
                           style={{ padding: '4px 6px', borderRadius: 5, border: `1px solid ${daily === val ? colors[val] : '#e5e7eb'}`, background: daily === val ? colors[val] + '20' : '#fff', color: daily === val ? colors[val] : '#64748b', fontSize: 10, fontWeight: daily === val ? 700 : 400, cursor: 'pointer' }}>
                           {label}
@@ -635,14 +640,14 @@ export default function AttendancePage({
 
       {dailyView === 'class' && (
         <div style={{ ...S.card, marginBottom: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 16 }}>
             {[
-              ['✅ Present', filteredStudents.filter(s => s.status === 'present').length, '#56765f'],
-              ['❌ Absent', filteredStudents.filter(s => s.status === 'absent').length, '#9f1239'],
-              ['⏰ Late', filteredStudents.filter(s => s.status === 'late').length, '#9a6a2a'],
-              ['🧠 Therapy', filteredStudents.filter(s => s.status === 'therapy').length, '#6d28d9'],
-              ['👤 With BT', filteredStudents.filter(s => s.status === 'with-bt').length, '#3f6b76'],
-              ['❓ Unknown', filteredStudents.filter(s => s.status === 'unknown').length, '#9f1239'],
+              ['Present', filteredStudents.filter(s => s.status === 'present').length, '#56765f'],
+              ['Absent', filteredStudents.filter(s => s.status === 'absent').length, '#9f1239'],
+              ['Late', filteredStudents.filter(s => s.status === 'late').length, '#9a6a2a'],
+              ['Therapy', filteredStudents.filter(s => s.status === 'therapy').length, '#6d28d9'],
+              ['With BT', filteredStudents.filter(s => s.status === 'with-bt').length, '#3f6b76'],
+              ['Unknown', filteredStudents.filter(s => s.status === 'unknown').length, '#9f1239'],
             ].map(([label, val, color]) => (
               <div key={label} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 6px', border: `1px solid ${(val) > 0 ? color + '30' : '#e2e8f0'}` }}>
                 <div style={{ fontSize: 22, fontWeight: 700, color: (val) > 0 ? color : '#94a3b8' }}>{val}</div>
@@ -651,7 +656,7 @@ export default function AttendancePage({
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>🔄 Live Class Toggle</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Live Class Toggle</div>
             <button onClick={async () => {
               const targetIds = new Set(filteredStudents.map(s => Number(s.id)))
               if (targetIds.size === 0) return
@@ -672,9 +677,9 @@ export default function AttendancePage({
                 setStudents(snapshot)
                 alert('Unable to save all student statuses to Supabase.')
               }
-            }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>✅ All Present</button>
+            }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>Mark All Present</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
             {filteredStudents.map((s, i) => {
               const inClass = s.status === 'present'
               const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
@@ -734,7 +739,7 @@ export default function AttendancePage({
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
             {CLASSES.map(cls => {
               const classStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
               if (classStudents.length === 0) return null

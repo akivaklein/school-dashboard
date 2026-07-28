@@ -218,18 +218,24 @@ export default function SetupSchoolStructureSection({ S }) {
               value={classForm.name}
               onChange={event => setClassForm(previous => ({ ...previous, name: event.target.value }))}
               placeholder="Class name"
+              spellCheck
+              lang="en"
               style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
             />
             <input
               value={classForm.grade}
               onChange={event => setClassForm(previous => ({ ...previous, grade: event.target.value }))}
               placeholder="Grade"
+              spellCheck
+              lang="en"
               style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
             />
             <input
               value={classForm.teacher}
               onChange={event => setClassForm(previous => ({ ...previous, teacher: event.target.value }))}
               placeholder="Teacher"
+              spellCheck
+              lang="en"
               style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
             />
             <select
@@ -285,18 +291,24 @@ export default function SetupSchoolStructureSection({ S }) {
               value={divisionForm.key}
               onChange={event => setDivisionForm(previous => ({ ...previous, key: event.target.value }))}
               placeholder="Internal key (example: yeshiva_ketana)"
+              spellCheck
+              lang="en"
               style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
             />
             <input
               value={divisionForm.label}
               onChange={event => setDivisionForm(previous => ({ ...previous, label: event.target.value }))}
               placeholder="Display label"
+              spellCheck
+              lang="en"
               style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
             />
             <input
               value={divisionForm.shortLabel}
               onChange={event => setDivisionForm(previous => ({ ...previous, shortLabel: event.target.value }))}
               placeholder="Short label"
+              spellCheck
+              lang="en"
               style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
             />
             <div style={{ display: 'flex', gap: 8 }}>

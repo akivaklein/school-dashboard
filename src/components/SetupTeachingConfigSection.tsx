@@ -45,7 +45,7 @@ export default function SetupTeachingConfigSection({
   return (
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: '0.8fr 1.2fr',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                       gap: 16
                     }}>
                       <div style={S.card}>
@@ -76,6 +76,8 @@ export default function SetupTeachingConfigSection({
                             }))
                           }
                           placeholder="Example: Brought back homework"
+                          spellCheck
+                          lang="en"
                           style={{
                             width: '100%',
                             boxSizing: 'border-box',
