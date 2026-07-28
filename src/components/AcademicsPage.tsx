@@ -454,6 +454,25 @@ export default function AcademicsPage({
   const subjects = ['all','Math','Reading','Writing']
   const skills = ['all', ...new Set(Object.values(ACADEMIC_AREAS).flatMap(area => Object.values(area).flat()))]
   const teacherFilterOptions = role === 'admin' ? ['all', ...teacherOptions] : []
+  const classScopeLabel = classFilter === 'all'
+    ? 'All classes'
+    : (CLASSES.find(c => c.id === classFilter)?.name || 'Selected class')
+  const bulkProgressCount = bulkVisibleStudents.filter(student => {
+    const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
+    if (state.mode === 'absent' || state.mode === 'missed') return true
+    if (bulkForm.scoreType === 'rating') return true
+    return state.score !== '' && state.score !== null && state.score !== undefined
+  }).length
+
+  function formatBulkSkillLabel(skill) {
+    if (!skill) return 'General'
+    const normalized = String(skill).trim().toLowerCase()
+    if (normalized === '2-digit') return 'Numeric Score (2-digit)'
+    if (normalized === '1-digit' || normalized === 'single-digit') return 'Numeric Score (single-digit)'
+    if (normalized.includes('percent')) return 'Percentage'
+    if (normalized.includes('letter')) return 'Letter Grade'
+    return skill
+  }
 
   return (
     <div>
@@ -559,65 +578,116 @@ export default function AcademicsPage({
 
       {showBulkEntry && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.48)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 980, maxHeight: '92vh', overflow: 'hidden', boxShadow: '0 24px 80px rgba(15,23,42,0.28)' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 1040, height: 'min(92vh, 760px)', overflow: 'hidden', boxShadow: '0 24px 80px rgba(15,23,42,0.28)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 18, color: '#1e293b' }}>Bulk Grade Entry</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{bulkVisibleStudents.length} students in current scope</div>
+                <div style={{ fontWeight: 800, fontSize: 18, color: '#12263f' }}>Bulk Grade Entry</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                  {classScopeLabel} · {bulkVisibleStudents.length} students · {bulkProgressCount}/{bulkVisibleStudents.length} ready
+                </div>
               </div>
-              <button onClick={() => setShowBulkEntry(false)} style={{ border:'none', background:'#f4f5f8', borderRadius:'50%', width:30, height:30, cursor:'pointer' }}>×</button>
+              <button onClick={() => setShowBulkEntry(false)} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: '#475569', fontWeight: 700 }}>×</button>
             </div>
 
-            <div style={{ padding: 16, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
-              <select value={bulkForm.teacher} onChange={e => updateBulkForm('teacher', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
-                {teacherOptions.map(name => <option key={name}>{name}</option>)}
-              </select>
-              <select value={bulkForm.subject} onChange={e => updateBulkForm('subject', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
-                {bulkSubjectOptions.map(option => <option key={option}>{option}</option>)}
-              </select>
-              <select value={bulkForm.skill} onChange={e => updateBulkForm('skill', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
-                {bulkSkillOptions.map(option => <option key={option}>{option}</option>)}
-              </select>
-              <input type="date" value={bulkForm.date} onChange={e => updateBulkForm('date', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
-
-              <input value={bulkForm.assessmentName} onChange={e => updateBulkForm('assessmentName', e.target.value)} placeholder="Assessment name" style={{ gridColumn: 'span 2', padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
-              <select value={bulkForm.scoreType} onChange={e => updateBulkForm('scoreType', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
-                <option value="points">Number score</option>
-                <option value="rating">Skill rating</option>
-              </select>
-              {bulkForm.scoreType === 'points' ? (
-                <input value={bulkForm.maxScore} onChange={e => updateBulkForm('maxScore', e.target.value)} placeholder="Max score" style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
-              ) : (
-                <select value={bulkForm.rating} onChange={e => updateBulkForm('rating', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
-                  {SKILL_RATINGS.map(rating => <option key={rating}>{rating}</option>)}
+            <div style={{ padding: 14, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, flexShrink: 0 }}>
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Teacher
+                <select value={bulkForm.teacher} onChange={e => updateBulkForm('teacher', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                  {teacherOptions.map(name => <option key={name}>{name}</option>)}
                 </select>
-              )}
+              </label>
 
-              <textarea value={bulkForm.notes} onChange={e => updateBulkForm('notes', e.target.value)} placeholder="Optional note for all entries" spellCheck lang="en" style={{ gridColumn: 'span 2', padding: 10, border:'1px solid #e5e7eb', borderRadius:8, minHeight: 42, resize: 'vertical' }} />
-              <div style={{ display:'flex', gap: 8, alignItems: 'center', gridColumn: 'span 2' }}>
-                <input value={bulkForm.fillAllScore} onChange={e => updateBulkForm('fillAllScore', e.target.value)} placeholder="Fill all with score" style={{ flex: 1, padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
-                <button onClick={fillAllScores} style={S.btn('ghost')}>Fill All</button>
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Subject
+                <select value={bulkForm.subject} onChange={e => updateBulkForm('subject', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                  {bulkSubjectOptions.map(option => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Class
+                <select value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                  <option value="all">All classes</option>
+                  {CLASSES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </label>
+
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Assessment Name
+                <input value={bulkForm.assessmentName} onChange={e => updateBulkForm('assessmentName', e.target.value)} placeholder="Unit Test 3" spellCheck lang="en" style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8 }} />
+              </label>
+
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Assessment Type
+                <select value={bulkForm.scoreType} onChange={e => updateBulkForm('scoreType', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                  <option value="points">Numeric Score</option>
+                  <option value="rating">Rating Scale</option>
+                </select>
+              </label>
+
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Date
+                <input type="date" value={bulkForm.date} onChange={e => updateBulkForm('date', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8 }} />
+              </label>
+
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Grading Scale
+                {bulkForm.scoreType === 'rating' ? (
+                  <select value={bulkForm.rating} onChange={e => updateBulkForm('rating', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                    {SKILL_RATINGS.map(rating => <option key={rating}>{rating}</option>)}
+                  </select>
+                ) : (
+                  <select value={bulkForm.skill} onChange={e => updateBulkForm('skill', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                    {bulkSkillOptions.map(option => <option key={option} value={option}>{formatBulkSkillLabel(option)}</option>)}
+                  </select>
+                )}
+              </label>
+
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Maximum Score
+                <input value={bulkForm.maxScore} onChange={e => updateBulkForm('maxScore', e.target.value)} disabled={bulkForm.scoreType !== 'points'} placeholder="100" style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: bulkForm.scoreType !== 'points' ? '#f8fafc' : '#fff' }} />
+              </label>
+
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700, gridColumn: '1 / -1' }}>
+                Optional Note
+                <textarea value={bulkForm.notes} onChange={e => updateBulkForm('notes', e.target.value)} placeholder="Optional note for all entries" spellCheck lang="en" style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, minHeight: 56, resize: 'vertical' }} />
+              </label>
+
+              <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #eef2f7', paddingTop: 10, display: 'flex', alignItems: 'end', gap: 8, flexWrap: 'wrap' }}>
+                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700, minWidth: 160 }}>
+                  Fill All
+                  <input value={bulkForm.fillAllScore} onChange={e => updateBulkForm('fillAllScore', e.target.value)} placeholder={bulkForm.scoreType === 'points' ? 'Score for all students' : 'Not used for rating scale'} disabled={bulkForm.scoreType !== 'points'} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: bulkForm.scoreType !== 'points' ? '#f8fafc' : '#fff' }} />
+                </label>
+                <button onClick={fillAllScores} style={S.btn('primary')} disabled={bulkForm.scoreType !== 'points'}>Apply to All</button>
               </div>
             </div>
 
-            <div style={{ maxHeight: '52vh', overflow: 'auto', padding: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.4fr 0.9fr 1fr', gap: 10, fontSize: 12, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>
-                <div>Student</div>
-                <div>Entry Type</div>
-                <div>{bulkForm.scoreType === 'points' ? 'Score' : 'Rating'}</div>
-                <div>Quick status</div>
-              </div>
+            <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 0.7fr) minmax(0, 1.2fr)', gap: 10, fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>
+              <div>Student</div>
+              <div>{bulkForm.scoreType === 'points' ? 'Numeric Score' : 'Rating Scale'}</div>
+              <div>Status</div>
+            </div>
 
+            <div style={{ overflowY: 'auto', padding: '0 14px', minHeight: 0, flex: 1 }}>
               {bulkVisibleStudents.map(student => {
                 const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
+                const isScoreActive = state.mode === 'score'
                 return (
-                  <div key={student.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.4fr 0.9fr 1fr', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #eef2f7' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 13 }}>{student.name}</div>
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{CLASSES.find(c => c.id === STUDENT_CLASSES[student.id])?.name || 'Unassigned class'}</div>
+                  <div key={student.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 0.7fr) minmax(0, 1.2fr)', gap: 10, alignItems: 'center', padding: '8px 0', borderTop: '1px solid #eef2f7' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.name}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{CLASSES.find(c => c.id === STUDENT_CLASSES[student.id])?.name || 'Unassigned class'}</div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+                    {bulkForm.scoreType === 'points' ? (
+                      <input value={state.score || ''} onChange={e => setStudentBulkScore(student.id, e.target.value)} disabled={!isScoreActive} placeholder={isScoreActive ? 'Score' : '—'} style={{ width: '100%', padding: 8, border: '1px solid #d7dee7', borderRadius: 8, background: !isScoreActive ? '#f8fafc' : '#fff' }} />
+                    ) : (
+                      <div style={{ fontSize: 12, color: isScoreActive ? '#334155' : '#94a3b8', fontWeight: 700, padding: '8px 6px' }}>
+                        {isScoreActive ? bulkForm.rating : '—'}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'inline-flex', gap: 5, alignItems: 'center', flexWrap: 'nowrap' }}>
                       {[
                         { value: 'score', label: 'Scored', color: '#3f6f4f', bg: '#eefbf2', border: '#c7efd2' },
                         { value: 'missed', label: 'Missed', color: '#9a6a2a', bg: '#fff7ed', border: '#fed7aa' },
@@ -630,14 +700,15 @@ export default function AcademicsPage({
                             type="button"
                             onClick={() => setStudentBulkMode(student.id, option.value)}
                             style={{
-                              padding: '8px 6px',
-                              borderRadius: 8,
+                              padding: '6px 8px',
+                              borderRadius: 7,
                               border: `1px solid ${isActive ? option.border : '#e5e7eb'}`,
                               background: isActive ? option.bg : '#ffffff',
                               color: isActive ? option.color : '#64748b',
                               fontSize: 11,
-                              fontWeight: 800,
+                              fontWeight: 700,
                               cursor: 'pointer',
+                              minWidth: 56,
                             }}
                           >
                             {option.label}
@@ -645,24 +716,14 @@ export default function AcademicsPage({
                         )
                       })}
                     </div>
-
-                    {bulkForm.scoreType === 'points' ? (
-                      <input value={state.score || ''} onChange={e => setStudentBulkScore(student.id, e.target.value)} disabled={state.mode !== 'score'} placeholder="Score" style={{ padding: 8, border:'1px solid #e5e7eb', borderRadius:8, background: state.mode !== 'score' ? '#f8fafc' : '#fff' }} />
-                    ) : (
-                      <div style={{ fontSize: 12, color: '#334155', fontWeight: 700 }}>{state.mode === 'score' ? bulkForm.rating : 'N/A'}</div>
-                    )}
-
-                    <div style={{ fontSize: 12, color: state.mode === 'absent' ? '#9f1239' : state.mode === 'missed' ? '#9a6a2a' : '#4b6854', fontWeight: 700 }}>
-                      {state.mode === 'score' ? 'Will save score' : state.mode === 'missed' ? 'Mark missed' : 'Mark absent'}
-                    </div>
                   </div>
                 )
               })}
             </div>
 
-            <div style={{ padding: 16, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: 14, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', flexShrink: 0 }}>
               <div style={{ fontSize: 12, color: '#64748b' }}>
-                Missed/Absent entries are saved in each student score history with explicit status tags.
+                Missed and absent entries are saved in score history with status tags.
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setShowBulkEntry(false)} style={S.btn('ghost')} disabled={bulkSaving}>Cancel</button>
