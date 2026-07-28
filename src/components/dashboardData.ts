@@ -833,6 +833,10 @@ export function studentDivision(student) {
   return 'yeshiva_ketana'
 }
 
+export function resolveLiveStudentPoints(tokenBalance) {
+  return Number(tokenBalance ?? 0) || 0
+}
+
 export function resolveStudentClassId(student) {
   const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
   if (mappedClass) return mappedClass

@@ -118,6 +118,7 @@ import {
   DIVISIONS,
   CLASS_DIVISION,
   studentDivision,
+  resolveLiveStudentPoints,
   resolveStudentClassId,
   getTeacherAssignedClassIds,
   getTeacherAssignedStudentIds,
@@ -1913,11 +1914,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           merged.lateDetails ??
           null
 
-        const persistedPoints = databaseStudent.token_balance
-
-        if (persistedPoints !== null && persistedPoints !== undefined) {
-          merged.points = Number(persistedPoints) || 0
-        }
+        merged.points = resolveLiveStudentPoints(databaseStudent.token_balance)
 
         // Load persisted JSONB fields from database, fallback to demo data if empty
         if (databaseStudent.attendance && Array.isArray(databaseStudent.attendance) && databaseStudent.attendance.length > 0) {
