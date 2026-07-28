@@ -36,6 +36,58 @@ export type CreatePointsEventInput = {
   metadata?: Record<string, unknown>
 }
 
+export type ApplyPointsEventTxInput = {
+  studentId: number
+  studentName?: string | null
+  staffId?: string | null
+  staffName: string
+  staffRole?: string
+  pointsDelta: number
+  reminderDelta?: number
+  eventType: string
+  category: string
+  reason: string
+  note?: string | null
+  sourcePage?: string | null
+  sourceContext?: string | null
+  relatedEventId?: number | null
+  metadata?: Record<string, unknown>
+}
+
+export type ApplyPointsEventTxResult = {
+  eventId: number
+  studentId: number
+  nextPoints: number
+  nextReminders: number
+}
+
+export type ReversePointsEventTxResult = {
+  reversalEventId: number
+  targetEventId: number
+  studentId: number
+  nextPoints: number
+  nextReminders: number
+}
+
+function toRequiredNumberField(
+  payload: unknown,
+  field: string,
+  rpcName: string,
+): number {
+  if (typeof payload !== 'object' || payload === null) {
+    throw new Error(`Contract error from ${rpcName}: response payload is missing.`)
+  }
+
+  const value = (payload as Record<string, unknown>)[field]
+  const numeric = typeof value === 'number' ? value : Number(value)
+
+  if (!Number.isFinite(numeric)) {
+    throw new Error(`Contract error from ${rpcName}: required field ${field} is missing or invalid.`)
+  }
+
+  return numeric
+}
+
 export async function createPointsEvent(
   input: CreatePointsEventInput,
 ): Promise<number> {
@@ -86,4 +138,63 @@ export async function listPointsEventsForStudent(
   if (error) throw error
 
   return (data || []) as PointsEventRecord[]
+}
+
+export async function applyPointsEventTx(
+  input: ApplyPointsEventTxInput,
+): Promise<ApplyPointsEventTxResult> {
+  const rpcName = 'apply_points_event_tx'
+  const { data, error } = await supabase.rpc('apply_points_event_tx', {
+    p_student_id: Number(input.studentId),
+    p_student_name: input.studentName || null,
+    p_staff_id: input.staffId || null,
+    p_staff_name: input.staffName,
+    p_staff_role: input.staffRole || 'staff',
+    p_points_delta: Number(input.pointsDelta || 0),
+    p_reminder_delta: Number(input.reminderDelta || 0),
+    p_event_type: input.eventType,
+    p_category: input.category,
+    p_reason: input.reason,
+    p_note: input.note || null,
+    p_source_page: input.sourcePage || null,
+    p_source_context: input.sourceContext || null,
+    p_related_event_id: input.relatedEventId || null,
+    p_metadata: input.metadata || {},
+  })
+
+  if (error) throw error
+
+  return {
+    eventId: toRequiredNumberField(data, 'event_id', rpcName),
+    studentId: toRequiredNumberField(data, 'student_id', rpcName),
+    nextPoints: toRequiredNumberField(data, 'next_points', rpcName),
+    nextReminders: toRequiredNumberField(data, 'next_reminders', rpcName),
+  }
+}
+
+export async function reversePointsEventTx(input: {
+  targetEventId: number
+  staffName: string
+  staffRole?: string
+  note?: string | null
+  sourceContext?: string | null
+}): Promise<ReversePointsEventTxResult> {
+  const rpcName = 'reverse_points_event_tx'
+  const { data, error } = await supabase.rpc('reverse_points_event_tx', {
+    p_target_event_id: Number(input.targetEventId),
+    p_staff_name: input.staffName,
+    p_staff_role: input.staffRole || 'staff',
+    p_note: input.note || null,
+    p_source_context: input.sourceContext || 'history-undo',
+  })
+
+  if (error) throw error
+
+  return {
+    reversalEventId: toRequiredNumberField(data, 'reversal_event_id', rpcName),
+    targetEventId: toRequiredNumberField(data, 'target_event_id', rpcName),
+    studentId: toRequiredNumberField(data, 'student_id', rpcName),
+    nextPoints: toRequiredNumberField(data, 'next_points', rpcName),
+    nextReminders: toRequiredNumberField(data, 'next_reminders', rpcName),
+  }
 }

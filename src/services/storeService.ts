@@ -27,6 +27,10 @@ export type StoreRedemption = {
   staffName: string
   source: string
   metadata: Record<string, unknown>
+  pointsEventId: number | null
+  reversedAt: string | null
+  reversedBy: string | null
+  reversalEventId: number | null
 }
 
 type StoreItemRow = {
@@ -56,6 +60,81 @@ type StoreRedemptionRow = {
   staff_name: string
   source: string
   metadata: Record<string, unknown> | null
+  points_event_id: number | null
+  reversed_at: string | null
+  reversed_by: string | null
+  reversal_event_id: number | null
+}
+
+export type RedeemStorePurchaseTxInput = {
+  studentId: number
+  itemId: number
+  staffName: string
+  staffRole?: string
+  idempotencyKey: string
+  source?: string
+  metadata?: Record<string, unknown>
+  reason?: string
+  note?: string | null
+  sourcePage?: string | null
+  sourceContext?: string | null
+}
+
+export type RedeemStorePurchaseTxResult = {
+  status: string
+  redemptionId: number
+  pointsEventId: number
+  nextPoints: number
+  nextStock: number
+  studentId: number
+  itemId: number
+}
+
+export type ReverseStorePurchaseTxResult = {
+  status: string
+  redemptionId: number
+  targetEventId: number
+  reversalEventId: number
+  studentId: number
+  itemId: number
+  nextPoints: number
+  nextStock: number
+}
+
+function toRequiredNumberField(
+  payload: unknown,
+  field: string,
+  rpcName: string,
+): number {
+  if (typeof payload !== 'object' || payload === null) {
+    throw new Error(`Contract error from ${rpcName}: response payload is missing.`)
+  }
+
+  const value = (payload as Record<string, unknown>)[field]
+  const numeric = typeof value === 'number' ? value : Number(value)
+
+  if (!Number.isFinite(numeric)) {
+    throw new Error(`Contract error from ${rpcName}: required field ${field} is missing or invalid.`)
+  }
+
+  return numeric
+}
+
+function toRequiredStringField(
+  payload: unknown,
+  field: string,
+  rpcName: string,
+): string {
+  if (typeof payload !== 'object' || payload === null) {
+    throw new Error(`Contract error from ${rpcName}: response payload is missing.`)
+  }
+
+  const value = String((payload as Record<string, unknown>)[field] || '').trim()
+  if (!value) {
+    throw new Error(`Contract error from ${rpcName}: required field ${field} is missing or invalid.`)
+  }
+
+  return value
 }
 
 export type CreateStoreItemInput = {
@@ -167,6 +246,10 @@ function toStoreRedemption(row: StoreRedemptionRow): StoreRedemption {
     staffName: row.staff_name,
     source: row.source,
     metadata: row.metadata || {},
+    pointsEventId: row.points_event_id === null ? null : Number(row.points_event_id),
+    reversedAt: row.reversed_at || null,
+    reversedBy: row.reversed_by || null,
+    reversalEventId: row.reversal_event_id === null ? null : Number(row.reversal_event_id),
   }
 }
 
@@ -370,6 +453,67 @@ export async function deleteStoreRedemption(id: number): Promise<void> {
     .eq('id', Number(id))
 
   if (error) throw error
+}
+
+export async function redeemStorePurchaseTx(
+  input: RedeemStorePurchaseTxInput,
+): Promise<RedeemStorePurchaseTxResult> {
+  const rpcName = 'redeem_store_purchase_tx'
+  const { data, error } = await supabase.rpc('redeem_store_purchase_tx', {
+    p_student_id: Number(input.studentId),
+    p_item_id: Number(input.itemId),
+    p_staff_name: input.staffName,
+    p_staff_role: input.staffRole || 'staff',
+    p_idempotency_key: input.idempotencyKey,
+    p_source: input.source || 'token-store',
+    p_metadata: input.metadata || {},
+    p_reason: input.reason || null,
+    p_note: input.note || null,
+    p_source_page: input.sourcePage || 'store',
+    p_source_context: input.sourceContext || 'token-store-redeem',
+  })
+
+  if (error) throw error
+
+  return {
+    status: toRequiredStringField(data, 'status', rpcName),
+    redemptionId: toRequiredNumberField(data, 'redemption_id', rpcName),
+    pointsEventId: toRequiredNumberField(data, 'points_event_id', rpcName),
+    nextPoints: toRequiredNumberField(data, 'next_points', rpcName),
+    nextStock: toRequiredNumberField(data, 'next_stock', rpcName),
+    studentId: toRequiredNumberField(data, 'student_id', rpcName),
+    itemId: toRequiredNumberField(data, 'item_id', rpcName),
+  }
+}
+
+export async function reverseStorePurchaseTx(input: {
+  targetPointsEventId: number
+  staffName: string
+  staffRole?: string
+  note?: string | null
+  sourceContext?: string | null
+}): Promise<ReverseStorePurchaseTxResult> {
+  const rpcName = 'reverse_store_purchase_tx'
+  const { data, error } = await supabase.rpc('reverse_store_purchase_tx', {
+    p_target_points_event_id: Number(input.targetPointsEventId),
+    p_staff_name: input.staffName,
+    p_staff_role: input.staffRole || 'staff',
+    p_note: input.note || null,
+    p_source_context: input.sourceContext || 'history-undo',
+  })
+
+  if (error) throw error
+
+  return {
+    status: toRequiredStringField(data, 'status', rpcName),
+    redemptionId: toRequiredNumberField(data, 'redemption_id', rpcName),
+    targetEventId: toRequiredNumberField(data, 'target_event_id', rpcName),
+    reversalEventId: toRequiredNumberField(data, 'reversal_event_id', rpcName),
+    studentId: toRequiredNumberField(data, 'student_id', rpcName),
+    itemId: toRequiredNumberField(data, 'item_id', rpcName),
+    nextPoints: toRequiredNumberField(data, 'next_points', rpcName),
+    nextStock: toRequiredNumberField(data, 'next_stock', rpcName),
+  }
 }
 
 export type StoreSyncUiState = {
