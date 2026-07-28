@@ -1,9 +1,62 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getStoreSyncUiState,
   normalizeStoreItemInput,
   normalizeStoreRedemptionInput,
+  redeemStorePurchaseTx,
+  reverseStorePurchaseTx,
 } from '../storeService'
+import { supabase } from '../../supabaseClient'
+
+describe('store RPC wrapper contract validation', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('throws a contract error when redeem_store_purchase_tx omits required fields', async () => {
+    vi.spyOn(supabase, 'rpc').mockResolvedValue({
+      data: {
+        status: 'created',
+        redemption_id: 11,
+        points_event_id: 99,
+        next_points: 21,
+      },
+      error: null,
+    } as never)
+
+    await expect(
+      redeemStorePurchaseTx({
+        studentId: 1,
+        itemId: 2,
+        staffName: 'Tester',
+        idempotencyKey: 'test-key',
+      })
+    ).rejects.toThrow('Contract error from redeem_store_purchase_tx: required field next_stock is missing or invalid.')
+  })
+
+  it('throws a contract error when reverse_store_purchase_tx has invalid numeric fields', async () => {
+    vi.spyOn(supabase, 'rpc').mockResolvedValue({
+      data: {
+        status: 'reversed',
+        redemption_id: 44,
+        target_event_id: 12,
+        reversal_event_id: 66,
+        student_id: 7,
+        item_id: 8,
+        next_points: 'NaN',
+        next_stock: 3,
+      },
+      error: null,
+    } as never)
+
+    await expect(
+      reverseStorePurchaseTx({
+        targetPointsEventId: 12,
+        staffName: 'Tester',
+      })
+    ).rejects.toThrow('Contract error from reverse_store_purchase_tx: required field next_points is missing or invalid.')
+  })
+})
 
 describe('normalizeStoreItemInput', () => {
   it('trims names, clamps numeric values, and defaults empty category values', () => {

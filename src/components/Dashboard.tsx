@@ -22,9 +22,9 @@ import AdminMainDashboard from './AdminMainDashboard'
 import TherapistAssignmentsPage from './TherapistAssignmentsPage'
 import IntakePage from './IntakePage'
 import {
-  createPointsEvent,
-  deletePointsEvent,
+  applyPointsEventTx,
   listPointsEventsForStudent,
+  reversePointsEventTx,
   type PointsEventRecord,
 } from '../services/pointsEventsService'
 import { applyDailyAttendanceReset } from '../services/attendanceService'
@@ -35,12 +35,11 @@ import {
 import {
   adjustStoreItemStockBy,
   createStoreItem,
-  createStoreRedemption,
-  deleteStoreRedemption,
   listStoreItems,
   listStoreRedemptions,
   normalizeStoreItemInput,
-  normalizeStoreRedemptionInput,
+  redeemStorePurchaseTx,
+  reverseStorePurchaseTx,
   seedStoreItems,
   setStoreItemActive,
   updateStoreItem as saveStoreItem,
@@ -1529,6 +1528,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [staffMembers, setStaffMembers] = useState<StaffMemberLike[]>(FALLBACK_STAFF_MEMBERS as StaffMemberLike[])
   const [staffLoadError, setStaffLoadError] = useState<string | null>(null)
   const fallbackSyncInFlightRef = useRef(false)
+  const storePurchaseAttemptKeysRef = useRef<Record<string, string>>({})
 
   const refreshStaffMembers = useCallback(async () => {
     try {
@@ -3255,15 +3255,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           }
     ))
 
-    let eventId = null
-
     try {
-      eventId = await createPointsEvent({
+      const result = await applyPointsEventTx({
         studentId: Number(originalStudent.id),
         studentName: originalStudent.name,
+        staffId: null,
         staffName: userName || 'Staff',
         staffRole: role || 'staff',
         pointsDelta: Number(pointsDelta || 0),
+        reminderDelta: Number(reminderDelta || 0),
         eventType,
         category,
         reason,
@@ -3276,25 +3276,20 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         },
       })
 
-      const saved = await persistStudentFields(originalStudent.id, {
-        token_balance: nextPoints,
-        reminders: nextReminders,
-      })
-
-      if (!saved) {
-        throw new Error('Unable to save token balance.')
-      }
+      setStudents(prev => prev.map(student =>
+        Number(student.id) !== Number(studentId)
+          ? student
+          : {
+              ...student,
+              points: Number(result.nextPoints || 0),
+              token_balance: Number(result.nextPoints || 0),
+              reminders: Number(result.nextReminders || 0),
+              behaviorLog: nextBehaviorLog,
+            }
+      ))
 
       return true
     } catch (error) {
-      if (eventId) {
-        try {
-          await deletePointsEvent(eventId)
-        } catch (rollbackError) {
-          console.error('Unable to roll back points event:', rollbackError)
-        }
-      }
-
       console.error('Points event write failed:', error)
 
       setStudents(prev => prev.map(student =>
@@ -3323,11 +3318,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     )
     const reversalPointsDelta = -originalPointsDelta
     const reversalReminderDelta = -originalReminderDelta
-    const nextPoints = Math.max(
+    const optimisticNextPoints = Math.max(
       0,
       Number(currentStudent.points || 0) + reversalPointsDelta
     )
-    const nextReminders = Math.max(
+    const optimisticNextReminders = Math.max(
       0,
       Number(currentStudent.reminders || 0) + reversalReminderDelta
     )
@@ -3337,9 +3332,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         ? student
         : {
             ...student,
-            points: nextPoints,
-            token_balance: nextPoints,
-            reminders: nextReminders,
+            points: optimisticNextPoints,
+            token_balance: optimisticNextPoints,
+            reminders: optimisticNextReminders,
             behaviorLog: [
               {
                 label: `Undo: ${event.reason}`,
@@ -3351,37 +3346,67 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           }
     ))
 
-    let undoEventId = null
-
     try {
-      undoEventId = await createPointsEvent({
-        studentId: Number(currentStudent.id),
-        studentName: currentStudent.name,
-        staffName: userName || 'Staff',
-        staffRole: role || 'staff',
-        pointsDelta: reversalPointsDelta,
-        eventType: 'reversal',
-        category: event.category,
-        reason: `Undo: ${event.reason}`,
-        note: `Reversed event #${event.id}`,
-        sourcePage: event.source_page || event.category,
-        sourceContext: 'history-undo',
-        relatedEventId: Number(event.id),
-        metadata: {
-          reversedEventId: Number(event.id),
-          originalEventType: event.event_type,
-          originalPointsDelta,
-          originalReminderDelta,
-        },
-      })
+      if (event.event_type === 'purchase' || event.category === 'store') {
+        const reversal = await reverseStorePurchaseTx({
+          targetPointsEventId: Number(event.id),
+          staffName: userName || 'Staff',
+          staffRole: role || 'staff',
+          note: `Reversed store purchase event #${event.id}`,
+          sourceContext: 'history-undo',
+        })
 
-      const saved = await persistStudentFields(currentStudent.id, {
-        token_balance: nextPoints,
-        reminders: nextReminders,
-      })
+        setStudents(prev => prev.map(student =>
+          Number(student.id) !== Number(currentStudent.id)
+            ? student
+            : {
+                ...student,
+                points: Number(reversal.nextPoints || 0),
+                token_balance: Number(reversal.nextPoints || 0),
+                reminders: optimisticNextReminders,
+                behaviorLog: [
+                  {
+                    label: `Undo: ${event.reason}`,
+                    points: reversalPointsDelta,
+                    date: new Date().toISOString().slice(0, 10),
+                  },
+                  ...(student.behaviorLog || []),
+                ].slice(0, 30),
+              }
+        ))
 
-      if (!saved) {
-        throw new Error('Unable to save token balance.')
+        setStoreItems(prev => prev.map(item => (
+          Number(item.id) === Number(reversal.itemId)
+            ? { ...item, stock: Number(reversal.nextStock || item.stock || 0) }
+            : item
+        )))
+      } else {
+        const reversal = await reversePointsEventTx({
+          targetEventId: Number(event.id),
+          staffName: userName || 'Staff',
+          staffRole: role || 'staff',
+          note: `Reversed event #${event.id}`,
+          sourceContext: 'history-undo',
+        })
+
+        setStudents(prev => prev.map(student =>
+          Number(student.id) !== Number(currentStudent.id)
+            ? student
+            : {
+                ...student,
+                points: Number(reversal.nextPoints || 0),
+                token_balance: Number(reversal.nextPoints || 0),
+                reminders: Number(reversal.nextReminders || 0),
+                behaviorLog: [
+                  {
+                    label: `Undo: ${event.reason}`,
+                    points: reversalPointsDelta,
+                    date: new Date().toISOString().slice(0, 10),
+                  },
+                  ...(student.behaviorLog || []),
+                ].slice(0, 30),
+              }
+        ))
       }
 
       try {
@@ -3393,14 +3418,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
       return true
     } catch (error) {
-      if (undoEventId) {
-        try {
-          await deletePointsEvent(undoEventId)
-        } catch (rollbackError) {
-          console.error('Unable to roll back undo event:', rollbackError)
-        }
-      }
-
       console.error('Undo points event failed:', error)
 
       setStudents(prev => prev.map(student =>
@@ -3426,6 +3443,19 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStudents(prev => prev.map(s => s.id === id ? { ...s, status: original.status } : s))
     }
   }
+  function generateStorePurchaseAttemptKey() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID()
+    }
+
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
+
+  function isRetryablePurchaseError(error: unknown) {
+    const message = String((error as Error)?.message || '').toLowerCase()
+    return message.includes('failed to fetch') || message.includes('network') || message.includes('fetch')
+  }
+
   async function buyItem(studentId: number | string, item: StoreItemLike) {
     const s = students.find(x => x.id === studentId)
     if (!s || (s.points ?? 0) < (item.cost ?? 0)) { alert('Not enough points!'); return }
@@ -3437,137 +3467,113 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
 
     playSound('store')
-    let redemptionId = null
-    let stockAdjusted = false
+    const attemptSlot = `${Number(studentId)}:${Number(item.id)}`
+    let attemptKey = storePurchaseAttemptKeysRef.current[attemptSlot]
+
+    if (!attemptKey) {
+      attemptKey = generateStorePurchaseAttemptKey()
+      storePurchaseAttemptKeysRef.current[attemptSlot] = attemptKey
+    }
 
     try {
       setStoreSyncState('pending-sync')
 
-      const stockRow = await adjustStoreItemStockBy(
-        Number(item.id),
-        -1,
-        userName || 'Register',
-      )
+      let purchaseResult
+      try {
+        purchaseResult = await redeemStorePurchaseTx({
+          studentId: Number(s.id),
+          itemId: Number(item.id),
+          staffName: userName || 'Register',
+          staffRole: role || 'staff',
+          idempotencyKey: attemptKey,
+          source: 'token-store',
+          reason: `Store purchase: ${item.name}`,
+          note: `${s.name} redeemed ${item.name}`,
+          sourcePage: 'store',
+          sourceContext: 'token-store-redeem',
+          metadata: {
+            division: studentDivision(s),
+            staffRole: role || 'staff',
+            itemId: Number(item.id),
+            itemName: item.name,
+            itemCost: Number(item.cost || 0),
+          },
+        })
+      } catch (error) {
+        if (!isRetryablePurchaseError(error)) {
+          throw error
+        }
 
-      stockAdjusted = true
+        purchaseResult = await redeemStorePurchaseTx({
+          studentId: Number(s.id),
+          itemId: Number(item.id),
+          staffName: userName || 'Register',
+          staffRole: role || 'staff',
+          idempotencyKey: attemptKey,
+          source: 'token-store',
+          reason: `Store purchase: ${item.name}`,
+          note: `${s.name} redeemed ${item.name}`,
+          sourcePage: 'store',
+          sourceContext: 'token-store-redeem',
+          metadata: {
+            division: studentDivision(s),
+            staffRole: role || 'staff',
+            itemId: Number(item.id),
+            itemName: item.name,
+            itemCost: Number(item.cost || 0),
+          },
+        })
+      }
+
+      setStudents(prev => prev.map(student =>
+        Number(student.id) !== Number(s.id)
+          ? student
+          : {
+              ...student,
+              points: Number(purchaseResult.nextPoints || 0),
+              token_balance: Number(purchaseResult.nextPoints || 0),
+              behaviorLog: [
+                {
+                  label: `Store purchase: ${item.name}`,
+                  points: -Number(item.cost || 0),
+                  date: new Date().toISOString().slice(0, 10),
+                },
+                ...(student.behaviorLog || []),
+              ].slice(0, 30),
+            }
+      ))
 
       setStoreItems(prev => prev.map(entry => (
-        Number(entry.id) === Number(stockRow.id)
-          ? { ...entry, ...stockRow }
+        Number(entry.id) === Number(purchaseResult.itemId)
+          ? { ...entry, stock: Number(purchaseResult.nextStock || entry.stock || 0) }
           : entry
       )))
 
-      const redemption = await createStoreRedemption(normalizeStoreRedemptionInput({
-        studentId: Number(s.id),
-        studentName: s.name,
-        itemId: Number(item.id),
-        itemName: item.name,
-        cost: Number(item.cost || 0),
-        staffName: userName || 'Register',
-        source: 'token-store',
-        metadata: {
-          division: studentDivision(s),
-          staffRole: role || 'staff',
-        },
-      }))
-
-      redemptionId = redemption.id
-
-      const pointsSaved = await recordStudentPointsAction({
-      studentId,
-      pointsDelta: -Number(item.cost || 0),
-      reason: `Store purchase: ${item.name}`,
-      eventType: 'purchase',
-      category: 'store',
-      sourceContext: 'token-store-redeem',
-      note: `${s.name} redeemed ${item.name}`,
-      metadata: {
-        itemId: item.id,
-        itemName: item.name,
-        itemCost: item.cost,
-      },
-    })
-
-      if (!pointsSaved) {
-        let rollbackFailed = false
-
-        if (redemptionId) {
-          try {
-            await deleteStoreRedemption(redemptionId)
-          } catch (deleteError) {
-            console.error('Unable to roll back store redemption row:', deleteError)
-            rollbackFailed = true
-          }
-        }
-
-        if (stockAdjusted) {
-          try {
-            const restoredRow = await adjustStoreItemStockBy(
-              Number(item.id),
-              1,
-              userName || 'Register',
-            )
-            setStoreItems(prev => prev.map(entry => (
-              Number(entry.id) === Number(restoredRow.id)
-                ? { ...entry, ...restoredRow }
-                : entry
-            )))
-          } catch (rollbackError) {
-            console.error('Unable to roll back store stock:', rollbackError)
-            rollbackFailed = true
-          }
-        }
-
-        setStoreSyncState(rollbackFailed ? 'error' : 'ready')
-
-        return
-      }
-
       setStoreSyncState('ready')
+      delete storePurchaseAttemptKeysRef.current[attemptSlot]
 
       setPurchaseLog(prev => [{
-        id: redemption.id,
-        time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
+        id: Number(purchaseResult.redemptionId),
+        time: new Date().toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
         }),
-        studentId: redemption.studentId,
-        studentName: redemption.studentName,
-        itemName: redemption.itemName,
-        cost: redemption.cost,
-        staff: redemption.staffName,
-        division: String(redemption.metadata?.division || ''),
+        studentId: Number(s.id),
+        studentName: s.name,
+        itemName: String(item.name || ''),
+        cost: Number(item.cost || 0),
+        staff: userName || 'Register',
+        division: String(studentDivision(s) || ''),
       }, ...prev].slice(0, 25))
 
       alert(`${s.name} redeemed: ${item.name}!`)
     } catch (error) {
-      if (redemptionId) {
-        try {
-          await deleteStoreRedemption(redemptionId)
-        } catch (deleteError) {
-          console.error('Unable to roll back store redemption row:', deleteError)
-        }
-      }
-
-      if (stockAdjusted) {
-        try {
-          const restoredRow = await adjustStoreItemStockBy(
-            Number(item.id),
-            1,
-            userName || 'Register',
-          )
-          setStoreItems(prev => prev.map(entry => (
-            Number(entry.id) === Number(restoredRow.id)
-              ? { ...entry, ...restoredRow }
-              : entry
-          )))
-        } catch (rollbackError) {
-          console.error('Unable to roll back store stock:', rollbackError)
-        }
-      }
-
       setStoreSyncState('error')
       console.error('Store redemption failed:', error)
+
+      if (!isRetryablePurchaseError(error)) {
+        delete storePurchaseAttemptKeysRef.current[attemptSlot]
+      }
 
       alert(
         error instanceof Error
