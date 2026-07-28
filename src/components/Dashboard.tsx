@@ -37,6 +37,7 @@ import {
   createStoreItem,
   listStoreItems,
   listStoreRedemptions,
+  formatSupabaseError,
   normalizeStoreItemInput,
   redeemStorePurchaseTx,
   reverseStorePurchaseTx,
@@ -3575,11 +3576,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         delete storePurchaseAttemptKeysRef.current[attemptSlot]
       }
 
-      alert(
-        error instanceof Error
-          ? error.message
-          : 'Unable to complete store redemption.',
-      )
+      alert(formatSupabaseError(error))
     }
   }
 

@@ -101,6 +101,29 @@ export type ReverseStorePurchaseTxResult = {
   nextStock: number
 }
 
+export function formatSupabaseError(error: unknown): string {
+  const fallback = 'Unable to complete store redemption.'
+
+  if (typeof error !== 'object' || error === null) {
+    return fallback
+  }
+
+  const typedError = error as Record<string, unknown>
+  const parts: string[] = []
+
+  const message = String(typedError.message || '').trim()
+  const details = String(typedError.details || '').trim()
+  const hint = String(typedError.hint || '').trim()
+  const code = String(typedError.code || '').trim()
+
+  if (message) parts.push(message)
+  if (details) parts.push(details)
+  if (hint) parts.push(hint)
+  if (code) parts.push(`Code: ${code}`)
+
+  return parts.length > 0 ? parts.join(' ') : fallback
+}
+
 function toRequiredNumberField(
   payload: unknown,
   field: string,
@@ -550,6 +573,16 @@ export function getStoreSyncUiState(input: {
       background: '#ffedd5',
       isReady: false,
       isPending: true,
+    }
+  }
+
+  if (syncState === 'error') {
+    return {
+      label: 'Sync error',
+      color: '#9f1239',
+      background: '#ffe4e6',
+      isReady: false,
+      isPending: false,
     }
   }
 

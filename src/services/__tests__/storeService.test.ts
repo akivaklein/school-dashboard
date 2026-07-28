@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getStoreSyncUiState,
+  formatSupabaseError,
   normalizeStoreItemInput,
   normalizeStoreRedemptionInput,
   redeemStorePurchaseTx,
@@ -55,6 +56,23 @@ describe('store RPC wrapper contract validation', () => {
         staffName: 'Tester',
       })
     ).rejects.toThrow('Contract error from reverse_store_purchase_tx: required field next_points is missing or invalid.')
+  })
+})
+
+describe('formatSupabaseError', () => {
+  it('joins message, details, hint, and code in priority order', () => {
+    expect(
+      formatSupabaseError({
+        message: 'Store item 99999 was not found.',
+        details: 'Row missing in store_items.',
+        hint: 'Check the item id.',
+        code: 'P0001',
+      })
+    ).toBe('Store item 99999 was not found. Row missing in store_items. Check the item id. Code: P0001')
+  })
+
+  it('falls back to the generic message when no structured fields exist', () => {
+    expect(formatSupabaseError({})).toBe('Unable to complete store redemption.')
   })
 })
 
@@ -137,7 +155,18 @@ describe('getStoreSyncUiState', () => {
     expect(
       getStoreSyncUiState({ persistenceReady: false, pendingSync: false, syncState: 'error' })
     ).toMatchObject({
-      label: 'Not connected',
+      label: 'Sync error',
+      color: '#9f1239',
+      background: '#ffe4e6',
+      isReady: false,
+    })
+  })
+
+  it('keeps the error state visible even when persistence is ready again', () => {
+    expect(
+      getStoreSyncUiState({ persistenceReady: true, pendingSync: false, syncState: 'error' })
+    ).toMatchObject({
+      label: 'Sync error',
       color: '#9f1239',
       background: '#ffe4e6',
       isReady: false,
