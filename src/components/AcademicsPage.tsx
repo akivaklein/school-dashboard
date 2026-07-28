@@ -155,7 +155,9 @@ export default function AcademicsPage({
   S,
   CLASSES,
   STUDENT_CLASSES,
+  CLASS_DIVISION,
   ACADEMIC_AREAS,
+  academicCatalog,
   SKILL_RATINGS,
   academicPct,
   academicDisplay,
@@ -168,6 +170,7 @@ export default function AcademicsPage({
   const initialTeacher = role === 'teacher' && userName && teacherOptions.includes(userName)
     ? userName
     : teacherOptions[0] || (academicTeacherOptions?.[0] || 'Rabbi Abowitz')
+  const loggedInTeacher = (userName || '').trim() || initialTeacher
   const [classFilter, setClassFilter] = useState(role === 'teacher' && teacherClass ? teacherClass : 'all')
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [skillFilter, setSkillFilter] = useState('all')
@@ -178,14 +181,16 @@ export default function AcademicsPage({
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkStudentStates, setBulkStudentStates] = useState({})
   const [bulkForm, setBulkForm] = useState({
-    teacher: initialTeacher,
+    teacher: loggedInTeacher,
     subject: 'Math',
     skill: '2-digit',
     assessmentName: '',
+    assessmentType: 'Quiz',
     date: new Date().toISOString().slice(0, 10),
-    scoreType: 'points',
+    gradingMethod: 'points',
     maxScore: '100',
     rating: 'Good',
+    letterGrade: 'B',
     notes: '',
     fillAllScore: '',
   })
@@ -203,7 +208,7 @@ export default function AcademicsPage({
       return visibleStudents
     }
 
-    const assignment = setupAssignments?.[bulkForm.teacher]
+    const assignment = setupAssignments?.[loggedInTeacher]
     const assignedIds = new Set()
 
     if (assignment?.periods) {
@@ -237,7 +242,7 @@ export default function AcademicsPage({
     visibleStudents,
     scopedStudents,
     setupAssignments,
-    bulkForm.teacher,
+    loggedInTeacher,
     classFilter,
     STUDENT_CLASSES,
   ])
@@ -258,8 +263,52 @@ export default function AcademicsPage({
     return ACADEMIC_AREAS[teacherName] || ACADEMIC_AREAS[teacherOptions[0]] || ACADEMIC_AREAS[academicTeacherOptions?.[0]] || ACADEMIC_AREAS['Rabbi Abowitz'] || {}
   }
 
-  const bulkSubjectOptions = Object.keys(getTeacherAcademicAreaMap(bulkForm.teacher))
-  const bulkSkillOptions = (getTeacherAcademicAreaMap(bulkForm.teacher)[bulkForm.subject] || ['General'])
+  const activeCatalogSubjects = (academicCatalog?.subjects || []).filter(subject => subject.active !== false)
+  const selectedClassDivision = classFilter === 'all' ? null : (CLASS_DIVISION?.[classFilter] || null)
+
+  const bulkSubjectOptions = activeCatalogSubjects
+    .filter(subject => {
+      const teacherMatch = !subject.teacherNames?.length || subject.teacherNames.includes(loggedInTeacher)
+      const classMatch = classFilter === 'all' || !subject.classIds?.length || subject.classIds.includes(classFilter)
+      const divisionMatch = !selectedClassDivision || !subject.divisionKeys?.length || subject.divisionKeys.includes(selectedClassDivision)
+      return teacherMatch && classMatch && divisionMatch
+    })
+    .map(subject => subject.label)
+
+  const selectedCatalogSubject = activeCatalogSubjects.find(subject => subject.label === bulkForm.subject)
+  const bulkSkillOptions = (selectedCatalogSubject?.skills || [])
+    .filter(skill => skill.active !== false)
+    .map(skill => skill.label)
+
+  const effectiveBulkSkillOptions = bulkSkillOptions.length > 0
+    ? bulkSkillOptions
+    : (getTeacherAcademicAreaMap(loggedInTeacher)[bulkForm.subject] || ['General'])
+
+  useEffect(() => {
+    setBulkForm(prev => {
+      const next = { ...prev }
+      if (next.teacher !== loggedInTeacher) {
+        next.teacher = loggedInTeacher
+      }
+
+      if (!bulkSubjectOptions.length) return next
+
+      if (!bulkSubjectOptions.includes(next.subject)) {
+        next.subject = bulkSubjectOptions[0]
+      }
+
+      const skills = effectiveBulkSkillOptions
+      if (skills.length > 0 && !skills.includes(next.skill)) {
+        next.skill = skills[0]
+      }
+
+      if (next.gradingMethod === 'percentage') {
+        next.maxScore = '100'
+      }
+
+      return next
+    })
+  }, [loggedInTeacher, bulkSubjectOptions, effectiveBulkSkillOptions])
 
   function scoreStatusValue(score) {
     if (score.attemptStatus === 'absent' || score.attemptStatus === 'missed') {
@@ -277,14 +326,15 @@ export default function AcademicsPage({
   function updateBulkForm(key, value) {
     setBulkForm(prev => {
       const next = { ...prev, [key]: value }
-      if (key === 'teacher') {
-        const teacherAreas = getTeacherAcademicAreaMap(value)
-        const firstSubject = Object.keys(teacherAreas)[0]
-        next.subject = firstSubject
-        next.skill = (teacherAreas[firstSubject] || ['General'])[0]
-      }
       if (key === 'subject') {
-        next.skill = (getTeacherAcademicAreaMap(next.teacher)[value] || ['General'])[0]
+        const catalogSubject = activeCatalogSubjects.find(subject => subject.label === value)
+        const activeSkills = (catalogSubject?.skills || []).filter(skill => skill.active !== false).map(skill => skill.label)
+        const fallbackSkills = getTeacherAcademicAreaMap(loggedInTeacher)[value] || ['General']
+        const nextSkills = activeSkills.length ? activeSkills : fallbackSkills
+        next.skill = nextSkills[0]
+      }
+      if (key === 'gradingMethod' && value === 'percentage') {
+        next.maxScore = '100'
       }
       return next
     })
@@ -306,10 +356,15 @@ export default function AcademicsPage({
   function setStudentBulkMode(studentId, mode) {
     setBulkStudentStates(prev => ({
       ...prev,
-      [studentId]: {
-        ...(prev[studentId] || { score: '' }),
-        mode,
-      },
+      [studentId]: (() => {
+        const current = prev[studentId] || { mode: 'score', score: '' }
+        const nextMode = current.mode === mode ? 'score' : mode
+        return {
+          ...current,
+          mode: nextMode,
+          score: nextMode === 'score' ? current.score : '',
+        }
+      })(),
     }))
   }
 
@@ -318,6 +373,7 @@ export default function AcademicsPage({
       ...prev,
       [studentId]: {
         ...(prev[studentId] || { mode: 'score' }),
+        mode: 'score',
         score,
       },
     }))
@@ -344,7 +400,11 @@ export default function AcademicsPage({
       return
     }
 
-    if (bulkForm.scoreType === 'points' && !bulkForm.maxScore) {
+    const effectiveScoreType = bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade'
+      ? 'rating'
+      : 'points'
+
+    if (effectiveScoreType === 'points' && !bulkForm.maxScore) {
       alert('Enter max score for numeric bulk grading.')
       return
     }
@@ -354,8 +414,8 @@ export default function AcademicsPage({
     for (const student of bulkVisibleStudents) {
       const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
 
-      if (state.mode === 'score') {
-        if (bulkForm.scoreType === 'points' && (state.score === '' || state.score === null || state.score === undefined)) {
+      if (state.mode !== 'missed' && state.mode !== 'absent') {
+        if (effectiveScoreType === 'points' && (state.score === '' || state.score === null || state.score === undefined)) {
           continue
         }
       }
@@ -363,18 +423,30 @@ export default function AcademicsPage({
       const attemptStatus = state.mode === 'absent' ? 'absent' : state.mode === 'missed' ? 'missed' : 'scored'
       const statusNote = attemptStatus === 'absent' ? '[Absent on assessment date]' : attemptStatus === 'missed' ? '[Missed assessment]' : ''
       const mergedNotes = [statusNote, bulkForm.notes].filter(Boolean).join(' ')
+      const ratingFromLetter = bulkForm.letterGrade === 'A'
+        ? 'Great'
+        : bulkForm.letterGrade === 'B'
+          ? 'Good'
+          : bulkForm.letterGrade === 'C'
+            ? 'Developing'
+            : 'Weak'
+      const numericMaxScore = bulkForm.gradingMethod === 'percentage' ? 100 : Number(bulkForm.maxScore)
 
       const entry = {
         id: `ts${Date.now()}-${student.id}`,
-        teacher: bulkForm.teacher,
+        teacher: loggedInTeacher,
         subject: bulkForm.subject,
         skill: bulkForm.skill,
         assessmentName: bulkForm.assessmentName,
+        assessmentType: bulkForm.assessmentType,
+        gradingMethod: bulkForm.gradingMethod,
         date: bulkForm.date,
-        scoreType: attemptStatus === 'scored' ? bulkForm.scoreType : 'status',
-        score: attemptStatus === 'scored' && bulkForm.scoreType === 'points' ? Number(state.score) : null,
-        maxScore: attemptStatus === 'scored' && bulkForm.scoreType === 'points' ? Number(bulkForm.maxScore) : null,
-        rating: attemptStatus === 'scored' && bulkForm.scoreType === 'rating' ? bulkForm.rating : null,
+        scoreType: attemptStatus === 'scored' ? effectiveScoreType : 'status',
+        score: attemptStatus === 'scored' && effectiveScoreType === 'points' ? Number(state.score) : null,
+        maxScore: attemptStatus === 'scored' && effectiveScoreType === 'points' ? numericMaxScore : null,
+        rating: attemptStatus === 'scored' && effectiveScoreType === 'rating'
+          ? (bulkForm.gradingMethod === 'letter-grade' ? ratingFromLetter : bulkForm.rating)
+          : null,
         notes: mergedNotes,
         attemptStatus,
       }
@@ -451,8 +523,8 @@ export default function AcademicsPage({
   latestByStudent.forEach(row => { statusCounts[row.status] = (statusCounts[row.status] || 0) + 1 })
   const ratingCounts = { Weak: 0, Developing: 0, Good: 0, Great: 0 }
   allScores.filter(x=>x.scoreType==='rating').forEach(x => { ratingCounts[x.rating] = (ratingCounts[x.rating] || 0) + 1 })
-  const subjects = ['all','Math','Reading','Writing']
-  const skills = ['all', ...new Set(Object.values(ACADEMIC_AREAS).flatMap(area => Object.values(area).flat()))]
+  const filterSubjectOptions = ['all', ...new Set((academicCatalog?.subjects || []).filter(subject => subject.active !== false).map(subject => subject.label))]
+  const filterSkills = ['all', ...new Set((academicCatalog?.subjects || []).flatMap(subject => (subject.skills || []).filter(skill => skill.active !== false).map(skill => skill.label)))]
   const teacherFilterOptions = role === 'admin' ? ['all', ...teacherOptions] : []
   const classScopeLabel = classFilter === 'all'
     ? 'All classes'
@@ -460,19 +532,9 @@ export default function AcademicsPage({
   const bulkProgressCount = bulkVisibleStudents.filter(student => {
     const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
     if (state.mode === 'absent' || state.mode === 'missed') return true
-    if (bulkForm.scoreType === 'rating') return true
+    if (bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade') return true
     return state.score !== '' && state.score !== null && state.score !== undefined
   }).length
-
-  function formatBulkSkillLabel(skill) {
-    if (!skill) return 'General'
-    const normalized = String(skill).trim().toLowerCase()
-    if (normalized === '2-digit') return 'Numeric Score (2-digit)'
-    if (normalized === '1-digit' || normalized === 'single-digit') return 'Numeric Score (single-digit)'
-    if (normalized.includes('percent')) return 'Percentage'
-    if (normalized.includes('letter')) return 'Letter Grade'
-    return skill
-  }
 
   return (
     <div>
@@ -484,8 +546,8 @@ export default function AcademicsPage({
       <div style={{ ...S.card, marginBottom:16, display:'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap:10 }}>
         {role === 'admin' && <select value={teacherFilter} onChange={e=>setTeacherFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{teacherFilterOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All teachers' : option}</option>)}</select>}
         <select value={classFilter} onChange={e=>setClassFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="all">All classes</option>{CLASSES.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <select value={subjectFilter} onChange={e=>{setSubjectFilter(e.target.value); setSkillFilter('all')}} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{subjects.map(x=><option key={x} value={x}>{x === 'all' ? 'All subjects' : x}</option>)}</select>
-        <select value={skillFilter} onChange={e=>setSkillFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{skills.filter(x=> subjectFilter==='all' || x==='all' || Object.values(ACADEMIC_AREAS).some(area => (area[subjectFilter] || []).includes(x))).map(x=><option key={x} value={x}>{x === 'all' ? 'All skills' : x}</option>)}</select>
+        <select value={subjectFilter} onChange={e=>{setSubjectFilter(e.target.value); setSkillFilter('all')}} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{filterSubjectOptions.map(x=><option key={x} value={x}>{x === 'all' ? 'All subjects' : x}</option>)}</select>
+        <select value={skillFilter} onChange={e=>setSkillFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{filterSkills.filter(x=> subjectFilter==='all' || x==='all' || (academicCatalog?.subjects || []).some(subject => subject.label === subjectFilter && (subject.skills || []).some(skill => skill.label === x && skill.active !== false))).map(x=><option key={x} value={x}>{x === 'all' ? 'All skills' : x}</option>)}</select>
       </div>
 
       <div style={{ ...S.card, marginBottom: 16 }}>
@@ -590,17 +652,24 @@ export default function AcademicsPage({
             </div>
 
             <div style={{ padding: 14, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, flexShrink: 0 }}>
-              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+              <div style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                 Teacher
-                <select value={bulkForm.teacher} onChange={e => updateBulkForm('teacher', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
-                  {teacherOptions.map(name => <option key={name}>{name}</option>)}
-                </select>
-              </label>
+                <div style={{ padding: '9px 10px', border: '1px solid #d7dee7', borderRadius: 8, background: '#f8fafc', color: '#1e293b', fontSize: 13, fontWeight: 700 }}>
+                  {loggedInTeacher}
+                </div>
+              </div>
 
               <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                 Subject
                 <select value={bulkForm.subject} onChange={e => updateBulkForm('subject', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
                   {bulkSubjectOptions.map(option => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Skill / Topic
+                <select value={bulkForm.skill} onChange={e => updateBulkForm('skill', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                  {effectiveBulkSkillOptions.map(option => <option key={option} value={option}>{option}</option>)}
                 </select>
               </label>
 
@@ -619,9 +688,12 @@ export default function AcademicsPage({
 
               <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                 Assessment Type
-                <select value={bulkForm.scoreType} onChange={e => updateBulkForm('scoreType', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
-                  <option value="points">Numeric Score</option>
-                  <option value="rating">Rating Scale</option>
+                <select value={bulkForm.assessmentType} onChange={e => updateBulkForm('assessmentType', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                  <option value="Quiz">Quiz</option>
+                  <option value="Test">Test</option>
+                  <option value="Checkpoint">Checkpoint</option>
+                  <option value="Homework">Homework</option>
+                  <option value="Observation">Observation</option>
                 </select>
               </label>
 
@@ -631,21 +703,40 @@ export default function AcademicsPage({
               </label>
 
               <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
-                Grading Scale
-                {bulkForm.scoreType === 'rating' ? (
+                Grading Method
+                <select value={bulkForm.gradingMethod} onChange={e => updateBulkForm('gradingMethod', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                  <option value="points">Points</option>
+                  <option value="percentage">Percentage</option>
+                  <option value="letter-grade">Letter Grade</option>
+                  <option value="rating-scale">Rating Scale</option>
+                </select>
+              </label>
+
+              {bulkForm.gradingMethod === 'rating-scale' && (
+                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                  Rating Scale
                   <select value={bulkForm.rating} onChange={e => updateBulkForm('rating', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
                     {SKILL_RATINGS.map(rating => <option key={rating}>{rating}</option>)}
                   </select>
-                ) : (
-                  <select value={bulkForm.skill} onChange={e => updateBulkForm('skill', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
-                    {bulkSkillOptions.map(option => <option key={option} value={option}>{formatBulkSkillLabel(option)}</option>)}
+                </label>
+              )}
+
+              {bulkForm.gradingMethod === 'letter-grade' && (
+                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                  Letter Grade
+                  <select value={bulkForm.letterGrade} onChange={e => updateBulkForm('letterGrade', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                    <option value="F">F</option>
                   </select>
-                )}
-              </label>
+                </label>
+              )}
 
               <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                 Maximum Score
-                <input value={bulkForm.maxScore} onChange={e => updateBulkForm('maxScore', e.target.value)} disabled={bulkForm.scoreType !== 'points'} placeholder="100" style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: bulkForm.scoreType !== 'points' ? '#f8fafc' : '#fff' }} />
+                <input value={bulkForm.maxScore} onChange={e => updateBulkForm('maxScore', e.target.value)} disabled={bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade'} placeholder="100" style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade' ? '#f8fafc' : '#fff' }} />
               </label>
 
               <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700, gridColumn: '1 / -1' }}>
@@ -656,40 +747,39 @@ export default function AcademicsPage({
               <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #eef2f7', paddingTop: 10, display: 'flex', alignItems: 'end', gap: 8, flexWrap: 'wrap' }}>
                 <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700, minWidth: 160 }}>
                   Fill All
-                  <input value={bulkForm.fillAllScore} onChange={e => updateBulkForm('fillAllScore', e.target.value)} placeholder={bulkForm.scoreType === 'points' ? 'Score for all students' : 'Not used for rating scale'} disabled={bulkForm.scoreType !== 'points'} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: bulkForm.scoreType !== 'points' ? '#f8fafc' : '#fff' }} />
+                  <input value={bulkForm.fillAllScore} onChange={e => updateBulkForm('fillAllScore', e.target.value)} placeholder={(bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade') ? 'Not used for this method' : 'Score for all students'} disabled={bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade'} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: (bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade') ? '#f8fafc' : '#fff' }} />
                 </label>
-                <button onClick={fillAllScores} style={S.btn('primary')} disabled={bulkForm.scoreType !== 'points'}>Apply to All</button>
+                <button onClick={fillAllScores} style={S.btn('primary')} disabled={bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade'}>Apply to All</button>
               </div>
             </div>
 
-            <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 0.7fr) minmax(0, 1.2fr)', gap: 10, fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>
+            <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 0.7fr) minmax(0, 1fr)', gap: 10, fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>
               <div>Student</div>
-              <div>{bulkForm.scoreType === 'points' ? 'Numeric Score' : 'Rating Scale'}</div>
-              <div>Status</div>
+              <div>{bulkForm.gradingMethod === 'points' || bulkForm.gradingMethod === 'percentage' ? 'Score' : 'Result'}</div>
+              <div>Exceptions</div>
             </div>
 
             <div style={{ overflowY: 'auto', padding: '0 14px', minHeight: 0, flex: 1 }}>
               {bulkVisibleStudents.map(student => {
                 const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
-                const isScoreActive = state.mode === 'score'
+                const isScoreActive = state.mode !== 'missed' && state.mode !== 'absent'
                 return (
-                  <div key={student.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 0.7fr) minmax(0, 1.2fr)', gap: 10, alignItems: 'center', padding: '8px 0', borderTop: '1px solid #eef2f7' }}>
+                  <div key={student.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 0.7fr) minmax(0, 1fr)', gap: 10, alignItems: 'center', padding: '8px 0', borderTop: '1px solid #eef2f7' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.name}</div>
                       <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{CLASSES.find(c => c.id === STUDENT_CLASSES[student.id])?.name || 'Unassigned class'}</div>
                     </div>
 
-                    {bulkForm.scoreType === 'points' ? (
+                    {bulkForm.gradingMethod === 'points' || bulkForm.gradingMethod === 'percentage' ? (
                       <input value={state.score || ''} onChange={e => setStudentBulkScore(student.id, e.target.value)} disabled={!isScoreActive} placeholder={isScoreActive ? 'Score' : '—'} style={{ width: '100%', padding: 8, border: '1px solid #d7dee7', borderRadius: 8, background: !isScoreActive ? '#f8fafc' : '#fff' }} />
                     ) : (
                       <div style={{ fontSize: 12, color: isScoreActive ? '#334155' : '#94a3b8', fontWeight: 700, padding: '8px 6px' }}>
-                        {isScoreActive ? bulkForm.rating : '—'}
+                        {!isScoreActive ? '—' : bulkForm.gradingMethod === 'letter-grade' ? bulkForm.letterGrade : bulkForm.rating}
                       </div>
                     )}
 
                     <div style={{ display: 'inline-flex', gap: 5, alignItems: 'center', flexWrap: 'nowrap' }}>
                       {[
-                        { value: 'score', label: 'Scored', color: '#3f6f4f', bg: '#eefbf2', border: '#c7efd2' },
                         { value: 'missed', label: 'Missed', color: '#9a6a2a', bg: '#fff7ed', border: '#fed7aa' },
                         { value: 'absent', label: 'Absent', color: '#9f1239', bg: '#fff1f2', border: '#fecdd3' },
                       ].map(option => {
@@ -705,10 +795,10 @@ export default function AcademicsPage({
                               border: `1px solid ${isActive ? option.border : '#e5e7eb'}`,
                               background: isActive ? option.bg : '#ffffff',
                               color: isActive ? option.color : '#64748b',
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: 700,
                               cursor: 'pointer',
-                              minWidth: 56,
+                              minWidth: 52,
                             }}
                           >
                             {option.label}

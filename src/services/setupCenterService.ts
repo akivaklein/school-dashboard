@@ -288,6 +288,7 @@ export async function loadSetupAssignments() {
 
   const result: Record<string, any> = {}
   data?.forEach(row => {
+    if (String(row.staff_name || '').startsWith('__')) return
     result[row.staff_name] = row.assignments_data || {
       periods: { 1: [], 2: [], 3: [] },
       caseload: []
@@ -377,6 +378,106 @@ export async function saveStaffAccount(staffName: string, accountData: any) {
     console.error(`Error saving account for ${staffName}:`, error)
     return false
   }
+  return true
+}
+
+/**
+ * Academic Catalog - Subjects and skills/topics configuration
+ * Persisted using setup_assignments table with an internal key row to avoid new schema work.
+ */
+
+const ACADEMIC_CATALOG_ROW_KEY = '__academic_catalog__'
+
+export type AcademicCatalogSkill = {
+  id: string
+  label: string
+  active: boolean
+}
+
+export type AcademicCatalogSubject = {
+  id: string
+  label: string
+  active: boolean
+  divisionKeys: string[]
+  classIds: string[]
+  teacherNames: string[]
+  skills: AcademicCatalogSkill[]
+}
+
+export type AcademicCatalogConfig = {
+  subjects: AcademicCatalogSubject[]
+}
+
+export async function loadAcademicCatalog(): Promise<AcademicCatalogConfig | null> {
+  const { data, error } = await supabase
+    .from('setup_assignments')
+    .select('assignments_data')
+    .eq('staff_name', ACADEMIC_CATALOG_ROW_KEY)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Error loading academic catalog:', error)
+    return null
+  }
+
+  const raw = data?.assignments_data
+  if (!raw || typeof raw !== 'object') return null
+
+  const subjects = Array.isArray((raw as any).subjects) ? (raw as any).subjects : []
+
+  return {
+    subjects: subjects
+      .filter((subject: any) => subject && typeof subject.label === 'string')
+      .map((subject: any) => ({
+        id: String(subject.id || `subject-${Date.now()}`),
+        label: String(subject.label || '').trim(),
+        active: subject.active !== false,
+        divisionKeys: Array.isArray(subject.divisionKeys) ? subject.divisionKeys.map((value: any) => String(value)) : [],
+        classIds: Array.isArray(subject.classIds) ? subject.classIds.map((value: any) => String(value)) : [],
+        teacherNames: Array.isArray(subject.teacherNames) ? subject.teacherNames.map((value: any) => String(value)) : [],
+        skills: Array.isArray(subject.skills)
+          ? subject.skills
+              .filter((skill: any) => skill && typeof skill.label === 'string')
+              .map((skill: any) => ({
+                id: String(skill.id || `skill-${Date.now()}`),
+                label: String(skill.label || '').trim(),
+                active: skill.active !== false,
+              }))
+          : [],
+      })),
+  }
+}
+
+export async function saveAcademicCatalog(config: AcademicCatalogConfig): Promise<boolean> {
+  const sanitizedConfig: AcademicCatalogConfig = {
+    subjects: (config?.subjects || []).map(subject => ({
+      id: String(subject.id),
+      label: String(subject.label || '').trim(),
+      active: subject.active !== false,
+      divisionKeys: Array.isArray(subject.divisionKeys) ? subject.divisionKeys.map(value => String(value)) : [],
+      classIds: Array.isArray(subject.classIds) ? subject.classIds.map(value => String(value)) : [],
+      teacherNames: Array.isArray(subject.teacherNames) ? subject.teacherNames.map(value => String(value)) : [],
+      skills: (subject.skills || []).map(skill => ({
+        id: String(skill.id),
+        label: String(skill.label || '').trim(),
+        active: skill.active !== false,
+      })),
+    })),
+  }
+
+  const { error } = await supabase
+    .from('setup_assignments')
+    .upsert({
+      staff_name: ACADEMIC_CATALOG_ROW_KEY,
+      assignments_data: sanitizedConfig,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'staff_name' })
+
+  if (error) {
+    console.error('Error saving academic catalog:', error)
+    return false
+  }
+
   return true
 }
 

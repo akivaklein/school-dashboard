@@ -42,6 +42,8 @@ export default function SetupCenterPage({
   setSetupActionDraft,
   setSetupCustomActions,
   setupCustomActions,
+  academicCatalog,
+  setAcademicCatalog,
   setupVipRules,
   setSetupVipRules,
   setupSaleDraft,
@@ -65,6 +67,7 @@ export default function SetupCenterPage({
   STUDENT_CLASSES,
   CLASS_DIVISION,
   DIVISIONS,
+  TEACHING_STAFF_OPTIONS,
   SUPPORT_STAFF_OPTIONS,
   setupNavItems,
   students,
@@ -426,6 +429,11 @@ export default function SetupCenterPage({
               setSetupActionDraft={setSetupActionDraft}
               setSetupCustomActions={setSetupCustomActions}
               setupCustomActions={setupCustomActions}
+              academicCatalog={academicCatalog}
+              setAcademicCatalog={setAcademicCatalog}
+              CLASSES={CLASSES}
+              DIVISIONS={safeDivisions}
+              TEACHING_STAFF_OPTIONS={TEACHING_STAFF_OPTIONS}
               S={S}
             />
           )}

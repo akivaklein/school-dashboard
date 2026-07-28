@@ -68,6 +68,9 @@ import {
   saveTherapySchedule,
   loadStaffAccounts,
   saveStaffAccount,
+  loadAcademicCatalog,
+  saveAcademicCatalog,
+  type AcademicCatalogConfig,
   type TeachingAction,
   type StoreSale,
 } from '../services/setupCenterService'
@@ -2311,13 +2314,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     async function loadSetupData() {
       try {
-        const [actions, vipRules, sales, assignments, schedule, accounts] = await Promise.all([
+        const [actions, vipRules, sales, assignments, schedule, accounts, catalog] = await Promise.all([
           listTeachingActions(),
           getVIPRules(),
           listStoreSales(),
           loadSetupAssignments(),
           loadTherapySchedule(),
           loadStaffAccounts(),
+          loadAcademicCatalog(),
         ])
 
         if (active) {
@@ -2332,6 +2336,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           setSetupAssignments(prev => ({ ...prev, ...assignments }))
           setTHERAPY_SCHEDULE(schedule.length > 0 ? schedule : prev => prev)
           setSetupAccounts(accounts)
+          if (catalog?.subjects?.length) {
+            setAcademicCatalog(catalog)
+          }
         }
       } catch (error) {
         console.error('Unable to load setup center config from Supabase:', error)
@@ -2583,6 +2590,66 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [setupCustomActions, setSetupCustomActions] = useState<TeachingAction[]>([])
   const [setupCustomActionsLoaded, setSetupCustomActionsLoaded] = useState(false)
 
+  function buildDefaultAcademicCatalog(): AcademicCatalogConfig {
+    const subjectByLabel = new Map<string, {
+      id: string
+      label: string
+      active: boolean
+      divisionKeys: string[]
+      classIds: string[]
+      teacherNames: string[]
+      skills: Array<{ id: string; label: string; active: boolean }>
+    }>()
+
+    Object.entries(ACADEMIC_AREAS || {}).forEach(([teacherName, teacherSubjects]) => {
+      Object.entries(teacherSubjects || {}).forEach(([subjectLabel, skills]) => {
+        const normalizedSubject = String(subjectLabel || '').trim()
+        if (!normalizedSubject) return
+
+        const existing = subjectByLabel.get(normalizedSubject)
+        const skillValues = Array.isArray(skills) ? skills : []
+
+        if (!existing) {
+          subjectByLabel.set(normalizedSubject, {
+            id: `subject-${normalizedSubject.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+            label: normalizedSubject,
+            active: true,
+            divisionKeys: [],
+            classIds: [],
+            teacherNames: [teacherName],
+            skills: skillValues
+              .filter(skill => String(skill || '').trim().length > 0)
+              .map(skill => ({
+                id: `skill-${String(skill).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+                label: String(skill),
+                active: true,
+              })),
+          })
+          return
+        }
+
+        if (!existing.teacherNames.includes(teacherName)) {
+          existing.teacherNames.push(teacherName)
+        }
+
+        skillValues.forEach(skill => {
+          const label = String(skill || '').trim()
+          if (!label) return
+          if (existing.skills.some(item => item.label === label)) return
+          existing.skills.push({
+            id: `skill-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+            label,
+            active: true,
+          })
+        })
+      })
+    })
+
+    return { subjects: Array.from(subjectByLabel.values()) }
+  }
+
+  const [academicCatalog, setAcademicCatalog] = useState<AcademicCatalogConfig>(() => buildDefaultAcademicCatalog())
+
   const [setupActionDraft, setSetupActionDraft] = useState({
     label: '',
     points: 1,
@@ -2635,6 +2702,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       persistAllAccounts()
     }
   }, [setupAccounts])
+
+  useEffect(() => {
+    if (!academicCatalog?.subjects?.length) return
+    saveAcademicCatalog(academicCatalog)
+  }, [academicCatalog])
 
   const createFakeTherapySchedule = () => {
     // Demo scheduling runs Monday through Thursday only.
@@ -4398,6 +4470,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             setSetupActionDraft={setSetupActionDraft}
             setSetupCustomActions={setSetupCustomActions}
             setupCustomActions={setupCustomActions}
+            academicCatalog={academicCatalog}
+            setAcademicCatalog={setAcademicCatalog}
             setupVipRules={setupVipRules}
             setSetupVipRules={setSetupVipRules}
             setupSaleDraft={setupSaleDraft}
@@ -4420,6 +4494,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             CLASSES={CLASSES}
             STUDENT_CLASSES={STUDENT_CLASSES}
             CLASS_DIVISION={CLASS_DIVISION}
+            DIVISIONS={DIVISIONS}
+            TEACHING_STAFF_OPTIONS={TEACHING_STAFF_OPTIONS}
             SUPPORT_STAFF_OPTIONS={SUPPORT_STAFF_OPTIONS}
             setupNavItems={setupNavItems}
             students={students}
@@ -4582,7 +4658,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             S={S}
             CLASSES={CLASSES}
             STUDENT_CLASSES={STUDENT_CLASSES}
+            CLASS_DIVISION={CLASS_DIVISION}
             ACADEMIC_AREAS={ACADEMIC_AREAS}
+            academicCatalog={academicCatalog}
             SKILL_RATINGS={SKILL_RATINGS}
             academicPct={academicPct}
             academicDisplay={academicDisplay}
