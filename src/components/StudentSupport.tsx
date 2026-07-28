@@ -1032,6 +1032,8 @@ export default function StudentSupport({
                 border: '1px solid #d8dfe3',
                 marginBottom: 10
               }}
+              spellCheck
+              lang="en"
             />
 
             <label style={{
@@ -1089,6 +1091,8 @@ export default function StudentSupport({
                 marginBottom: 10,
                 resize: 'vertical'
               }}
+              spellCheck
+              lang="en"
             />
 
             <label style={{
@@ -1112,6 +1116,8 @@ export default function StudentSupport({
                 border: '1px solid #d8dfe3',
                 marginBottom: 10
               }}
+              spellCheck
+              lang="en"
             />
 
             <label style={{
@@ -1512,6 +1518,8 @@ export default function StudentSupport({
                 marginBottom: 10,
                 resize: 'vertical'
               }}
+              spellCheck
+              lang="en"
             />
 
             <label style={{

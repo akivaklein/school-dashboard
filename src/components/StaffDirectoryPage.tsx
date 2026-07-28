@@ -140,6 +140,7 @@ export default function StaffDirectoryPage({
   const [editingId, setEditingId] = useState<number | null>(null)
   const [draftById, setDraftById] = useState<Record<number, StaffDraft>>({})
   const [showInactive, setShowInactive] = useState(false)
+  const [showAddStaff, setShowAddStaff] = useState(false)
 
   const directoryMembers = normalizeDirectoryMembers(staffMembers)
 
@@ -180,7 +181,7 @@ export default function StaffDirectoryPage({
   }
 
   async function handleCreateStaff() {
-    if (!addForm.name.trim()) return
+    if (!addForm.name.trim()) return false
 
     try {
       setSaving(true)
@@ -196,14 +197,16 @@ export default function StaffDirectoryPage({
 
       if (!created) {
         setError('Could not create this staff member.')
-        return
+        return false
       }
 
       setAddForm({ name: '', roles: ['staff'], email: '', phone: '' })
       await onStaffChanged()
+      return true
     } catch (createError) {
       console.error('Failed to create staff member:', createError)
       setError('Could not create this staff member.')
+      return false
     } finally {
       setSaving(false)
     }
@@ -271,61 +274,30 @@ export default function StaffDirectoryPage({
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1e293b', margin: '0 0 6px' }}>
+      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1e293b', margin: '0 0 6px' }}>
           Staff Directory
-        </h1>
-        <div style={{ fontSize: 13, color: '#64748b' }}>
-          Add, edit, and deactivate staff from a single source of truth used by the entire app.
+          </h1>
+          <div style={{ fontSize: 13, color: '#64748b' }}>
+            Add, edit, and deactivate staff from a single source of truth used by the entire app.
+          </div>
         </div>
-      </div>
-
-      <div style={{ ...S.card, marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 14, fontWeight: 900, color: '#223046' }}>Add Staff</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setShowInactive(value => !value)} style={S.btn('ghost')}>
             {showInactive ? 'Hide Inactive' : 'Show Inactive'}
           </button>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <input
-            value={addForm.name}
-            onChange={event => setAddForm(prev => ({ ...prev, name: event.target.value }))}
-            placeholder="Full name"
-            style={{ padding: '9px 10px', border: '1px solid #dce4ed', borderRadius: 9, fontSize: 12 }}
-          />
-          <input
-            value={addForm.email}
-            onChange={event => setAddForm(prev => ({ ...prev, email: event.target.value }))}
-            placeholder="Email"
-            style={{ padding: '9px 10px', border: '1px solid #dce4ed', borderRadius: 9, fontSize: 12 }}
-          />
-          <input
-            value={addForm.phone}
-            onChange={event => setAddForm(prev => ({ ...prev, phone: event.target.value }))}
-            placeholder="Phone"
-            style={{ padding: '9px 10px', border: '1px solid #dce4ed', borderRadius: 9, fontSize: 12 }}
-          />
-          <button onClick={handleCreateStaff} disabled={saving} style={S.btn('primary')}>
-            {saving ? 'Saving...' : 'Add Staff Member'}
+          <button onClick={() => setShowAddStaff(true)} style={S.btn('primary')}>
+            + Add Staff
           </button>
         </div>
-
-        <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', marginBottom: 7 }}>Roles</div>
-          <RoleSelector
-            selected={addForm.roles}
-            onChange={roles => setAddForm(prev => ({ ...prev, roles }))}
-          />
-        </div>
-
-        {error && (
-          <div style={{ marginTop: 10, color: '#991b1b', fontSize: 12, fontWeight: 700 }}>
-            {error}
-          </div>
-        )}
       </div>
+
+      {error && (
+        <div style={{ marginBottom: 12, color: '#991b1b', fontSize: 12, fontWeight: 700 }}>
+          {error}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gap: 14 }}>
         {Object.entries(grouped).map(([category, people]) => (
@@ -460,6 +432,65 @@ export default function StaffDirectoryPage({
           </div>
         ))}
       </div>
+
+      {showAddStaff && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ ...S.card, width: '100%', maxWidth: 760, padding: 0, border: '1px solid #dbe4ef' }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#223046' }}>Add Staff</div>
+              <button
+                onClick={() => setShowAddStaff(false)}
+                style={{ border: '1px solid #dce4ed', background: '#ffffff', color: '#475569', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <input
+                  value={addForm.name}
+                  onChange={event => setAddForm(prev => ({ ...prev, name: event.target.value }))}
+                  placeholder="Full name"
+                  style={{ padding: '9px 10px', border: '1px solid #dce4ed', borderRadius: 9, fontSize: 12 }}
+                />
+                <input
+                  value={addForm.email}
+                  onChange={event => setAddForm(prev => ({ ...prev, email: event.target.value }))}
+                  placeholder="Email"
+                  style={{ padding: '9px 10px', border: '1px solid #dce4ed', borderRadius: 9, fontSize: 12 }}
+                />
+                <input
+                  value={addForm.phone}
+                  onChange={event => setAddForm(prev => ({ ...prev, phone: event.target.value }))}
+                  placeholder="Phone"
+                  style={{ padding: '9px 10px', border: '1px solid #dce4ed', borderRadius: 9, fontSize: 12 }}
+                />
+                <button
+                  onClick={async () => {
+                    const created = await handleCreateStaff()
+                    if (created) {
+                      setShowAddStaff(false)
+                    }
+                  }}
+                  disabled={saving}
+                  style={S.btn('primary')}
+                >
+                  {saving ? 'Saving...' : 'Add Staff Member'}
+                </button>
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', marginBottom: 7 }}>Roles</div>
+                <RoleSelector
+                  selected={addForm.roles}
+                  onChange={roles => setAddForm(prev => ({ ...prev, roles }))}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

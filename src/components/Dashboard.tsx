@@ -734,11 +734,11 @@ function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = nu
       </div>
       <div>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8, textTransform: 'uppercase' }}>💊 Allergies</div>
-        <textarea placeholder="List allergies (comma-separated), e.g.: peanuts (severe), shellfish (moderate)" value={m.allergiesText||''} onChange={e => setM(prev => ({...prev, allergiesText: e.target.value}))} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit', minHeight: 60 }} />
+        <textarea placeholder="List allergies (comma-separated), e.g.: peanuts (severe), shellfish (moderate)" value={m.allergiesText||''} onChange={e => setM(prev => ({...prev, allergiesText: e.target.value}))} spellCheck lang="en" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit', minHeight: 60 }} />
       </div>
       <div>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8, textTransform: 'uppercase' }}>📋 Conditions</div>
-        <textarea placeholder="List conditions (comma-separated), e.g.: asthma, diabetes, anxiety" value={m.conditionsText||''} onChange={e => setM(prev => ({...prev, conditionsText: e.target.value}))} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit', minHeight: 60 }} />
+        <textarea placeholder="List conditions (comma-separated), e.g.: asthma, diabetes, anxiety" value={m.conditionsText||''} onChange={e => setM(prev => ({...prev, conditionsText: e.target.value}))} spellCheck lang="en" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit', minHeight: 60 }} />
       </div>
       <div>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8, textTransform: 'uppercase' }}>📝 Last Physical</div>
@@ -746,7 +746,7 @@ function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = nu
       </div>
       <div>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8, textTransform: 'uppercase' }}>📌 Medical Notes</div>
-        <textarea placeholder="Any additional medical notes..." value={m.notes||''} onChange={e => setM(prev => ({...prev, notes: e.target.value}))} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit', minHeight: 60 }} />
+        <textarea placeholder="Any additional medical notes..." value={m.notes||''} onChange={e => setM(prev => ({...prev, notes: e.target.value}))} spellCheck lang="en" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit', minHeight: 60 }} />
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         {onCancel && <button onClick={onCancel} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>}
@@ -1518,7 +1518,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
   const [activeSessionIds, setActiveSessionIds] = useState<Record<number, number>>({})
   const [showStaffManagement, setShowStaffManagement] = useState(false)
-  const [showStaffPanel, setShowStaffPanel] = useState(true)
+  const [showStaffPanel, setShowStaffPanel] = useState(false)
   const [showLoginActivity, setShowLoginActivity] = useState(false)
   const [page, setPage] = useState('dashboard')
   const [pageTransition, setPageTransition] = useState<'idle' | 'enter'>('idle')
@@ -3948,9 +3948,60 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'store', label: 'Token Store', icon: 'TS' },
   ]
 
+  const adminTopAreas = [
+    { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
+    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students', 'academics'] },
+    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'store', 'calls', 'intake'] },
+    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior', 'alerts'] },
+    { id: 'reports', label: 'Reports', defaultPage: 'todo', pages: ['todo'] },
+    { id: 'setup', label: 'Setup', defaultPage: 'setup', pages: ['setup', 'staff-directory', 'therapists'] },
+  ]
+
+  const adminSubmenuByArea: Record<string, Array<{ id: string; label: string }>> = {
+    dashboard: [{ id: 'dashboard', label: 'Dashboard' }],
+    students: [
+      { id: 'students', label: 'Students List' },
+      { id: 'academics', label: 'Academics' },
+    ],
+    'school-day': [
+      { id: 'attendance', label: 'Attendance' },
+      { id: 'schedule', label: 'Schedule' },
+      { id: 'store', label: 'Token Store' },
+      { id: 'calls', label: 'Parent Calls' },
+      { id: 'intake', label: 'Intake' },
+    ],
+    support: [
+      { id: 'support', label: 'Support Overview' },
+      { id: 'behavior', label: 'Behavior' },
+      { id: 'alerts', label: 'Alerts' },
+    ],
+    reports: [{ id: 'todo', label: 'To-Do Queue' }],
+    setup: [
+      { id: 'setup', label: 'Setup Center' },
+      { id: 'staff-directory', label: 'Staff Directory' },
+      { id: 'therapists', label: 'Therapist Assignments' },
+    ],
+  }
+
   const navItems = role === 'admin' ? adminNav : (role === 'teacher' || role === 'rebbe') ? teacherNav : role === 'store' ? storeNav : therapistNav
+  const useTwoLevelAdminNav = role === 'admin'
+  const activeAdminTopArea = useTwoLevelAdminNav
+    ? adminTopAreas.find(area => area.pages.includes(page))?.id || 'dashboard'
+    : null
+  const adminSubmenuItems = useTwoLevelAdminNav
+    ? (adminSubmenuByArea[activeAdminTopArea || 'dashboard'] || []).filter(item => {
+      if (item.id === 'calls' || item.id === 'intake' || item.id === 'todo' || item.id === 'setup' || item.id === 'therapists') {
+        return role === 'admin'
+      }
+      return true
+    })
+    : []
   const showSetupSidebarOnly = page === 'setup' && role === 'admin'
-  const mainStyle = showSetupSidebarOnly ? { ...S.main, marginLeft: 0, width: '100%', padding: '32px 44px 50px 28px' } : S.main
+  const setupNeedsDivisionSelector = showSetupSidebarOnly && (setupTab === 'assignments' || setupTab === 'therapy-schedule')
+  const showSetupTopControls = studentFallbackPatchCount > 0 || (role === 'admin' && !showStaffPanel)
+  const mainStyle = showSetupSidebarOnly
+    ? { ...S.main, marginLeft: 0, width: '100%', padding: '28px 34px 40px 24px', background: '#f3f4f6' }
+    : { ...S.main, background: '#f3f4f6' }
   const setupNavItems = [
     { id: 'staff-directory', label: 'Staff Directory', icon: '👥', group: 'People & Staff' },
     { id: 'assignments', label: 'Staff Assignments', icon: '🧑‍🏫', group: 'People & Staff' },
@@ -3992,7 +4043,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           100% { opacity: 1; }
         }
       `}</style>
-      {!showSetupSidebarOnly && (
+      {!showSetupSidebarOnly && !useTwoLevelAdminNav && (
       <div style={S.sidebar}>
         <div style={S.sidebarLogo}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -4069,24 +4120,130 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       </div>
       )}
 
+      {!showSetupSidebarOnly && useTwoLevelAdminNav && (
+      <div style={{ width: 216, background: '#f8fafc', borderRight: '1px solid #dbe5f0', padding: '14px 10px', boxSizing: 'border-box' }}>
+        <div style={{ padding: '8px 8px 10px', marginBottom: 6 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#0f2942' }}>Hadran Academy</div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{isOfficeUser ? 'Office Portal' : 'Principal Portal'}</div>
+        </div>
+
+        <div style={{ display: 'grid', gap: 3 }}>
+          {adminSubmenuItems.map(item => {
+            const isActive = page === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => setPage(item.id)}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  border: 'none',
+                  borderLeft: isActive ? '3px solid #5f83aa' : '3px solid transparent',
+                  borderRadius: 6,
+                  background: isActive ? '#dbe8f5' : 'transparent',
+                  color: isActive ? '#123251' : '#334155',
+                  padding: '9px 10px',
+                  fontSize: 12,
+                  fontWeight: isActive ? 800 : 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {item.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div style={{ marginTop: 'auto', padding: '12px 8px 0', borderTop: '1px solid #dbe5f0', marginTop: 14 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>{userName}</div>
+          <button
+            onClick={() => setShowLoginActivity(true)}
+            style={{ width: '100%', textAlign: 'left', border: '1px solid #dbe5f0', background: '#ffffff', color: '#334155', borderRadius: 7, padding: '7px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 6 }}
+          >
+            Login Activity
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{ width: '100%', textAlign: 'left', border: '1px solid #dbe5f0', background: '#ffffff', color: '#334155', borderRadius: 7, padding: '7px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+      )}
+
       <div style={mainStyle}>
         <div key={page} data-page-transition={pageTransition} style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto', animation: pageTransition === 'enter' ? 'dashboardPageFade 180ms ease-out both' : 'none' }}>
-        <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#eaf2fb', color: '#2f4b68', fontSize: 12, fontWeight: 700, border: '1px solid #d8e3ef' }}>
-            🧭 {contextInfo.roleLabel}
-          </span>
-          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontSize: 12, fontWeight: 600, border: '1px solid #e2e8f0' }}>
-            📍 {contextInfo.pageLabel}
-          </span>
-          <span style={{ padding: '6px 10px', borderRadius: 999, background: '#fefce8', color: '#854d0e', fontSize: 12, fontWeight: 600, border: '1px solid #f4e2a5' }}>
-            🏫 {contextInfo.divisionLabel}
-          </span>
-          {studentFallbackPatchCount > 0 && (
-            <span style={{ padding: '6px 10px', borderRadius: 999, background: '#fef2f2', color: '#9f1239', fontSize: 12, fontWeight: 700 }}>
-              Pending sync: {studentFallbackPatchCount}
+        {useTwoLevelAdminNav && (
+          <div style={{ marginBottom: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {adminTopAreas.map(area => {
+              const isActive = activeAdminTopArea === area.id
+              return (
+                <button
+                  key={area.id}
+                  onClick={() => setPage(area.defaultPage)}
+                  style={{
+                    border: 'none',
+                    background: isActive ? '#dbe8f5' : '#ffffff',
+                    color: isActive ? '#123251' : '#334155',
+                    borderRadius: 7,
+                    padding: '7px 11px',
+                    fontSize: 12,
+                    fontWeight: isActive ? 800 : 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {area.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {(!showSetupSidebarOnly || showSetupTopControls) && (
+          <div style={{ marginBottom: showSetupSidebarOnly ? 8 : 14, display: 'flex', justifyContent: showSetupSidebarOnly ? 'flex-end' : 'space-between', alignItems: showSetupSidebarOnly ? 'center' : 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+            {!showSetupSidebarOnly && (
+              <div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: '#16243a', letterSpacing: '-0.02em' }}>{contextInfo.pageLabel}</div>
+                <div style={{ fontSize: 12, color: '#51657d', marginTop: 4 }}>{contextInfo.roleLabel} · {contextInfo.divisionLabel}</div>
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {studentFallbackPatchCount > 0 && (
+                <span style={{ padding: '6px 10px', borderRadius: 999, background: '#fef2f2', color: '#9f1239', fontSize: 12, fontWeight: 700, border: '1px solid #fecaca' }}>
+                  Pending sync: {studentFallbackPatchCount}
+                </span>
+              )}
+              {role === 'admin' && !showStaffPanel && (
+                <button
+                  onClick={() => setShowStaffPanel(true)}
+                  style={{
+                    border: '1px solid #2f5f8f',
+                    background: '#3f6f9f',
+                    color: '#ffffff',
+                    borderRadius: 6,
+                    padding: '7px 10px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                  title="Show Logged In Staff panel"
+                >
+                  Logged In Staff
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {!showSetupSidebarOnly && (
+          <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <span style={{ padding: '6px 10px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontSize: 12, fontWeight: 600, border: '1px solid #e2e8f0' }}>
+              Role: {contextInfo.roleLabel}
             </span>
-          )}
-        </div>
+            <span style={{ padding: '6px 10px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontSize: 12, fontWeight: 600, border: '1px solid #e2e8f0' }}>
+              Division: {contextInfo.divisionLabel}
+            </span>
+          </div>
+        )}
         {studentFallbackPatchCount > 0 && (
           <div
             style={{
@@ -4127,34 +4284,36 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             </button>
           </div>
         )}
-        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {divisionOptions.map(option => (
-              <button key={option} onClick={() => setDivisionView(option)} style={{ padding: '8px 12px', borderRadius: 999, border: `1px solid ${divisionView === option ? '#7d99bb' : '#d8e1ec'}`, background: divisionView === option ? '#eaf2fb' : '#ffffff', color: divisionView === option ? '#2f4b68' : '#5b6b7d', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: divisionView === option ? '0 8px 18px rgba(72,105,141,0.12)' : 'none' }}>
-                {divisionLabel(option)}
-              </button>
-            ))}
-          </div>
-          <div style={{ position: 'relative' }}>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #dde6f0', fontSize: 13, width: 280, background: '#fcfdff', boxShadow: '0 6px 18px rgba(30,41,59,0.04)', outline: 'none' }} />
-            {search && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, width: 300, background: '#fff', border: '1px solid #e5ebf2', borderRadius: 10, boxShadow: '0 10px 24px rgba(30,41,59,0.10)', zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
-                {searchedStudents.slice(0,6).map((s,i) => (
-                  <div key={s.id} onClick={() => { if (page === 'store') { setStoreStudent(s.id) } else { openStudent(s) }; setSearch('') }} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', gap: 10 }}
-                    onMouseEnter={e => e.currentTarget.style.background='#f6f9fc'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>
-                    <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
-                      <div style={{ fontSize: 11, color: statusColor[s.status] }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>
+        {(!showSetupSidebarOnly || setupNeedsDivisionSelector) && (
+          <div style={{ marginBottom: showSetupSidebarOnly ? 10 : 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {divisionOptions.map(option => (
+                <button key={option} onClick={() => setDivisionView(option)} style={{ padding: '8px 12px', borderRadius: 999, border: `1px solid ${divisionView === option ? '#5f83aa' : '#d8e1ec'}`, background: divisionView === option ? '#dbe8f5' : '#ffffff', color: divisionView === option ? '#112f4d' : '#334155', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: 'none' }}>
+                  {divisionLabel(option)}
+                </button>
+              ))}
+            </div>
+            {!showSetupSidebarOnly && <div style={{ position: 'relative' }}>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #dde6f0', fontSize: 13, width: 280, background: '#fcfdff', boxShadow: '0 6px 18px rgba(30,41,59,0.04)', outline: 'none' }} />
+              {search && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, width: 300, background: '#fff', border: '1px solid #e5ebf2', borderRadius: 10, boxShadow: '0 10px 24px rgba(30,41,59,0.10)', zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
+                  {searchedStudents.slice(0,6).map((s,i) => (
+                    <div key={s.id} onClick={() => { if (page === 'store') { setStoreStudent(s.id) } else { openStudent(s) }; setSearch('') }} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', gap: 10 }}
+                      onMouseEnter={e => e.currentTarget.style.background='#f6f9fc'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                      <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                        <div style={{ fontSize: 11, color: statusColor[s.status] }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {searchedStudents.length === 0 && <div style={{ padding: '12px 14px', color: '#94a3b8', fontSize: 13 }}>No students found</div>}
-                <div onClick={() => setSearch('')} style={{ padding: '8px 14px', fontSize: 11, color: '#94a3b8', cursor: 'pointer', textAlign: 'center', borderTop: '1px solid #f8fafc' }}>✕ Close</div>
-              </div>
-            )}
+                  ))}
+                  {searchedStudents.length === 0 && <div style={{ padding: '12px 14px', color: '#94a3b8', fontSize: 13 }}>No students found</div>}
+                  <div onClick={() => setSearch('')} style={{ padding: '8px 14px', fontSize: 11, color: '#94a3b8', cursor: 'pointer', textAlign: 'center', borderTop: '1px solid #f8fafc' }}>✕ Close</div>
+                </div>
+              )}
+            </div>}
           </div>
-        </div>
+        )}
 
         {page === 'support' && role !== 'store' && (
           <StudentSupport
@@ -4694,29 +4853,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         />
       )}
 
-      {role === 'admin' && !showStaffPanel && (
-        <button
-          onClick={() => setShowStaffPanel(true)}
-          style={{
-            position: 'fixed',
-            top: 20,
-            right: 20,
-            zIndex: 998,
-            border: '1px solid #d8dee9',
-            background: '#ffffff',
-            color: '#334155',
-            borderRadius: 10,
-            padding: '8px 12px',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
-          }}
-          title="Show Logged In Staff panel"
-        >
-          👥 Show Staff Panel
-        </button>
-      )}
+      
       
       {/* Staff Management Modal */}
       {role === 'admin' && showStaffManagement && (

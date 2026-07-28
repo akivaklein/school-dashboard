@@ -325,11 +325,11 @@ export default function IntakePage(props: IntakePageProps) {
               </div>
               <div style={S.card}>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>📞 Call Notes</div>
-                <textarea value={selectedPreIntake.callNotes} onChange={(e) => { setSelectedPreIntake((p) => ({...(p as IntakeRecord), callNotes: e.target.value})); setPreIntakeList((prev) => prev.map((x) => x.id === selectedPreIntake.id ? {...x, callNotes: e.target.value} : x)) }} placeholder="Notes from the call — who called, what was discussed, any concerns..." style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 90, boxSizing: 'border-box', resize: 'vertical' }} />
+                <textarea value={selectedPreIntake.callNotes} onChange={(e) => { setSelectedPreIntake((p) => ({...(p as IntakeRecord), callNotes: e.target.value})); setPreIntakeList((prev) => prev.map((x) => x.id === selectedPreIntake.id ? {...x, callNotes: e.target.value} : x)) }} placeholder="Notes from the call — who called, what was discussed, any concerns..." spellCheck lang="en" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 90, boxSizing: 'border-box', resize: 'vertical' }} />
               </div>
               <div style={S.card}>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>📝 Follow-Up Notes</div>
-                <textarea value={selectedPreIntake.followUpNotes} onChange={(e) => { setSelectedPreIntake((p) => ({...(p as IntakeRecord), followUpNotes: e.target.value})); setPreIntakeList((prev) => prev.map((x) => x.id === selectedPreIntake.id ? {...x, followUpNotes: e.target.value} : x)) }} placeholder="Reminders, next steps..." style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 60, boxSizing: 'border-box', resize: 'vertical' }} />
+                <textarea value={selectedPreIntake.followUpNotes} onChange={(e) => { setSelectedPreIntake((p) => ({...(p as IntakeRecord), followUpNotes: e.target.value})); setPreIntakeList((prev) => prev.map((x) => x.id === selectedPreIntake.id ? {...x, followUpNotes: e.target.value} : x)) }} placeholder="Reminders, next steps..." spellCheck lang="en" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 60, boxSizing: 'border-box', resize: 'vertical' }} />
               </div>
             </div>
           </div>
@@ -440,8 +440,8 @@ export default function IntakePage(props: IntakePageProps) {
                   <div style={S.card}>
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>🧠 Intake Notes</div>
                     <div style={{ display: 'grid', gap: 10 }}>
-                      <textarea value={(selectedIntake as IntakeRecord).issues || ''} onChange={(e) => { updateSelectedIntake({ issues: e.target.value }); updateIntakeRecord((selectedIntake as IntakeRecord).id, { issues: e.target.value }) }} placeholder="Known issues, background..." style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 80, boxSizing: 'border-box', resize: 'vertical' }} />
-                      <textarea value={(selectedIntake as IntakeRecord).interviewNotes || ''} onChange={(e) => { updateSelectedIntake({ interviewNotes: e.target.value }); updateIntakeRecord((selectedIntake as IntakeRecord).id, { interviewNotes: e.target.value }) }} placeholder="Notes from intake interview..." style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 80, boxSizing: 'border-box', resize: 'vertical' }} />
+                      <textarea value={(selectedIntake as IntakeRecord).issues || ''} onChange={(e) => { updateSelectedIntake({ issues: e.target.value }); updateIntakeRecord((selectedIntake as IntakeRecord).id, { issues: e.target.value }) }} placeholder="Known issues, background..." spellCheck lang="en" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 80, boxSizing: 'border-box', resize: 'vertical' }} />
+                      <textarea value={(selectedIntake as IntakeRecord).interviewNotes || ''} onChange={(e) => { updateSelectedIntake({ interviewNotes: e.target.value }); updateIntakeRecord((selectedIntake as IntakeRecord).id, { interviewNotes: e.target.value }) }} placeholder="Notes from intake interview..." spellCheck lang="en" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, minHeight: 80, boxSizing: 'border-box', resize: 'vertical' }} />
                     </div>
                   </div>
                 </div>

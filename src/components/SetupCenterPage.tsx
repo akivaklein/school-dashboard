@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import SetupAssignmentsSection from './SetupAssignmentsSection'
 import SetupTherapyScheduleSection from './SetupTherapyScheduleSection'
 import SetupTeachingConfigSection from './SetupTeachingConfigSection'
@@ -76,72 +77,269 @@ export default function SetupCenterPage({
 }) {
   const safeSetupNavItems = Array.isArray(setupNavItems) ? setupNavItems : []
   const safeDivisions = DIVISIONS || {}
+  const topLevelTabs = useMemo(
+    () => [
+      {
+        id: 'staff',
+        label: 'Staff',
+        subtitle: 'Manage staff records and assignment ownership.',
+        itemIds: ['staff-directory', 'assignments'],
+      },
+      {
+        id: 'assignments',
+        label: 'Assignments',
+        subtitle: 'Configure teaching actions, VIP policies, and store settings.',
+        itemIds: ['teaching', 'vip', 'store'],
+      },
+      {
+        id: 'scheduling',
+        label: 'Scheduling',
+        subtitle: 'Plan therapy and scheduling configuration.',
+        itemIds: ['therapy-schedule', 'schedule-setup'],
+      },
+      {
+        id: 'permissions',
+        label: 'Permissions',
+        subtitle: 'Manage staff accounts and access settings.',
+        itemIds: ['accounts'],
+      },
+      {
+        id: 'school-structure',
+        label: 'School Structure',
+        subtitle: 'Maintain classes, divisions, and structure settings.',
+        itemIds: ['classes-divisions'],
+      },
+    ],
+    [],
+  )
+
+  const topTabByItemId = useMemo(
+    () => topLevelTabs.reduce<Record<string, string>>((acc, tab) => {
+      tab.itemIds.forEach(itemId => {
+        acc[itemId] = tab.id
+      })
+      return acc
+    }, {}),
+    [topLevelTabs],
+  )
+
+  const activeTopTabId = topTabByItemId[setupTab] || topLevelTabs[0].id
+  const activeTopTab = topLevelTabs.find(tab => tab.id === activeTopTabId) || topLevelTabs[0]
+
+  const visibleSubmenuItems = useMemo(
+    () => activeTopTab.itemIds
+      .map(itemId => safeSetupNavItems.find(item => item.id === itemId))
+      .filter(Boolean),
+    [activeTopTab, safeSetupNavItems],
+  )
+
+  const schedulingSubmenuGroups = useMemo(
+    () => visibleSubmenuItems.reduce<Array<{ groupName: string; items: Array<any> }>>((groups, item) => {
+      const groupName = item.group || 'Scheduling'
+      const existing = groups.find(group => group.groupName === groupName)
+      if (existing) {
+        existing.items.push(item)
+      } else {
+        groups.push({ groupName, items: [item] })
+      }
+      return groups
+    }, []),
+    [visibleSubmenuItems],
+  )
+
+  const activeSchedulingGroupName = safeSetupNavItems.find(item => item.id === setupTab)?.group || null
+  const [openSchedulingGroups, setOpenSchedulingGroups] = useState<string[]>(activeSchedulingGroupName ? [activeSchedulingGroupName] : [])
+
+  useEffect(() => {
+    if (activeTopTabId !== 'scheduling' || !activeSchedulingGroupName) return
+    setOpenSchedulingGroups(prev => (prev.includes(activeSchedulingGroupName) ? prev : [...prev, activeSchedulingGroupName]))
+  }, [activeSchedulingGroupName, activeTopTabId])
+
+  const sectionSubtitleByTab: Record<string, string> = {
+    'staff-directory': 'Edit staffing records and keep teams organized.',
+    'assignments': 'Match staff caseloads and period coverage.',
+    'therapy-schedule': 'Coordinate therapist schedules and service blocks.',
+    teaching: 'Set classroom action options available to staff.',
+    vip: 'Define VIP rules and eligibility behavior.',
+    store: 'Manage setup-level store sales and policy defaults.',
+    accounts: 'Control account access and identity settings.',
+    'classes-divisions': 'Maintain class and division structure settings.',
+    'schedule-setup': 'Review scheduling snapshots and structure guidance.',
+  }
+
+  const primaryActionLabelByTab: Record<string, string> = {
+    'staff-directory': 'Manage Staff Directory',
+    assignments: 'Review Assignments',
+    'therapy-schedule': 'Review Therapy Schedule',
+    teaching: 'Review Teaching Actions',
+    vip: 'Review VIP Rules',
+    store: 'Review Store & Sales',
+    accounts: 'Manage Accounts',
+    'classes-divisions': 'Review School Structure',
+    'schedule-setup': 'Review Schedule Setup',
+  }
+
+  const currentSectionSubtitle = sectionSubtitleByTab[setupTab] || activeTopTab.subtitle
+  const activeTabLabel = safeSetupNavItems.find(item => item.id === setupTab)?.label || 'Setup Center'
   return (
-    <div data-layout="setup-shell" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: '4px 0 8px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '244px minmax(0, 1fr)', gap: 16, alignItems: 'start', width: '100%' }}>
-        <div style={{ ...S.card, padding: 0, overflow: 'hidden', border: '1px solid #dfe8f2', boxShadow: '0 12px 30px rgba(15, 23, 42, 0.04)' }}>
-          <div style={{ padding: '18px 18px 10px', borderBottom: '1px solid #e3ebf2', background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 100%)' }}>
+    <div data-layout="setup-shell" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0 }}>
+      <div style={{ ...S.card, marginBottom: 12, padding: '14px 16px', border: '1px solid #d3deea', borderLeft: '4px solid #5f83aa', borderRadius: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontSize: 24, lineHeight: 1.15, fontWeight: 800, margin: 0, color: '#0f2942' }}>Setup Center</h1>
+            <div style={{ fontSize: 13, color: '#425b76', marginTop: 6 }}>{currentSectionSubtitle}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setSetupTab(setupTab)}
+              style={{
+                border: '1px solid #2f5f8f',
+                background: '#3f6f9f',
+                color: '#ffffff',
+                borderRadius: 7,
+                padding: '8px 12px',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {primaryActionLabelByTab[setupTab] || 'Review Section'}
+            </button>
             <button
               onClick={() => setPage('dashboard')}
               style={{
-                marginBottom: 10,
-                border: '1px solid #dbe7f1',
-                background: '#f8fbff',
-                color: '#31506f',
-                borderRadius: 8,
-                padding: '7px 10px',
-                fontSize: 11,
+                border: '1px solid #d3deea',
+                background: '#ffffff',
+                color: '#334155',
+                borderRadius: 7,
+                padding: '8px 11px',
+                fontSize: 12,
                 fontWeight: 700,
                 cursor: 'pointer',
-                width: '100%',
-                textAlign: 'left',
-                boxShadow: 'inset 0 0 0 1px rgba(49, 80, 111, 0.06)',
               }}
             >
-              ← Back to dashboard
+              Back to dashboard
             </button>
-            <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196' }}>Setup Center</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#172033', marginTop: 6 }}>Administration & Config</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Tucked-away tools for staff, assignments, rules, and store settings.</div>
           </div>
-          <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {['People & Staff', 'Rules & Configuration', 'School Structure'].map(groupName => {
-              const groupItems = safeSetupNavItems.filter(item => item.group === groupName)
-              if (groupItems.length === 0) return null
-              return (
-                <div key={groupName} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196', padding: '2px 4px' }}>{groupName}</div>
-                  {groupItems.map(item => {
-                    const isActive = setupTab === item.id
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setSetupTab(item.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          padding: '10px 12px',
-                          borderRadius: 10,
-                          border: isActive ? '1px solid #7897bb' : '1px solid #e3ebf2',
-                          background: isActive ? '#edf4fb' : '#ffffff',
-                          color: isActive ? '#2f4f72' : '#5f6f81',
-                          boxShadow: isActive ? '0 8px 18px rgba(72, 105, 141, 0.10)' : 'none',
-                          fontSize: 12,
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <span style={{ fontSize: 14 }}>{item.icon}</span>
-                        <span>{item.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </div>
+        </div>
+      </div>
+
+      <div style={{ ...S.card, marginBottom: 12, padding: '8px', border: '1px solid #dbe5f0', borderRadius: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {topLevelTabs.map(tab => {
+            const isActive = tab.id === activeTopTabId
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSetupTab(tab.itemIds[0])}
+                style={{
+                  border: 'none',
+                  background: isActive ? '#dbe8f5' : '#ffffff',
+                  color: isActive ? '#123251' : '#334155',
+                  borderRadius: 7,
+                  padding: '7px 11px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '198px minmax(0, 1fr)', gap: 12, alignItems: 'start', width: '100%' }}>
+        <div style={{ ...S.card, padding: '8px', overflow: 'hidden', border: '1px solid #dbe5f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)', position: 'sticky', top: 14, borderRadius: 8 }}>
+          {activeTopTabId === 'scheduling' && schedulingSubmenuGroups.length > 1 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {schedulingSubmenuGroups.map(group => {
+                const isOpen = openSchedulingGroups.includes(group.groupName)
+                const hasActive = group.items.some(item => item.id === setupTab)
+                return (
+                  <div key={group.groupName}>
+                    <button
+                      onClick={() => setOpenSchedulingGroups(prev => (prev.includes(group.groupName) ? prev.filter(name => name !== group.groupName) : [...prev, group.groupName]))}
+                      style={{
+                        width: '100%',
+                        border: 'none',
+                        background: hasActive ? '#edf3fa' : '#f8fafc',
+                        color: '#334155',
+                        borderRadius: 6,
+                        padding: '7px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span>{group.groupName}</span>
+                      <span>{isOpen ? '▾' : '▸'}</span>
+                    </button>
+                    {isOpen && (
+                      <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {group.items.map(item => {
+                          const isActive = setupTab === item.id
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => setSetupTab(item.id)}
+                              style={{
+                                width: '100%',
+                                border: 'none',
+                                background: isActive ? '#dbe8f5' : 'transparent',
+                                color: isActive ? '#123251' : '#334155',
+                                borderRadius: 6,
+                                padding: '8px 9px',
+                                fontSize: 12,
+                                fontWeight: isActive ? 800 : 600,
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {item.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {visibleSubmenuItems.map(item => {
+                const isActive = setupTab === item.id
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setSetupTab(item.id)}
+                    style={{
+                      width: '100%',
+                      border: 'none',
+                      borderLeft: isActive ? '3px solid #5f83aa' : '3px solid transparent',
+                      background: isActive ? '#dbe8f5' : '#ffffff',
+                      color: isActive ? '#123251' : '#334155',
+                      borderRadius: 6,
+                      padding: '8px 9px',
+                      fontSize: 12,
+                      fontWeight: isActive ? 800 : 600,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div>
@@ -159,36 +357,14 @@ export default function SetupCenterPage({
             </div>
           )}
 
-          <div style={{ ...S.card, marginBottom: 16, padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', border: '1px solid #dfe8f2', background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 100%)', boxShadow: '0 12px 30px rgba(15, 23, 42, 0.04)' }}>
+          <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 999, background: '#edf4fb', color: '#31506f', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-                🛠️ Admin Tools
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#708196', marginTop: 8 }}>
-                Home / Setup Center
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: '#223046', marginTop: 4 }}>
-                {safeSetupNavItems.find(item => item.id === setupTab)?.label || 'Setup Center'}
-              </div>
-              <div style={{ fontSize: 12, color: '#718096', marginTop: 4, maxWidth: 700 }}>
-                Keep school-wide settings organized and easy to review for the principal demo.
-              </div>
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f2942', margin: 0 }}>{activeTabLabel}</h2>
+              <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{currentSectionSubtitle}</div>
             </div>
-            <button
-              onClick={() => setPage('dashboard')}
-              style={{
-                border: '1px solid #dbe7f1',
-                background: '#ffffff',
-                color: '#31506f',
-                borderRadius: 999,
-                padding: '8px 12px',
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              ← Back to dashboard
-            </button>
+            <span style={{ padding: '6px 9px', borderRadius: 999, background: '#f2f6fb', color: '#415a77', fontSize: 11, fontWeight: 700 }}>
+              {activeTopTab.label}
+            </span>
           </div>
 
           {setupTab === 'staff-directory' && (

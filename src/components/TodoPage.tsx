@@ -101,6 +101,8 @@ export default function TodoPage({
             onChange={event => setNewTodo(event.target.value)}
             placeholder="Task description..."
             onKeyDown={onTaskInputKeyDown}
+            spellCheck
+            lang="en"
             style={{
               flex: 1,
               padding: '9px 12px',

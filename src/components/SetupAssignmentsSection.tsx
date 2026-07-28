@@ -19,6 +19,7 @@ export default function SetupAssignmentsSection({
   toggleCaseloadStudent,
 }) {
   const [pendingAssignmentChange, setPendingAssignmentChange] = useState(null)
+  const [assignmentView, setAssignmentView] = useState<'staff' | 'students'>('staff')
 
   function getCurrentAssignmentOwner(studentId, type) {
     if (!studentId) return null
@@ -135,12 +136,26 @@ export default function SetupAssignmentsSection({
                         </div>
                       )}
 
+                      <div style={{ ...S.card, marginBottom: 12, padding: '12px 14px', border: '1px solid #d9e3ee' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ fontSize: 18, fontWeight: 900, color: '#102a43' }}>Assignments</div>
+                            <div style={{ fontSize: 12, color: '#52667e', marginTop: 3 }}>Assign students to staff using Staff View or Student View.</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <button onClick={() => setAssignmentView('staff')} style={assignmentView === 'staff' ? S.btn('primary') : S.btn('ghost')}>Staff View</button>
+                            <button onClick={() => setAssignmentView('students')} style={assignmentView === 'students' ? S.btn('primary') : S.btn('ghost')}>Student View</button>
+                          </div>
+                        </div>
+                      </div>
+
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: '290px minmax(0, 1fr)',
+                        gridTemplateColumns: assignmentView === 'students' ? 'minmax(0, 1fr)' : '290px minmax(0, 1fr)',
                         gap: 16,
                         alignItems: 'start'
                       }}>
+                        {assignmentView === 'staff' && (
                         <div style={{
                           ...S.card,
                           padding: 14,
@@ -171,6 +186,8 @@ export default function SetupAssignmentsSection({
                               marginBottom: 10,
                               fontSize: 12
                             }}
+                            spellCheck
+                            lang="en"
                           />
 
                           <div style={{
@@ -256,6 +273,7 @@ export default function SetupAssignmentsSection({
                             })}
                           </div>
                         </div>
+                        )}
 
                         <div style={S.card}>
                           <div style={{
@@ -297,6 +315,8 @@ export default function SetupAssignmentsSection({
                                 borderRadius: 9,
                                 fontSize: 12
                               }}
+                              spellCheck
+                              lang="en"
                             />
                           </div>
 

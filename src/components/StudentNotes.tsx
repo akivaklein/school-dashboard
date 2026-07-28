@@ -85,6 +85,8 @@ export default function StudentNotes({ student, students, setStudents, userName,
           placeholder="Add a note..."
           value={noteText}
           onChange={e => setNoteText(e.target.value)}
+          spellCheck
+          lang="en"
           style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', marginBottom: 8, fontSize: 13, minHeight: 70, boxSizing: 'border-box', resize: 'vertical' }}
         />
         <button onClick={addNote} style={S.btn('primary')} disabled={saving || !noteText.trim()}>

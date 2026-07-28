@@ -5,32 +5,53 @@ export default function SetupAccountsSection({
   S,
   DIVISIONS,
 }) {
+  const people = Array.isArray(SETUP_PEOPLE) ? SETUP_PEOPLE : []
+  const totalUsers = people.length
+  const activeCount = people.filter(person => (setupAccounts[person.name]?.active ?? true)).length
+  const disabledCount = Math.max(totalUsers - activeCount, 0)
+  const adminLikeCount = people.filter(person => /admin|menahel|mashgiach/i.test(person.role || '')).length
+
   return (
                     <div style={S.card}>
                       <div style={{
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: 900,
-                        color: '#223046',
-                        marginBottom: 5
+                        color: '#102a43',
+                        marginBottom: 4
                       }}>
-                        Staff Accounts & Access
+                        User Management & Permissions
                       </div>
 
                       <div style={{
-                        fontSize: 11,
-                        color: '#718096',
+                        fontSize: 12,
+                        color: '#52667e',
                         marginBottom: 14
                       }}>
-                        Real passwords should be handled by Supabase Auth.
-                        This page controls demo account access and provides
-                        reset placeholders without displaying passwords.
+                        Manage account status, division scope, and access controls for staff.
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
+                        {[
+                          { label: 'Total Users', value: totalUsers, accent: '#5b7ea5' },
+                          { label: 'Admins', value: adminLikeCount, accent: '#5b7ea5' },
+                          { label: 'Active', value: activeCount, accent: '#2f855a' },
+                          { label: 'Disabled', value: disabledCount, accent: '#a16207' },
+                        ].map(summary => (
+                          <div key={summary.label} style={{ border: '1px solid #dbe5f0', borderRadius: 8, background: '#ffffff', padding: '10px 11px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: summary.accent, flexShrink: 0 }} />
+                              {summary.label}
+                            </div>
+                            <div style={{ fontSize: 24, lineHeight: 1.05, marginTop: 6, fontWeight: 800, color: '#102a43' }}>{summary.value}</div>
+                          </div>
+                        ))}
                       </div>
 
                       <div style={{
                         display: 'grid',
                         gap: 8
                       }}>
-                        {SETUP_PEOPLE.map(person => {
+                        {people.map(person => {
                           const account =
                             setupAccounts[person.name] || {
                               active: true,
@@ -47,8 +68,8 @@ export default function SetupAccountsSection({
                                 gap: 10,
                                 alignItems: 'center',
                                 padding: '10px 12px',
-                                border: '1px solid #e0e7ef',
-                                borderRadius: 10,
+                                border: '1px solid #dbe5f0',
+                                borderRadius: 8,
                                 background: '#fff'
                               }}
                             >

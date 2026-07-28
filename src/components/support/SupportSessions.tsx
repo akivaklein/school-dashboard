@@ -267,9 +267,9 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
               <option value="office">Office</option><option value="dismissed">Dismissed / left early</option>
               <option value="unknown">Other / location unknown</option>
             </select>
-            <input value={goalWorkedOn} onChange={event => setGoalWorkedOn(event.target.value)} placeholder="Goal worked on" style={fieldStyle} />
-            <textarea value={studentResponse} onChange={event => setStudentResponse(event.target.value)} placeholder="How did the student respond?" rows={3} style={fieldStyle} />
-            <textarea value={notes} onChange={event => setNotes(event.target.value)} placeholder="Session notes" rows={4} style={fieldStyle} />
+            <input value={goalWorkedOn} onChange={event => setGoalWorkedOn(event.target.value)} placeholder="Goal worked on" style={fieldStyle} spellCheck lang="en" />
+            <textarea value={studentResponse} onChange={event => setStudentResponse(event.target.value)} placeholder="How did the student respond?" rows={3} style={fieldStyle} spellCheck lang="en" />
+            <textarea value={notes} onChange={event => setNotes(event.target.value)} placeholder="Session notes" rows={4} style={fieldStyle} spellCheck lang="en" />
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#526274', marginBottom: 16 }}>
               <input type="checkbox" checked={followUpNeeded} onChange={event => setFollowUpNeeded(event.target.checked)} /> Follow-up needed
             </label>

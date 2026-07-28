@@ -132,7 +132,7 @@ export function StudentScoresTab({
               <input placeholder="Assessment name" value={form.assessmentName} onChange={e=>updateForm('assessmentName', e.target.value)} style={{ gridColumn:'1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
               <select value={form.scoreType} onChange={e=>updateForm('scoreType', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="points">Number score</option><option value="rating">Skill rating</option></select>
               {form.scoreType === 'rating' ? <select value={form.rating} onChange={e=>updateForm('rating', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{SKILL_RATINGS.map(x=><option key={x}>{x}</option>)}</select> : <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}><input placeholder="Score" value={form.score} onChange={e=>updateForm('score', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} /><input placeholder="Max" value={form.maxScore} onChange={e=>updateForm('maxScore', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} /></div>}
-              <textarea placeholder="Notes" value={form.notes} onChange={e=>updateForm('notes', e.target.value)} style={{ gridColumn:'1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8, minHeight:70 }} />
+              <textarea placeholder="Notes" value={form.notes} onChange={e=>updateForm('notes', e.target.value)} spellCheck lang="en" style={{ gridColumn:'1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8, minHeight:70 }} />
               <button onClick={addScore} style={{ ...S.btn('primary'), gridColumn:'1 / -1', padding: 12 }}>Save Score</button>
             </div>
           </div>
@@ -591,7 +591,7 @@ export default function AcademicsPage({
                 </select>
               )}
 
-              <textarea value={bulkForm.notes} onChange={e => updateBulkForm('notes', e.target.value)} placeholder="Optional note for all entries" style={{ gridColumn: 'span 2', padding: 10, border:'1px solid #e5e7eb', borderRadius:8, minHeight: 42, resize: 'vertical' }} />
+              <textarea value={bulkForm.notes} onChange={e => updateBulkForm('notes', e.target.value)} placeholder="Optional note for all entries" spellCheck lang="en" style={{ gridColumn: 'span 2', padding: 10, border:'1px solid #e5e7eb', borderRadius:8, minHeight: 42, resize: 'vertical' }} />
               <div style={{ display:'flex', gap: 8, alignItems: 'center', gridColumn: 'span 2' }}>
                 <input value={bulkForm.fillAllScore} onChange={e => updateBulkForm('fillAllScore', e.target.value)} placeholder="Fill all with score" style={{ flex: 1, padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
                 <button onClick={fillAllScores} style={S.btn('ghost')}>Fill All</button>

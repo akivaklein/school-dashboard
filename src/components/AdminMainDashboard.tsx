@@ -52,8 +52,25 @@ export default function AdminMainDashboard({
     )
   )
 
+  const inSchoolNowStudents = students.filter(s => (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early')
+  const unknownStudents = students.filter(s => s.status === 'unknown')
+  const knownLocationCount = Math.max(total - unknown, 0)
+  const accountedForPct = total > 0 ? Math.round((knownLocationCount / total) * 100) : 0
+  const knownLocationAngle = total > 0 ? (knownLocationCount / total) * 360 : 0
+  const priorityDangerAlerts = alerts.filter(a => a.type === 'danger' && !a.msg.includes('Location unknown'))
+
+  const classLabelById = Object.fromEntries((CLASSES || []).map(cls => [cls.id, cls.name]))
+
+  const unknownLocationRows = unknownStudents.map(student => ({
+    student,
+    unknownDuration: 'Pending update',
+    lastKnownLocation: student.lastKnownLocation || 'Not recorded',
+    lastKnownTime: student.lastKnownTime || 'Not recorded',
+    expectedCurrentLocation: classLabelById[STUDENT_CLASSES?.[student.id]] || 'Class assignment',
+  }))
+
   return (
-    <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1320, margin: '0 auto' }}>
       <div style={{ marginBottom: 26, background: '#ffffff', borderRadius: 14, padding: '26px 28px', color: '#1f2937', boxShadow: '0 10px 28px rgba(15,23,42,0.045)', border: '1px solid #e4e9f0', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', right: -60, top: -90, width: 240, height: 240, borderRadius: '50%', background: 'rgba(148,163,184,0.08)' }} />
         <div style={{ position: 'absolute', right: 70, bottom: -90, width: 180, height: 180, borderRadius: '50%', background: 'rgba(148,163,184,0.08)' }} />
@@ -102,47 +119,129 @@ export default function AdminMainDashboard({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', gap: 24, marginBottom: 26 }}>
+      <div style={{ ...S.card, borderRadius: 12, padding: 22, marginBottom: 20, boxShadow: '0 8px 22px rgba(15,23,42,0.045)' }}>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 19, color: '#102a43', fontWeight: 800 }}>Live Status</div>
+          <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>Current school movement and location visibility</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: 20, alignItems: 'stretch' }}>
+          <div style={{ border: '1px solid #d7e1ec', borderRadius: 12, background: '#f8fafc', padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 150, height: 150, borderRadius: '50%', background: `conic-gradient(#3f6f9f 0 ${knownLocationAngle}deg, #e8eef5 ${knownLocationAngle}deg 360deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 102, height: 102, borderRadius: '50%', background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: '#102a43', lineHeight: 1 }}>{accountedForPct}%</div>
+                <div style={{ fontSize: 11, color: '#475569', marginTop: 4, fontWeight: 700 }}>Accounted For</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 10, fontSize: 12, color: '#475569', fontWeight: 700 }}>{knownLocationCount} of {total} students</div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateRows: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+            {[
+              { label: 'In School Now', val: stillInYeshiva, accent: '#5b7ea5', border: '#dbe4ef', filter: inSchoolNowStudents },
+              { label: 'In Classrooms', val: inClassrooms, accent: '#5b7ea5', border: '#dbe4ef', filter: inClassroomsStudents },
+              { label: 'Unknown Location', val: unknown, accent: '#5b7ea5', border: '#dbe4ef', unknownAction: true, filter: unknownStudents },
+            ].map(item => (
+              <div
+                key={item.label}
+                onClick={() => item.unknownAction ? setShowUnknownPopup(true) : setDrillDown({ title: item.label, students: item.filter })}
+                style={{ border: `1px solid ${item.border}`, borderRadius: 10, background: '#ffffff', padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#243b53', fontWeight: 700 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.accent, flexShrink: 0 }} />
+                  <span>{item.label}</span>
+                </div>
+                <div style={{ fontSize: 27, fontWeight: 800, color: '#102a43', lineHeight: 1 }}>{item.val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ ...S.card, borderRadius: 12, padding: 20, marginBottom: 24, border: unknown > 0 ? '1px solid #fecdd3' : '1px solid #e2e8f0', boxShadow: unknown > 0 ? '0 10px 26px rgba(190,24,93,0.08)' : '0 8px 20px rgba(15,23,42,0.04)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 17, color: '#102a43', fontWeight: 800 }}>Unknown Location</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Students currently flagged with unknown whereabouts</div>
+          </div>
+          <button onClick={() => setShowUnknownPopup(true)} style={unknown > 0 ? { ...S.btn('danger'), padding: '8px 12px', fontSize: 12 } : { ...S.btn('ghost'), padding: '8px 12px', fontSize: 12 }}>
+            Update Locations
+          </button>
+        </div>
+
+        {unknownLocationRows.length === 0 ? (
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 12px', fontSize: 13, color: '#64748b', background: '#f8fafc' }}>
+            No students with unknown location right now.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 760 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', fontSize: 11, color: '#334155', fontWeight: 800, padding: '10px 10px', borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Student</th>
+                  <th style={{ textAlign: 'left', fontSize: 11, color: '#334155', fontWeight: 800, padding: '10px 10px', borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Unknown Duration</th>
+                  <th style={{ textAlign: 'left', fontSize: 11, color: '#334155', fontWeight: 800, padding: '10px 10px', borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Last Known Location</th>
+                  <th style={{ textAlign: 'left', fontSize: 11, color: '#334155', fontWeight: 800, padding: '10px 10px', borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Last Known Time</th>
+                  <th style={{ textAlign: 'left', fontSize: 11, color: '#334155', fontWeight: 800, padding: '10px 10px', borderBottom: '1px solid #e2e8f0', background: '#f1f5f9' }}>Expected Current Location</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unknownLocationRows.map((row, index) => (
+                  <tr key={row.student.id} onClick={() => openStudent(row.student)} style={{ cursor: 'pointer', background: index % 2 === 0 ? '#ffffff' : '#fbfdff' }}>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eef2f7', fontSize: 13, color: '#172033', fontWeight: 700 }}>{row.student.name}</td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eef2f7', fontSize: 12, color: '#9f1239', fontWeight: 700 }}>{row.unknownDuration}</td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eef2f7', fontSize: 12, color: '#334155' }}>{row.lastKnownLocation}</td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eef2f7', fontSize: 12, color: '#334155' }}>{row.lastKnownTime}</td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eef2f7', fontSize: 12, color: '#334155' }}>{row.expectedCurrentLocation}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.12fr 0.88fr', gap: 22, marginBottom: 26 }}>
         <div style={{ ...S.card, borderRadius: 16, padding: 24, minHeight: 310, boxShadow: '0 10px 28px rgba(15,23,42,0.045)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
             <div>
-              <div style={{ fontSize: 15, color: '#263241', fontWeight: 700 }}>Attendance</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Today’s attendance and live location summary</div>
+              <div style={{ fontSize: 18, color: '#102a43', fontWeight: 800 }}>Attendance Today</div>
+              <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>Daily attendance and building presence snapshot</div>
             </div>
-            <button onClick={() => setPage('attendance')} style={{ background: '#eef4ff', color: '#4f6687', border: 'none', borderRadius: 14, padding: '7px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Open Attendance</button>
+            <button onClick={() => setPage('attendance')} style={{ background: '#3f6f9f', color: '#ffffff', border: 'none', borderRadius: 10, padding: '8px 13px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Open Attendance</button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px', gap: 24, alignItems: 'center' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 2 }}>
-                <div style={{ fontSize: 38, fontWeight: 700, color: '#263241', letterSpacing: '-0.04em' }}>{cameToday}</div>
-                <div style={{ fontSize: 12, color: '#64748b' }}>/ {total} came today</div>
+                <div style={{ fontSize: 42, fontWeight: 800, color: '#102a43', letterSpacing: '-0.04em' }}>{cameToday}</div>
+                <div style={{ fontSize: 13, color: '#475569' }}>/ {total} came today</div>
               </div>
-              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>{total} boys enrolled total</div>
+              <div style={{ fontSize: 13, color: '#475569', marginBottom: 12 }}>{total} boys enrolled total</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 18 }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#263241' }}>{stillInYeshiva}</div>
-                <div style={{ fontSize: 12, color: '#64748b' }}>still in yeshiva now</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: '#102a43' }}>{stillInYeshiva}</div>
+                <div style={{ fontSize: 13, color: '#475569' }}>still in school now</div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
                 {[
-                  { label: 'In classrooms', val: inClassrooms, color: '#263241', filter: inClassroomsStudents },
-                  { label: 'Late', val: late, color: '#9a6a2a', filter: lateStudents },
-                  { label: 'Therapy', val: inTherapy, color: '#4f6687', filter: students.filter(s => s.status === 'therapy') },
-                  { label: 'With BT', val: withBT, color: '#4f7782', filter: students.filter(s => s.status === 'with-bt') },
-                  { label: 'Unknown', val: unknown, color: '#9f1239', filter: students.filter(s => s.status === 'unknown'), unknownAction: true },
-                  { label: 'Left early', val: leftEarlyStudents.length, color: '#64748b', filter: leftEarlyStudents },
-                  { label: 'Absent', val: absentTodayStudents.length, color: '#9f1239', filter: absentTodayStudents },
+                  { label: 'Came Today', val: cameToday, accent: '#2f855a', filter: students.filter(s => (s.dailyStatus || 'present') !== 'absent') },
+                  { label: 'Absent', val: absentTodayStudents.length, accent: '#9f1239', filter: absentTodayStudents },
+                  { label: 'Late', val: late, accent: '#a16207', filter: lateStudents },
+                  { label: 'Left Early', val: leftEarlyStudents.length, accent: '#a16207', filter: leftEarlyStudents },
+                  { label: 'Still in School', val: stillInYeshiva, accent: '#5b7ea5', filter: inSchoolNowStudents },
                 ].map(x => (
-                  <div key={x.label} onClick={() => x.unknownAction ? setShowUnknownPopup(true) : setDrillDown({ title: x.label, students: x.filter })} style={{ background: x.unknownAction && x.val > 0 ? '#fff7f7' : '#f8fafc', border: `1px solid ${x.unknownAction && x.val > 0 ? '#fecaca' : '#eef0f7'}`, borderLeft: `3px solid ${x.color}`, borderRadius: 14, padding: '10px 12px', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: x.color }}>{x.val}</div>
-                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>{x.label}</div>
+                  <div key={x.label} onClick={() => setDrillDown({ title: x.label, students: x.filter })} style={{ background: '#ffffff', border: '1px solid #dbe4ef', borderRadius: 12, padding: '10px 10px', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#102a43' }}>{x.val}</div>
+                    <div style={{ fontSize: 11, color: '#334155', marginTop: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: x.accent, flexShrink: 0 }} />
+                      <span>{x.label}</span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
             <div style={{ width: 144, height: 144, borderRadius: '50%', background: `conic-gradient(#1e293b 0 ${cameToday / total * 360}deg, #edf0f7 ${cameToday / total * 360}deg 360deg)`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' }}>
               <div style={{ width: 98, height: 98, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: '#263241' }}>{cameTodayRate}%</div>
-                <div style={{ fontSize: 10, color: '#64748b' }}>came today</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: '#102a43' }}>{cameTodayRate}%</div>
+                <div style={{ fontSize: 11, color: '#475569' }}>came today</div>
               </div>
             </div>
           </div>
@@ -151,25 +250,31 @@ export default function AdminMainDashboard({
         <div style={{ ...S.card, borderRadius: 16, padding: 24, minHeight: 268, boxShadow: '0 10px 28px rgba(15,23,42,0.045)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <div style={{ fontSize: 15, color: '#263241', fontWeight: 700 }}>Priority Work</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>The few things that need attention</div>
+              <div style={{ fontSize: 17, color: '#102a43', fontWeight: 800 }}>Priority Work</div>
+              <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>The few things that need attention</div>
             </div>
             <button onClick={() => setPage('alerts')} style={{ background: 'transparent', color: '#4f6687', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>View all</button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18 }}>
-            <div onClick={() => setPage('alerts')} style={{ background: '#fff7f7', border: '1px solid #ffe0e0', borderRadius: 14, padding: 18, cursor: 'pointer' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: '#9f1239' }}>{urgentStudents.length}</div>
+            <div onClick={() => setPage('alerts')} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 18, cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#9f1239' }} />
+                <div style={{ fontSize: 30, fontWeight: 800, color: '#102a43' }}>{priorityDangerAlerts.length}</div>
+              </div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#263241', marginTop: 6 }}>Urgent alerts</div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>danger and warning items</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>excluding unknown-location list</div>
             </div>
-            <div onClick={() => setPage('calls')} style={{ background: '#fffaf0', border: '1px solid #fdecc8', borderRadius: 14, padding: 18, cursor: 'pointer' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: '#9a6a2a' }}>{callsDueStudents.length}</div>
+            <div onClick={() => setPage('calls')} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 18, cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#a16207' }} />
+                <div style={{ fontSize: 28, fontWeight: 700, color: '#102a43' }}>{callsDueStudents.length}</div>
+              </div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#263241', marginTop: 6 }}>Calls needed</div>
               <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>parent follow-ups</div>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {alerts.filter(a => a.type === 'danger').slice(0, 3).map((a, i) => (
+            {priorityDangerAlerts.slice(0, 3).map((a, i) => (
               <div key={i} onClick={() => { const s = students.find(x => x.id === a.id); if (s) openStudent(s, 'behavior') }} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderTop: i === 0 ? '1px solid #f0f1f6' : 'none', cursor: 'pointer' }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#263241' }}>{a.student}</div>
@@ -178,7 +283,7 @@ export default function AdminMainDashboard({
                 <div style={{ fontSize: 11, color: '#4f6687', fontWeight: 700 }}>Open</div>
               </div>
             ))}
-            {alerts.filter(a => a.type === 'danger').length === 0 && <div style={{ color: '#64748b', fontSize: 12, paddingTop: 8 }}>No urgent alerts right now.</div>}
+            {priorityDangerAlerts.length === 0 && <div style={{ color: '#64748b', fontSize: 12, paddingTop: 8 }}>No urgent non-location alerts right now.</div>}
           </div>
 
           <FlagDashboardWidget
@@ -250,17 +355,17 @@ export default function AdminMainDashboard({
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 22 }}>
-            <div onClick={() => setDrillDown({ title: 'Improved', students: students.filter(s => s.reminders < s.lastWeekReminders) })} style={{ background: '#f4fbf7', borderRadius: 14, padding: 14, cursor: 'pointer' }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#56765f' }}>{improved}</div>
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>Improved</div>
+            <div onClick={() => setDrillDown({ title: 'Improved', students: students.filter(s => s.reminders < s.lastWeekReminders) })} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 14, cursor: 'pointer' }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#102a43' }}>{improved}</div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2f855a' }} />Improved</div>
             </div>
-            <div onClick={() => setDrillDown({ title: 'Needs Attention', students: students.filter(s => s.reminders > s.lastWeekReminders) })} style={{ background: '#fff7f7', borderRadius: 14, padding: 14, cursor: 'pointer' }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#9f1239' }}>{needsAttention}</div>
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>Attention</div>
+            <div onClick={() => setDrillDown({ title: 'Needs Attention', students: students.filter(s => s.reminders > s.lastWeekReminders) })} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 14, cursor: 'pointer' }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#102a43' }}>{needsAttention}</div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#9f1239' }} />Attention</div>
             </div>
-            <div onClick={() => setDrillDown({ title: 'VIP', students: vipStudents })} style={{ background: '#fffaf0', borderRadius: 14, padding: 14, cursor: 'pointer' }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#9a6a2a' }}>{vipStudents.length}</div>
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>VIP</div>
+            <div onClick={() => setDrillDown({ title: 'VIP', students: vipStudents })} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 14, cursor: 'pointer' }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#102a43' }}>{vipStudents.length}</div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#a16207' }} />VIP</div>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
