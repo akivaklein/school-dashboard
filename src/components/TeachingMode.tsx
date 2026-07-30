@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import playSound from '../utils/playSound'
 import { resolveActorName } from './dashboardData'
 import { buildLateToClassFields } from './teachingModeUtils'
+import { isInClassroom, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
 
 const TEACHING_MODE_SCOPE_STATE_STORAGE_KEY = 'schoolDashboardTeachingModeScopeV1'
 
@@ -65,11 +66,7 @@ export default function TeachingMode({
   teachingAssignments = {},
 }) {
 
-  const isStudentInClass = student => {
-    const classroomPresent = student.status === 'present' && !['absent', 'left-early'].includes(student.dailyStatus)
-    const schoolArrived = student.dailyStatus !== 'absent' && student.dailyStatus !== 'left-early'
-    return classroomPresent && schoolArrived
-  }
+  const isStudentInClass = student => isInClassroom(student)
 
 
   const [search, setSearch] = useState('')
@@ -537,10 +534,7 @@ export default function TeachingMode({
     }
 
     const original = s
-    const wasNotInSchool =
-      s.dailyStatus === 'absent' ||
-      s.status === 'absent' ||
-      s.status === 'not-arrived'
+    const wasNotInSchool = !isInSchool(s)
 
     const updatedClassLog = [
       ...(s.classLog || []),
@@ -2037,8 +2031,7 @@ export default function TeachingMode({
             const isSelected = selected.includes(s.id)
             const vip = isVIP(s)
             const inClass = isStudentInClass(s)
-            const isAbsent =
-              s.dailyStatus === 'absent' || s.status === 'absent'
+            const isAbsent = isOutOfSchool(s)
             const isPulledOut =
               s.status === 'therapy' || s.status === 'with-bt'
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null

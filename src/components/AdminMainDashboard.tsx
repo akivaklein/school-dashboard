@@ -1,3 +1,10 @@
+import {
+  cameToSchoolToday,
+  getDailyAttendanceStatus,
+  isInClassroom,
+  isInSchool,
+} from '../utils/attendancePresence'
+
 export default function AdminMainDashboard({
   S,
   getGreeting,
@@ -52,7 +59,7 @@ export default function AdminMainDashboard({
     )
   )
 
-  const inSchoolNowStudents = students.filter(s => (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early')
+  const inSchoolNowStudents = students.filter(s => isInSchool(s))
   const unknownStudents = students.filter(s => s.status === 'unknown')
   const knownLocationCount = Math.max(total - unknown, 0)
   const accountedForPct = total > 0 ? Math.round((knownLocationCount / total) * 100) : 0
@@ -222,7 +229,7 @@ export default function AdminMainDashboard({
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
                 {[
-                  { label: 'Came Today', val: cameToday, accent: '#2f855a', filter: students.filter(s => (s.dailyStatus || 'present') !== 'absent') },
+                  { label: 'Came Today', val: cameToday, accent: '#2f855a', filter: students.filter(s => cameToSchoolToday(s)) },
                   { label: 'Absent', val: absentTodayStudents.length, accent: '#9f1239', filter: absentTodayStudents },
                   { label: 'Late', val: late, accent: '#a16207', filter: lateStudents },
                   { label: 'Left Early', val: leftEarlyStudents.length, accent: '#a16207', filter: leftEarlyStudents },
@@ -307,9 +314,9 @@ export default function AdminMainDashboard({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
             {CLASSES.map(cls => {
               const clsStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
-              const clsPresent = clsStudents.filter(s => s.status === 'present').length
-              const clsAbsent = clsStudents.filter(s => s.status === 'absent').length
-              const clsOut = clsStudents.filter(s => s.status !== 'present' && s.status !== 'absent').length
+              const clsPresent = clsStudents.filter(s => isInClassroom(s)).length
+              const clsAbsent = clsStudents.filter(s => getDailyAttendanceStatus(s) === 'absent').length
+              const clsOut = clsStudents.filter(s => !isInClassroom(s) && isInSchool(s)).length
               const clsPct = Math.round(clsPresent / clsStudents.length * 100)
               return (
                 <div key={cls.id} onClick={() => setDrillDown({ title: `${cls.name} — All Students`, students: clsStudents })} style={{ background: '#f8fafc', border: '1px solid #eef0f7', borderRadius: 14, padding: 20, cursor: 'pointer' }}>
@@ -328,15 +335,15 @@ export default function AdminMainDashboard({
                     <div style={{ width: `${clsPct}%`, height: '100%', background: '#1e293b', borderRadius: 99 }} />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 18 }}>
-                    <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `${cls.name} — Present`, students: clsStudents.filter(s => s.status === 'present') }) }}>
+                    <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `${cls.name} — Present`, students: clsStudents.filter(s => isInClassroom(s)) }) }}>
                       <div style={{ fontSize: 18, color: '#263241', fontWeight: 700 }}>{clsPresent}</div>
                       <div style={{ fontSize: 10, color: '#64748b' }}>Present</div>
                     </div>
-                    <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `${cls.name} — Absent`, students: clsStudents.filter(s => s.status === 'absent') }) }}>
+                    <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `${cls.name} — Absent`, students: clsStudents.filter(s => getDailyAttendanceStatus(s) === 'absent') }) }}>
                       <div style={{ fontSize: 18, color: '#9f1239', fontWeight: 700 }}>{clsAbsent}</div>
                       <div style={{ fontSize: 10, color: '#64748b' }}>Absent</div>
                     </div>
-                    <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `${cls.name} — Out`, students: clsStudents.filter(s => s.status !== 'present' && s.status !== 'absent') }) }}>
+                    <div onClick={e => { e.stopPropagation(); setDrillDown({ title: `${cls.name} — Out`, students: clsStudents.filter(s => !isInClassroom(s) && isInSchool(s)) }) }}>
                       <div style={{ fontSize: 18, color: '#9a6a2a', fontWeight: 700 }}>{clsOut}</div>
                       <div style={{ fontSize: 10, color: '#64748b' }}>Out</div>
                     </div>

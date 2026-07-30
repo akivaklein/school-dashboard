@@ -90,6 +90,12 @@ import {
   getStudentFallbackPatchCount,
   readStudentFallbackPatches,
 } from '../utils/studentFallbackCache'
+import {
+  cameToSchoolToday,
+  getDailyAttendanceStatus,
+  isInClassroom,
+  isInSchool,
+} from '../utils/attendancePresence'
 import DrillDown from './dashboard/DrillDown'
 import LoginPage from './dashboard/LoginPage'
 import TrackingTabView from './dashboard/TrackingTab'
@@ -469,9 +475,9 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
     ? students.filter((s: StudentLike) => getStudentClassId(s) === selectedClass)
     : students
 
-  const present = classStudents.filter((s: StudentLike) => s.status === 'present').length
-  const absent = classStudents.filter((s: StudentLike) => s.status === 'absent').length
-  const late = classStudents.filter((s: StudentLike) => s.status === 'late').length
+  const present = classStudents.filter((s: StudentLike) => isInClassroom(s)).length
+  const absent = classStudents.filter((s: StudentLike) => getDailyAttendanceStatus(s) === 'absent').length
+  const late = classStudents.filter((s: StudentLike) => getDailyAttendanceStatus(s) === 'late').length
   const inTherapy = classStudents.filter((s: StudentLike) => s.status === 'therapy').length
   const withBT = classStudents.filter((s: StudentLike) => s.status === 'with-bt').length
   const unknown = classStudents.filter((s: StudentLike) => s.status === 'unknown').length
@@ -516,7 +522,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
             (() => {
               const cls = CLASSES.find(c => c.id === initialClass)
               const count = students.filter(s => getStudentClassId(s) === initialClass).length
-              const presentCount = students.filter(s => getStudentClassId(s) === initialClass && s.status === 'present').length
+              const presentCount = students.filter(s => getStudentClassId(s) === initialClass && isInClassroom(s)).length
               return (
                 <button
                   style={{
@@ -542,7 +548,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
               </button>
               {CLASSES.map(cls => {
                 const count = students.filter(s => getStudentClassId(s) === cls.id).length
-                const presentCount = students.filter(s => getStudentClassId(s) === cls.id && s.status === 'present').length
+                const presentCount = students.filter(s => getStudentClassId(s) === cls.id && isInClassroom(s)).length
                 return (
                   <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === cls.id ? '#4f6687' : '#e5e7eb'}`, background: selectedClass === cls.id ? '#4f6687' : '#fff', color: selectedClass === cls.id ? '#fff' : '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                     🏫 {cls.name} ({presentCount}/{count})
@@ -560,9 +566,9 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 20 }}>
         {([
-          ['Present', present, '#4f6687', classStudents.filter((s: StudentLike) => s.status === 'present')],
-          ['Absent', absent, '#9f1239', classStudents.filter((s: StudentLike) => s.status === 'absent')],
-          ['Late', late, '#9a6a2a', classStudents.filter((s: StudentLike) => s.status === 'late')],
+          ['Present', present, '#4f6687', classStudents.filter((s: StudentLike) => isInClassroom(s))],
+          ['Absent', absent, '#9f1239', classStudents.filter((s: StudentLike) => getDailyAttendanceStatus(s) === 'absent')],
+          ['Late', late, '#9a6a2a', classStudents.filter((s: StudentLike) => getDailyAttendanceStatus(s) === 'late')],
           ['Therapy', inTherapy, '#6d28d9', classStudents.filter((s: StudentLike) => s.status === 'therapy')],
           ['With BT', withBT, '#3f6b76', classStudents.filter((s: StudentLike) => s.status === 'with-bt')],
           ['Unknown', unknown, '#9f1239', classStudents.filter((s: StudentLike) => s.status === 'unknown')],
@@ -3924,18 +3930,24 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       }
     ]
     
+    const nextStatus = newStatus === 'absent'
+      ? 'not-arrived'
+      : newStatus === 'left-early'
+        ? 'left-early'
+        : newStatus
+
     setStudents(prev => prev.map(s => {
       if (s.id !== studentId) return s
       return {
         ...s,
-        status: newStatus === 'left-early' ? 'left-early' : newStatus,
+        status: nextStatus,
         dailyStatus: newStatus === 'absent' ? 'absent' : newStatus === 'left-early' ? 'left-early' : s.dailyStatus,
         classLog: updatedClassLog
       }
     }))
     
     persistStudentFields(studentId, {
-      status: newStatus === 'left-early' ? 'left-early' : newStatus,
+      status: nextStatus,
       dailyStatus:
         newStatus === 'absent'
           ? 'absent'
@@ -4170,23 +4182,23 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       )
     : divisionScopedStudents
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
-  const present = visibleStudents.filter(s => (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early').length
-  const absent = visibleStudents.filter(s => (s.dailyStatus || 'present') === 'absent').length
-  const late = visibleStudents.filter(s => s.dailyStatus === 'late').length
+  const present = visibleStudents.filter(s => isInSchool(s)).length
+  const absent = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'absent').length
+  const late = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'late').length
   const inTherapy = visibleStudents.filter(s => s.status === 'therapy').length
   const withBT = visibleStudents.filter(s => s.status === 'with-bt').length
   const unknown = visibleStudents.filter(s => s.status === 'unknown').length
   const notArrived = visibleStudents.filter(s => s.status === 'not-arrived').length
   const total = visibleStudents.length
-  const cameTodayStudents = visibleStudents.filter(s => (s.dailyStatus || 'present') !== 'absent')
+  const cameTodayStudents = visibleStudents.filter(s => cameToSchoolToday(s))
   const cameToday = cameTodayStudents.length
-  const stillInYeshivaStudents = visibleStudents.filter(s => (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early')
+  const stillInYeshivaStudents = visibleStudents.filter(s => isInSchool(s))
   const stillInYeshiva = stillInYeshivaStudents.length
-  const inClassroomsStudents = visibleStudents.filter(s => s.status === 'present' && (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early')
+  const inClassroomsStudents = visibleStudents.filter(s => isInClassroom(s))
   const inClassrooms = inClassroomsStudents.length
-  const lateStudents = visibleStudents.filter(s => s.dailyStatus === 'late')
-  const leftEarlyStudents = visibleStudents.filter(s => s.dailyStatus === 'left-early')
-  const absentTodayStudents = visibleStudents.filter(s => (s.dailyStatus || 'present') === 'absent')
+  const lateStudents = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'late')
+  const leftEarlyStudents = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'left-early')
+  const absentTodayStudents = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'absent')
   const cameTodayRate = total ? Math.round(cameToday / total * 100) : 0
   const improved = visibleStudents.filter(s => (s.reminders ?? 0) < (s.lastWeekReminders ?? 0)).length
   const needsAttention = visibleStudents.filter(s => (s.reminders ?? 0) > (s.lastWeekReminders ?? 0)).length
@@ -4199,10 +4211,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       key,
       label: divisionLabel(key),
       students: list,
-      inBuilding: list.filter(s => (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early').length,
+      inBuilding: list.filter(s => isInSchool(s)).length,
       unknown: list.filter(s => s.status === 'unknown').length,
-      absent: list.filter(s => (s.dailyStatus || 'present') === 'absent').length,
-      late: list.filter(s => s.status === 'late').length,
+      absent: list.filter(s => getDailyAttendanceStatus(s) === 'absent').length,
+      late: list.filter(s => getDailyAttendanceStatus(s) === 'late').length,
     }
   })
 

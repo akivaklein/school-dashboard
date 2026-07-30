@@ -1,5 +1,13 @@
 import { useState } from 'react'
 import { resolveActorName } from './dashboardData'
+import {
+  getDailyAttendanceStatus,
+  isInClassroom,
+  isInSchool,
+  isLocationUnknown,
+  isOutOfSchool,
+  resolveClassroomStatusAfterAttendanceUpdate,
+} from '../utils/attendancePresence'
 
 export default function AttendancePage({
   students,
@@ -68,12 +76,10 @@ export default function AttendancePage({
     const original = students.find(s => Number(s.id) === Number(id))
     if (!original) return
 
-    const syncedStatus =
-      status === 'absent'
-        ? 'absent'
-        : status === 'left-early'
-          ? 'left-early'
-          : 'present'
+    const nextClassroomStatus = resolveClassroomStatusAfterAttendanceUpdate(
+      original.status,
+      status,
+    )
 
     setUndoStack(u => [
       ...u.slice(-19),
@@ -100,8 +106,8 @@ export default function AttendancePage({
           ? {
               ...s,
               dailyStatus: status,
-              status: syncedStatus === 'present' ? 'present' : syncedStatus,
-              withStaff: syncedStatus === 'present' ? null : s.withStaff,
+              status: nextClassroomStatus,
+              withStaff: nextClassroomStatus === 'present' ? null : s.withStaff,
               classLog: updatedClassLog
             }
           : s
@@ -117,7 +123,7 @@ export default function AttendancePage({
 
     const success = await saveStudentFields(id, {
       dailyStatus: status,
-      status: syncedStatus,
+      status: nextClassroomStatus,
       classLog: updatedClassLog
     })
 
@@ -252,10 +258,7 @@ export default function AttendancePage({
       setLeaveStaffId('')
     } else {
       const original = s
-      const wasNotInSchool =
-        s.dailyStatus === 'absent' ||
-        s.status === 'absent' ||
-        s.status === 'not-arrived'
+      const wasNotInSchool = !isInSchool(s)
       const arrivedNow = new Date().toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit'
@@ -642,12 +645,12 @@ export default function AttendancePage({
         <div style={{ ...S.card, marginBottom: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 16 }}>
             {[
-              ['Present', filteredStudents.filter(s => s.status === 'present').length, '#56765f'],
-              ['Absent', filteredStudents.filter(s => s.status === 'absent').length, '#9f1239'],
-              ['Late', filteredStudents.filter(s => s.status === 'late').length, '#9a6a2a'],
+              ['In Class', filteredStudents.filter(s => isInClassroom(s)).length, '#56765f'],
+              ['Out of School', filteredStudents.filter(s => isOutOfSchool(s)).length, '#9f1239'],
+              ['Late Today', filteredStudents.filter(s => getDailyAttendanceStatus(s) === 'late').length, '#9a6a2a'],
               ['Therapy', filteredStudents.filter(s => s.status === 'therapy').length, '#6d28d9'],
               ['With BT', filteredStudents.filter(s => s.status === 'with-bt').length, '#3f6b76'],
-              ['Unknown', filteredStudents.filter(s => s.status === 'unknown').length, '#9f1239'],
+              ['Unknown', filteredStudents.filter(s => isLocationUnknown(s)).length, '#9f1239'],
             ].map(([label, val, color]) => (
               <div key={label} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 6px', border: `1px solid ${(val) > 0 ? color + '30' : '#e2e8f0'}` }}>
                 <div style={{ fontSize: 22, fontWeight: 700, color: (val) > 0 ? color : '#94a3b8' }}>{val}</div>
@@ -681,11 +684,12 @@ export default function AttendancePage({
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
             {filteredStudents.map((s, i) => {
-              const inClass = s.status === 'present'
+              const inClass = isInClassroom(s)
+              const outOfSchool = isOutOfSchool(s)
               const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
               return (
                 <div key={s.id} style={{ background:
-                    s.status === 'absent'
+                    outOfSchool
                       ? '#cbd5e1'
                       : s.status === 'unknown'
                         ? '#fee2e2'
@@ -697,7 +701,7 @@ export default function AttendancePage({
                               ? '#f0fdf4'
                               : '#f8fafc',
                   border: `2px solid ${
-                    s.status === 'absent'
+                    outOfSchool
                       ? '#94a3b8'
                       : s.status === 'unknown'
                         ? '#fca5a5'
@@ -744,11 +748,11 @@ export default function AttendancePage({
               const classStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
               if (classStudents.length === 0) return null
 
-              const inClassCount = classStudents.filter(s => s.status === 'present').length
-              const absentCount = classStudents.filter(s => (s.dailyStatus || s.status) === 'absent').length
+              const inClassCount = classStudents.filter(s => isInClassroom(s)).length
+              const absentCount = classStudents.filter(s => getDailyAttendanceStatus(s) === 'absent').length
               const therapyCount = classStudents.filter(s => s.status === 'therapy' || s.status === 'with-bt').length
-              const unknownCount = classStudents.filter(s => s.status === 'unknown' || s.status === 'not-arrived').length
-              const flaggedCount = classStudents.filter(s => s.status === 'unknown' || s.status === 'not-arrived').length
+              const unknownCount = classStudents.filter(s => isLocationUnknown(s)).length
+              const flaggedCount = classStudents.filter(s => isLocationUnknown(s)).length
 
               return (
                 <div key={cls.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, background: '#fff', padding: 12 }}>
