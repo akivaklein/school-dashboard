@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import StudentNotes from './StudentNotes'
 import { resolveActorName } from './dashboardData'
+import { getStudentNavigationPair } from './studentProfileNavigation'
 
 export default function StudentProfile({
   student,
   students,
   setStudents,
   onClose,
+  onNavigateStudent,
   role,
   userName = '',
   defaultTab = 'overview',
@@ -41,6 +43,7 @@ export default function StudentProfile({
     ? ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes']
     : ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes','info']
   const s = students.find(x => x.id === student.id)
+  const { previous, next } = getStudentNavigationPair(students, s?.id)
   const improvement = getImprovement(s)
   const vip = isVIP(s)
   const absCount = s.att.filter(d => d === 'A').length
@@ -115,10 +118,24 @@ export default function StudentProfile({
               {s.detention && <span style={{ background: 'rgba(220,38,38,0.3)', color: '#fca5a5', padding: '2px 8px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>⚠️ Detention</span>}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 20, color: '#fff', textAlign: 'center' }}>
-            <div><div style={{ fontSize: 20, fontWeight: 700, color: '#fbbf24' }}>{s.points}</div><div style={{ fontSize: 10, opacity: 0.6 }}>Points</div></div>
-            <div><div style={{ fontSize: 20, fontWeight: 700, color: s.reminders >= 6 ? '#f87171' : '#fff' }}>{s.reminders}</div><div style={{ fontSize: 10, opacity: 0.6 }}>Reminders</div></div>
-            <div><div style={{ fontSize: 20, fontWeight: 700, color: '#f87171' }}>{absCount}</div><div style={{ fontSize: 10, opacity: 0.6 }}>Absences</div></div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', color: '#fff' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => previous && onNavigateStudent?.(previous, effectiveTab)}
+                disabled={!previous}
+                style={{ background: previous ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: previous ? 'pointer' : 'not-allowed', fontSize: 14, opacity: previous ? 1 : 0.5 }}
+              >←</button>
+              <button
+                onClick={() => next && onNavigateStudent?.(next, effectiveTab)}
+                disabled={!next}
+                style={{ background: next ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: next ? 'pointer' : 'not-allowed', fontSize: 14, opacity: next ? 1 : 0.5 }}
+              >→</button>
+            </div>
+            <div style={{ display: 'flex', gap: 20, textAlign: 'center' }}>
+              <div><div style={{ fontSize: 20, fontWeight: 700, color: '#fbbf24' }}>{s.points}</div><div style={{ fontSize: 10, opacity: 0.6 }}>Points</div></div>
+              <div><div style={{ fontSize: 20, fontWeight: 700, color: s.reminders >= 6 ? '#f87171' : '#fff' }}>{s.reminders}</div><div style={{ fontSize: 10, opacity: 0.6 }}>Reminders</div></div>
+              <div><div style={{ fontSize: 20, fontWeight: 700, color: '#f87171' }}>{absCount}</div><div style={{ fontSize: 10, opacity: 0.6 }}>Absences</div></div>
+            </div>
           </div>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', fontSize: 14 }}>✕</button>
         </div>

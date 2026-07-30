@@ -5066,6 +5066,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         students={students}
         setStudents={setStudents}
         onClose={() => setSelectedStudent(null)}
+        onNavigateStudent={(student, tab) => {
+          openStudent(student, tab)
+          setSelectedStudent(student)
+        }}
         role={role}
         userName={userName}
         defaultTab={selectedStudentTab}
