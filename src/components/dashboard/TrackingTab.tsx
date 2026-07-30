@@ -24,7 +24,10 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
   const [period, setPeriod] = useState('today')
   const [drillType, setDrillType] = useState<string | null>(null)
   const student = students.find((x: StudentLike) => x.id === s.id) || s
-  const histData: AttendanceHistoryEntry[] = (HISTORICAL_DATA as Record<string | number, AttendanceHistoryEntry[]>)[String(student.id)] || []
+  const rawHistory = (HISTORICAL_DATA as Record<string | number, AttendanceHistoryEntry[]> | undefined | null)?.[String(student.id)]
+  const histData: AttendanceHistoryEntry[] = Array.isArray(rawHistory)
+    ? rawHistory.filter((entry): entry is AttendanceHistoryEntry => !!entry && typeof entry === 'object')
+    : []
 
   const filterData = () => {
     const now = new Date()
@@ -39,15 +42,15 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
         const monthAgo = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10)
         return histData.filter((d: AttendanceHistoryEntry) => d.date >= monthAgo)
       }
-      case 'thismonth': return histData.filter((d: AttendanceHistoryEntry) => d.date.startsWith(now.toISOString().slice(0, 7)))
-      case 'year': return histData.filter((d: AttendanceHistoryEntry) => d.date.startsWith(new Date().getFullYear().toString()))
+      case 'thismonth': return histData.filter((d: AttendanceHistoryEntry) => typeof d.date === 'string' && d.date.startsWith(now.toISOString().slice(0, 7)))
+      case 'year': return histData.filter((d: AttendanceHistoryEntry) => typeof d.date === 'string' && d.date.startsWith(new Date().getFullYear().toString()))
       default: return histData
     }
   }
 
   const data = filterData()
-  const totalIn = data.reduce((acc: number, d: AttendanceHistoryEntry) => acc + d.inMins, 0)
-  const totalOut = data.reduce((acc: number, d: AttendanceHistoryEntry) => acc + d.outMins, 0)
+  const totalIn = data.reduce((acc: number, d: AttendanceHistoryEntry) => acc + Number(d.inMins || 0), 0)
+  const totalOut = data.reduce((acc: number, d: AttendanceHistoryEntry) => acc + Number(d.outMins || 0), 0)
   const avgPct = data.length > 0 ? Math.round((totalIn / (totalIn + totalOut)) * 100) : 0
   const pctColor = avgPct >= 70 ? '#56765f' : avgPct >= 50 ? '#9a6a2a' : '#9f1239'
   const staffTime: Record<string, number> = {}
