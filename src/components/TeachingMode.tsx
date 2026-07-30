@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import playSound from '../utils/playSound'
 import { resolveActorName } from './dashboardData'
 
@@ -164,51 +164,60 @@ export default function TeachingMode({
   }, [canViewEntireSchool, teachingAssignments, assignmentPeriods, scopeBaseIdSet])
 
   const periodOptions = periodBuckets.filter(bucket => bucket.ids.length > 0).map(bucket => String(bucket.period))
+  const selectorInitializedRef = useRef(false)
+  const allowedScopeValues = useMemo(() => {
+    const values = ['teacher', 'class', 'grade', 'period']
+    if (canViewEntireSchool) values.unshift('entire')
+    if (hasAssignedStudents) values.push('assigned')
+    return values
+  }, [canViewEntireSchool, hasAssignedStudents])
 
   useEffect(() => {
-    const teacherDefaultClass = initialClass && classOptions.some(cls => cls.id === initialClass)
+    const defaultClass = initialClass && classOptions.some(cls => cls.id === initialClass)
       ? initialClass
       : classOptions[0]?.id || null
-    const teacherDefaultPeriod = periodOptions[0] || ''
+    const defaultPeriod = periodOptions[0] || ''
 
-    if (canViewEntireSchool) {
-      setScopeType('entire')
-      setSelectedClass(teacherDefaultClass)
-      setSelectedTeacher(teacherOptions[0] || '')
-      setSelectedGrade(gradeOptions[0] || '')
-      setSelectedPeriod(teacherDefaultPeriod)
-      return
-    }
+    if (!selectorInitializedRef.current) {
+      selectorInitializedRef.current = true
 
-    if (isTeacherRole) {
-      if (teacherDefaultPeriod) {
-        setScopeType('period')
-        setSelectedPeriod(teacherDefaultPeriod)
-      } else if (teacherDefaultClass) {
-        setScopeType('class')
-        setSelectedClass(teacherDefaultClass)
+      if (canViewEntireSchool) {
+        setScopeType('entire')
+      } else if (isTeacherRole) {
+        if (defaultPeriod) {
+          setScopeType('period')
+          setSelectedPeriod(defaultPeriod)
+        } else if (defaultClass) {
+          setScopeType('class')
+          setSelectedClass(defaultClass)
+        } else if (hasAssignedStudents) {
+          setScopeType('assigned')
+        } else {
+          setScopeType('class')
+        }
       } else if (hasAssignedStudents) {
         setScopeType('assigned')
       } else {
         setScopeType('class')
       }
-
-      if (teacherDefaultClass) setSelectedClass(teacherDefaultClass)
-      if (!selectedTeacher && teacherOptions.length > 0) setSelectedTeacher(teacherOptions[0])
-      if (!selectedGrade && gradeOptions.length > 0) setSelectedGrade(gradeOptions[0])
-      return
     }
 
-    if (hasAssignedStudents) {
-      setScopeType('assigned')
-    } else {
-      setScopeType('class')
-      if (teacherDefaultClass) setSelectedClass(teacherDefaultClass)
-    }
-
-    if (!selectedTeacher && teacherOptions.length > 0) setSelectedTeacher(teacherOptions[0])
-    if (!selectedGrade && gradeOptions.length > 0) setSelectedGrade(gradeOptions[0])
-    if (!selectedPeriod && teacherDefaultPeriod) setSelectedPeriod(teacherDefaultPeriod)
+    setSelectedClass(prev => {
+      if (prev && classOptions.some(cls => cls.id === prev)) return prev
+      return defaultClass
+    })
+    setSelectedTeacher(prev => {
+      if (prev && teacherOptions.includes(prev)) return prev
+      return teacherOptions[0] || ''
+    })
+    setSelectedGrade(prev => {
+      if (prev && gradeOptions.includes(prev)) return prev
+      return gradeOptions[0] || ''
+    })
+    setSelectedPeriod(prev => {
+      if (prev && periodOptions.includes(prev)) return prev
+      return defaultPeriod
+    })
   }, [
     canViewEntireSchool,
     isTeacherRole,
@@ -219,6 +228,22 @@ export default function TeachingMode({
     gradeOptions,
     periodOptions,
   ])
+
+  useEffect(() => {
+    if (allowedScopeValues.includes(scopeType)) return
+
+    if (canViewEntireSchool) {
+      setScopeType('entire')
+      return
+    }
+
+    if (hasAssignedStudents) {
+      setScopeType('assigned')
+      return
+    }
+
+    setScopeType('class')
+  }, [scopeType, allowedScopeValues, canViewEntireSchool, hasAssignedStudents])
 
   function buildClassLogEntry(type, note, extra = {}) {
     return {
@@ -318,11 +343,11 @@ export default function TeachingMode({
 
   const scopeOptions = [
     ...(canViewEntireSchool ? [{ value: 'entire', label: 'Entire School' }] : []),
-    ...(hasAssignedStudents ? [{ value: 'assigned', label: 'My Assigned Students' }] : []),
-    { value: 'class', label: 'Class' },
     { value: 'teacher', label: 'Teacher' },
+    { value: 'class', label: 'Class' },
     { value: 'grade', label: 'Grade' },
     { value: 'period', label: 'Period' },
+    ...(hasAssignedStudents ? [{ value: 'assigned', label: 'My Assigned Students' }] : []),
   ]
 
   const scopedStudents = useMemo(() => {
