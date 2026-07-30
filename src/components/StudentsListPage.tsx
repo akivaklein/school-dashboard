@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { matchesContextualSearch } from '../utils/contextualSearch'
+import { buildStudentListViewModel } from './studentListUtils'
 
 export default function StudentsListPage({
   searchedStudents,
@@ -22,51 +22,16 @@ export default function StudentsListPage({
 
   const pageSize = 12
 
-  const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return searchedStudents
+  const { visibleRows, totalPages, totalCount, safePage } = useMemo(() => buildStudentListViewModel({
+    students: searchedStudents,
+    query: tableSearch,
+    sortBy,
+    sortDir,
+    page,
+    pageSize,
+  }), [searchedStudents, tableSearch, sortBy, sortDir, page, pageSize])
 
-    return searchedStudents.filter(student =>
-      matchesContextualSearch(q, [student.name, student.id, student.className, student.division])
-    )
-  }, [searchedStudents, tableSearch])
-
-  const sortedRows = useMemo(() => {
-    const rows = filteredRows.slice()
-    rows.sort((a, b) => {
-      let aValue = ''
-      let bValue = ''
-
-      if (sortBy === 'name') {
-        aValue = a.name || ''
-        bValue = b.name || ''
-      } else if (sortBy === 'id') {
-        aValue = Number(a.id) || 0
-        bValue = Number(b.id) || 0
-      } else if (sortBy === 'className') {
-        aValue = a.className || ''
-        bValue = b.className || ''
-      } else if (sortBy === 'points') {
-        aValue = Number(a.points) || 0
-        bValue = Number(b.points) || 0
-      } else if (sortBy === 'reminders') {
-        aValue = Number(a.reminders) || 0
-        bValue = Number(b.reminders) || 0
-      } else if (sortBy === 'attendance') {
-        aValue = a.att?.filter(d => d === 'P').length || 0
-        bValue = b.att?.filter(d => d === 'P').length || 0
-      }
-
-      if (aValue < bValue) return sortDir === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortDir === 'asc' ? 1 : -1
-      return 0
-    })
-    return rows
-  }, [filteredRows, sortBy, sortDir])
-
-  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize))
-  const safePage = Math.min(page, totalPages)
-  const tableRows = sortedRows.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const tableRows = visibleRows
 
   function toggleSort(column) {
     if (sortBy === column) {
@@ -102,7 +67,7 @@ export default function StudentsListPage({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
               <div>
                 <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4, color: '#16243a' }}>Students</h1>
-                <div style={{ fontSize: 12, color: '#64748b' }}>{searchedStudents.length} students</div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>{totalCount} students</div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <input
