@@ -112,20 +112,24 @@ export async function getLoginStats(days = 30) {
     }
 
     const stats: Record<string, any> = {}
-    const seenSessionIds: Record<string, boolean> = {}
+    const normalizedRows = Array.isArray(data) ? data : []
 
-    (data || []).forEach(session => {
-      const staffId = session.staff_id != null ? Number(session.staff_id) : null
-      const stableStaffKey = staffId != null
-        ? `staff-${staffId}`
-        : `staff-${String(session.staff_name || 'unknown-staff').trim().toLowerCase()}`
-      const staffName = session.staff_name || 'Unknown staff'
+    normalizedRows.forEach((session: any) => {
+      const staffName = String(session?.staff_name || 'Unknown staff').trim() || 'Unknown staff'
+      const rawStaffId = session?.staff_id
+      const numericStaffId = typeof rawStaffId === 'number' && Number.isFinite(rawStaffId)
+        ? rawStaffId
+        : Number(rawStaffId)
+      const hasValidStaffId = Number.isFinite(numericStaffId) && numericStaffId > 0
+      const stableStaffKey = hasValidStaffId
+        ? `staff-${numericStaffId}`
+        : `staff-${staffName.toLowerCase()}`
 
       if (!stats[stableStaffKey]) {
         stats[stableStaffKey] = {
           key: stableStaffKey,
           name: staffName,
-          role: session.role,
+          role: session?.role || 'Unknown role',
           loginCount: 0,
           totalSessionSeconds: 0,
           avgSessionSeconds: 0,
@@ -137,29 +141,20 @@ export async function getLoginStats(days = 30) {
       stats[stableStaffKey].loginCount += 1
 
       const hasStoredDuration =
-        typeof session.session_duration_seconds === 'number' &&
+        typeof session?.session_duration_seconds === 'number' &&
         Number.isFinite(session.session_duration_seconds)
 
       let sessionDurationSeconds = hasStoredDuration
         ? Math.max(0, Math.round(session.session_duration_seconds))
         : 0
 
-      const sessionId = Number(session.id)
-      const sessionIdKey = Number.isFinite(sessionId) ? String(sessionId) : null
-      const isDuplicateSession = sessionIdKey ? seenSessionIds[sessionIdKey] : false
-      if (!isDuplicateSession && !hasStoredDuration && !session.logout_time) {
-        const loginMs = new Date(session.login_time).getTime()
-        if (Number.isFinite(loginMs)) {
-          sessionDurationSeconds = Math.max(
-            0,
-            Math.floor((Date.now() - loginMs) / 1000)
-          )
-          stats[stableStaffKey].activeSessions += 1
-        }
-      }
+      const loginMs = Number(new Date(session?.login_time).getTime())
+      const hasValidLoginMs = Number.isFinite(loginMs)
+      const isActiveSession = !session?.logout_time && !hasStoredDuration && hasValidLoginMs
 
-      if (sessionIdKey) {
-        seenSessionIds[sessionIdKey] = true
+      if (isActiveSession) {
+        sessionDurationSeconds = Math.max(0, Math.floor((Date.now() - loginMs) / 1000))
+        stats[stableStaffKey].activeSessions += 1
       }
 
       stats[stableStaffKey].totalSessionSeconds += sessionDurationSeconds
