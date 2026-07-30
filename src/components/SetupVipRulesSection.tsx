@@ -153,15 +153,18 @@ export default function SetupVipRulesSection({
                         background: '#fff9e9',
                         border: '1px solid #ead9aa',
                         color: '#765d26',
-                        fontSize: 12
+                        fontSize: 12,
+                        lineHeight: 1.6,
                       }}>
-                        VIP requires {setupVipRules.minimumPoints}+ points,
-                        no more than {setupVipRules.maximumReminders}
-                        {' '}reminders, and {setupVipRules.minimumAttendance}%
-                        attendance
-                        {setupVipRules.requireAll
-                          ? '. All rules are required.'
-                          : '. Any rule may qualify the student.'}
+                        <div style={{ fontWeight: 800, marginBottom: 4 }}>VIP eligibility summary</div>
+                        <div>• Minimum points: {setupVipRules.minimumPoints}+</div>
+                        <div>• Maximum reminders: {setupVipRules.maximumReminders}</div>
+                        <div>• Minimum attendance: {setupVipRules.minimumAttendance}%</div>
+                        <div style={{ marginTop: 4, fontWeight: 700 }}>
+                          {setupVipRules.requireAll
+                            ? 'All rules must be met to qualify.'
+                            : 'Any one rule can qualify the student.'}
+                        </div>
                       </div>
                     </div>
   )
