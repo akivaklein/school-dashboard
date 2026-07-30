@@ -2,6 +2,23 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import playSound from '../utils/playSound'
 import { resolveActorName } from './dashboardData'
 
+const TEACHING_MODE_SCOPE_STATE_STORAGE_KEY = 'schoolDashboardTeachingModeScopeV1'
+
+function readTeachingModeScopeState(): { scopeType?: string; scopeValue?: string } {
+  try {
+    const raw = localStorage.getItem(TEACHING_MODE_SCOPE_STATE_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return {}
+    return {
+      scopeType: typeof parsed.scopeType === 'string' ? parsed.scopeType : undefined,
+      scopeValue: typeof parsed.scopeValue === 'string' ? parsed.scopeValue : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
 const BEHAVIORS_POSITIVE = [
   { id: 'p1', label: 'Appropriate appearance', points: 1 },
   { id: 'p2', label: 'On-time to class', points: 2 },
@@ -177,51 +194,63 @@ export default function TeachingMode({
       ? initialClass
       : classOptions[0]?.id || null
     const defaultPeriod = periodOptions[0] || ''
+    const defaultScopeType = canViewEntireSchool
+      ? 'entire'
+      : isTeacherRole
+        ? defaultPeriod
+          ? 'period'
+          : defaultClass
+            ? 'class'
+            : hasAssignedStudents
+              ? 'assigned'
+              : 'class'
+        : hasAssignedStudents
+          ? 'assigned'
+          : 'class'
+    const storedScopeState = readTeachingModeScopeState()
+    const restoredScopeType = storedScopeState.scopeType
+    const restoredScopeValue = storedScopeState.scopeValue || ''
+    const hasValidRestoredScope = Boolean(restoredScopeType && allowedScopeValues.includes(restoredScopeType))
 
     if (!selectorInitializedRef.current) {
       selectorInitializedRef.current = true
 
-      if (canViewEntireSchool) {
-        setScopeType('entire')
-      } else if (isTeacherRole) {
-        if (defaultPeriod) {
-          setScopeType('period')
-          setSelectedPeriod(defaultPeriod)
-        } else if (defaultClass) {
-          setScopeType('class')
-          setSelectedClass(defaultClass)
-        } else if (hasAssignedStudents) {
-          setScopeType('assigned')
-        } else {
-          setScopeType('class')
-        }
-      } else if (hasAssignedStudents) {
-        setScopeType('assigned')
-      } else {
-        setScopeType('class')
-      }
+      setScopeType(hasValidRestoredScope ? restoredScopeType : defaultScopeType)
     }
 
     setSelectedClass(prev => {
       if (prev && classOptions.some(cls => cls.id === prev)) return prev
+      if (hasValidRestoredScope && restoredScopeType === 'class' && restoredScopeValue && classOptions.some(cls => cls.id === restoredScopeValue)) {
+        return restoredScopeValue
+      }
       return defaultClass
     })
     setSelectedTeacher(prev => {
       if (prev && teacherOptions.includes(prev)) return prev
+      if (hasValidRestoredScope && restoredScopeType === 'teacher' && restoredScopeValue && teacherOptions.includes(restoredScopeValue)) {
+        return restoredScopeValue
+      }
       return teacherOptions[0] || ''
     })
     setSelectedGrade(prev => {
       if (prev && gradeOptions.includes(prev)) return prev
+      if (hasValidRestoredScope && restoredScopeType === 'grade' && restoredScopeValue && gradeOptions.includes(restoredScopeValue)) {
+        return restoredScopeValue
+      }
       return gradeOptions[0] || ''
     })
     setSelectedPeriod(prev => {
       if (prev && periodOptions.includes(prev)) return prev
+      if (hasValidRestoredScope && restoredScopeType === 'period' && restoredScopeValue && periodOptions.includes(restoredScopeValue)) {
+        return restoredScopeValue
+      }
       return defaultPeriod
     })
   }, [
     canViewEntireSchool,
     isTeacherRole,
     hasAssignedStudents,
+    allowedScopeValues,
     initialClass,
     classOptions,
     teacherOptions,
@@ -244,6 +273,31 @@ export default function TeachingMode({
 
     setScopeType('class')
   }, [scopeType, allowedScopeValues, canViewEntireSchool, hasAssignedStudents])
+
+  useEffect(() => {
+    const selectedScopeValue =
+      scopeType === 'class'
+        ? (selectedClass || '')
+        : scopeType === 'teacher'
+          ? selectedTeacher
+          : scopeType === 'grade'
+            ? selectedGrade
+            : scopeType === 'period'
+              ? selectedPeriod
+              : ''
+
+    try {
+      localStorage.setItem(
+        TEACHING_MODE_SCOPE_STATE_STORAGE_KEY,
+        JSON.stringify({
+          scopeType,
+          scopeValue: selectedScopeValue,
+        }),
+      )
+    } catch (error) {
+      console.error('Failed to persist teaching mode scope state:', error)
+    }
+  }, [scopeType, selectedClass, selectedTeacher, selectedGrade, selectedPeriod])
 
   function buildClassLogEntry(type, note, extra = {}) {
     return {
@@ -644,7 +698,7 @@ export default function TeachingMode({
           <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>📊 Session Summary</div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
             <button onClick={() => { setShowSummary(false); setSessionActive(false); setIntervalNum(1); setIntervalSeconds(0); setIntervalHistory([]); setIntervalReminders({}) }} style={S.btn('ghost')}>🔄 New Session</button>
-            <button onClick={onExit} style={S.btn('danger')}>← Exit</button>
+            <button onClick={onExit} style={S.btn('danger')}>← Back to School Day</button>
           </div>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
@@ -1184,6 +1238,9 @@ export default function TeachingMode({
               }}>
                 {isAdmin ? 'School-Wide Mode' : 'Teaching Mode'}
               </div>
+              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginTop: 1 }}>
+                School Day &gt; Teaching Mode
+              </div>
               <div
                 dir="rtl"
                 style={{
@@ -1546,7 +1603,7 @@ export default function TeachingMode({
                 cursor: 'pointer'
               }}
             >
-              Exit
+              ← Back to School Day
             </button>
           </div>
         </div>
