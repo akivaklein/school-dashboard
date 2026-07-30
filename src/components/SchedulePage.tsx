@@ -1,3 +1,6 @@
+import { useMemo, useState } from 'react'
+import { isInClassroom } from '../utils/attendancePresence'
+
 type Props = {
   S: any
   students: any[]
@@ -23,11 +26,122 @@ export default function SchedulePage({
   statusEmoji,
   statusLabel,
 }: Props) {
-  const studentsNotInClass = students.filter(student => student.status !== 'present')
+  const [horizonDays, setHorizonDays] = useState(3)
+
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  const jsDayToName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const todayName = jsDayToName[new Date().getDay()]
+
+  const orderedSchoolDays = useMemo(() => {
+    const startIndex = dayOrder.indexOf(todayName)
+    if (startIndex === -1) return dayOrder
+    return [...dayOrder.slice(startIndex), ...dayOrder.slice(0, startIndex)]
+  }, [todayName])
+
+  const visibleDays = orderedSchoolDays.slice(0, Math.max(1, Math.min(5, horizonDays)))
+  const visibleDaySet = new Set(visibleDays)
+
+  const therapyRows = useMemo(
+    () => (THERAPY_SCHEDULE || []).filter(item => visibleDaySet.has(String(item.day || ''))),
+    [THERAPY_SCHEDULE, visibleDaySet],
+  )
+
+  const scheduleConflicts = useMemo(() => {
+    const warnings: string[] = []
+    const keys = new Set<string>()
+
+    therapyRows.forEach((row, index) => {
+      therapyRows.slice(index + 1).forEach(other => {
+        const sameDay = String(row.day || '') === String(other.day || '')
+        const sameTime = String(row.time || '') === String(other.time || '')
+        if (!sameDay || !sameTime) return
+
+        if (row.staffId && other.staffId && String(row.staffId) === String(other.staffId) && String(row.student || '') !== String(other.student || '')) {
+          const key = `staff:${row.day}:${row.time}:${row.staffId}`
+          if (!keys.has(key)) {
+            keys.add(key)
+            warnings.push(`${row.day} ${row.time}: ${row.student} and ${other.student} are both assigned to ${STAFF.find(staff => String(staff.id) === String(row.staffId))?.name || 'the same therapist'}.`)
+          }
+        }
+
+        if (String(row.student || '') && String(row.student || '') === String(other.student || '')) {
+          const key = `student:${row.day}:${row.time}:${row.student}`
+          if (!keys.has(key)) {
+            keys.add(key)
+            warnings.push(`${row.day} ${row.time}: ${row.student} is double-booked for ${row.type} and ${other.type}.`)
+          }
+        }
+      })
+    })
+
+    return warnings
+  }, [therapyRows, STAFF])
+
+  const studentsNotInClass = students.filter(student => !isInClassroom(student))
 
   return (
     <div>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 18 }}>🗓️ Schedule</h1>
+
+      <div style={{ ...S.card, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Leadership Planning Window</div>
+            <div style={{ fontSize: 12, color: '#64748b' }}>Forward view for upcoming pull-outs and coverage conflicts.</div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[
+              { label: 'Today', value: 1 },
+              { label: 'Next 3 Days', value: 3 },
+              { label: 'Next 5 Days', value: 5 },
+            ].map(option => (
+              <button
+                key={option.value}
+                onClick={() => setHorizonDays(option.value)}
+                style={{
+                  padding: '7px 10px',
+                  borderRadius: 8,
+                  border: `1px solid ${horizonDays === option.value ? '#5f83aa' : '#d8e1ec'}`,
+                  background: horizonDays === option.value ? '#dbe8f5' : '#ffffff',
+                  color: horizonDays === option.value ? '#112f4d' : '#334155',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', background: '#f8fafc' }}>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Upcoming Therapy Sessions</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>{therapyRows.length}</div>
+          </div>
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', background: '#f8fafc' }}>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Students Out Of Class Now</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>{studentsNotInClass.length}</div>
+          </div>
+          <div style={{ border: `1px solid ${scheduleConflicts.length > 0 ? '#fecaca' : '#e2e8f0'}`, borderRadius: 10, padding: '10px 12px', background: scheduleConflicts.length > 0 ? '#fff7f7' : '#f8fafc' }}>
+            <div style={{ fontSize: 11, color: scheduleConflicts.length > 0 ? '#9f1239' : '#64748b', fontWeight: 700 }}>Schedule Conflicts</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: scheduleConflicts.length > 0 ? '#9f1239' : '#0f172a', marginTop: 4 }}>{scheduleConflicts.length}</div>
+          </div>
+        </div>
+
+        {scheduleConflicts.length > 0 && (
+          <div style={{ marginTop: 12, border: '1px solid #fecaca', borderRadius: 10, background: '#fff7f7', padding: '10px 12px' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#9f1239', marginBottom: 6 }}>Conflict Warnings</div>
+            {scheduleConflicts.slice(0, 5).map((warning, index) => (
+              <div key={`${warning}-${index}`} style={{ fontSize: 12, color: '#7f1d1d', padding: '2px 0' }}>
+                ⚠ {warning}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div style={S.card}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Daily Schedule — Dargei Beis</div>
@@ -46,8 +160,8 @@ export default function SchedulePage({
 
         <div>
           <div style={{ ...S.card, marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>🧠 Therapy Pullouts This Week</div>
-            {THERAPY_SCHEDULE.map((item, index) => {
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>🧠 Therapy Pullouts ({visibleDays.join(', ')})</div>
+            {therapyRows.map((item, index) => {
               const staffMember = STAFF.find(staff => staff.id === item.staffId)
               return (
                 <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: '#ffffff', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 8 }}>
@@ -57,6 +171,7 @@ export default function SchedulePage({
                 </div>
               )
             })}
+            {therapyRows.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>No therapy sessions in this planning window.</div>}
           </div>
 
           <div style={S.card}>
