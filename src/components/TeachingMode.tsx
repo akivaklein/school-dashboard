@@ -64,9 +64,11 @@ export default function TeachingMode({
   teachingAssignments = {},
 }) {
 
-  const isStudentInClass = student =>
-    student.status === 'present' &&
-    !['absent', 'left-early'].includes(student.dailyStatus)
+  const isStudentInClass = student => {
+    const classroomPresent = student.status === 'present' && !['absent', 'left-early'].includes(student.dailyStatus)
+    const schoolArrived = student.dailyStatus !== 'absent' && student.dailyStatus !== 'left-early'
+    return classroomPresent && schoolArrived
+  }
 
 
   const [search, setSearch] = useState('')
@@ -1096,7 +1098,7 @@ export default function TeachingMode({
                 </div>
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 16, padding: 16, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, fontWeight: 800, color: quickActionStudent.status === 'present' ? '#4b6854' : '#64748b', marginTop: 8 }}>
-                    {quickActionStudent.status === 'present' ? 'In Class' : statusLabel[quickActionStudent.status] || quickActionStudent.status}
+                    {isStudentInClass(quickActionStudent) ? 'In Class' : statusLabel[quickActionStudent.status] || quickActionStudent.status}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, marginTop: 9 }}>Status</div>
                 </div>

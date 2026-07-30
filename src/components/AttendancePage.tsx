@@ -100,7 +100,7 @@ export default function AttendancePage({
           ? {
               ...s,
               dailyStatus: status,
-              status: syncedStatus,
+              status: syncedStatus === 'present' ? 'present' : syncedStatus,
               withStaff: syncedStatus === 'present' ? null : s.withStaff,
               classLog: updatedClassLog
             }
