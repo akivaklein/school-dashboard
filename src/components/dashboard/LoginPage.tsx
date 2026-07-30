@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { createLoginAccounts, getLastName, getMatchingLoginAccounts, type DemoLoginAccount } from './loginUserSearch'
 
 type LoginPageProps = {
   onLogin: (role: string, name: string) => void
@@ -6,42 +7,71 @@ type LoginPageProps = {
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [role, setRole] = useState('admin')
-  const [emailInput, setEmailInput] = useState('')
+  const [userInput, setUserInput] = useState('')
+  const [selectedAccount, setSelectedAccount] = useState<DemoLoginAccount | null>(null)
   const [showSuggestion, setShowSuggestion] = useState(false)
-  const accounts = [
-    { role: 'admin', name: 'Rabbi Baum', email: 'rbaum@hadranacademy.org' },
-    { role: 'admin', name: 'Eli Bloom', email: 'ebloom@hadranacademy.org' },
-    { role: 'admin', name: 'Zev Reisman', email: 'zreisman@hadranacademy.org' },
-    { role: 'admin', name: 'Eli Stern', email: 'estern@hadranacademy.org' },
-    { role: 'therapist', name: 'Shelly Wagschal', email: 'swagschal@hadranacademy.org' },
-    { role: 'therapist', name: 'Aryeh Schechter', email: 'aschechter@hadranacademy.org' },
-    { role: 'therapist', name: 'Tzvi Malks', email: 'tmalks@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Ehrnreich', email: 'rehrnreich@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Weiss', email: 'rweiss@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Hillel', email: 'rhillel@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Fried', email: 'rfried@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Blau', email: 'rblau@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Abramowitz', email: 'rabramowitz@hadranacademy.org' },
-    { role: 'store', name: 'Canteen Register', email: 'register@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Klein', email: 'rklein@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Schults', email: 'rschults@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Schimborski', email: 'rschimborski@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Goldstein', email: 'rgoldstein@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Lefkowitz', email: 'rlefkowitz@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Ambush', email: 'rambush@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Abowitz', email: 'rabowitz@hadranacademy.org' },
-    { role: 'therapist', name: 'Yitzi Liebowitz', email: 'yliebowitz@hadranacademy.org' },
-    { role: 'therapist', name: 'Mrs. Goldberg', email: 'mgoldberg@hadranacademy.org' },
-  ]
-  const filtered = emailInput.length > 1 ? accounts.filter(a => a.email.toLowerCase().includes(emailInput.toLowerCase()) || a.name.toLowerCase().includes(emailInput.toLowerCase())) : []
-  function selectAccount(acc: { role: string; name: string; email: string }) {
-    setEmailInput(acc.email)
+  const [errorMessage, setErrorMessage] = useState('')
+  const accounts = useMemo(() => createLoginAccounts([
+    { role: 'admin', name: 'Rabbi Baum' },
+    { role: 'admin', name: 'Eli Bloom' },
+    { role: 'admin', name: 'Zev Reisman' },
+    { role: 'admin', name: 'Eli Stern' },
+    { role: 'therapist', name: 'Shelly Wagschal' },
+    { role: 'therapist', name: 'Aryeh Schechter' },
+    { role: 'therapist', name: 'Tzvi Malks' },
+    { role: 'admin', name: 'Rabbi Ehrnreich' },
+    { role: 'admin', name: 'Rabbi Weiss' },
+    { role: 'admin', name: 'Rabbi Hillel' },
+    { role: 'admin', name: 'Rabbi Fried' },
+    { role: 'admin', name: 'Rabbi Blau' },
+    { role: 'admin', name: 'Rabbi Abramowitz' },
+    { role: 'store', name: 'Canteen Register' },
+    { role: 'teacher', name: 'Rabbi Klein' },
+    { role: 'teacher', name: 'Rabbi Schults' },
+    { role: 'teacher', name: 'Rabbi Schimborski' },
+    { role: 'teacher', name: 'Rabbi Goldstein' },
+    { role: 'admin', name: 'Rabbi Lefkowitz' },
+    { role: 'teacher', name: 'Rabbi Ambush' },
+    { role: 'teacher', name: 'Rabbi Abowitz' },
+    { role: 'therapist', name: 'Yitzi Liebowitz' },
+    { role: 'therapist', name: 'Mrs. Goldberg' },
+  ]), [])
+  const filtered = useMemo(() => getMatchingLoginAccounts(accounts, userInput, role), [accounts, role, userInput])
+  const normalizedUserInput = userInput.trim().toLowerCase()
+  const duplicateLastNameMatches = useMemo(() => {
+    if (!normalizedUserInput || filtered.length < 2) return []
+    return filtered.filter(account => getLastName(account.name).trim().toLowerCase() === normalizedUserInput)
+  }, [filtered, normalizedUserInput])
+
+  function selectAccount(acc: DemoLoginAccount) {
+    setSelectedAccount(acc)
+    setUserInput(acc.name)
     setRole(acc.role)
     setShowSuggestion(false)
+    setErrorMessage('')
   }
+
+  function changeRole(nextRole: string) {
+    setRole(nextRole)
+    setSelectedAccount(null)
+    setUserInput('')
+    setShowSuggestion(false)
+    setErrorMessage('')
+  }
+
   function handleLogin() {
-    const acc = accounts.find(a => a.email === emailInput) || accounts.find(a => a.role === role)
-    if (acc) onLogin(acc.role, acc.name)
+    if (!selectedAccount) {
+      setErrorMessage('Please select one exact user from the list before signing in.')
+      return
+    }
+
+    const exactMatch = accounts.find(account => account.id === selectedAccount.id)
+    if (!exactMatch) {
+      setErrorMessage('Please select one exact user from the list before signing in.')
+      return
+    }
+
+    onLogin(exactMatch.role, exactMatch.name)
   }
 
   const loginInputStyle = { width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid #d8dee9', fontSize: 14, boxSizing: 'border-box' as const, background: '#fbfdff', color: '#172033', outline: 'none' }
@@ -80,33 +110,46 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             <div style={loginLabelStyle}>Sign in as</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
               {[['admin','Admin'],['teacher','Teacher'],['therapist','Therapist'],['store','Canteen']].map(([r, label]) => (
-                <button key={r} onClick={() => setRole(r)} style={{ padding: '11px 8px', borderRadius: 12, border: `1px solid ${role === r ? '#172033' : '#d8dee9'}`, background: role === r ? '#172033' : '#f8fafc', color: role === r ? '#fff' : '#475569', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', boxShadow: role === r ? '0 8px 18px rgba(15,23,42,0.16)' : 'none' }}>{label}</button>
+                <button key={r} onClick={() => changeRole(r)} style={{ padding: '11px 8px', borderRadius: 12, border: `1px solid ${role === r ? '#172033' : '#d8dee9'}`, background: role === r ? '#172033' : '#f8fafc', color: role === r ? '#fff' : '#475569', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', boxShadow: role === r ? '0 8px 18px rgba(15,23,42,0.16)' : 'none' }}>{label}</button>
               ))}
             </div>
           </div>
 
           <div style={{ marginBottom: 16, position: 'relative' }}>
-            <div style={loginLabelStyle}>Email</div>
-            <input value={emailInput} onChange={e => { setEmailInput(e.target.value); setShowSuggestion(true) }} onFocus={() => setShowSuggestion(true)} placeholder="Start typing name or email" style={loginInputStyle} />
+            <div style={loginLabelStyle}>User</div>
+            <input
+              value={userInput}
+              onChange={e => {
+                setUserInput(e.target.value)
+                setSelectedAccount(null)
+                setErrorMessage('')
+                setShowSuggestion(true)
+              }}
+              onFocus={() => setShowSuggestion(true)}
+              placeholder="Start typing your last name"
+              style={loginInputStyle}
+            />
             {showSuggestion && filtered.length > 0 && (
               <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, background: '#fff', border: '1px solid #d8dee9', borderRadius: 14, boxShadow: '0 18px 36px rgba(15,23,42,0.14)', zIndex: 10, overflow: 'hidden' }}>
-                {filtered.map((acc, i) => (
-                  <div key={i} onClick={() => selectAccount(acc)} style={{ padding: '11px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13 }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                {filtered.map((acc) => (
+                  <div key={acc.id} onClick={() => selectAccount(acc)} style={{ padding: '11px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13 }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
                     <div style={{ fontWeight: 700, color: '#172033' }}>{acc.name}</div>
-                    <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>{acc.email}</div>
+                    <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>{acc.roleLabel}</div>
                   </div>
                 ))}
               </div>
             )}
+            {showSuggestion && filtered.length === 0 && userInput.trim().length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#9f1239' }}>No exact match found. Type a last name and choose one result.</div>
+            )}
+            {duplicateLastNameMatches.length > 1 && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>Multiple users share this last name. Choose one exact result from the list.</div>
+            )}
+            {errorMessage && <div style={{ marginTop: 8, fontSize: 12, color: '#9f1239' }}>{errorMessage}</div>}
           </div>
 
-          <div style={{ marginBottom: 26 }}>
-            <div style={loginLabelStyle}>Password</div>
-            <input type="password" defaultValue="••••••••••" style={loginInputStyle} />
-          </div>
-
-          <button onClick={handleLogin} style={{ width: '100%', padding: '14px', borderRadius: 13, border: 'none', background: '#172033', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: '0 14px 26px rgba(15,23,42,0.18)' }}>Sign In</button>
-          <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', marginTop: 22 }}>Need help? Contact admin@hadranacademy.org</div>
+          <button onClick={handleLogin} disabled={!selectedAccount} style={{ width: '100%', padding: '14px', borderRadius: 13, border: 'none', background: selectedAccount ? '#172033' : '#cbd5e1', color: '#fff', fontSize: 15, fontWeight: 700, cursor: selectedAccount ? 'pointer' : 'not-allowed', boxShadow: selectedAccount ? '0 14px 26px rgba(15,23,42,0.18)' : 'none' }}>Sign In</button>
+          <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', marginTop: 22 }}>Select a demo user from the list above to continue.</div>
         </div>
       </div>
     </div>

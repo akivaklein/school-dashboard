@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import StudentNotes from './StudentNotes'
 import { resolveActorName } from './dashboardData'
-import { getStudentNavigationPair } from './studentProfileNavigation'
+import { getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
 
 export default function StudentProfile({
   student,
@@ -42,13 +42,18 @@ export default function StudentProfile({
   const availableTabs = isTeacherRole
     ? ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes']
     : ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes','info']
-  const s = students.find(x => x.id === student.id)
+  const s = getStudentById(students, student.id) || student
   const { previous, next } = getStudentNavigationPair(students, s?.id)
+  const normalizedStudent = normalizeStudentProfileFields(s)
   const improvement = getImprovement(s)
   const vip = isVIP(s)
-  const absCount = s.att.filter(d => d === 'A').length
-  const lateCount = s.att.filter(d => d === 'L').length
-  const lastCall = s.parentCalls.length > 0 ? s.parentCalls[s.parentCalls.length - 1] : null
+  const att = normalizedStudent.att
+  const breakfast = normalizedStudent.breakfast
+  const parentCalls = normalizedStudent.parentCalls
+  const behaviorLog = normalizedStudent.behaviorLog
+  const absCount = att.filter(d => d === 'A').length
+  const lateCount = att.filter(d => d === 'L').length
+  const lastCall = parentCalls.length > 0 ? parentCalls[parentCalls.length - 1] : null
   const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
   const reversedEventIds = new Set(
     pointsEvents
@@ -90,11 +95,11 @@ export default function StudentProfile({
       notes: callNotes,
       duration: callDuration,
     }
-    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: [...x.parentCalls, newCall] } : x))
+    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: [...(Array.isArray(x.parentCalls) ? x.parentCalls : []), newCall] } : x))
     
     // Persist to database
     if (persistStudentFields) {
-      const updatedCalls = [...s.parentCalls, newCall]
+      const updatedCalls = [...parentCalls, newCall]
       persistStudentFields(s.id, { parentCalls: updatedCalls })
     }
     
@@ -152,7 +157,7 @@ export default function StudentProfile({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={S.card}>
                   <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>This Week Summary</div>
-                  {[['Present days', s.att.filter(d=>d==='P').length+'/6'],['Late arrivals', lateCount],['Absences', absCount],['Points', s.points+' pts'],['Reminders', s.reminders],['Last call', lastCall ? daysSince(lastCall.date)+'d ago' : 'Never']].map(([label, val]) => (
+                  {[['Present days', att.filter(d=>d==='P').length+'/6'],['Late arrivals', lateCount],['Absences', absCount],['Points', s.points+' pts'],['Reminders', s.reminders],['Last call', lastCall ? daysSince(lastCall.date)+'d ago' : 'Never']].map(([label, val]) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f8fafc', fontSize: 13 }}>
                       <span style={{ color: '#64748b' }}>{label}</span><span style={{ fontWeight: 600 }}>{val}</span>
                     </div>
@@ -169,7 +174,7 @@ export default function StudentProfile({
                       {DAYS.map((day, i) => (
                         <div key={day} style={{ flex: 1, textAlign: 'center' }}>
                           <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>{day}</div>
-                          <div style={{ width: 28, height: 28, borderRadius: 6, background: s.att[i]==='P'?'#dcfce7':s.att[i]==='A'?'#fee2e2':'#dbeafe', color: s.att[i]==='P'?'#56765f':s.att[i]==='A'?'#9f1239':'#4f6687', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, margin: '0 auto' }}>{s.att[i]}</div>
+                          <div style={{ width: 28, height: 28, borderRadius: 6, background: att[i]==='P'?'#dcfce7':att[i]==='A'?'#fee2e2':'#dbeafe', color: att[i]==='P'?'#56765f':att[i]==='A'?'#9f1239':'#4f6687', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, margin: '0 auto' }}>{att[i]}</div>
                         </div>
                       ))}
                     </div>
@@ -195,11 +200,11 @@ export default function StudentProfile({
                       <td style={{ padding: 10 }}>{day}</td>
                       <td style={{ padding: 10, textAlign: 'center' }}>
                         <span style={S.badge(
-                          s.att[i]==='P'?'#4b6854':s.att[i]==='A'?'#9f1239':s.att[i]==='LE'?'#5b5f7a':'#1d4ed8',
-                          s.att[i]==='P'?'#dcfce7':s.att[i]==='A'?'#fee2e2':s.att[i]==='LE'?'#f5f3ff':'#dbeafe'
-                        )}>{s.att[i]==='P'?'Present':s.att[i]==='A'?'Absent':s.att[i]==='LE'?'Left Early':'Late'}</span>
+                          att[i]==='P'?'#4b6854':att[i]==='A'?'#9f1239':att[i]==='LE'?'#5b5f7a':'#1d4ed8',
+                          att[i]==='P'?'#dcfce7':att[i]==='A'?'#fee2e2':att[i]==='LE'?'#f5f3ff':'#dbeafe'
+                        )}>{att[i]==='P'?'Present':att[i]==='A'?'Absent':att[i]==='LE'?'Left Early':'Late'}</span>
                       </td>
-                      <td style={{ padding: 10, textAlign: 'center' }}><span style={S.badge(s.breakfast[i]==='Y'?'#4b6854':'#9f1239', s.breakfast[i]==='Y'?'#dcfce7':'#fee2e2')}>{s.breakfast[i]==='Y'?'✓ Breakfast':'✗ Skipped'}</span></td>
+                      <td style={{ padding: 10, textAlign: 'center' }}><span style={S.badge(breakfast[i]==='Y'?'#4b6854':'#9f1239', breakfast[i]==='Y'?'#dcfce7':'#fee2e2')}>{breakfast[i]==='Y'?'✓ Breakfast':'✗ Skipped'}</span></td>
                     </tr>
                   ))}
                 </tbody>
@@ -219,7 +224,7 @@ export default function StudentProfile({
               </div>
               <div style={S.card}>
                 <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>Behavior Log</div>
-                {s.behaviorLog.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 13 }}>No events yet.</div> : s.behaviorLog.map((b, i) => (
+                {behaviorLog.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 13 }}>No events yet.</div> : behaviorLog.map((b, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f8fafc', fontSize: 13 }}>
                     <span>{b.label}</span><span style={{ fontWeight: 700, color: b.points > 0 ? '#4b6854' : '#9f1239' }}>{b.points > 0 ? '+' : ''}{b.points}</span><span style={{ color: '#94a3b8' }}>{b.date}</span>
                   </div>

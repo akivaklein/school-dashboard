@@ -98,6 +98,7 @@ import {
 } from '../utils/attendancePresence'
 import DrillDown from './dashboard/DrillDown'
 import LoginPage from './dashboard/LoginPage'
+import { buildLoginAccountRoleLabel } from './dashboard/loginUserSearch'
 import TrackingTabView from './dashboard/TrackingTab'
 import StaffLoginPanel from './StaffLoginPanel'
 import StaffManagementModal from './StaffManagementModal'
@@ -4346,7 +4347,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         </div>
 
         <div style={{ marginTop: 'auto', padding: '12px 8px 0', borderTop: '1px solid #dbe5f0', marginTop: 14 }}>
-          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>{userName}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#0f2942', marginBottom: 2 }}>{userName || 'Signed in user'}</div>
+          <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 8 }}>{buildLoginAccountRoleLabel(role)}</div>
           {role === 'admin' && (
             <button
               onClick={() => setShowLoginActivity(true)}
@@ -4359,7 +4361,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             onClick={handleLogout}
             style={{ width: '100%', textAlign: 'left', border: '1px solid #dbe5f0', background: '#ffffff', color: '#334155', borderRadius: 7, padding: '7px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
           >
-            Logout
+            Sign Out / Switch User
           </button>
         </div>
       </div>

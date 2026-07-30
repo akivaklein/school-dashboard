@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getStudentNavigationPair } from '../studentProfileNavigation'
+import { getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from '../studentProfileNavigation'
 
 describe('getStudentNavigationPair', () => {
   it('returns the previous and next students in the current display order', () => {
@@ -24,6 +24,21 @@ describe('getStudentNavigationPair', () => {
     expect(getStudentNavigationPair(students, 1)).toEqual({
       previous: null,
       next: { id: 2, name: 'Ben' },
+    })
+  })
+
+  it('matches students even when ids are stored as different primitives', () => {
+    const students = [{ id: 1, name: 'Yair Bloom' }]
+
+    expect(getStudentById(students, '1')).toEqual({ id: 1, name: 'Yair Bloom' })
+  })
+
+  it('normalizes missing attendance fields to safe empty arrays', () => {
+    expect(normalizeStudentProfileFields({ id: '1', name: 'Yair Bloom' })).toEqual({
+      att: [],
+      breakfast: [],
+      parentCalls: [],
+      behaviorLog: [],
     })
   })
 })
