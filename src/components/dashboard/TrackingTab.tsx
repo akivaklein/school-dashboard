@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { StudentLike, StaffMemberLike, AttendanceHistoryEntry } from '../Dashboard'
+import { DEMO_TRACKING_HISTORY_KEYS_BY_NAME } from '../dashboardData'
 
 function formatMinutes(total: number) {
   const hours = Math.floor(total / 60)
@@ -70,11 +71,35 @@ export function normalizeHistoryEntries(rawHistory: unknown): AttendanceHistoryE
     }))
 }
 
+export function resolveRawHistory(
+  historicalData: Record<string | number, unknown> | undefined | null,
+  student: Pick<StudentLike, 'id' | 'name'>,
+): unknown {
+  if (!historicalData) return undefined
+
+  const directByStringId = historicalData[String(student.id)]
+  if (directByStringId) return directByStringId
+
+  const directByNumericId = historicalData[Number(student.id)]
+  if (directByNumericId) return directByNumericId
+
+  const normalizedName = String(student.name || '').trim().toLowerCase()
+  if (!normalizedName) return undefined
+
+  const historyKey = DEMO_TRACKING_HISTORY_KEYS_BY_NAME[normalizedName]
+  if (!historyKey) return undefined
+
+  return historicalData[historyKey]
+}
+
 export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_DATA }: TrackingTabProps) {
   const [period, setPeriod] = useState('today')
   const [drillType, setDrillType] = useState<string | null>(null)
   const student = students.find((x: StudentLike) => x.id === s.id) || s
-  const rawHistory = (HISTORICAL_DATA as Record<string | number, unknown> | undefined | null)?.[String(student.id)]
+  const rawHistory = resolveRawHistory(HISTORICAL_DATA as Record<string | number, unknown> | undefined | null, {
+    id: student.id,
+    name: student.name,
+  })
   const histData: AttendanceHistoryEntry[] = normalizeHistoryEntries(rawHistory)
 
   const filterData = () => {

@@ -1540,6 +1540,13 @@ export const yeshivaKetanaStudents = [
 ]
 initialStudents.push(...yeshivaKetanaStudents)
 
+export const DEMO_TRACKING_HISTORY_KEYS_BY_NAME = Object.keys(HISTORICAL_DATA).reduce<Record<string, string>>((acc, key) => {
+  const student = initialStudents.find(item => String(item.id) === String(key))
+  if (!student?.name) return acc
+  acc[String(student.name).trim().toLowerCase()] = String(key)
+  return acc
+}, {})
+
 const student105 = initialStudents.find(s => s.id === 105)
 if (student105) student105.dailyStatus = 'absent'
 const student107 = initialStudents.find(s => s.id === 107)

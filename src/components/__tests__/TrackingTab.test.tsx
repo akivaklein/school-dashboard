@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import TrackingTab from '../dashboard/TrackingTab'
-import { HISTORICAL_DATA } from '../dashboardData'
+import TrackingTab, { resolveRawHistory } from '../dashboard/TrackingTab'
+import { DEMO_TRACKING_HISTORY_KEYS_BY_NAME, HISTORICAL_DATA } from '../dashboardData'
 
 function makeStudent(id: number, name: string) {
   return {
@@ -27,6 +27,20 @@ function makeStudent(id: number, name: string) {
 }
 
 describe('TrackingTab', () => {
+  it('resolves demo fixture history by student name when IDs differ', () => {
+    const raw = resolveRawHistory(HISTORICAL_DATA as any, {
+      id: 'supabase-student-xyz',
+      name: 'Levitz Avrohom',
+    } as any)
+
+    expect(Array.isArray(raw)).toBe(true)
+    expect((raw as any[]).length).toBeGreaterThan(0)
+  })
+
+  it('exposes name->history key mapping for showcase demo students', () => {
+    expect(DEMO_TRACKING_HISTORY_KEYS_BY_NAME['levitz avrohom']).toBe('6')
+  })
+
   it('preserves demo tracking data for Avrohom Levitz', () => {
     const student = makeStudent(6, 'Levitz Avrohom')
 
@@ -54,6 +68,27 @@ describe('TrackingTab', () => {
     expect(markup).toContain('Unaccounted')
   })
 
+  it('renders rich demo tracking data for another showcase student', () => {
+    const student = makeStudent(12, 'Ettlinger Moshe')
+
+    const markup = renderToStaticMarkup(
+      <TrackingTab
+        s={student}
+        students={[student]}
+        staffMembers={[]}
+        S={{
+          card: {},
+          statCard: () => ({}),
+          badge: () => ({}),
+        }}
+        HISTORICAL_DATA={HISTORICAL_DATA as any}
+      />,
+    )
+
+    expect(markup).toContain('Ezriel + Dovid')
+    expect(markup).not.toContain('No tracking data yet.')
+  })
+
   it('renders safely for Yair Bloom when history is missing', () => {
     const student = makeStudent(1, 'Yair Bloom')
 
@@ -76,6 +111,7 @@ describe('TrackingTab', () => {
 
   it('keeps Yair Bloom empty in the demo fixture source', () => {
     expect((HISTORICAL_DATA as Record<string, unknown>)['1']).toBeUndefined()
+    expect(DEMO_TRACKING_HISTORY_KEYS_BY_NAME['bloom yair']).toBeUndefined()
   })
 
   it('renders safely for Yair Bloom when history shape is different', () => {

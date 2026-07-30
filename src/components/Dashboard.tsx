@@ -5026,6 +5026,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         isVIP={checkIsVIP}
         getImprovement={getImprovement}
         daysSince={daysSince}
+        HISTORICAL_DATA={HISTORICAL_DATA}
         TrackingTab={TrackingTabView}
         pointsEvents={selectedStudentPointsEvents}
         onUndoPointsEvent={undoPointsEvent}
