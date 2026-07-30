@@ -7,6 +7,7 @@ describe('getDashboardContextInfo', () => {
       roleLabel: 'Teacher',
       pageLabel: 'Attendance',
       divisionLabel: 'Mesivta',
+      contextSummary: 'Attendance · Teacher · Mesivta',
     })
   })
 })
