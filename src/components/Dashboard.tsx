@@ -1508,9 +1508,35 @@ interface DashboardProps {
 
 const AUTH_USER_STORAGE_KEY = 'schoolDashboardAuthUser'
 const ATTENDANCE_RESET_STORAGE_KEY = 'schoolDashboardLastAttendanceResetDate'
+const DASHBOARD_NAV_STATE_STORAGE_KEY = 'schoolDashboardNavStateV1'
+const STUDENT_PROFILE_TAB_STORAGE_KEY = 'schoolDashboardStudentProfileTab'
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function readDashboardNavState(): {
+  majorSection?: string
+  currentPage?: string
+  divisionView?: string
+} {
+  try {
+    const raw = localStorage.getItem(DASHBOARD_NAV_STATE_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed !== null ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function readStoredStudentProfileTab(): string {
+  try {
+    const tab = localStorage.getItem(STUDENT_PROFILE_TAB_STORAGE_KEY)
+    return tab || 'overview'
+  } catch {
+    return 'overview'
+  }
 }
 
 export default function Dashboard({ teacherUser, onTeacherSessionLogout }: DashboardProps) {
@@ -1534,6 +1560,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [staffLoadError, setStaffLoadError] = useState<string | null>(null)
   const fallbackSyncInFlightRef = useRef(false)
   const storePurchaseAttemptKeysRef = useRef<Record<string, string>>({})
+  const navRestoreAppliedRef = useRef(false)
+  const lastSchoolDayPageRef = useRef('attendance')
   const skipNextStudentFlagsPersistRef = useRef(false)
   const [realtimeNotice, setRealtimeNotice] = useState<{ scope: string; at: number } | null>(null)
 
@@ -2438,7 +2466,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [attendanceReportStudentId, setAttendanceReportStudentId] = useState('all')
   const [attendanceReportSearch, setAttendanceReportSearch] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<StudentLike | null>(null)
-  const [selectedStudentTab, setSelectedStudentTab] = useState('overview')
+  const [selectedStudentTab, setSelectedStudentTab] = useState(() => readStoredStudentProfileTab())
   const [selectedStudentPointsEvents, setSelectedStudentPointsEvents] = useState<PointsEventRecord[]>([])
 
   useEffect(() => {
@@ -4228,6 +4256,191 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         ? 'Points'
         : 'Shared records'
 
+  const roleNavConfig = role === 'admin'
+    ? {
+        topAreas: [
+          { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
+          { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students', 'academics'] },
+          { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'store', 'calls', 'intake', 'teaching-mode'] },
+          { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior', 'alerts'] },
+          { id: 'reports', label: 'Reports', defaultPage: 'todo', pages: ['todo'] },
+          { id: 'setup', label: 'Setup', defaultPage: 'setup', pages: ['setup', 'staff-directory', 'therapists'] },
+        ],
+        submenuByArea: {
+          dashboard: [{ id: 'dashboard', label: 'Dashboard' }],
+          students: [
+            { id: 'students', label: 'Students List' },
+            { id: 'academics', label: 'Academics' },
+          ],
+          'school-day': [
+            { id: 'attendance', label: 'Attendance' },
+            { id: 'schedule', label: 'Schedule' },
+            { id: 'teaching-mode', label: 'Teaching Mode' },
+            { id: 'store', label: 'Token Store' },
+            { id: 'calls', label: 'Parent Calls' },
+            { id: 'intake', label: 'Intake' },
+          ],
+          support: [
+            { id: 'support', label: 'Support Overview' },
+            { id: 'behavior', label: 'Behavior' },
+            { id: 'alerts', label: 'Alerts' },
+          ],
+          reports: [{ id: 'todo', label: 'To-Do Queue' }],
+          setup: [
+            { id: 'setup', label: 'Setup Center' },
+            { id: 'staff-directory', label: 'Staff Directory' },
+            { id: 'therapists', label: 'Therapist Assignments' },
+          ],
+        } as Record<string, Array<{ id: string; label: string }>>,
+      }
+    : role === 'teacher' || role === 'rebbe'
+      ? {
+          topAreas: [
+            { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
+            { id: 'students', label: 'Students', defaultPage: 'academics', pages: ['academics'] },
+            { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'teaching-mode', 'store'] },
+            { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
+          ],
+          submenuByArea: {
+            dashboard: [{ id: 'dashboard', label: 'My Class' }],
+            students: [{ id: 'academics', label: 'Academics' }],
+            'school-day': [
+              { id: 'attendance', label: 'Attendance' },
+              { id: 'schedule', label: 'Schedule' },
+              { id: 'teaching-mode', label: 'Teaching Mode' },
+              { id: 'store', label: 'Token Store' },
+            ],
+            support: [{ id: 'support', label: 'Support Overview' }],
+          } as Record<string, Array<{ id: string; label: string }>>,
+        }
+      : role === 'store'
+        ? {
+            topAreas: [
+              { id: 'school-day', label: 'School Day', defaultPage: 'store', pages: ['store', 'teaching-mode'] },
+            ],
+            submenuByArea: {
+              'school-day': [
+                { id: 'store', label: 'Token Store' },
+                { id: 'teaching-mode', label: 'Teaching Mode' },
+              ],
+            } as Record<string, Array<{ id: string; label: string }>>,
+          }
+        : {
+            topAreas: [
+              { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
+              { id: 'school-day', label: 'School Day', defaultPage: 'schedule', pages: ['schedule', 'teaching-mode'] },
+              { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
+            ],
+            submenuByArea: {
+              dashboard: [{ id: 'dashboard', label: 'My Students' }],
+              'school-day': [
+                { id: 'schedule', label: 'Schedule' },
+                { id: 'teaching-mode', label: 'Teaching Mode' },
+              ],
+              support: [{ id: 'support', label: 'Support Overview' }],
+            } as Record<string, Array<{ id: string; label: string }>>,
+          }
+
+  const topAreas = roleNavConfig.topAreas
+  const submenuByArea = roleNavConfig.submenuByArea
+  const useTwoLevelNav = true
+  const activeTopArea = topAreas.find(area => area.pages.includes(page))?.id || topAreas[0]?.id || 'dashboard'
+  const submenuItems = submenuByArea[activeTopArea] || []
+  const pageLabelById = Object.values(submenuByArea)
+    .flat()
+    .reduce<Record<string, string>>((acc, item) => {
+      acc[item.id] = item.label
+      return acc
+    }, {})
+
+  const schoolDayArea = topAreas.find(area => area.id === 'school-day') || null
+  const defaultSchoolDayPage = schoolDayArea?.defaultPage || 'attendance'
+
+  function navigateToPage(nextPage: string) {
+    if (nextPage !== 'teaching-mode') {
+      setTeachingMode(false)
+    }
+    setPage(nextPage)
+  }
+
+  function openTeachingMode() {
+    if (schoolDayArea?.pages.includes(page) && page !== 'teaching-mode') {
+      lastSchoolDayPageRef.current = page
+    } else if (!lastSchoolDayPageRef.current) {
+      lastSchoolDayPageRef.current = defaultSchoolDayPage
+    }
+
+    setPage('teaching-mode')
+    setTeachingMode(true)
+  }
+
+  function closeTeachingModeToSchoolDay() {
+    const fallbackPage = schoolDayArea?.pages.includes(lastSchoolDayPageRef.current)
+      ? lastSchoolDayPageRef.current
+      : defaultSchoolDayPage
+
+    setTeachingMode(false)
+    setPage(fallbackPage)
+  }
+
+  useEffect(() => {
+    if (!loggedIn) {
+      navRestoreAppliedRef.current = false
+      return
+    }
+
+    if (navRestoreAppliedRef.current) return
+
+    const stored = readDashboardNavState()
+    const allowedPages = new Set(topAreas.flatMap(area => area.pages))
+
+    if (stored.currentPage && allowedPages.has(stored.currentPage)) {
+      setPage(stored.currentPage)
+    } else if (stored.majorSection) {
+      const section = topAreas.find(area => area.id === stored.majorSection)
+      if (section) {
+        setPage(section.defaultPage)
+      }
+    }
+
+    if (stored.divisionView) {
+      const access = getUserAccess(userName, role)
+      const validDivisionValues = new Set(
+        access.divisions.length > 1 ? ['all', ...access.divisions] : access.divisions,
+      )
+      if (validDivisionValues.has(stored.divisionView)) {
+        setDivisionView(stored.divisionView)
+      }
+    }
+
+    navRestoreAppliedRef.current = true
+  }, [loggedIn, role, userName, topAreas])
+
+  useEffect(() => {
+    if (!loggedIn) return
+
+    try {
+      localStorage.setItem(
+        DASHBOARD_NAV_STATE_STORAGE_KEY,
+        JSON.stringify({
+          majorSection: activeTopArea,
+          currentPage: page,
+          divisionView,
+        }),
+      )
+    } catch (error) {
+      console.error('Failed to persist dashboard nav state:', error)
+    }
+  }, [loggedIn, activeTopArea, page, divisionView])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STUDENT_PROFILE_TAB_STORAGE_KEY, selectedStudentTab)
+    } catch (error) {
+      console.error('Failed to persist student profile tab:', error)
+    }
+  }, [selectedStudentTab])
+
   if (!loggedIn) {
     return (
       <div>
@@ -4286,7 +4499,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       students={studentsForCurrentRole}
       allStudents={students}
       setStudents={setStudents}
-      onExit={() => setTeachingMode(false)}
+      onExit={closeTeachingModeToSchoolDay}
       isAdmin={role === 'admin'}
       role={role}
       userName={userName}
@@ -4392,85 +4605,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     return order[a.type] - order[b.type]
   })
 
-  const adminNav = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'DB' },
-    { id: 'support', label: `Student Support (${alerts.length})`, icon: 'SS' },
-    { id: 'attendance', label: 'Attendance', icon: 'AT' },
-    { id: 'academics', label: 'Academics', icon: 'AC' },
-    { id: 'store', label: 'Token Store', icon: 'TS' },
-    { id: 'todo', label: 'To-Do List', icon: 'TD' },
-    { id: 'intake', label: 'Intake / Admissions', icon: 'IA' },
-    { id: 'setup', label: 'Setup Center', icon: 'SE' },
-  ]
-  const teacherNav = [
-    { id: 'dashboard', label: 'My Class', icon: 'MC' },
-    { id: 'support', label: `Student Support (${alerts.length})`, icon: 'SS' },
-    { id: 'attendance', label: 'Attendance', icon: 'AT' },
-    { id: 'academics', label: 'Academics', icon: 'AC' },
-    { id: 'schedule', label: 'Schedule', icon: 'SC' },
-    { id: 'teaching-mode', label: 'Teaching Mode', icon: 'TM' },
-    { id: 'store', label: 'Token Store', icon: 'TS' },
-  ]
-  const therapistNav = [
-    { id: 'dashboard', label: 'My Students', icon: 'MS' },
-    { id: 'support', label: 'Student Support', icon: 'SS' },
-    { id: 'schedule', label: 'Schedule', icon: 'SC' },
-    { id: 'teaching-mode', label: 'Teaching Mode', icon: 'TM' },
-  ]
-  const storeNav = [
-    { id: 'store', label: 'Token Store', icon: 'TS' },
-    { id: 'teaching-mode', label: 'Teaching Mode', icon: 'TM' },
-  ]
-
-  const adminTopAreas = [
-    { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students', 'academics'] },
-    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'store', 'calls', 'intake'] },
-    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior', 'alerts'] },
-    { id: 'reports', label: 'Reports', defaultPage: 'todo', pages: ['todo'] },
-    { id: 'setup', label: 'Setup', defaultPage: 'setup', pages: ['setup', 'staff-directory', 'therapists'] },
-  ]
-
-  const adminSubmenuByArea: Record<string, Array<{ id: string; label: string }>> = {
-    dashboard: [{ id: 'dashboard', label: 'Dashboard' }],
-    students: [
-      { id: 'students', label: 'Students List' },
-      { id: 'academics', label: 'Academics' },
-    ],
-    'school-day': [
-      { id: 'attendance', label: 'Attendance' },
-      { id: 'schedule', label: 'Schedule' },
-      { id: 'teaching-mode', label: 'Teaching Mode' },
-      { id: 'store', label: 'Token Store' },
-      { id: 'calls', label: 'Parent Calls' },
-      { id: 'intake', label: 'Intake' },
-    ],
-    support: [
-      { id: 'support', label: 'Support Overview' },
-      { id: 'behavior', label: 'Behavior' },
-      { id: 'alerts', label: 'Alerts' },
-    ],
-    reports: [{ id: 'todo', label: 'To-Do Queue' }],
-    setup: [
-      { id: 'setup', label: 'Setup Center' },
-      { id: 'staff-directory', label: 'Staff Directory' },
-      { id: 'therapists', label: 'Therapist Assignments' },
-    ],
-  }
-
-  const navItems = role === 'admin' ? adminNav : (role === 'teacher' || role === 'rebbe') ? teacherNav : role === 'store' ? storeNav : therapistNav
-  const useTwoLevelAdminNav = role === 'admin'
-  const activeAdminTopArea = useTwoLevelAdminNav
-    ? adminTopAreas.find(area => area.pages.includes(page))?.id || 'dashboard'
-    : null
-  const adminSubmenuItems = useTwoLevelAdminNav
-    ? (adminSubmenuByArea[activeAdminTopArea || 'dashboard'] || []).filter(item => {
-      if (item.id === 'calls' || item.id === 'intake' || item.id === 'todo' || item.id === 'setup' || item.id === 'therapists') {
-        return role === 'admin'
-      }
-      return true
-    })
-    : []
   const showSetupSidebarOnly = page === 'setup' && role === 'admin'
   const setupNeedsDivisionSelector = showSetupSidebarOnly && (setupTab === 'assignments' || setupTab === 'therapy-schedule')
   const showSetupTopControls = studentFallbackPatchCount > 0 || (role === 'admin' && !showStaffPanel)
@@ -4488,6 +4622,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'classes-divisions', label: 'Classes & Divisions', icon: '🏫', group: 'School Structure' },
     { id: 'schedule-setup', label: 'Schedule Setup', icon: '🗓️', group: 'School Structure' },
   ]
+
   const normalizedSearch = String(search || '').trim().toLowerCase()
   const searchedStudents = normalizedSearch
     ? visibleStudents.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
@@ -4521,103 +4656,35 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           100% { opacity: 1; }
         }
       `}</style>
-      {!showSetupSidebarOnly && !useTwoLevelAdminNav && (
-      <div style={S.sidebar}>
-        <div style={S.sidebarLogo}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#f3f7fc', color: '#223046', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, boxShadow: 'inset 0 0 0 1px rgba(34,48,70,0.08)' }}>HA</div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}>Hadran Academy</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.62)', marginTop: 3 }}>{role === 'admin' && isOfficeUser ? 'Office Portal' : role === 'admin' ? 'Menahel Portal' : role === 'teacher' ? 'Teacher Portal' : role === 'store' ? 'Canteen Register' : 'Therapist Portal'}</div>
-            </div>
-          </div>
-        </div>
-        <div style={{ flex: 1, paddingTop: 4 }}>
-          {navItems.map(item => (
-            <div
-              key={item.id}
-              style={{
-                ...S.sidebarItem(page === item.id || (item.id === 'teaching-mode' && teachingMode)),
-                transition: 'transform 160ms ease, background 160ms ease, box-shadow 160ms ease',
-                boxShadow: (page === item.id || (item.id === 'teaching-mode' && teachingMode)) ? 'inset 0 0 0 1px rgba(255,255,255,0.16), 0 10px 20px rgba(15,23,42,0.16)' : 'inset 0 0 0 1px rgba(255,255,255,0.04)',
-                transform: (page === item.id || (item.id === 'teaching-mode' && teachingMode)) ? 'translateX(2px)' : 'none',
-              }}
-              onClick={() => {
-                if (item.id === 'teaching-mode') {
-                  setTeachingMode(true)
-                  return
-                }
-                setPage(item.id)
-              }}
-            >
-              <span style={{ width: 26, height: 26, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, letterSpacing: '0.03em', background: (page === item.id || (item.id === 'teaching-mode' && teachingMode)) ? '#35506f' : 'rgba(255,255,255,0.10)', color: (page === item.id || (item.id === 'teaching-mode' && teachingMode)) ? '#fff' : 'rgba(255,255,255,0.78)', flexShrink: 0 }}>{item.icon}</span>
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {item.id === 'support' && alerts.filter(a => a.type === 'danger').length > 0 && (
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#9f1239', flexShrink: 0 }} />
-              )}
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 'auto', padding: '14px 16px 18px', borderTop: '1px solid rgba(255,255,255,0.10)', flexShrink: 0 }}>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 8 }}>{userName}</div>
-          {role === 'admin' && (
-            <button
-              onClick={() => setShowLoginActivity(true)}
-              style={{
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.78)',
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                cursor: 'pointer',
-                padding: '6px 8px',
-                borderRadius: 6,
-                width: '100%',
-                textAlign: 'left',
-                marginBottom: 6
-              }}
-            >
-              📊 Login Activity
-            </button>
-          )}
-          <button
-            onClick={handleLogout}
-            style={{
-              fontSize: 12,
-              color: 'rgba(255,255,255,0.78)',
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              cursor: 'pointer',
-              padding: '8px 10px',
-              borderRadius: 8,
-              width: '100%',
-              textAlign: 'left'
-            }}
-          >
-            ← Logout
-          </button>
-        </div>
-      </div>
-      )}
-
-      {!showSetupSidebarOnly && useTwoLevelAdminNav && (
+      {!showSetupSidebarOnly && useTwoLevelNav && (
       <div style={{ width: 216, background: '#f8fafc', borderRight: '1px solid #dbe5f0', padding: '14px 10px', boxSizing: 'border-box' }}>
         <div style={{ padding: '8px 8px 10px', marginBottom: 6 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#0f2942' }}>Hadran Academy</div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{isOfficeUser ? 'Office Portal' : 'Principal Portal'}</div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+            {role === 'admin' && isOfficeUser
+              ? 'Office Portal'
+              : role === 'admin'
+                ? 'Principal Portal'
+                : role === 'teacher' || role === 'rebbe'
+                  ? 'Teacher Portal'
+                  : role === 'store'
+                    ? 'Canteen Register'
+                    : 'Therapist Portal'}
+          </div>
         </div>
 
         <div style={{ display: 'grid', gap: 3 }}>
-          {adminSubmenuItems.map(item => {
+          {submenuItems.map(item => {
             const isActive = page === item.id || (item.id === 'teaching-mode' && teachingMode)
             return (
               <button
                 key={item.id}
                 onClick={() => {
                   if (item.id === 'teaching-mode') {
-                    setTeachingMode(true)
+                    openTeachingMode()
                     return
                   }
-                  setPage(item.id)
+                  navigateToPage(item.id)
                 }}
                 style={{
                   width: '100%',
@@ -4641,12 +4708,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
         <div style={{ marginTop: 'auto', padding: '12px 8px 0', borderTop: '1px solid #dbe5f0', marginTop: 14 }}>
           <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>{userName}</div>
-          <button
-            onClick={() => setShowLoginActivity(true)}
-            style={{ width: '100%', textAlign: 'left', border: '1px solid #dbe5f0', background: '#ffffff', color: '#334155', borderRadius: 7, padding: '7px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 6 }}
-          >
-            Login Activity
-          </button>
+          {role === 'admin' && (
+            <button
+              onClick={() => setShowLoginActivity(true)}
+              style={{ width: '100%', textAlign: 'left', border: '1px solid #dbe5f0', background: '#ffffff', color: '#334155', borderRadius: 7, padding: '7px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 6 }}
+            >
+              Login Activity
+            </button>
+          )}
           <button
             onClick={handleLogout}
             style={{ width: '100%', textAlign: 'left', border: '1px solid #dbe5f0', background: '#ffffff', color: '#334155', borderRadius: 7, padding: '7px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
@@ -4659,14 +4728,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
       <div style={mainStyle}>
         <div key={page} data-page-transition={pageTransition} style={{ maxWidth: 1180, marginLeft: 'auto', marginRight: 'auto', animation: pageTransition === 'enter' ? 'dashboardPageFade 180ms ease-out both' : 'none' }}>
-        {useTwoLevelAdminNav && (
+        {useTwoLevelNav && (
           <div style={{ marginBottom: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {adminTopAreas.map(area => {
-              const isActive = activeAdminTopArea === area.id
+            {topAreas.map(area => {
+              const isActive = activeTopArea === area.id
               return (
                 <button
                   key={area.id}
-                  onClick={() => setPage(area.defaultPage)}
+                  onClick={() => navigateToPage(area.defaultPage)}
                   style={{
                     border: 'none',
                     background: isActive ? '#dbe8f5' : '#ffffff',
@@ -4682,6 +4751,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                 </button>
               )
             })}
+          </div>
+        )}
+        {useTwoLevelNav && (
+          <div style={{ marginBottom: 14, fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+            {(topAreas.find(area => area.id === activeTopArea)?.label || 'Dashboard')}
+            {' > '}
+            {(page === 'teaching-mode' && teachingMode) ? 'Teaching Mode' : (pageLabelById[page] || page)}
           </div>
         )}
         {(!showSetupSidebarOnly || showSetupTopControls) && (
