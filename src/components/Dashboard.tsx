@@ -140,6 +140,8 @@ import {
   SCHEDULE_PERIODS,
   THERAPY_SCHEDULE,
   HISTORICAL_DATA,
+  DEMO_STORE_ACTIVITY,
+  DEMO_STUDENT_FLAGS,
   initialStudents,
   statusColor,
   statusLabel,
@@ -1824,39 +1826,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     loadStudents()
   }, [])
 
-  const [studentFlags, setStudentFlags] = useState<StudentFlagLike[]>([
-      {
-        id: 'flag-demo-1',
-        studentId: 16,
-        goal: 'Uses an appropriate break request before leaving his seat',
-        startDate: '2026-06-18',
-        endDate: '2026-06-30',
-        createdBy: 'Rabbi Baum',
-        createdAt: '2026-06-18',
-        completed: false,
-        observations: []
-      },
-      {
-        id: 'flag-demo-2',
-        studentId: 11,
-        goal: 'Begins assigned work within three minutes',
-        startDate: '2026-06-17',
-        endDate: '2026-06-26',
-        createdBy: 'Rabbi Klein',
-        createdAt: '2026-06-17',
-        completed: false,
-        observations: [
-          {
-            id: 'flag-demo-observation-1',
-            observed: true,
-            note: 'Started independently after one reminder.',
-            staffName: 'Rabbi Klein',
-            date: '2026-06-18',
-            time: '10:14 AM'
-          }
-        ]
-      }
-    ])
+  const [studentFlags, setStudentFlags] = useState<StudentFlagLike[]>(() =>
+    DEMO_STUDENT_FLAGS.map(flag => ({ ...flag, observations: Array.isArray(flag.observations) ? [...flag.observations] : [] } as StudentFlagLike)),
+  )
   const [studentFlagsLoaded, setStudentFlagsLoaded] = useState(false)
   const [studentFlagsPersistenceReady, setStudentFlagsPersistenceReady] = useState(false)
   const [supportInitialSection, setSupportInitialSection] = useState('overview')
@@ -2286,19 +2258,21 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
       setStoreItems(loadedItems.length > 0 ? loadedItems : STORE_ITEMS.slice())
       setPurchaseLog(
-        loadedRedemptions.map(redemption => ({
-          id: redemption.id,
-          time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-          studentId: redemption.studentId,
-          studentName: redemption.studentName,
-          itemName: redemption.itemName,
-          cost: redemption.cost,
-          staff: redemption.staffName,
-          division: String(redemption.metadata?.division || ''),
-        })),
+        loadedRedemptions.length > 0
+          ? loadedRedemptions.map(redemption => ({
+            id: redemption.id,
+            time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            studentId: redemption.studentId,
+            studentName: redemption.studentName,
+            itemName: redemption.itemName,
+            cost: redemption.cost,
+            staff: redemption.staffName,
+            division: String(redemption.metadata?.division || ''),
+          }))
+          : DEMO_STORE_ACTIVITY.slice(),
       )
       setStorePersistenceReady(true)
       setStoreSyncState('ready')
