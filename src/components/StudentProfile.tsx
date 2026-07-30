@@ -63,11 +63,11 @@ export default function StudentProfile({
       }
       setUndoFeedback({
         type: 'success',
-        message: `Undo complete for "${pendingUndoEvent.reason}".`,
+        message: `Undo completed for “${pendingUndoEvent.reason}”. The reversal is now visible in points history.`,
       })
       setPendingUndoEvent(null)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to undo this event right now.'
+      const message = error instanceof Error ? error.message : 'Unable to undo this event right now. Please try again.'
       setUndoFeedback({ type: 'error', message })
       setPendingUndoEvent(null)
     } finally {
@@ -423,14 +423,15 @@ export default function StudentProfile({
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 460, border: '1px solid #e2e8f0', boxShadow: '0 24px 70px rgba(15,23,42,0.22)' }}>
             <div style={{ padding: '16px 18px', borderBottom: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Confirm Undo</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>This will create a reversal entry in points history.</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Undo this points event?</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>This creates a reversal entry and adjusts the student’s points balance immediately.</div>
             </div>
             <div style={{ padding: '14px 18px' }}>
               <div style={{ fontSize: 12, color: '#334155', marginBottom: 6 }}>Event</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>{pendingUndoEvent.reason}</div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>
-                {pendingUndoEvent.points_delta > 0 ? '+' : ''}{pendingUndoEvent.points_delta} pts · {pendingUndoEvent.event_type}
+              <div style={{ fontSize: 12, color: '#64748b', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div>{pendingUndoEvent.reason}</div>
+                <div>{pendingUndoEvent.points_delta > 0 ? '+' : ''}{pendingUndoEvent.points_delta} pts · {pendingUndoEvent.event_type}</div>
               </div>
             </div>
             <div style={{ padding: '12px 18px 16px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

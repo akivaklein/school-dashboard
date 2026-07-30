@@ -3889,8 +3889,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         Number(student.id) !== Number(currentStudent.id)
           ? student
           : {
-              ...currentStudent,
-              token_balance: currentStudent.token_balance,
+              ...student,
+              points: Number(currentStudent.points || 0),
+              token_balance: Number(currentStudent.token_balance || 0),
+              reminders: Number(currentStudent.reminders || 0),
             }
       ))
 
