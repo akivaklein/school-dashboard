@@ -97,6 +97,7 @@ import StaffLoginPanel from './StaffLoginPanel'
 import StaffManagementModal from './StaffManagementModal'
 import LoginActivityView from './LoginActivityView'
 import { getLookupValue } from './dashboardUtils'
+import { getRoleNavConfig } from './dashboardNavConfig'
 
 import {
   STORE_ITEMS,
@@ -3956,90 +3957,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         ? 'Points'
         : 'Shared records'
 
-  const roleNavConfig = role === 'admin'
-    ? {
-        topAreas: [
-          { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-          { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students', 'academics'] },
-          { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'store', 'calls', 'intake', 'teaching-mode'] },
-          { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior', 'alerts'] },
-          { id: 'reports', label: 'Reports', defaultPage: 'todo', pages: ['todo'] },
-          { id: 'setup', label: 'Setup', defaultPage: 'setup', pages: ['setup', 'staff-directory', 'therapists'] },
-        ],
-        submenuByArea: {
-          dashboard: [{ id: 'dashboard', label: 'Dashboard' }],
-          students: [
-            { id: 'students', label: 'Students List' },
-            { id: 'academics', label: 'Academics' },
-          ],
-          'school-day': [
-            { id: 'attendance', label: 'Attendance' },
-            { id: 'schedule', label: 'Schedule' },
-            { id: 'teaching-mode', label: 'Teaching Mode' },
-            { id: 'store', label: 'Token Store' },
-            { id: 'calls', label: 'Parent Calls' },
-            { id: 'intake', label: 'Intake' },
-          ],
-          support: [
-            { id: 'support', label: 'Support Overview' },
-            { id: 'behavior', label: 'Behavior' },
-            { id: 'alerts', label: 'Alerts' },
-          ],
-          reports: [{ id: 'todo', label: 'To-Do Queue' }],
-          setup: [
-            { id: 'setup', label: 'Setup Center' },
-            { id: 'staff-directory', label: 'Staff Directory' },
-            { id: 'therapists', label: 'Therapist Assignments' },
-          ],
-        } as Record<string, Array<{ id: string; label: string }>>,
-      }
-    : role === 'teacher' || role === 'rebbe'
-      ? {
-          topAreas: [
-            { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-            { id: 'students', label: 'Students', defaultPage: 'academics', pages: ['academics'] },
-            { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'teaching-mode', 'store'] },
-            { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
-          ],
-          submenuByArea: {
-            dashboard: [{ id: 'dashboard', label: 'My Class' }],
-            students: [{ id: 'academics', label: 'Academics' }],
-            'school-day': [
-              { id: 'attendance', label: 'Attendance' },
-              { id: 'schedule', label: 'Schedule' },
-              { id: 'teaching-mode', label: 'Teaching Mode' },
-              { id: 'store', label: 'Token Store' },
-            ],
-            support: [{ id: 'support', label: 'Support Overview' }],
-          } as Record<string, Array<{ id: string; label: string }>>,
-        }
-      : role === 'store'
-        ? {
-            topAreas: [
-              { id: 'school-day', label: 'School Day', defaultPage: 'store', pages: ['store', 'teaching-mode'] },
-            ],
-            submenuByArea: {
-              'school-day': [
-                { id: 'store', label: 'Token Store' },
-                { id: 'teaching-mode', label: 'Teaching Mode' },
-              ],
-            } as Record<string, Array<{ id: string; label: string }>>,
-          }
-        : {
-            topAreas: [
-              { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-              { id: 'school-day', label: 'School Day', defaultPage: 'schedule', pages: ['schedule', 'teaching-mode'] },
-              { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
-            ],
-            submenuByArea: {
-              dashboard: [{ id: 'dashboard', label: 'My Students' }],
-              'school-day': [
-                { id: 'schedule', label: 'Schedule' },
-                { id: 'teaching-mode', label: 'Teaching Mode' },
-              ],
-              support: [{ id: 'support', label: 'Support Overview' }],
-            } as Record<string, Array<{ id: string; label: string }>>,
-          }
+  const roleNavConfig = getRoleNavConfig(role)
 
   const topAreas = roleNavConfig.topAreas
   const submenuByArea = roleNavConfig.submenuByArea
