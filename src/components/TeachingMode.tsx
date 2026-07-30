@@ -325,6 +325,7 @@ export default function TeachingMode({
   const [intervalHistory, setIntervalHistory] = useState([])
   const [intervalReminders, setIntervalReminders] = useState({}) // {studentId: reminders this interval}
   const [showSummary, setShowSummary] = useState(false)
+  const [showStartSessionConfirm, setShowStartSessionConfirm] = useState(false)
 
   // Timer
   useEffect(() => {
@@ -350,6 +351,7 @@ export default function TeachingMode({
     setIntervalSeconds(0)
     setIntervalReminders({})
     setIntervalHistory([])
+    setShowStartSessionConfirm(false)
   }
 
   function nextInterval() {
@@ -751,6 +753,21 @@ export default function TeachingMode({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#f8fafc', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
+
+      {showStartSessionConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', zIndex: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 420, boxShadow: '0 24px 70px rgba(15,23,42,0.22)', overflow: 'hidden' }}>
+            <div style={{ padding: '18px 20px', borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Start class session?</div>
+              <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>This begins a classroom session for the current roster and opens the interval reminders.</div>
+            </div>
+            <div style={{ padding: 18, display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowStartSessionConfirm(false)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>
+              <button onClick={startSession} style={{ ...S.btn('primary'), flex: 1 }}>Start Session</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Late to Class Popup */}
       {lateClassPopup && (
@@ -1447,7 +1464,7 @@ export default function TeachingMode({
           }}>
             {!sessionActive ? (
               <button
-                onClick={startSession}
+                onClick={() => setShowStartSessionConfirm(true)}
                 style={{
                   padding: '9px 16px',
                   borderRadius: 10,
