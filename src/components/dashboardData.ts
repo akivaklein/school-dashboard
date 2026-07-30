@@ -156,6 +156,89 @@ export const STORE_CATEGORY_OPTIONS = [
   { key: 'ices', label: 'Ices / Ice Cream' },
 ]
 
+export const DEMO_STORE_ACTIVITY = [
+  { id: 9001, time: '10:18 AM', studentId: 6, studentName: 'Levitz Avrohom', itemName: 'Water Bottle', cost: 8, staff: 'Eli Bloom', division: 'mesivta' },
+  { id: 9002, time: '10:42 AM', studentId: 12, studentName: 'Ettlinger Moshe', itemName: 'Pretzel Bag', cost: 15, staff: 'Zev Reisman', division: 'mesivta' },
+  { id: 9003, time: '11:25 AM', studentId: 103, studentName: 'Barber Chaim', itemName: 'Apple Juice Box', cost: 18, staff: 'Eli Stern', division: 'yeshiva_ketana' },
+  { id: 9004, time: '12:12 PM', studentId: 14, studentName: 'Feltman Daniel', itemName: 'Chocolate Chip Cookie', cost: 20, staff: 'Eli Bloom', division: 'mesivta' },
+  { id: 9005, time: '12:46 PM', studentId: 21, studentName: 'Moskowitz Meir Shulem', itemName: 'Icy Cup', cost: 12, staff: 'Zev Reisman', division: 'mesivta' },
+  { id: 9006, time: '01:18 PM', studentId: 108, studentName: 'Klein Yitzchok', itemName: 'Granola Bar', cost: 16, staff: 'Eli Stern', division: 'yeshiva_ketana' },
+]
+
+export const DEMO_STUDENT_FLAGS = [
+  {
+    id: 'flag-demo-1',
+    studentId: 16,
+    goal: 'Uses an appropriate break request before leaving his seat',
+    startDate: '2026-06-18',
+    endDate: '2026-06-30',
+    createdBy: 'Rabbi Baum',
+    createdAt: '2026-06-18',
+    completed: false,
+    observations: [
+      {
+        id: 'flag-demo-observation-0',
+        observed: false,
+        note: 'Left seat twice before requesting a break.',
+        staffName: 'Rabbi Schults',
+        date: '2026-06-19',
+        time: '10:12 AM',
+      },
+    ],
+  },
+  {
+    id: 'flag-demo-2',
+    studentId: 11,
+    goal: 'Begins assigned work within three minutes',
+    startDate: '2026-06-17',
+    endDate: '2026-06-26',
+    createdBy: 'Rabbi Klein',
+    createdAt: '2026-06-17',
+    completed: false,
+    observations: [
+      {
+        id: 'flag-demo-observation-1',
+        observed: true,
+        note: 'Started independently after one reminder.',
+        staffName: 'Rabbi Klein',
+        date: '2026-06-18',
+        time: '10:14 AM',
+      },
+    ],
+  },
+  {
+    id: 'flag-demo-3',
+    studentId: 3,
+    goal: 'Returns to class within 5 minutes after counseling',
+    startDate: '2026-06-16',
+    endDate: '2026-06-30',
+    createdBy: 'Mrs. Friedman',
+    createdAt: '2026-06-16',
+    completed: false,
+    observations: [
+      {
+        id: 'flag-demo-observation-3a',
+        observed: true,
+        note: 'Returned in 4 minutes after prompt.',
+        staffName: 'Mrs. Friedman',
+        date: '2026-06-20',
+        time: '11:02 AM',
+      },
+    ],
+  },
+  {
+    id: 'flag-demo-4',
+    studentId: 108,
+    goal: 'Checks in before leaving classroom during transitions',
+    startDate: '2026-06-15',
+    endDate: '2026-06-29',
+    createdBy: 'Rabbi Schimborski',
+    createdAt: '2026-06-15',
+    completed: false,
+    observations: [],
+  },
+]
+
 
 
 
@@ -972,13 +1055,13 @@ export function divisionLabel(key) {
 }
 
 export const SCHEDULE_PERIODS = [
-  { id: 1, time: '10:10 - 11:10', subject: 'Period 1', teachers: ['Rabbi Schults', 'Rabbi Schimborski', 'Rabbi Ehrnreich'], type: 'class' },
-  { id: 2, time: '11:20 - 12:05', subject: 'Period 2', teachers: ['Rabbi Schults', 'Rabbi Schimborski', 'Rabbi Ehrnreich'], type: 'class' },
-  { id: 3, time: '12:15 - 12:45', subject: 'Period 3', teachers: ['Rabbi Schults', 'Rabbi Schimborski', 'Rabbi Ehrnreich'], type: 'class' },
+  { id: 1, time: '10:10 - 11:10', subject: 'Gemara / Skills Rotation', teachers: ['Rabbi Schults', 'Rabbi Schimborski', 'Rabbi Ehrnreich'], type: 'class' },
+  { id: 2, time: '11:20 - 12:05', subject: 'Kriah / Writing Block', teachers: ['Rabbi Schults', 'Rabbi Schimborski', 'Rabbi Ehrnreich'], type: 'class' },
+  { id: 3, time: '12:15 - 12:45', subject: 'Social Skills / SEL', teachers: ['Mrs. Friedman', 'Yitzi Liebowitz', 'Ezriel'], type: 'class' },
   { id: 4, time: '12:45 - 1:45', subject: 'Lunch & Recess', teachers: [], type: 'break' },
-  { id: 5, time: '1:45 - 2:25', subject: 'English', teachers: ['Mr. Cohen'], type: 'class' },
-  { id: 6, time: '2:30 - 3:10', subject: 'Period 5', teachers: ['Rabbi Schults', 'Rabbi Schimborski', 'Rabbi Ehrnreich'], type: 'class' },
-  { id: 7, time: '3:15 - 3:45', subject: 'Period 6', teachers: ['Rabbi Schults', 'Rabbi Schimborski', 'Rabbi Ehrnreich'], type: 'class' },
+  { id: 5, time: '1:45 - 2:25', subject: 'English Reading', teachers: ['Mr. Cohen', 'Mrs. Goldberg'], type: 'class' },
+  { id: 6, time: '2:30 - 3:10', subject: 'Math / Intervention', teachers: ['Rabbi Klein', 'Rabbi Ambush', 'Ezriel'], type: 'class' },
+  { id: 7, time: '3:15 - 3:45', subject: 'Review / Check-out', teachers: ['Rabbi Schults', 'Rabbi Schimborski', 'Rabbi Ehrnreich'], type: 'class' },
 ]
 
 export const THERAPY_SCHEDULE = [
@@ -986,9 +1069,12 @@ export const THERAPY_SCHEDULE = [
   { student: 'Haddad Moshe Chaim', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
   { student: 'Levitz Avrohom', staffId: 's7', day: 'Wed', time: '10:10', duration: '45 min', type: 'OT' },
   { student: 'Feltman Daniel', staffId: 's9', day: 'Thu', time: '10:10', duration: '45 min', type: 'Therapy' },
-  { student: 'Schwartz Moishe Michael', staffId: 's8', day: 'Fri', time: '11:20', duration: '30 min', type: 'Counseling' },
+  { student: 'Schwartz Moishe Michael', staffId: 's8', day: 'Thu', time: '11:20', duration: '30 min', type: 'Counseling' },
   { student: 'Goldberger Yossi', staffId: 's6', day: 'Mon', time: '10:10', duration: '45 min', type: 'Speech' },
   { student: 'Barber Chaim', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
+  { student: 'Ettlinger Moshe', staffId: 's10', day: 'Wed', time: '12:15', duration: '35 min', type: 'BT Check-in' },
+  { student: 'Klein Yitzchok', staffId: 's9', day: 'Thu', time: '10:55', duration: '30 min', type: 'Therapy' },
+  { student: 'Moskowitz Meir Shulem', staffId: 's6', day: 'Tue', time: '09:30', duration: '30 min', type: 'Speech' },
 ]
 
 export const mkStudent = (
@@ -1372,6 +1458,66 @@ if (student18) {
     { time: '12:05', type: 'end', note: 'End of morning session', staffId: null },
     { time: '13:45', type: 'in', note: 'English class started', staffId: null },
     { time: '14:25', type: 'end', note: 'End of English', staffId: null },
+  ]
+}
+
+if (levitzStudent) {
+  levitzStudent.behaviorLog = [
+    { label: 'Returned to class after BT support', points: 2, date: '2026-07-28' },
+    { label: 'Used break pass appropriately', points: 1, date: '2026-07-29' },
+    { label: 'Left area without check-in', points: -1, date: '2026-07-30' },
+  ]
+  levitzStudent.parentCalls = [
+    ...(levitzStudent.parentCalls || []),
+    { date: '2026-07-12', staff: 'Rabbi Klein', notes: 'Reviewed therapy consistency and class transitions.', duration: '9 min' },
+    { date: '2026-07-25', staff: 'Rabbi Baum', notes: 'Shared positive week update and goals.', duration: '6 min' },
+  ]
+  levitzStudent.notes = [
+    ...(levitzStudent.notes || []),
+    { date: '2026-07-11', author: 'Rabbi Klein', text: 'Responds well to pre-correct before hallway transitions.' },
+    { date: '2026-07-27', author: 'Ezriel', text: 'Needed one prompt to rejoin group after lunch.' },
+  ]
+}
+
+if (haddadStudent) {
+  haddadStudent.behaviorLog = [
+    { label: 'Completed counseling reflection form', points: 2, date: '2026-07-25' },
+    { label: 'Escalated during transition', points: -2, date: '2026-07-29' },
+  ]
+  haddadStudent.parentCalls = [
+    ...(haddadStudent.parentCalls || []),
+    { date: '2026-07-09', staff: 'Mrs. Friedman', notes: 'Discussed coping tools for transitions.', duration: '11 min' },
+  ]
+  haddadStudent.notes = [
+    ...(haddadStudent.notes || []),
+    { date: '2026-07-29', author: 'Mrs. Friedman', text: 'Used breathing routine after redirection and returned to task.' },
+  ]
+}
+
+if (student12) {
+  student12.behaviorLog = [
+    { label: 'Followed BT schedule independently', points: 2, date: '2026-07-26' },
+    { label: 'Called out during shiur', points: -1, date: '2026-07-30' },
+  ]
+  student12.testScores = [
+    { id:'ts12a', teacher:'Rabbi Abowitz', subject:'Math', skill:'3-digit', assessmentName:'Word Problem Check', date:'2026-02-05', scoreType:'points', score:15, maxScore:20, rating:null, notes:'Can solve single-step word problems with cues.' },
+    { id:'ts12b', teacher:'Rabbi Abowitz', subject:'Writing', skill:'Grammar', assessmentName:'Editing Sentences', date:'2026-02-09', scoreType:'rating', score:null, maxScore:null, rating:'Developing', notes:'Improving punctuation consistency.' },
+  ]
+}
+
+if (student14) {
+  student14.notes = [
+    ...(student14.notes || []),
+    { date: '2026-07-24', author: 'Yitzi Liebowitz', text: 'Good carryover from therapy to class discussion.' },
+    { date: '2026-07-30', author: 'Rabbi Schults', text: 'Needed support after returning from pullout but finished classwork.' },
+  ]
+}
+
+if (rosenfeldStudent) {
+  rosenfeldStudent.parentCalls = [
+    ...(rosenfeldStudent.parentCalls || []),
+    { date: '2026-07-15', staff: 'Rabbi Klein', notes: 'Planned morning routine to reduce late arrivals.', duration: '7 min' },
+    { date: '2026-07-29', staff: 'Rabbi Baum', notes: 'Shared attendance progress and reinforcement plan.', duration: '5 min' },
   ]
 }
 
