@@ -4,6 +4,7 @@ import {
   isInClassroom,
   isInSchool,
 } from '../utils/attendancePresence'
+import { formatUnknownDuration } from '../utils/unknownLocationTimer'
 
 export default function AdminMainDashboard({
   S,
@@ -70,7 +71,7 @@ export default function AdminMainDashboard({
 
   const unknownLocationRows = unknownStudents.map(student => ({
     student,
-    unknownDuration: student.lastKnownTime ? 'Needs update' : 'Pending update',
+    unknownDuration: formatUnknownDuration(student.unknownSince),
     lastKnownLocation: student.lastKnownLocation || 'Not recorded',
     lastKnownTime: student.lastKnownTime || 'Not recorded',
     expectedCurrentLocation: classLabelById[STUDENT_CLASSES?.[student.id]] || 'Class assignment',

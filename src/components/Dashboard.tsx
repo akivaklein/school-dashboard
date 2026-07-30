@@ -3935,12 +3935,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       : newStatus === 'left-early'
         ? 'left-early'
         : newStatus
+    const unknownSince = nextStatus === 'unknown'
+      ? (studentBeforeUpdate?.unknownSince || new Date().toISOString())
+      : null
 
     setStudents(prev => prev.map(s => {
       if (s.id !== studentId) return s
       return {
         ...s,
         status: nextStatus,
+        unknownSince,
         dailyStatus: newStatus === 'absent' ? 'absent' : newStatus === 'left-early' ? 'left-early' : s.dailyStatus,
         classLog: updatedClassLog
       }
@@ -3948,6 +3952,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     
     persistStudentFields(studentId, {
       status: nextStatus,
+      unknownSince,
       dailyStatus:
         newStatus === 'absent'
           ? 'absent'

@@ -522,6 +522,7 @@ export default function TeachingMode({
             {
               status: 'present',
               withStaff: null,
+              unknownSince: null,
               classLog: updatedClassLog,
             },
           ]
@@ -635,8 +636,8 @@ export default function TeachingMode({
     ]
 
     const fields = wasNotInSchool
-      ? { status: 'present', dailyStatus: 'late', withStaff: null, classLog: updatedClassLog }
-      : { status: 'present', withStaff: null, classLog: updatedClassLog }
+      ? { status: 'present', dailyStatus: 'late', withStaff: null, unknownSince: null, classLog: updatedClassLog }
+      : { status: 'present', withStaff: null, unknownSince: null, classLog: updatedClassLog }
 
     setStudents(prev =>
       prev.map(x => {
@@ -717,6 +718,7 @@ export default function TeachingMode({
     }
 
     const newStatus = statusMap[effectiveReason] || 'unknown'
+  const unknownSince = newStatus === 'unknown' ? new Date().toISOString() : null
 
     const note = staffObj
       ? `Left with ${staffObj.name} (${staffObj.role})`
@@ -735,6 +737,7 @@ export default function TeachingMode({
               ...x,
               status: newStatus,
               withStaff: leaveStaffId || null,
+              unknownSince,
               classLog: [
                 ...(x.classLog || []),
                 buildClassLogEntry(
@@ -754,6 +757,7 @@ export default function TeachingMode({
         persistStudentFields(studentId, {
           status: newStatus,
           withStaff: leaveStaffId || null,
+          unknownSince,
           classLog: updatedStudent.classLog
         }).catch(error => {
           console.error('Unable to save student status to Supabase:', error)

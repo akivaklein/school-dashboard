@@ -276,6 +276,7 @@ export default function AttendancePage({
             ...x,
             status: 'present',
             withStaff: null,
+            unknownSince: null,
             classLog: [
               ...(x.classLog || []),
               classLogEntry
@@ -292,6 +293,7 @@ export default function AttendancePage({
           status: 'present',
           dailyStatus: 'late',
           withStaff: null,
+          unknownSince: null,
           lateDetails: {
             timeArrived: arrivedNow,
             reason: 'arrived-late',
@@ -312,6 +314,7 @@ export default function AttendancePage({
             status: 'present',
             dailyStatus: 'late',
             withStaff: null,
+            unknownSince: null,
             lateDetails: {
               timeArrived: arrivedNow,
               reason: 'arrived-late',
@@ -321,7 +324,7 @@ export default function AttendancePage({
             },
             classLog: updatedStudent?.classLog || []
           }
-        : { status: 'present', withStaff: null, classLog: updatedStudent?.classLog || [] }
+        : { status: 'present', withStaff: null, unknownSince: null, classLog: updatedStudent?.classLog || [] }
       const success = await saveStudentFields(s.id, fields)
       if (!success) {
         setStudents(prev => prev.map(x => x.id === s.id ? original : x))
@@ -335,6 +338,7 @@ export default function AttendancePage({
     const original = students.find(x => x.id === studentId)
     const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'present', hallway: 'unknown', other: 'unknown' }
     const newStatus = statusMap[leaveReason] || 'unknown'
+    const unknownSince = newStatus === 'unknown' ? new Date().toISOString() : null
     const classLogEntry = buildClassLogEntry(
       'out',
       `Left class (${leaveReason})`,
@@ -344,6 +348,7 @@ export default function AttendancePage({
       ...x,
       status: newStatus,
       withStaff: leaveStaffId || null,
+      unknownSince,
       classLog: [...(x.classLog || []), classLogEntry]
     } : x))
     setLeavePopup(null)
@@ -351,6 +356,7 @@ export default function AttendancePage({
     const success = await saveStudentFields(studentId, {
       status: newStatus,
       withStaff: leaveStaffId || null,
+      unknownSince,
       classLog: [...(original?.classLog || []), classLogEntry],
     })
     if (!success && original) {
@@ -371,6 +377,7 @@ export default function AttendancePage({
       status: student.status,
       dailyStatus: student.dailyStatus,
       withStaff: student.withStaff,
+      unknownSince: student.unknownSince || null,
       classLog: student.classLog || [],
     }))
 
@@ -388,6 +395,7 @@ export default function AttendancePage({
         status: 'present',
         dailyStatus: nextDailyStatus,
         withStaff: null,
+        unknownSince: null,
         classLog: [...(student.classLog || []), logEntry],
       }
     })
