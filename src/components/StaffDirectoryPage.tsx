@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { matchesContextualSearch } from '../utils/contextualSearch'
 import {
   addStaffMember,
   STAFF_ROLE_OPTIONS,
@@ -141,6 +142,7 @@ export default function StaffDirectoryPage({
   const [draftById, setDraftById] = useState<Record<number, StaffDraft>>({})
   const [showInactive, setShowInactive] = useState(false)
   const [showAddStaff, setShowAddStaff] = useState(false)
+  const [directorySearch, setDirectorySearch] = useState('')
 
   const directoryMembers = normalizeDirectoryMembers(staffMembers)
 
@@ -153,8 +155,11 @@ export default function StaffDirectoryPage({
       'Support Staff': [] as StaffDirectoryMember[],
     }
 
+    const q = directorySearch.trim().toLowerCase()
+
     directoryMembers
       .filter(member => showInactive || member.active !== false)
+      .filter(member => matchesContextualSearch(q, [member.name, member.role, member.roles.join(' '), member.email, member.phone]))
       .forEach(member => {
         const category = categoryForRoles(member.roles || [])
         base[category].push(member)
@@ -165,7 +170,7 @@ export default function StaffDirectoryPage({
     })
 
     return base
-  }, [directoryMembers, showInactive])
+  }, [directoryMembers, directorySearch, showInactive])
 
   function startEdit(member: StaffDirectoryMember) {
     setEditingId(member.id)
@@ -284,6 +289,14 @@ export default function StaffDirectoryPage({
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <input
+            value={directorySearch}
+            onChange={event => setDirectorySearch(event.target.value)}
+            placeholder="Search staff"
+            spellCheck
+            lang="en"
+            style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12, width: 'min(100%, 220px)' }}
+          />
           <button onClick={() => setShowInactive(value => !value)} style={S.btn('ghost')}>
             {showInactive ? 'Hide Inactive' : 'Show Inactive'}
           </button>

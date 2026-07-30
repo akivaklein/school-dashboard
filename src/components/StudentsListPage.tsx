@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { matchesContextualSearch } from '../utils/contextualSearch'
 
 export default function StudentsListPage({
   searchedStudents,
@@ -26,9 +27,7 @@ export default function StudentsListPage({
     if (!q) return searchedStudents
 
     return searchedStudents.filter(student =>
-      `${student.name} ${student.id} ${student.className || ''} ${student.division || ''}`
-        .toLowerCase()
-        .includes(q)
+      matchesContextualSearch(q, [student.name, student.id, student.className, student.division])
     )
   }, [searchedStudents, tableSearch])
 
