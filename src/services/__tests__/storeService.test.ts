@@ -98,6 +98,28 @@ describe('normalizeStoreItemInput', () => {
       vip: true,
     })
   })
+
+  it('coerces invalid numeric input to zero for new store items', () => {
+    expect(
+      normalizeStoreItemInput({
+        name: '  Juice  ',
+        category: 'drinks',
+        cost: 'abc',
+        stock: 'not-a-number',
+        lowStockAt: '',
+        emoji: '   ',
+        vip: false,
+      } as never)
+    ).toMatchObject({
+      name: 'Juice',
+      category: 'drinks',
+      cost: 0,
+      stock: 0,
+      lowStockAt: 0,
+      emoji: '▪️',
+      vip: false,
+    })
+  })
 })
 
 describe('normalizeStoreRedemptionInput', () => {

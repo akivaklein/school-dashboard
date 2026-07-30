@@ -170,6 +170,11 @@ function toRequiredNumberField(
   return numeric
 }
 
+function getFiniteNumber(value: unknown, fallback = 0): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : fallback
+}
+
 function toRequiredStringField(
   payload: unknown,
   field: string,
@@ -223,11 +228,11 @@ export function normalizeStoreItemInput(input: Partial<CreateStoreItemInput> & P
 } {
   const name = String(input.name || '').trim()
   const category = String(input.category || 'nosh').trim() || 'nosh'
-  const cost = Math.max(0, Number(input.cost || 0))
+  const cost = Math.max(0, getFiniteNumber(input.cost, 0))
   const emoji = String(input.emoji || '').trim() || '▪️'
   const vip = !!input.vip
-  const stock = Math.max(0, Number(input.stock || 0))
-  const lowStockAt = Math.max(0, Number(input.lowStockAt || 0))
+  const stock = Math.max(0, getFiniteNumber(input.stock, 0))
+  const lowStockAt = Math.max(0, getFiniteNumber(input.lowStockAt, 0))
   const imageUrl = String(input.imageUrl || '')
   const updatedBy = input.updatedBy ?? null
 
