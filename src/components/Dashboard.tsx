@@ -4122,7 +4122,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     try {
       setStoreSyncState('pending-sync')
 
-      const item = await createStoreItem(normalizeStoreItemInput({
+      const createPayload = normalizeStoreItemInput({
         name: newStoreItem.name,
         category: newStoreItem.category,
         cost: newStoreItem.cost,
@@ -4130,15 +4130,30 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         vip: newStoreItem.vip,
         stock: newStoreItem.stock,
         lowStockAt: newStoreItem.lowStockAt,
-      }), userName || 'Store Manager')
+      })
+
+      const item = await createStoreItem(createPayload, userName || 'Store Manager')
 
       setStoreSyncState('ready')
       setStoreItems(prev => [...prev, item])
       setNewStoreItem({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', category: 'nosh', vip: false })
     } catch (error) {
       setStoreSyncState('error')
-      console.error('Unable to add store item:', error)
-      alert('Unable to add store item.')
+      console.error('Unable to add store item in Supabase:', {
+        error,
+        formattedError: formatSupabaseError(error),
+        attemptedPayload: normalizeStoreItemInput({
+          name: newStoreItem.name,
+          category: newStoreItem.category,
+          cost: newStoreItem.cost,
+          emoji: newStoreItem.emoji,
+          vip: newStoreItem.vip,
+          stock: newStoreItem.stock,
+          lowStockAt: newStoreItem.lowStockAt,
+        }),
+        attemptedBy: userName || 'Store Manager',
+      })
+      alert(`Unable to add store item. ${formatSupabaseError(error)}`)
     }
   }
 

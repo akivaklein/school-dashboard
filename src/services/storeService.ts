@@ -124,6 +124,33 @@ export function formatSupabaseError(error: unknown): string {
   return parts.length > 0 ? parts.join(' ') : fallback
 }
 
+function isStoreItemsPrimaryKeyConflict(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+
+  const typedError = error as Record<string, unknown>
+  const code = String(typedError.code || '').trim()
+  const message = String(typedError.message || '').toLowerCase()
+  const details = String(typedError.details || '').toLowerCase()
+
+  return (
+    code === '23505' &&
+    (message.includes('store_items_pkey') || details.includes('store_items_pkey'))
+  )
+}
+
+async function getNextStoreItemId(): Promise<number> {
+  const { data, error } = await supabase
+    .from('store_items')
+    .select('id')
+    .order('id', { ascending: false })
+    .limit(1)
+
+  if (error) throw error
+
+  const maxId = Number((data && data[0]?.id) || 0)
+  return Math.max(1, maxId + 1)
+}
+
 function toRequiredNumberField(
   payload: unknown,
   field: string,
@@ -372,8 +399,46 @@ export async function createStoreItem(input: CreateStoreItemInput, updatedBy?: s
     .select('*')
     .single()
 
-  if (error) throw error
-  return toStoreItem(data as StoreItemRow)
+  if (!error) {
+    return toStoreItem(data as StoreItemRow)
+  }
+
+  if (!isStoreItemsPrimaryKeyConflict(error)) {
+    console.error('createStoreItem insert failed', {
+      payload,
+      error,
+    })
+    throw error
+  }
+
+  // Sequence drift fallback: retry with explicit id = max(id) + 1.
+  const nextId = await getNextStoreItemId()
+  const retryPayload = {
+    id: nextId,
+    ...payload,
+  }
+
+  const { data: retryData, error: retryError } = await supabase
+    .from('store_items')
+    .insert(retryPayload)
+    .select('*')
+    .single()
+
+  if (retryError) {
+    console.error('createStoreItem retry failed after primary key conflict', {
+      initialPayload: payload,
+      retryPayload,
+      initialError: error,
+      retryError,
+    })
+    throw retryError
+  }
+
+  console.warn('createStoreItem recovered from identity sequence drift via explicit id insert', {
+    retryPayload,
+  })
+
+  return toStoreItem(retryData as StoreItemRow)
 }
 
 export async function setStoreItemActive(
