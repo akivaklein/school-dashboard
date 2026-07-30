@@ -4457,7 +4457,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             {!showSetupSidebarOnly && (
               <div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#16243a', letterSpacing: '-0.02em' }}>{contextInfo.pageLabel}</div>
-                <div style={{ fontSize: 12, color: '#51657d', marginTop: 4 }}>{greeting} · {todayLabel} · {contextInfo.roleLabel} · {contextInfo.divisionLabel}</div>
+                <div style={{ fontSize: 12, color: '#51657d', marginTop: 4 }}>{greeting} · {todayLabel}</div>
+                <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#e8f0f6', color: '#34516f', fontSize: 11, fontWeight: 700 }}>
+                  {contextInfo.contextSummary}
+                </div>
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
