@@ -186,7 +186,7 @@ export default function SetupCenterPage({
   const activeTabLabel = safeSetupNavItems.find(item => item.id === setupTab)?.label || 'Setup Center'
   return (
     <div data-layout="setup-shell" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0 }}>
-      <div style={{ ...S.card, marginBottom: 12, padding: '14px 16px', border: '1px solid #d3deea', borderLeft: '4px solid #5f83aa', borderRadius: 8 }}>
+      <div style={{ ...S.card, marginBottom: 10, padding: '12px 14px', border: '1px solid #d3deea', borderLeft: '4px solid #5f83aa', borderRadius: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <h1 style={{ fontSize: 24, lineHeight: 1.15, fontWeight: 800, margin: 0, color: '#0f2942' }}>Setup Center</h1>
@@ -227,7 +227,7 @@ export default function SetupCenterPage({
         </div>
       </div>
 
-      <div style={{ ...S.card, marginBottom: 12, padding: '8px', border: '1px solid #dbe5f0', borderRadius: 8 }}>
+      <div style={{ ...S.card, marginBottom: 10, padding: '8px', border: '1px solid #dbe5f0', borderRadius: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {topLevelTabs.map(tab => {
             const isActive = tab.id === activeTopTabId
@@ -253,8 +253,8 @@ export default function SetupCenterPage({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12, alignItems: 'start', width: '100%' }}>
-        <div style={{ ...S.card, padding: '8px', overflow: 'hidden', border: '1px solid #dbe5f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)', position: 'sticky', top: 14, borderRadius: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 280px) minmax(0, 1fr)', gap: 12, alignItems: 'start', width: '100%' }}>
+        <div style={{ ...S.card, padding: '8px', overflow: 'hidden', border: '1px solid #dbe5f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)', position: 'sticky', top: 14, borderRadius: 10 }}>
           {activeTopTabId === 'scheduling' && schedulingSubmenuGroups.length > 1 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {schedulingSubmenuGroups.map(group => {
@@ -360,7 +360,7 @@ export default function SetupCenterPage({
             </div>
           )}
 
-          <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <div>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f2942', margin: 0 }}>{activeTabLabel}</h2>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{currentSectionSubtitle}</div>
