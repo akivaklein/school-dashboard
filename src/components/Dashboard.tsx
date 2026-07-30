@@ -1534,6 +1534,112 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [staffLoadError, setStaffLoadError] = useState<string | null>(null)
   const fallbackSyncInFlightRef = useRef(false)
   const storePurchaseAttemptKeysRef = useRef<Record<string, string>>({})
+  const skipNextStudentFlagsPersistRef = useRef(false)
+  const [realtimeNotice, setRealtimeNotice] = useState<{ scope: string; at: number } | null>(null)
+
+  const markRealtimeNotice = useCallback((scope: string) => {
+    setRealtimeNotice({ scope, at: Date.now() })
+  }, [])
+
+  useEffect(() => {
+    if (!realtimeNotice) return
+
+    const timeoutId = window.setTimeout(() => {
+      setRealtimeNotice(null)
+    }, 3500)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [realtimeNotice])
+
+  const studentIdsFilter = useMemo(() => {
+    const ids = (students || [])
+      .map(student => Number(student.id))
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b)
+
+    if (ids.length === 0) return ''
+    return `id=in.(${ids.join(',')})`
+  }, [students])
+
+  const toPurchaseLogEntry = useCallback((row: Record<string, unknown>) => ({
+    id: Number(row.id),
+    time: new Date(String(row.created_at || new Date().toISOString())).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+    studentId: row.student_id === null ? null : Number(row.student_id),
+    studentName: String(row.student_name || ''),
+    itemName: String(row.item_name || ''),
+    cost: Number(row.cost || 0),
+    staff: String(row.staff_name || ''),
+    division: String((row.metadata as Record<string, unknown> | null)?.division || ''),
+  }), [])
+
+  const applyStudentRealtimeRow = useCallback((previous: StudentLike[], row: Record<string, unknown>) => {
+    const rowId = Number(row.id)
+    if (!Number.isFinite(rowId)) return previous
+
+    const nextRow = {
+      ...row,
+      dailyStatus: row.daily_status ?? row.dailyStatus,
+      withStaff: row.with_staff ?? row.withStaff,
+      lateDetails: row.late_details ?? row.lateDetails,
+      behaviorLog: row.behavior_log ?? row.behaviorLog,
+      parentCalls: row.parent_calls ?? row.parentCalls,
+      testScores: row.test_scores ?? row.testScores,
+      classLog: row.class_log ?? row.classLog,
+      att: row.attendance ?? row.att,
+      points: resolveLiveStudentPoints(row.token_balance),
+      token_balance: resolveLiveStudentPoints(row.token_balance),
+    }
+
+    const rowForStudent = {
+      ...nextRow,
+      att: Array.isArray(nextRow.att) ? nextRow.att : [],
+      notes: Array.isArray(nextRow.notes) ? nextRow.notes : [],
+      behaviorLog: Array.isArray(nextRow.behaviorLog) ? nextRow.behaviorLog : [],
+      parentCalls: Array.isArray(nextRow.parentCalls) ? nextRow.parentCalls : [],
+      testScores: Array.isArray(nextRow.testScores) ? nextRow.testScores : [],
+      classLog: Array.isArray(nextRow.classLog) ? nextRow.classLog : [],
+    }
+
+    const existingIndex = previous.findIndex(student => Number(student.id) === rowId)
+    if (existingIndex === -1) {
+      const initialStudent = initialStudents.find(student => Number(student.id) === rowId)
+      const base = initialStudent
+        ? { ...initialStudent }
+        : {
+            id: rowId,
+            name: String(row.name || `Student ${rowId}`),
+            points: 0,
+            reminders: 0,
+            status: 'present',
+            dailyStatus: 'present',
+            withStaff: null,
+            att: [],
+            breakfast: [],
+            services: [],
+            parentCalls: [],
+            notes: [],
+            behaviorLog: [],
+            testScores: [],
+            classLog: [],
+            lateDetails: null,
+            family: {},
+            medical: {},
+          }
+
+      return [...previous, { ...base, ...rowForStudent }]
+    }
+
+    return previous.map(student => (
+      Number(student.id) === rowId
+        ? { ...student, ...rowForStudent }
+        : student
+    ))
+  }, [])
 
   const refreshStaffMembers = useCallback(async () => {
     try {
@@ -2043,6 +2149,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       try {
         const flags = await listStudentFlags()
         if (active && flags.length > 0) {
+          skipNextStudentFlagsPersistRef.current = true
           setStudentFlags(flags)
         }
         if (active) {
@@ -2069,11 +2176,192 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   useEffect(() => {
     if (!studentFlagsLoaded || !studentFlagsPersistenceReady) return
+    if (skipNextStudentFlagsPersistRef.current) {
+      skipNextStudentFlagsPersistRef.current = false
+      return
+    }
 
     replaceStudentFlags(studentFlags).catch(error => {
       console.error('Unable to save student flags to Supabase:', error)
     })
   }, [studentFlags, studentFlagsLoaded, studentFlagsPersistenceReady])
+
+  useEffect(() => {
+    if (!studentsLoaded || !studentIdsFilter) return
+
+    const studentsChannel = supabase
+      .channel(`students-shared-${studentIdsFilter}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'students',
+          filter: studentIdsFilter,
+        },
+        payload => {
+          if (payload.eventType === 'DELETE') {
+            const removedId = Number((payload.old as Record<string, unknown> | null)?.id)
+            if (!Number.isFinite(removedId)) return
+            setStudents(prev => prev.filter(student => Number(student.id) !== removedId))
+            markRealtimeNotice('students')
+            return
+          }
+
+          const row = (payload.new || payload.old) as Record<string, unknown>
+          if (!row) return
+          setStudents(prev => applyStudentRealtimeRow(prev, row))
+          markRealtimeNotice('students')
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(studentsChannel)
+    }
+  }, [studentsLoaded, studentIdsFilter, applyStudentRealtimeRow, markRealtimeNotice])
+
+  useEffect(() => {
+    if (!studentsLoaded) return
+
+    const flagsChannel = supabase
+      .channel('student-flags-shared')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'student_flags',
+        },
+        payload => {
+          const oldRow = payload.old as Record<string, unknown> | null
+          const newRow = payload.new as Record<string, unknown> | null
+          const oldId = String(oldRow?.id || '')
+
+          if (payload.eventType === 'DELETE') {
+            setStudentFlags(prev => prev.filter(flag => String(flag.id) !== oldId))
+            skipNextStudentFlagsPersistRef.current = true
+            markRealtimeNotice('flags')
+            return
+          }
+
+          if (!newRow) return
+
+          const nextFlag = {
+            ...((newRow.payload as Record<string, unknown> | null) || {}),
+            id: String(newRow.id || ''),
+            studentId: newRow.student_id == null ? null : Number(newRow.student_id),
+          }
+
+          setStudentFlags(prev => {
+            const next = prev.filter(flag => String(flag.id) !== String(nextFlag.id))
+            return [...next, nextFlag as StudentFlagLike]
+          })
+          skipNextStudentFlagsPersistRef.current = true
+          markRealtimeNotice('flags')
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(flagsChannel)
+    }
+  }, [studentsLoaded, markRealtimeNotice])
+
+  useEffect(() => {
+    if (!studentsLoaded) return
+
+    const redemptionsChannel = supabase
+      .channel('store-redemptions-shared')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'store_redemptions',
+        },
+        payload => {
+          const oldRow = payload.old as Record<string, unknown> | null
+          const newRow = payload.new as Record<string, unknown> | null
+          const oldId = Number(oldRow?.id)
+
+          if (payload.eventType === 'DELETE') {
+            if (!Number.isFinite(oldId)) return
+            setPurchaseLog(prev => prev.filter(entry => Number(entry.id) !== oldId))
+            markRealtimeNotice('store')
+            return
+          }
+
+          if (!newRow) return
+
+          const nextEntry = toPurchaseLogEntry(newRow)
+          setPurchaseLog(prev => {
+            const merged = [nextEntry, ...prev.filter(entry => Number(entry.id) !== Number(nextEntry.id))]
+            return merged
+              .sort((a, b) => Number(b.id) - Number(a.id))
+              .slice(0, 25)
+          })
+          markRealtimeNotice('store')
+        },
+      )
+      .subscribe()
+
+    const storeItemsChannel = supabase
+      .channel('store-items-shared')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'store_items',
+        },
+        payload => {
+          const oldRow = payload.old as Record<string, unknown> | null
+          const newRow = payload.new as Record<string, unknown> | null
+          const oldId = Number(oldRow?.id)
+
+          if (payload.eventType === 'DELETE') {
+            if (!Number.isFinite(oldId)) return
+            setStoreItems(prev => prev.filter(item => Number(item.id) !== oldId))
+            markRealtimeNotice('store')
+            return
+          }
+
+          if (!newRow) return
+          if (newRow.active === false) {
+            setStoreItems(prev => prev.filter(item => Number(item.id) !== Number(newRow.id)))
+            markRealtimeNotice('store')
+            return
+          }
+
+          const nextItem = {
+            id: Number(newRow.id),
+            name: String(newRow.name || ''),
+            category: String(newRow.category || 'nosh'),
+            cost: Number(newRow.cost || 0),
+            emoji: String(newRow.emoji || ''),
+            vip: !!newRow.vip,
+            stock: Number(newRow.stock || 0),
+            lowStockAt: Number(newRow.low_stock_at || 0),
+            imageUrl: String(newRow.image_url || ''),
+            active: true,
+          }
+
+          setStoreItems(prev => {
+            const withoutCurrent = prev.filter(item => Number(item.id) !== Number(nextItem.id))
+            const merged = [...withoutCurrent, nextItem as StoreItemLike]
+            return merged.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+          })
+          markRealtimeNotice('store')
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(redemptionsChannel)
+      supabase.removeChannel(storeItemsChannel)
+    }
+  }, [studentsLoaded, toPurchaseLogEntry, markRealtimeNotice])
 
   useEffect(() => {
     if (!studentsLoaded) return
@@ -2136,6 +2424,59 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [selectedStudent, setSelectedStudent] = useState<StudentLike | null>(null)
   const [selectedStudentTab, setSelectedStudentTab] = useState('overview')
   const [selectedStudentPointsEvents, setSelectedStudentPointsEvents] = useState<PointsEventRecord[]>([])
+
+  useEffect(() => {
+    if (!selectedStudent?.id) return
+
+    const selectedStudentId = Number(selectedStudent.id)
+    if (!Number.isFinite(selectedStudentId)) return
+
+    const selectedPointsChannel = supabase
+      .channel(`points-events-student-${selectedStudentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'points_events',
+          filter: `student_id=eq.${selectedStudentId}`,
+        },
+        payload => {
+          const oldRow = payload.old as Record<string, unknown> | null
+          const newRow = payload.new as Record<string, unknown> | null
+          const oldId = Number(oldRow?.id)
+
+          if (payload.eventType === 'DELETE') {
+            if (!Number.isFinite(oldId)) return
+            setSelectedStudentPointsEvents(prev => prev.filter(event => Number(event.id) !== oldId))
+            markRealtimeNotice('points')
+            return
+          }
+
+          if (!newRow) return
+
+          setSelectedStudentPointsEvents(prev => {
+            const next = [
+              newRow as PointsEventRecord,
+              ...prev.filter(event => Number(event.id) !== Number(newRow.id)),
+            ]
+            return next.sort((a, b) => {
+              const aTime = new Date(a.created_at).getTime()
+              const bTime = new Date(b.created_at).getTime()
+              if (aTime === bTime) return Number(b.id) - Number(a.id)
+              return bTime - aTime
+            })
+          })
+          markRealtimeNotice('points')
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(selectedPointsChannel)
+    }
+  }, [selectedStudent, markRealtimeNotice])
+
   const [storeStudent, setStoreStudent] = useState<StudentLike | null>(null)
   const [storeCategoryFilter, setStoreCategoryFilter] = useState('all')
   const [storeItemSearch, setStoreItemSearch] = useState('')
@@ -3844,6 +4185,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }
 
   const contextInfo = useMemo(() => getDashboardContextInfo(page, role, divisionView), [page, role, divisionView])
+  const realtimeScopeLabel = realtimeNotice?.scope === 'store'
+    ? 'Token Store'
+    : realtimeNotice?.scope === 'flags'
+      ? 'Flags'
+      : realtimeNotice?.scope === 'points'
+        ? 'Points'
+        : 'Shared records'
 
   if (!loggedIn) {
     return (
@@ -4358,24 +4706,40 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                 </button>
               ))}
             </div>
-            {!showSetupSidebarOnly && <div style={{ position: 'relative' }}>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." spellCheck lang="en" style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #dde6f0', fontSize: 13, width: 'min(100%, 280px)', background: '#fcfdff', boxShadow: '0 6px 18px rgba(30,41,59,0.04)', outline: 'none' }} />
-              {search && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, width: 300, background: '#fff', border: '1px solid #e5ebf2', borderRadius: 10, boxShadow: '0 10px 24px rgba(30,41,59,0.10)', zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
-                  {searchedStudents.slice(0,6).map((s,i) => (
-                    <div key={s.id} onClick={() => { if (page === 'store') { setStoreStudent(s.id) } else { openStudent(s) }; setSearch('') }} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', gap: 10 }}
-                      onMouseEnter={e => e.currentTarget.style.background='#f6f9fc'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>
-                      <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
-                        <div style={{ fontSize: 11, color: statusColor[s.status] }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>
-                      </div>
-                    </div>
-                  ))}
-                  {searchedStudents.length === 0 && <div style={{ padding: '12px 14px', color: '#94a3b8', fontSize: 13 }}>No students found</div>}
-                  <div onClick={() => setSearch('')} style={{ padding: '8px 14px', fontSize: 11, color: '#94a3b8', cursor: 'pointer', textAlign: 'center', borderTop: '1px solid #f8fafc' }}>✕ Close</div>
+            {!showSetupSidebarOnly && <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {realtimeNotice && (
+                <div style={{
+                  border: '1px solid #dbe7f4',
+                  background: '#f8fbff',
+                  color: '#4f6687',
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: '4px 9px',
+                  whiteSpace: 'nowrap',
+                }}>
+                  Updated just now • {realtimeScopeLabel}
                 </div>
               )}
+              <div style={{ position: 'relative' }}>
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." spellCheck lang="en" style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #dde6f0', fontSize: 13, width: 'min(100%, 280px)', background: '#fcfdff', boxShadow: '0 6px 18px rgba(30,41,59,0.04)', outline: 'none' }} />
+                {search && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, width: 300, background: '#fff', border: '1px solid #e5ebf2', borderRadius: 10, boxShadow: '0 10px 24px rgba(30,41,59,0.10)', zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
+                    {searchedStudents.slice(0,6).map((s,i) => (
+                      <div key={s.id} onClick={() => { if (page === 'store') { setStoreStudent(s.id) } else { openStudent(s) }; setSearch('') }} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', gap: 10 }}
+                        onMouseEnter={e => e.currentTarget.style.background='#f6f9fc'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                        <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                          <div style={{ fontSize: 11, color: statusColor[s.status] }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {searchedStudents.length === 0 && <div style={{ padding: '12px 14px', color: '#94a3b8', fontSize: 13 }}>No students found</div>}
+                    <div onClick={() => setSearch('')} style={{ padding: '8px 14px', fontSize: 11, color: '#94a3b8', cursor: 'pointer', textAlign: 'center', borderTop: '1px solid #f8fafc' }}>✕ Close</div>
+                  </div>
+                )}
+              </div>
             </div>}
           </div>
         )}
