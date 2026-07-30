@@ -409,11 +409,22 @@ export type AcademicCatalogConfig = {
 }
 
 export async function loadAcademicCatalog(): Promise<AcademicCatalogConfig | null> {
-  const { data, error } = await supabase
-    .from('setup_assignments')
-    .select('assignments_data')
-    .eq('staff_name', ACADEMIC_CATALOG_ROW_KEY)
-    .maybeSingle()
+  let data: { assignments_data?: unknown } | null = null
+  let error: { message?: string } | null = null
+
+  try {
+    const response = await supabase
+      .from('setup_assignments')
+      .select('assignments_data')
+      .eq('staff_name', ACADEMIC_CATALOG_ROW_KEY)
+      .maybeSingle()
+
+    data = response.data as { assignments_data?: unknown } | null
+    error = response.error
+  } catch (caughtError) {
+    console.error('Academic catalog request failed before Supabase response:', caughtError)
+    return null
+  }
 
   if (error) {
     console.error('Error loading academic catalog:', error)
@@ -465,13 +476,22 @@ export async function saveAcademicCatalog(config: AcademicCatalogConfig): Promis
     })),
   }
 
-  const { error } = await supabase
-    .from('setup_assignments')
-    .upsert({
-      staff_name: ACADEMIC_CATALOG_ROW_KEY,
-      assignments_data: sanitizedConfig,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'staff_name' })
+  let error: { message?: string } | null = null
+
+  try {
+    const response = await supabase
+      .from('setup_assignments')
+      .upsert({
+        staff_name: ACADEMIC_CATALOG_ROW_KEY,
+        assignments_data: sanitizedConfig,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'staff_name' })
+
+    error = response.error
+  } catch (caughtError) {
+    console.error('Academic catalog save request failed before Supabase response:', caughtError)
+    return false
+  }
 
   if (error) {
     console.error('Error saving academic catalog:', error)

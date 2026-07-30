@@ -2777,7 +2777,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   useEffect(() => {
     if (!academicCatalog?.subjects?.length) return
-    saveAcademicCatalog(academicCatalog)
+
+    saveAcademicCatalog(academicCatalog).catch(error => {
+      console.error('Unable to persist academic catalog:', error)
+    })
   }, [academicCatalog])
 
   const createFakeTherapySchedule = () => {
