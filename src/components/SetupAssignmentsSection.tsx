@@ -151,14 +151,14 @@ export default function SetupAssignmentsSection({
 
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: assignmentView === 'students' ? 'minmax(0, 1fr)' : '290px minmax(0, 1fr)',
-                        gap: 16,
+                        gridTemplateColumns: assignmentView === 'students' ? 'minmax(0, 1fr)' : 'minmax(320px, 360px) minmax(0, 1fr)',
+                        gap: 22,
                         alignItems: 'start'
                       }}>
                         {assignmentView === 'staff' && (
                         <div style={{
                           ...S.card,
-                          padding: 14,
+                          padding: 16,
                           position: 'sticky',
                           top: 18
                         }}>
@@ -191,7 +191,7 @@ export default function SetupAssignmentsSection({
                           />
 
                           <div style={{
-                            maxHeight: '65vh',
+                              maxHeight: '70vh',
                             overflowY: 'auto',
                             display: 'grid',
                             gap: 6
@@ -275,7 +275,7 @@ export default function SetupAssignmentsSection({
                         </div>
                         )}
 
-                        <div style={S.card}>
+                        <div style={{ ...S.card, padding: 20 }}>
                           <div style={{
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -380,7 +380,7 @@ export default function SetupAssignmentsSection({
                                       padding: 12,
                                       display: 'grid',
                                       gridTemplateColumns:
-                                        'repeat(auto-fit, minmax(155px, 1fr))',
+                                        'repeat(auto-fill, minmax(210px, 1fr))',
                                       gap: 7,
                                       maxHeight: 250,
                                       overflowY: 'auto'
@@ -464,7 +464,7 @@ export default function SetupAssignmentsSection({
                                 <div style={{
                                   display: 'grid',
                                   gridTemplateColumns:
-                                    'repeat(auto-fit, minmax(165px, 1fr))',
+                                    'repeat(auto-fill, minmax(220px, 1fr))',
                                   gap: 7,
                                   maxHeight: '62vh',
                                   overflowY: 'auto'

@@ -4226,12 +4226,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     return order[a.type] - order[b.type]
   })
 
-  const showSetupSidebarOnly = page === 'setup' && role === 'admin'
-  const setupNeedsDivisionSelector = showSetupSidebarOnly && (setupTab === 'assignments' || setupTab === 'therapy-schedule')
-  const showSetupTopControls = studentFallbackPatchCount > 0 || (role === 'admin' && !showStaffPanel)
-  const mainStyle = showSetupSidebarOnly
-    ? { ...S.main, marginLeft: 0, width: '100%', padding: '28px 34px 40px 24px', background: '#f3f4f6' }
-    : { ...S.main, background: '#f3f4f6' }
+  const isSetupCenterPage = page === 'setup' && role === 'admin'
+  const showGlobalTopControls = studentFallbackPatchCount > 0 || (role === 'admin' && !showStaffPanel)
+  const mainStyle = { ...S.main, background: '#f3f4f6' }
   const setupNavItems = [
     { id: 'staff-directory', label: 'Staff Directory', icon: '👥', group: 'People & Staff' },
     { id: 'assignments', label: 'Staff Assignments', icon: '🧑‍🏫', group: 'People & Staff' },
@@ -4281,7 +4278,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           100% { opacity: 1; }
         }
       `}</style>
-      {!showSetupSidebarOnly && useTwoLevelNav && (
+      {useTwoLevelNav && (
       <div style={{ width: 216, background: '#f8fafc', borderRight: '1px solid #dbe5f0', padding: '14px 10px', boxSizing: 'border-box' }}>
         <div style={{ padding: '8px 8px 10px', marginBottom: 6 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#0f2942' }}>Hadran Academy</div>
@@ -4385,9 +4382,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             {(page === 'teaching-mode' && teachingMode) ? 'Teaching Mode' : (pageLabelById[page] || page)}
           </div>
         )}
-        {(!showSetupSidebarOnly || showSetupTopControls) && (
-          <div style={{ marginBottom: showSetupSidebarOnly ? 8 : 14, display: 'flex', justifyContent: showSetupSidebarOnly ? 'flex-end' : 'space-between', alignItems: showSetupSidebarOnly ? 'center' : 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-            {!showSetupSidebarOnly && (
+        {(!isSetupCenterPage || showGlobalTopControls) && (
+          <div style={{ marginBottom: isSetupCenterPage ? 8 : 14, display: 'flex', justifyContent: isSetupCenterPage ? 'flex-end' : 'space-between', alignItems: isSetupCenterPage ? 'center' : 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+            {!isSetupCenterPage && (
               <div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#16243a', letterSpacing: '-0.02em' }}>{contextInfo.pageLabel}</div>
                 <div style={{ fontSize: 12, color: '#51657d', marginTop: 4 }}>{greeting} · {todayLabel}</div>
@@ -4463,8 +4460,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             </button>
           </div>
         )}
-        {(!showSetupSidebarOnly || setupNeedsDivisionSelector) && (
-          <div style={{ marginBottom: showSetupSidebarOnly ? 10 : 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        {!isSetupCenterPage && (
+          <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {divisionOptions.map(option => (
                 <button key={option} onClick={() => setDivisionView(option)} style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${divisionView === option ? '#5f83aa' : '#d8e1ec'}`, background: divisionView === option ? '#dbe8f5' : '#ffffff', color: divisionView === option ? '#112f4d' : '#334155', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: 'none' }}>
@@ -4472,7 +4469,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                 </button>
               ))}
             </div>
-            {!showSetupSidebarOnly && <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {realtimeNotice && (
                 <div style={{
                   border: '1px solid #dbe7f4',
@@ -4506,7 +4503,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                   </div>
                 )}
               </div>
-            </div>}
+            </div>
           </div>
         )}
 

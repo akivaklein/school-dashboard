@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import SetupAssignmentsSection from './SetupAssignmentsSection'
 import SetupTherapyScheduleSection from './SetupTherapyScheduleSection'
 import SetupTeachingConfigSection from './SetupTeachingConfigSection'
@@ -8,12 +8,6 @@ import SetupAccountsSection from './SetupAccountsSection'
 import SetupSchoolStructureSection from './SetupSchoolStructureSection'
 import StaffDirectoryPage from './StaffDirectoryPage'
 import { getSetupSectionMeta } from './setupCenterUtils'
-import {
-  loadSetupAssignments,
-  saveSetupAssignment,
-  loadTherapySchedule,
-  saveTherapySchedule,
-} from '../services/setupCenterService'
 
 export default function SetupCenterPage({
   S,
@@ -81,98 +75,35 @@ export default function SetupCenterPage({
 }) {
   const safeSetupNavItems = Array.isArray(setupNavItems) ? setupNavItems : []
   const safeDivisions = DIVISIONS || {}
-  const topLevelTabs = useMemo(
-    () => [
-      {
-        id: 'staff',
-        label: 'Staff',
-        subtitle: 'Manage staff records and assignment ownership.',
-        itemIds: ['staff-directory', 'assignments'],
-      },
-      {
-        id: 'assignments',
-        label: 'Configuration',
-        subtitle: 'Configure teaching actions, VIP policies, and store settings.',
-        itemIds: ['teaching', 'vip', 'store'],
-      },
-      {
-        id: 'scheduling',
-        label: 'Scheduling',
-        subtitle: 'Plan therapy and scheduling configuration.',
-        itemIds: ['therapy-schedule', 'schedule-setup'],
-      },
-      {
-        id: 'permissions',
-        label: 'Permissions',
-        subtitle: 'Manage staff accounts and access settings.',
-        itemIds: ['accounts'],
-      },
-      {
-        id: 'school-structure',
-        label: 'School Structure',
-        subtitle: 'Maintain classes, divisions, and structure settings.',
-        itemIds: ['classes-divisions'],
-      },
-    ],
-    [],
-  )
+  const { sectionSubtitle, activeTabLabel } = getSetupSectionMeta(setupTab, safeSetupNavItems)
+  const activeGroupLabel = safeSetupNavItems.find(item => item.id === setupTab)?.group || 'Setup'
+  const primarySetupActionLabel = setupTab === 'assignments' ? 'Open Staff Directory' : 'Open Staff Assignments'
+  const primarySetupActionTarget = setupTab === 'assignments' ? 'staff-directory' : 'assignments'
 
-  const topTabByItemId = useMemo(
-    () => topLevelTabs.reduce<Record<string, string>>((acc, tab) => {
-      tab.itemIds.forEach(itemId => {
-        acc[itemId] = tab.id
-      })
+  const groupedSetupNavItems = useMemo(
+    () => safeSetupNavItems.reduce<Record<string, Array<{ id: string; label: string; icon?: string; group?: string }>>>((acc, item) => {
+      const groupName = item.group || 'Setup'
+      if (!acc[groupName]) {
+        acc[groupName] = []
+      }
+      acc[groupName].push(item)
       return acc
     }, {}),
-    [topLevelTabs],
+    [safeSetupNavItems],
   )
 
-  const activeTopTabId = topTabByItemId[setupTab] || topLevelTabs[0].id
-  const activeTopTab = topLevelTabs.find(tab => tab.id === activeTopTabId) || topLevelTabs[0]
-
-  const visibleSubmenuItems = useMemo(
-    () => activeTopTab.itemIds
-      .map(itemId => safeSetupNavItems.find(item => item.id === itemId))
-      .filter(Boolean),
-    [activeTopTab, safeSetupNavItems],
-  )
-
-  const schedulingSubmenuGroups = useMemo(
-    () => visibleSubmenuItems.reduce<Array<{ groupName: string; items: Array<any> }>>((groups, item) => {
-      const groupName = item.group || 'Scheduling'
-      const existing = groups.find(group => group.groupName === groupName)
-      if (existing) {
-        existing.items.push(item)
-      } else {
-        groups.push({ groupName, items: [item] })
-      }
-      return groups
-    }, []),
-    [visibleSubmenuItems],
-  )
-
-  const activeSchedulingGroupName = safeSetupNavItems.find(item => item.id === setupTab)?.group || null
-  const [openSchedulingGroups, setOpenSchedulingGroups] = useState<string[]>(activeSchedulingGroupName ? [activeSchedulingGroupName] : [])
-
-  useEffect(() => {
-    if (activeTopTabId !== 'scheduling' || !activeSchedulingGroupName) return
-    setOpenSchedulingGroups(prev => (prev.includes(activeSchedulingGroupName) ? prev : [...prev, activeSchedulingGroupName]))
-  }, [activeSchedulingGroupName, activeTopTabId])
-
-  const { sectionSubtitle, primaryActionLabel, activeTabLabel } = getSetupSectionMeta(setupTab, safeSetupNavItems)
-
-  const currentSectionSubtitle = sectionSubtitle || activeTopTab.subtitle
+  const currentSectionSubtitle = sectionSubtitle || 'Review setup details and keep school operations aligned.'
   return (
     <div data-layout="setup-shell" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0 }}>
-      <div style={{ ...S.card, marginBottom: 10, padding: '12px 14px', border: '1px solid #d3deea', borderLeft: '4px solid #5f83aa', borderRadius: 10 }}>
+      <div style={{ ...S.card, marginBottom: 12, padding: '14px 16px', border: '1px solid #d3deea', borderLeft: '4px solid #5f83aa', borderRadius: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ fontSize: 24, lineHeight: 1.15, fontWeight: 800, margin: 0, color: '#0f2942' }}>Setup Center</h1>
+            <h1 style={{ fontSize: 26, lineHeight: 1.15, fontWeight: 800, margin: 0, color: '#0f2942' }}>Setup Center</h1>
             <div style={{ fontSize: 13, color: '#425b76', marginTop: 6 }}>{currentSectionSubtitle}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button
-              onClick={() => setSetupTab(setupTab)}
+              onClick={() => setSetupTab(primarySetupActionTarget)}
               style={{
                 border: '1px solid #2f5f8f',
                 background: '#3f6f9f',
@@ -184,7 +115,7 @@ export default function SetupCenterPage({
                 cursor: 'pointer',
               }}
             >
-              {primaryActionLabel}
+              {primarySetupActionLabel}
             </button>
             <button
               onClick={() => setPage('dashboard')}
@@ -205,113 +136,27 @@ export default function SetupCenterPage({
         </div>
       </div>
 
-      <div style={{ ...S.card, marginBottom: 10, padding: '8px', border: '1px solid #dbe5f0', borderRadius: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {topLevelTabs.map(tab => {
-            const isActive = tab.id === activeTopTabId
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setSetupTab(tab.itemIds[0])}
-                style={{
-                  border: 'none',
-                  background: isActive ? '#dbe8f5' : '#ffffff',
-                  color: isActive ? '#123251' : '#334155',
-                  borderRadius: 7,
-                  padding: '7px 11px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 280px) minmax(0, 1fr)', gap: 12, alignItems: 'start', width: '100%' }}>
-        <div style={{ ...S.card, padding: '8px', overflow: 'hidden', border: '1px solid #dbe5f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)', position: 'sticky', top: 14, borderRadius: 10 }}>
-          {activeTopTabId === 'scheduling' && schedulingSubmenuGroups.length > 1 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {schedulingSubmenuGroups.map(group => {
-                const isOpen = openSchedulingGroups.includes(group.groupName)
-                const hasActive = group.items.some(item => item.id === setupTab)
-                return (
-                  <div key={group.groupName}>
-                    <button
-                      onClick={() => setOpenSchedulingGroups(prev => (prev.includes(group.groupName) ? prev.filter(name => name !== group.groupName) : [...prev, group.groupName]))}
-                      style={{
-                        width: '100%',
-                        border: 'none',
-                        background: hasActive ? '#edf3fa' : '#f8fafc',
-                        color: '#334155',
-                        borderRadius: 6,
-                        padding: '7px 8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        fontSize: 11,
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <span>{group.groupName}</span>
-                      <span>{isOpen ? '▾' : '▸'}</span>
-                    </button>
-                    {isOpen && (
-                      <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        {group.items.map(item => {
-                          const isActive = setupTab === item.id
-                          return (
-                            <button
-                              key={item.id}
-                              onClick={() => setSetupTab(item.id)}
-                              style={{
-                                width: '100%',
-                                border: 'none',
-                                background: isActive ? '#dbe8f5' : 'transparent',
-                                color: isActive ? '#123251' : '#334155',
-                                borderRadius: 6,
-                                padding: '8px 9px',
-                                fontSize: 12,
-                                fontWeight: isActive ? 800 : 600,
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {item.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+      <div style={{ ...S.card, marginBottom: 12, padding: '10px', border: '1px solid #dbe5f0', borderRadius: 10 }}>
+        {Object.entries(groupedSetupNavItems).map(([groupName, items]) => (
+          <div key={groupName} style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 6px' }}>
+              {groupName}
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {visibleSubmenuItems.map(item => {
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+              {items.map(item => {
                 const isActive = setupTab === item.id
                 return (
                   <button
                     key={item.id}
                     onClick={() => setSetupTab(item.id)}
                     style={{
-                      width: '100%',
-                      border: 'none',
-                      borderLeft: isActive ? '3px solid #5f83aa' : '3px solid transparent',
+                      border: `1px solid ${isActive ? '#7fa1c5' : '#dbe5f0'}`,
                       background: isActive ? '#dbe8f5' : '#ffffff',
                       color: isActive ? '#123251' : '#334155',
-                      borderRadius: 6,
-                      padding: '8px 9px',
+                      borderRadius: 8,
+                      padding: '7px 11px',
                       fontSize: 12,
-                      fontWeight: isActive ? 800 : 600,
-                      textAlign: 'left',
+                      fontWeight: isActive ? 800 : 700,
                       cursor: 'pointer',
                     }}
                   >
@@ -320,10 +165,11 @@ export default function SetupCenterPage({
                 )
               })}
             </div>
-          )}
-        </div>
+          </div>
+        ))}
+      </div>
 
-        <div>
+      <div>
           {setupAssignmentError && (
             <div style={{
               ...S.card,
@@ -338,13 +184,13 @@ export default function SetupCenterPage({
             </div>
           )}
 
-          <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <div>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f2942', margin: 0 }}>{activeTabLabel}</h2>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{currentSectionSubtitle}</div>
             </div>
             <span style={{ padding: '6px 9px', borderRadius: 8, background: '#f2f6fb', color: '#415a77', fontSize: 11, fontWeight: 700 }}>
-              {activeTopTab.label}
+              {activeGroupLabel}
             </span>
           </div>
 
@@ -470,7 +316,6 @@ export default function SetupCenterPage({
               DIVISIONS={safeDivisions}
             />
           )}
-        </div>
       </div>
     </div>
   )
