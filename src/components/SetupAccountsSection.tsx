@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { buildStaffAccountData, getStaffAccountStatus } from '../services/staffService'
 
 export default function SetupAccountsSection({
   SETUP_PEOPLE,
@@ -13,7 +14,7 @@ export default function SetupAccountsSection({
 
   const people = Array.isArray(SETUP_PEOPLE) ? SETUP_PEOPLE : []
   const totalUsers = people.length
-  const activeCount = people.filter(person => (setupAccounts[person.name]?.active ?? true)).length
+  const activeCount = people.filter(person => getStaffAccountStatus(setupAccounts[person.name]) === 'active-account').length
   const disabledCount = Math.max(totalUsers - activeCount, 0)
   const adminLikeCount = people.filter(person => /admin|menahel|mashgiach/i.test(person.role || '')).length
 
@@ -21,8 +22,9 @@ export default function SetupAccountsSection({
     const normalized = search.trim().toLowerCase()
 
     return people.filter(person => {
-      const account = setupAccounts[person.name] || { active: true, divisions: 'both' }
-      const active = account.active ?? true
+      const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })
+      const state = getStaffAccountStatus(account)
+      const active = state === 'active-account'
       const divisions = account.divisions || 'both'
 
       const matchesSearch = !normalized
@@ -113,18 +115,17 @@ export default function SetupAccountsSection({
                           </div>
                         )}
                         {filteredPeople.map(person => {
-                          const account =
-                            setupAccounts[person.name] || {
-                              active: true,
-                              divisions: 'both'
-                            }
+                          const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })
+                          const accountStatus = getStaffAccountStatus(account)
+                          const statusLabel = accountStatus === 'active-account' ? 'Active' : accountStatus === 'inactive-account' ? 'Inactive' : accountStatus === 'pending-invitation' ? 'Pending' : 'No account'
+                          const nextState = account.accountState === 'pending' ? 'active' : account.active === false ? 'active' : 'inactive'
 
                           return (
                             <div
                               key={`account-${person.name}`}
                               style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'minmax(170px, 1.2fr) minmax(140px, 0.9fr) minmax(120px, 0.8fr) auto',
+                                gridTemplateColumns: 'minmax(180px, 1.2fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) auto',
                                 gap: 10,
                                 alignItems: 'center',
                                 padding: '10px 12px',
@@ -134,50 +135,63 @@ export default function SetupAccountsSection({
                               }}
                             >
                               <div>
-                                <div style={{
-                                  fontSize: 12,
-                                  fontWeight: 900
-                                }}>
-                                  {person.name}
-                                </div>
-
-                                <div style={{
-                                  fontSize: 10.5,
-                                  color: '#758398',
-                                  marginTop: 2
-                                }}>
-                                  {person.specialty}
-                                </div>
+                                <div style={{ fontSize: 12, fontWeight: 900 }}>{person.name}</div>
+                                <div style={{ fontSize: 10.5, color: '#758398', marginTop: 2 }}>{person.specialty}</div>
+                                <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 4, fontWeight: 700 }}>{statusLabel}</div>
                               </div>
 
                               <select
-                                value={account.divisions}
+                                value={account.divisions || 'both'}
                                 onChange={event =>
                                   setSetupAccounts(previous => ({
                                     ...previous,
                                     [person.name]: {
                                       ...account,
-                                      divisions: event.target.value
+                                      divisions: event.target.value,
+                                      active: account.active !== false,
+                                      accountState: account.accountState === 'missing' ? 'active' : account.accountState,
                                     }
                                   }))
                                 }
-                                style={{
-                                  padding: '7px 8px',
-                                  borderRadius: 8,
-                                  border: '1px solid #dce4ed',
-                                  fontSize: 11
-                                }}
+                                style={{ padding: '7px 8px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 11 }}
                               >
-                                <option value="both">
-                                  Both divisions
-                                </option>
-                                <option value="mesivta">
-                                  Mesivta
-                                </option>
-                                <option value="yeshiva-ketana">
-                                  Yeshiva Ketana
-                                </option>
+                                <option value="both">Both divisions</option>
+                                <option value="mesivta">Mesivta</option>
+                                <option value="yeshiva-ketana">Yeshiva Ketana</option>
                               </select>
+
+                              <div style={{ display: 'grid', gap: 6 }}>
+                                <button
+                                  onClick={() =>
+                                    setSetupAccounts(previous => ({
+                                      ...previous,
+                                      [person.name]: {
+                                        ...account,
+                                        active: nextState === 'active',
+                                        accountState: nextState === 'active' ? 'active' : 'inactive',
+                                      }
+                                    }))
+                                  }
+                                  style={account.active !== false ? S.btn('success') : S.btn('ghost')}
+                                >
+                                  {account.active !== false ? 'Active' : 'Inactive'}
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    setSetupAccounts(previous => ({
+                                      ...previous,
+                                      [person.name]: {
+                                        ...account,
+                                        active: true,
+                                        accountState: 'pending',
+                                      }
+                                    }))
+                                  }
+                                  style={S.btn('ghost')}
+                                >
+                                  Resend Invite
+                                </button>
+                              </div>
 
                               <button
                                 onClick={() =>
@@ -185,28 +199,15 @@ export default function SetupAccountsSection({
                                     ...previous,
                                     [person.name]: {
                                       ...account,
-                                      active: !account.active
+                                      active: true,
+                                      accountState: account.accountState === 'active' ? 'active' : 'pending',
+                                      divisions: account.divisions || 'both',
                                     }
                                   }))
                                 }
-                                style={account.active
-                                  ? S.btn('success')
-                                  : S.btn('ghost')}
-                              >
-                                {account.active
-                                  ? 'Active'
-                                  : 'Disabled'}
-                              </button>
-
-                              <button
-                                onClick={() =>
-                                  alert(
-                                    `Demo password reset requested for ${person.name}.`
-                                  )
-                                }
                                 style={S.btn('ghost')}
                               >
-                                Reset Access
+                                {account.accountState === 'missing' ? 'Create Account' : 'Manage'}
                               </button>
                             </div>
                           )

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { buildStaffAccountData } from '../services/staffService'
 import { matchesContextualSearch } from '../utils/contextualSearch'
 import {
   addStaffMember,
@@ -17,6 +18,8 @@ type StaffDirectoryMember = {
   email?: string
   phone?: string
   active: boolean
+  division?: string
+  assignments?: string[]
 }
 
 type StaffDraft = {
@@ -143,6 +146,7 @@ export default function StaffDirectoryPage({
   const [showInactive, setShowInactive] = useState(false)
   const [showAddStaff, setShowAddStaff] = useState(false)
   const [directorySearch, setDirectorySearch] = useState('')
+  const [creatingAccountFor, setCreatingAccountFor] = useState<number | null>(null)
 
   const directoryMembers = normalizeDirectoryMembers(staffMembers)
 
@@ -274,6 +278,46 @@ export default function StaffDirectoryPage({
       setError('Could not update staff status.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function createAccountForMember(member: StaffDirectoryMember) {
+    try {
+      setSaving(true)
+      setError('')
+      setCreatingAccountFor(member.id)
+
+      const accountData = buildStaffAccountData(member, {
+        active: true,
+        accountState: 'active',
+        divisions: member.division || 'both',
+        assignments: member.assignments || [],
+      })
+
+      const accountPayload = {
+        staffName: accountData.staffName,
+        fullName: accountData.fullName,
+        role: accountData.role,
+        roles: accountData.roles,
+        email: accountData.email,
+        phone: accountData.phone,
+        divisions: accountData.divisions,
+        assignments: accountData.assignments,
+        active: true,
+        accountState: 'active' as const,
+      }
+
+      const stored = localStorage.getItem('demo-staff-accounts')
+      const entries = stored ? JSON.parse(stored) : {}
+      entries[member.name] = accountPayload
+      localStorage.setItem('demo-staff-accounts', JSON.stringify(entries))
+      await onStaffChanged()
+    } catch (createError) {
+      console.error('Failed to create account from staff directory:', createError)
+      setError('Could not create the staff account.')
+    } finally {
+      setSaving(false)
+      setCreatingAccountFor(null)
     }
   }
 
@@ -422,19 +466,24 @@ export default function StaffDirectoryPage({
                           <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
                             {person.phone || 'No phone'}
                           </div>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => startEdit(person)} style={{ ...S.btn('ghost'), flex: 1 }}>
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => toggleActive(person)}
-                              style={
-                                person.active
-                                  ? { ...S.btn('ghost'), flex: 1, borderColor: '#fecaca', color: '#9f1239' }
-                                  : { ...S.btn('success'), flex: 1 }
-                              }
-                            >
-                              {person.active ? 'Deactivate' : 'Reactivate'}
+                          <div style={{ display: 'grid', gap: 6 }}>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button onClick={() => startEdit(person)} style={{ ...S.btn('ghost'), flex: 1 }}>
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => toggleActive(person)}
+                                style={
+                                  person.active
+                                    ? { ...S.btn('ghost'), flex: 1, borderColor: '#fecaca', color: '#9f1239' }
+                                    : { ...S.btn('success'), flex: 1 }
+                                }
+                              >
+                                {person.active ? 'Deactivate' : 'Reactivate'}
+                              </button>
+                            </div>
+                            <button onClick={() => createAccountForMember(person)} disabled={saving} style={{ ...S.btn('primary'), width: '100%' }}>
+                              {creatingAccountFor === person.id ? 'Creating…' : 'Enable Login / Create Account'}
                             </button>
                           </div>
                         </>
