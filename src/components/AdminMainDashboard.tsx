@@ -63,7 +63,7 @@ export default function AdminMainDashboard({
 
   const unknownLocationRows = unknownStudents.map(student => ({
     student,
-    unknownDuration: 'Pending update',
+    unknownDuration: student.lastKnownTime ? 'Needs update' : 'Pending update',
     lastKnownLocation: student.lastKnownLocation || 'Not recorded',
     lastKnownTime: student.lastKnownTime || 'Not recorded',
     expectedCurrentLocation: classLabelById[STUDENT_CLASSES?.[student.id]] || 'Class assignment',
