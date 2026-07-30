@@ -4558,8 +4558,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       )
     : divisionScopedStudents
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
-  const present = visibleStudents.filter(s => s.status === 'present').length
-  const absent = visibleStudents.filter(s => s.status === 'absent').length
+  const present = visibleStudents.filter(s => (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early').length
+  const absent = visibleStudents.filter(s => (s.dailyStatus || 'present') === 'absent').length
   const late = visibleStudents.filter(s => s.dailyStatus === 'late').length
   const inTherapy = visibleStudents.filter(s => s.status === 'therapy').length
   const withBT = visibleStudents.filter(s => s.status === 'with-bt').length
@@ -4570,7 +4570,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const cameToday = cameTodayStudents.length
   const stillInYeshivaStudents = visibleStudents.filter(s => (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early')
   const stillInYeshiva = stillInYeshivaStudents.length
-  const inClassroomsStudents = visibleStudents.filter(s => s.status === 'present')
+  const inClassroomsStudents = visibleStudents.filter(s => s.status === 'present' && (s.dailyStatus || 'present') !== 'absent' && (s.dailyStatus || 'present') !== 'left-early')
   const inClassrooms = inClassroomsStudents.length
   const lateStudents = visibleStudents.filter(s => s.dailyStatus === 'late')
   const leftEarlyStudents = visibleStudents.filter(s => s.dailyStatus === 'left-early')
