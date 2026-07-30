@@ -1,3 +1,5 @@
+import { useMemo, useState } from 'react'
+
 export default function SetupAccountsSection({
   SETUP_PEOPLE,
   setupAccounts,
@@ -5,11 +7,39 @@ export default function SetupAccountsSection({
   S,
   DIVISIONS,
 }) {
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [divisionFilter, setDivisionFilter] = useState('all')
+
   const people = Array.isArray(SETUP_PEOPLE) ? SETUP_PEOPLE : []
   const totalUsers = people.length
   const activeCount = people.filter(person => (setupAccounts[person.name]?.active ?? true)).length
   const disabledCount = Math.max(totalUsers - activeCount, 0)
   const adminLikeCount = people.filter(person => /admin|menahel|mashgiach/i.test(person.role || '')).length
+
+  const filteredPeople = useMemo(() => {
+    const normalized = search.trim().toLowerCase()
+
+    return people.filter(person => {
+      const account = setupAccounts[person.name] || { active: true, divisions: 'both' }
+      const active = account.active ?? true
+      const divisions = account.divisions || 'both'
+
+      const matchesSearch = !normalized
+        || String(person.name || '').toLowerCase().includes(normalized)
+        || String(person.specialty || '').toLowerCase().includes(normalized)
+
+      const matchesStatus = statusFilter === 'all'
+        || (statusFilter === 'active' && active)
+        || (statusFilter === 'disabled' && !active)
+
+      const matchesDivision = divisionFilter === 'all'
+        || divisions === 'both'
+        || divisions === divisionFilter
+
+      return matchesSearch && matchesStatus && matchesDivision
+    })
+  }, [people, setupAccounts, search, statusFilter, divisionFilter])
 
   return (
                     <div style={S.card}>
@@ -28,6 +58,35 @@ export default function SetupAccountsSection({
                         marginBottom: 14
                       }}>
                         Manage account status, division scope, and access controls.
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) repeat(2, minmax(140px, 180px))', gap: 8, marginBottom: 12 }}>
+                        <input
+                          value={search}
+                          onChange={event => setSearch(event.target.value)}
+                          placeholder="Search staff"
+                          spellCheck
+                          lang="en"
+                          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}
+                        />
+                        <select
+                          value={statusFilter}
+                          onChange={event => setStatusFilter(event.target.value)}
+                          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}
+                        >
+                          <option value="all">All status</option>
+                          <option value="active">Active only</option>
+                          <option value="disabled">Disabled only</option>
+                        </select>
+                        <select
+                          value={divisionFilter}
+                          onChange={event => setDivisionFilter(event.target.value)}
+                          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}
+                        >
+                          <option value="all">All divisions</option>
+                          <option value="mesivta">Mesivta</option>
+                          <option value="yeshiva-ketana">Yeshiva Ketana</option>
+                        </select>
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 14 }}>
@@ -53,7 +112,7 @@ export default function SetupAccountsSection({
                             No staff accounts are available yet.
                           </div>
                         )}
-                        {people.map(person => {
+                        {filteredPeople.map(person => {
                           const account =
                             setupAccounts[person.name] || {
                               active: true,
@@ -152,6 +211,11 @@ export default function SetupAccountsSection({
                             </div>
                           )
                         })}
+                        {people.length > 0 && filteredPeople.length === 0 && (
+                          <div style={{ border: '1px dashed #dbe5f0', borderRadius: 8, background: '#fff', padding: '14px 12px', fontSize: 12, color: '#64748b' }}>
+                            No staff accounts match these filters.
+                          </div>
+                        )}
                       </div>
                     </div>
   )
