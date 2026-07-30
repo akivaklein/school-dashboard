@@ -52,4 +52,13 @@ describe('TokenStorePage', () => {
 
     expect(markup).toContain('Token Store')
   })
+
+  it('shows a pending-sync notice while local changes are syncing', () => {
+    const markup = renderToStaticMarkup(
+      <TokenStorePage {...baseProps} storePersistenceReady={true} storeSyncState="pending-sync" />,
+    )
+
+    expect(markup).toContain('Pending sync')
+    expect(markup).toContain('Local changes pending')
+  })
 })

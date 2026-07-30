@@ -145,6 +145,11 @@ export default function TokenStorePage({
                 <span style={{ ...S.badge(syncUi.color, syncUi.background), fontWeight: 700 }}>
                   {syncUi.label}
                 </span>
+                {syncUi.isPending && (
+                  <span style={{ fontSize: 11, color: '#9a6a2a', fontWeight: 600 }}>
+                    Local changes pending
+                  </span>
+                )}
                 <span style={{ fontSize: 11, color: '#475569' }}>
                   Last load error: {lastErrorText}
                 </span>
