@@ -46,6 +46,12 @@ describe('TrackingTab', () => {
 
     expect(markup).not.toContain('No tracking data yet.')
     expect(markup).toContain('Yitzi + Ezriel')
+    expect(markup).toContain('2h 45m')
+    expect(markup).toContain('1h 10m')
+    expect(markup).toContain('70%')
+    expect(markup).toContain('Therapy pullout')
+    expect(markup).toContain('BT support')
+    expect(markup).toContain('Unaccounted')
   })
 
   it('renders safely for Yair Bloom when history is missing', () => {
@@ -66,6 +72,10 @@ describe('TrackingTab', () => {
     )
 
     expect(markup).toContain('No tracking data yet.')
+  })
+
+  it('keeps Yair Bloom empty in the demo fixture source', () => {
+    expect((HISTORICAL_DATA as Record<string, unknown>)['1']).toBeUndefined()
   })
 
   it('renders safely for Yair Bloom when history shape is different', () => {

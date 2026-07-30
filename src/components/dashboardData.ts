@@ -1022,20 +1022,36 @@ export const mkStudent = (
   }
 })
 
-export function makeDay(daysAgo, inMins, outMins, staffName, staffId) {
+export function makeDay(daysAgo, inMins, outMins, staffName, staffId, segments = []) {
   const d = new Date()
   d.setDate(d.getDate() - daysAgo)
   if (d.getDay() === 6) d.setDate(d.getDate() - 1)
-  return { date: d.toISOString().slice(0,10), inMins, outMins, staffName, staffId, pct: Math.round(inMins/(inMins+outMins)*100) }
+  return { date: d.toISOString().slice(0,10), inMins, outMins, staffName, staffId, segments, pct: Math.round(inMins/(inMins+outMins)*100) }
 }
 
 export const HISTORICAL_DATA = {
   6: [
-    makeDay(0, 45, 70, 'Yitzi + Ezriel', 's9'),
-    makeDay(1, 110, 5, 'Ezriel', 's10'),
-    makeDay(2, 85, 30, 'Yitzi Liebowitz', 's9'),
-    makeDay(3, 95, 20, 'Mrs. Goldberg', 's6'),
-    makeDay(4, 70, 45, 'Ezriel', 's10'),
+    makeDay(0, 165, 70, 'Yitzi + Ezriel', 's9', [
+      { time: '09:10', status: 'classroom', location: 'Shiur Beis', note: 'Morning seder with class' },
+      { time: '10:20', status: 'therapy', location: 'Therapy room', staffName: 'Yitzi Liebowitz', note: 'OT regulation block' },
+      { time: '11:05', status: 'return', location: 'Shiur Beis', note: 'Returned to class after therapy' },
+      { time: '11:30', status: 'bt-support', location: 'Resource corner', staffName: 'Ezriel', note: 'BT prompting for transitions' },
+      { time: '12:05', status: 'hallway', location: 'Hallway', note: 'Transition before lunch' },
+      { time: '12:20', status: 'unaccounted', location: 'Hallway', note: 'Unaccounted for 10 minutes' },
+      { time: '12:30', status: 'return', location: 'Lunchroom', staffName: 'Ezriel', note: 'Located and rejoined group' },
+    ]),
+    makeDay(1, 150, 35, 'Ezriel', 's10', [
+      { time: '09:05', status: 'classroom', location: 'Shiur Beis', note: 'On-task in class' },
+      { time: '10:35', status: 'bt-support', location: 'Class doorway', staffName: 'Ezriel', note: 'Prompting and redirection' },
+      { time: '10:50', status: 'return', location: 'Shiur Beis', note: 'Resumed classwork' },
+    ]),
+    makeDay(2, 125, 50, 'Yitzi Liebowitz', 's9', [
+      { time: '09:15', status: 'classroom', location: 'Shiur Beis', note: 'Participating in Gemara' },
+      { time: '10:40', status: 'therapy', location: 'Therapy room', staffName: 'Yitzi Liebowitz', note: 'Sensory motor session' },
+      { time: '11:25', status: 'return', location: 'Shiur Beis', note: 'Returned and settled quickly' },
+    ]),
+    makeDay(3, 95, 40, 'Mrs. Goldberg', 's6'),
+    makeDay(4, 120, 55, 'Ezriel', 's10'),
     makeDay(7, 100, 15, 'Yitzi Liebowitz', 's9'),
     makeDay(8, 80, 35, 'Dovid', 's11'),
     makeDay(9, 90, 25, 'Ezriel', 's10'),
@@ -1049,21 +1065,14 @@ export const HISTORICAL_DATA = {
     makeDay(90, 85, 30, 'Ezriel', 's10'),
     makeDay(120, 95, 20, 'Yitzi Liebowitz', 's9'),
   ],
-  1: [
-    makeDay(0, 60, 45, 'Mrs. Goldberg', 's6'),
-    makeDay(1, 95, 20, 'Mrs. Goldberg', 's6'),
-    makeDay(2, 100, 15, 'Mrs. Goldberg', 's6'),
-    makeDay(3, 80, 35, 'Mrs. Goldberg', 's6'),
-    makeDay(7, 90, 25, 'Mrs. Goldberg', 's6'),
-    makeDay(8, 70, 45, 'Mrs. Goldberg', 's6'),
-    makeDay(14, 85, 30, 'Mrs. Goldberg', 's6'),
-    makeDay(21, 75, 40, 'Mrs. Goldberg', 's6'),
-    makeDay(30, 95, 20, 'Mrs. Goldberg', 's6'),
-    makeDay(60, 80, 35, 'Mrs. Goldberg', 's6'),
-    makeDay(90, 90, 25, 'Mrs. Goldberg', 's6'),
-  ],
   3: [
-    makeDay(0, 30, 85, 'Mrs. Friedman', 's8'),
+    makeDay(0, 70, 95, 'Mrs. Friedman', 's8', [
+      { time: '09:20', status: 'classroom', location: 'Class 2A', note: 'Started in class' },
+      { time: '10:05', status: 'therapy', location: 'Counseling room', staffName: 'Mrs. Friedman', note: 'Counseling check-in' },
+      { time: '10:55', status: 'return', location: 'Class 2A', note: 'Returned to class' },
+      { time: '11:50', status: 'hallway', location: 'Hallway', note: 'De-escalation walk' },
+      { time: '12:05', status: 'return', location: 'Class 2A', note: 'Calm and ready for learning' },
+    ]),
     makeDay(1, 55, 60, 'Mrs. Friedman', 's8'),
     makeDay(2, 80, 35, 'Mrs. Friedman', 's8'),
     makeDay(3, 40, 75, 'Mrs. Friedman', 's8'),
@@ -1074,7 +1083,13 @@ export const HISTORICAL_DATA = {
     makeDay(60, 60, 55, 'Mrs. Friedman', 's8'),
   ],
   12: [
-    makeDay(0, 50, 65, 'Ezriel + Dovid', 's10'),
+    makeDay(0, 105, 80, 'Ezriel + Dovid', 's10', [
+      { time: '09:10', status: 'classroom', location: 'Shiur Alef', note: 'Morning class block' },
+      { time: '10:30', status: 'bt-support', location: 'Resource room', staffName: 'Ezriel', note: 'Reading support' },
+      { time: '11:00', status: 'return', location: 'Shiur Alef', note: 'Returned from support' },
+      { time: '11:20', status: 'bt-support', location: 'Resource room', staffName: 'Dovid', note: 'Behavior coaching' },
+      { time: '11:55', status: 'return', location: 'Shiur Alef', note: 'Back in class before lunch' },
+    ]),
     makeDay(1, 85, 30, 'Dovid', 's11'),
     makeDay(2, 70, 45, 'Ezriel', 's10'),
     makeDay(3, 90, 25, 'Dovid', 's11'),
@@ -1084,7 +1099,13 @@ export const HISTORICAL_DATA = {
     makeDay(30, 65, 50, 'Dovid', 's11'),
   ],
   14: [
-    makeDay(0, 35, 80, 'Yitzi Liebowitz', 's9'),
+    makeDay(0, 90, 85, 'Yitzi Liebowitz', 's9', [
+      { time: '09:05', status: 'classroom', location: 'Mesivta class', note: 'In class on arrival' },
+      { time: '10:15', status: 'therapy', location: 'Therapy room', staffName: 'Yitzi Liebowitz', note: 'Social skills pullout' },
+      { time: '11:00', status: 'return', location: 'Mesivta class', note: 'Returned and completed assignment' },
+      { time: '11:40', status: 'unaccounted', location: 'Hallway', note: 'Out of sight for 8 minutes' },
+      { time: '11:48', status: 'return', location: 'Mesivta class', note: 'Located and brought back' },
+    ]),
     makeDay(1, 50, 65, 'Yitzi Liebowitz', 's9'),
     makeDay(2, 75, 40, 'Yitzi Liebowitz', 's9'),
     makeDay(3, 60, 55, 'Yitzi Liebowitz', 's9'),
@@ -1096,7 +1117,11 @@ export const HISTORICAL_DATA = {
     makeDay(90, 80, 35, 'Yitzi Liebowitz', 's9'),
   ],
   18: [
-    makeDay(0, 55, 60, 'Dovid', 's11'),
+    makeDay(0, 115, 60, 'Dovid', 's11', [
+      { time: '09:10', status: 'classroom', location: 'Classroom', note: 'Morning attendance complete' },
+      { time: '10:40', status: 'bt-support', location: 'Support room', staffName: 'Dovid', note: 'BT focus session' },
+      { time: '11:10', status: 'return', location: 'Classroom', note: 'Back in class with worksheet' },
+    ]),
     makeDay(1, 80, 35, 'Dovid', 's11'),
     makeDay(2, 65, 50, 'Dovid', 's11'),
     makeDay(3, 90, 25, 'Dovid', 's11'),
@@ -1104,6 +1129,24 @@ export const HISTORICAL_DATA = {
     makeDay(14, 85, 30, 'Dovid', 's11'),
     makeDay(21, 60, 55, 'Dovid', 's11'),
     makeDay(30, 75, 40, 'Dovid', 's11'),
+  ],
+  8: [
+    makeDay(0, 130, 45, 'Mrs. Friedman', 's8', [
+      { time: '09:15', status: 'classroom', location: 'Classroom', note: 'Started with reading block' },
+      { time: '11:20', status: 'therapy', location: 'Counseling room', staffName: 'Mrs. Friedman', note: 'Counseling check-in' },
+      { time: '11:50', status: 'return', location: 'Classroom', note: 'Returned after counseling' },
+    ]),
+    makeDay(1, 120, 50, 'Mrs. Friedman', 's8'),
+    makeDay(2, 140, 35, 'Mrs. Friedman', 's8'),
+  ],
+  21: [
+    makeDay(0, 175, 20, 'Rabbi Klein', 's4', [
+      { time: '09:00', status: 'classroom', location: 'Mesivta shiur', note: 'Consistent classroom attendance' },
+      { time: '12:10', status: 'hallway', location: 'Hallway', note: 'Lunch transition' },
+      { time: '12:20', status: 'return', location: 'Lunchroom', note: 'Returned with peers' },
+    ]),
+    makeDay(1, 165, 25, 'Rabbi Klein', 's4'),
+    makeDay(2, 170, 22, 'Rabbi Klein', 's4'),
   ],
 }
 

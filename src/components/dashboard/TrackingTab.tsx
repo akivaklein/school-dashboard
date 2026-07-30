@@ -20,7 +20,24 @@ type TrackingTabProps = {
   HISTORICAL_DATA: Record<string | number, AttendanceHistoryEntry[]>
 }
 
-function normalizeHistoryEntries(rawHistory: unknown): AttendanceHistoryEntry[] {
+type TrackingSegment = {
+  time: string
+  status: 'classroom' | 'therapy' | 'bt-support' | 'hallway' | 'unaccounted' | 'return'
+  location: string
+  note: string
+  staffName?: string
+}
+
+const statusLabel: Record<TrackingSegment['status'], string> = {
+  classroom: 'Classroom time',
+  therapy: 'Therapy pullout',
+  'bt-support': 'BT support',
+  hallway: 'Hallway transition',
+  unaccounted: 'Unaccounted',
+  return: 'Returned to class',
+}
+
+export function normalizeHistoryEntries(rawHistory: unknown): AttendanceHistoryEntry[] {
   const source = Array.isArray(rawHistory)
     ? rawHistory
     : rawHistory && typeof rawHistory === 'object' && Array.isArray((rawHistory as { entries?: unknown[] }).entries)
@@ -37,6 +54,19 @@ function normalizeHistoryEntries(rawHistory: unknown): AttendanceHistoryEntry[] 
       outMins: Number(entry.outMins || 0),
       pct: Number(entry.pct || 0),
       staffName: typeof entry.staffName === 'string' ? entry.staffName : undefined,
+      segments: Array.isArray(entry.segments)
+        ? entry.segments
+          .filter((segment): segment is Record<string, unknown> => !!segment && typeof segment === 'object')
+          .map(segment => ({
+            time: typeof segment.time === 'string' ? segment.time : '--:--',
+            status: typeof segment.status === 'string' && ['classroom', 'therapy', 'bt-support', 'hallway', 'unaccounted', 'return'].includes(segment.status)
+              ? segment.status
+              : 'classroom',
+            location: typeof segment.location === 'string' ? segment.location : 'School',
+            note: typeof segment.note === 'string' ? segment.note : '',
+            staffName: typeof segment.staffName === 'string' ? segment.staffName : undefined,
+          }))
+        : [],
     }))
 }
 
@@ -93,6 +123,15 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
   ]
 
   const selectedDrill = drillType ? drillOptions.find(option => option.id === drillType) : null
+  const selectedDate = selectedDrill && selectedDrill.id !== 'in' && selectedDrill.id !== 'out'
+    ? selectedDrill.id
+    : null
+  const selectedEntry = selectedDate
+    ? data.find(entry => entry.date === selectedDate)
+    : data[0]
+  const selectedSegments: TrackingSegment[] = Array.isArray((selectedEntry as { segments?: unknown[] } | undefined)?.segments)
+    ? ((selectedEntry as { segments?: TrackingSegment[] }).segments || [])
+    : []
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -154,6 +193,21 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
             {selectedDrill.id !== 'in' && selectedDrill.id !== 'out' && `Tracking entry for ${selectedDrill.id}`}
           </div>
         ) : <div style={{ color: '#94a3b8', fontSize: 13 }}>Choose a drill-down view.</div>}
+        <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
+          {selectedSegments.length === 0 ? (
+            <div style={{ color: '#94a3b8', fontSize: 12 }}>No drill-down rows available for this day.</div>
+          ) : selectedSegments.map((segment, index) => (
+            <div key={`${segment.time}-${segment.status}-${index}`} style={{ display: 'grid', gridTemplateColumns: '60px 130px 1fr', gap: 8, padding: '8px 10px', borderRadius: 8, background: '#ffffff', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>{segment.time}</div>
+              <div style={{ fontSize: 11, color: '#334155', fontWeight: 700 }}>{statusLabel[segment.status]}</div>
+              <div style={{ fontSize: 11.5, color: '#334155' }}>
+                <strong>{segment.location}</strong>
+                {segment.staffName ? ` · ${segment.staffName}` : ''}
+                {segment.note ? ` — ${segment.note}` : ''}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
       {staffMembers.length > 0 && (
         <div style={{ fontSize: 12, color: '#64748b' }}>
