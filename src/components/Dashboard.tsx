@@ -1561,6 +1561,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const fallbackSyncInFlightRef = useRef(false)
   const storePurchaseAttemptKeysRef = useRef<Record<string, string>>({})
   const navRestoreAppliedRef = useRef(false)
+  const shouldRestoreNavRef = useRef(false)
   const lastSchoolDayPageRef = useRef('attendance')
   const skipNextStudentFlagsPersistRef = useRef(false)
   const [realtimeNotice, setRealtimeNotice] = useState<{ scope: string; at: number } | null>(null)
@@ -1691,7 +1692,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   // Auto-login with teacher portal user info
   useEffect(() => {
     if (teacherUser && !loggedIn) {
-      handleLogin(teacherUser.role, teacherUser.name)
+      handleLogin(teacherUser.role, teacherUser.name, { restoreNavigation: true })
     }
   }, [teacherUser])
 
@@ -3484,7 +3485,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }
 
-  async function handleLogin(r: string, name: string) { 
+  async function handleLogin(
+    r: string,
+    name: string,
+    options: { restoreNavigation?: boolean } = {},
+  ) {
     const staff = await getStaffByName(name)
     if (staff && staff.active === false) {
       console.warn(`Blocked login for inactive staff member ${name}.`)
@@ -3496,6 +3501,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
 
     const access = getUserAccess(name, r)
+  shouldRestoreNavRef.current = options.restoreNavigation === true
     setRole(r)
     setUserName(name)
     setStoredAuthUser(r, name)
@@ -4386,30 +4392,33 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   useEffect(() => {
     if (!loggedIn) {
       navRestoreAppliedRef.current = false
+      shouldRestoreNavRef.current = false
       return
     }
 
     if (navRestoreAppliedRef.current) return
 
-    const stored = readDashboardNavState()
-    const allowedPages = new Set(topAreas.flatMap(area => area.pages))
+    if (shouldRestoreNavRef.current) {
+      const stored = readDashboardNavState()
+      const allowedPages = new Set(topAreas.flatMap(area => area.pages))
 
-    if (stored.currentPage && allowedPages.has(stored.currentPage)) {
-      setPage(stored.currentPage)
-    } else if (stored.majorSection) {
-      const section = topAreas.find(area => area.id === stored.majorSection)
-      if (section) {
-        setPage(section.defaultPage)
+      if (stored.currentPage && allowedPages.has(stored.currentPage)) {
+        setPage(stored.currentPage)
+      } else if (stored.majorSection) {
+        const section = topAreas.find(area => area.id === stored.majorSection)
+        if (section) {
+          setPage(section.defaultPage)
+        }
       }
-    }
 
-    if (stored.divisionView) {
-      const access = getUserAccess(userName, role)
-      const validDivisionValues = new Set(
-        access.divisions.length > 1 ? ['all', ...access.divisions] : access.divisions,
-      )
-      if (validDivisionValues.has(stored.divisionView)) {
-        setDivisionView(stored.divisionView)
+      if (stored.divisionView) {
+        const access = getUserAccess(userName, role)
+        const validDivisionValues = new Set(
+          access.divisions.length > 1 ? ['all', ...access.divisions] : access.divisions,
+        )
+        if (validDivisionValues.has(stored.divisionView)) {
+          setDivisionView(stored.divisionView)
+        }
       }
     }
 
