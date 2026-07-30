@@ -70,6 +70,9 @@ export function StudentScoresTab({
       maxScore: form.scoreType === 'points' ? Number(form.maxScore) : null,
       rating: form.scoreType === 'rating' ? form.rating : null,
       notes: form.notes,
+      enteredBy: userName || 'Staff',
+      enteredAt: new Date().toISOString(),
+      sourceContext: 'student-profile-single-entry',
     }
     const updatedScores = [entry, ...(s.testScores || [])]
     setStudents(prev => prev.map(x => x.id === s.id ? { ...x, testScores: updatedScores } : x))
@@ -175,6 +178,7 @@ export default function AcademicsPage({
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [skillFilter, setSkillFilter] = useState('all')
   const [teacherFilter, setTeacherFilter] = useState(role === 'teacher' ? userName : 'all')
+  const [enteredByFilter, setEnteredByFilter] = useState('all')
   const [gradeSearch, setGradeSearch] = useState('')
   const [addStudentId, setAddStudentId] = useState(null)
   const [showBulkEntry, setShowBulkEntry] = useState(false)
@@ -449,6 +453,9 @@ export default function AcademicsPage({
           : null,
         notes: mergedNotes,
         attemptStatus,
+        enteredBy: userName || loggedInTeacher || 'Staff',
+        enteredAt: new Date().toISOString(),
+        sourceContext: 'academics-bulk-entry',
       }
 
       payload.push({
@@ -502,7 +509,12 @@ export default function AcademicsPage({
 
   const allScores = visibleStudents
     .flatMap(s => (s.testScores || []).map(score => ({ ...score, studentId: s.id, studentName: s.name })))
-    .filter(score => (teacherFilter === 'all' || score.teacher === teacherFilter) && (subjectFilter === 'all' || score.subject === subjectFilter) && (skillFilter === 'all' || score.skill === skillFilter))
+    .filter(score =>
+      (teacherFilter === 'all' || score.teacher === teacherFilter)
+      && (subjectFilter === 'all' || score.subject === subjectFilter)
+      && (skillFilter === 'all' || score.skill === skillFilter)
+      && (enteredByFilter === 'all' || (score.enteredBy || 'Unknown') === enteredByFilter)
+    )
     .filter(score => {
       const q = gradeSearch.trim().toLowerCase()
       if (!q) return true
@@ -526,6 +538,9 @@ export default function AcademicsPage({
   const filterSubjectOptions = ['all', ...new Set((academicCatalog?.subjects || []).filter(subject => subject.active !== false).map(subject => subject.label))]
   const filterSkills = ['all', ...new Set((academicCatalog?.subjects || []).flatMap(subject => (subject.skills || []).filter(skill => skill.active !== false).map(skill => skill.label)))]
   const teacherFilterOptions = role === 'admin' ? ['all', ...teacherOptions] : []
+  const enteredByFilterOptions = ['all', ...new Set(
+    visibleStudents.flatMap(student => (student.testScores || []).map(score => score.enteredBy || 'Unknown'))
+  )]
   const classScopeLabel = classFilter === 'all'
     ? 'All classes'
     : (CLASSES.find(c => c.id === classFilter)?.name || 'Selected class')
@@ -545,6 +560,9 @@ export default function AcademicsPage({
 
       <div style={{ ...S.card, marginBottom:16, display:'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap:10 }}>
         {role === 'admin' && <select value={teacherFilter} onChange={e=>setTeacherFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{teacherFilterOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All teachers' : option}</option>)}</select>}
+        <select value={enteredByFilter} onChange={e=>setEnteredByFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>
+          {enteredByFilterOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All entered by' : option}</option>)}
+        </select>
         <select value={classFilter} onChange={e=>setClassFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="all">All classes</option>{CLASSES.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <select value={subjectFilter} onChange={e=>{setSubjectFilter(e.target.value); setSkillFilter('all')}} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{filterSubjectOptions.map(x=><option key={x} value={x}>{x === 'all' ? 'All subjects' : x}</option>)}</select>
         <select value={skillFilter} onChange={e=>setSkillFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{filterSkills.filter(x=> subjectFilter==='all' || x==='all' || (academicCatalog?.subjects || []).some(subject => subject.label === subjectFilter && (subject.skills || []).some(skill => skill.label === x && skill.active !== false))).map(x=><option key={x} value={x}>{x === 'all' ? 'All skills' : x}</option>)}</select>
@@ -555,7 +573,7 @@ export default function AcademicsPage({
           <div>
             <div style={{ fontWeight: 900, fontSize: 15 }}>Filterable Grades View</div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              {allScores.length} matching entries · Teacher: {teacherFilter === 'all' ? 'All' : teacherFilter} · Subject: {subjectFilter === 'all' ? 'All' : subjectFilter}
+              {allScores.length} matching entries · Teacher: {teacherFilter === 'all' ? 'All' : teacherFilter} · Subject: {subjectFilter === 'all' ? 'All' : subjectFilter} · Entered by: {enteredByFilter === 'all' ? 'All' : enteredByFilter}
             </div>
           </div>
           <input
@@ -578,6 +596,7 @@ export default function AcademicsPage({
                 <th style={{ padding: 9 }}>Skill</th>
                 <th style={{ padding: 9 }}>Assessment</th>
                 <th style={{ padding: 9 }}>Result</th>
+                <th style={{ padding: 9 }}>Entered By</th>
                 <th style={{ padding: 9 }}>Date</th>
               </tr>
             </thead>
@@ -590,12 +609,13 @@ export default function AcademicsPage({
                   <td style={{ padding: 9 }}>{score.skill}</td>
                   <td style={{ padding: 9 }}>{score.assessmentName || '—'}</td>
                   <td style={{ padding: 9, fontWeight: 700 }}>{scoreDisplayValue(score)}</td>
+                  <td style={{ padding: 9 }}>{score.enteredBy || 'Unknown'}</td>
                   <td style={{ padding: 9 }}>{score.date}</td>
                 </tr>
               ))}
               {allScores.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ padding: 14, color: '#64748b', textAlign: 'center' }}>No grade entries match current filters.</td>
+                  <td colSpan={8} style={{ padding: 14, color: '#64748b', textAlign: 'center' }}>No grade entries match current filters.</td>
                 </tr>
               )}
             </tbody>

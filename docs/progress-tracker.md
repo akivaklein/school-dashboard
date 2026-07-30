@@ -23,7 +23,9 @@
 - [x] Class-wide live status board
 - [ ] Unknown-location smart rules
 - [ ] Custom pattern-based VIP rules
-- [ ] Scheduling conflict enforcement + multi-class teacher support
+- [x] Scheduling conflict enforcement + multi-class teacher support
+- [x] Setup Center visual polish
+- [x] Unknown-location smart rules
 - [ ] Assignment-change confirmation modal complete
 - [ ] Compact/sortable/searchable/paginated student table view
 - [ ] Email invite account system UI
