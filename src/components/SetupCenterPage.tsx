@@ -7,6 +7,7 @@ import SetupStoreSalesSection from './SetupStoreSalesSection'
 import SetupAccountsSection from './SetupAccountsSection'
 import SetupSchoolStructureSection from './SetupSchoolStructureSection'
 import StaffDirectoryPage from './StaffDirectoryPage'
+import { getSetupSectionMeta } from './setupCenterUtils'
 import {
   loadSetupAssignments,
   saveSetupAssignment,
@@ -158,32 +159,9 @@ export default function SetupCenterPage({
     setOpenSchedulingGroups(prev => (prev.includes(activeSchedulingGroupName) ? prev : [...prev, activeSchedulingGroupName]))
   }, [activeSchedulingGroupName, activeTopTabId])
 
-  const sectionSubtitleByTab: Record<string, string> = {
-    'staff-directory': 'Edit staffing records and keep teams organized.',
-    'assignments': 'Match staff caseloads and period coverage.',
-    'therapy-schedule': 'Coordinate therapist schedules and service blocks.',
-    teaching: 'Set classroom action options available to staff.',
-    vip: 'Define VIP rules and eligibility behavior.',
-    store: 'Manage setup-level store sales and policy defaults.',
-    accounts: 'Control account access and identity settings.',
-    'classes-divisions': 'Maintain class and division structure settings.',
-    'schedule-setup': 'Review scheduling snapshots and structure guidance.',
-  }
+  const { sectionSubtitle, primaryActionLabel, activeTabLabel } = getSetupSectionMeta(setupTab, safeSetupNavItems)
 
-  const primaryActionLabelByTab: Record<string, string> = {
-    'staff-directory': 'Manage Staff Directory',
-    assignments: 'Review Assignments',
-    'therapy-schedule': 'Review Therapy Schedule',
-    teaching: 'Review Teaching Actions',
-    vip: 'Review VIP Rules',
-    store: 'Review Store & Sales',
-    accounts: 'Manage Accounts',
-    'classes-divisions': 'Review School Structure',
-    'schedule-setup': 'Review Schedule Setup',
-  }
-
-  const currentSectionSubtitle = sectionSubtitleByTab[setupTab] || activeTopTab.subtitle
-  const activeTabLabel = safeSetupNavItems.find(item => item.id === setupTab)?.label || 'Setup Center'
+  const currentSectionSubtitle = sectionSubtitle || activeTopTab.subtitle
   return (
     <div data-layout="setup-shell" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0 }}>
       <div style={{ ...S.card, marginBottom: 10, padding: '12px 14px', border: '1px solid #d3deea', borderLeft: '4px solid #5f83aa', borderRadius: 10 }}>
@@ -206,7 +184,7 @@ export default function SetupCenterPage({
                 cursor: 'pointer',
               }}
             >
-              {primaryActionLabelByTab[setupTab] || 'Review Section'}
+              {primaryActionLabel}
             </button>
             <button
               onClick={() => setPage('dashboard')}
