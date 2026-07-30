@@ -2190,7 +2190,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     if (!studentsLoaded || !studentIdsFilter) return
 
     const studentsChannel = supabase
-      .channel(`students-shared-${studentIdsFilter}`)
+      .channel('students-shared')
       .on(
         'postgres_changes',
         {
@@ -2214,7 +2214,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           markRealtimeNotice('students')
         },
       )
-      .subscribe()
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Supabase realtime channel error: students-shared')
+        }
+      })
 
     return () => {
       supabase.removeChannel(studentsChannel)
@@ -2261,7 +2265,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           markRealtimeNotice('flags')
         },
       )
-      .subscribe()
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Supabase realtime channel error: student-flags-shared')
+        }
+      })
 
     return () => {
       supabase.removeChannel(flagsChannel)
@@ -2304,7 +2312,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           markRealtimeNotice('store')
         },
       )
-      .subscribe()
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Supabase realtime channel error: store-redemptions-shared')
+        }
+      })
 
     const storeItemsChannel = supabase
       .channel('store-items-shared')
@@ -2355,7 +2367,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           markRealtimeNotice('store')
         },
       )
-      .subscribe()
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Supabase realtime channel error: store-items-shared')
+        }
+      })
 
     return () => {
       supabase.removeChannel(redemptionsChannel)
@@ -2470,7 +2486,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           markRealtimeNotice('points')
         },
       )
-      .subscribe()
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error(`Supabase realtime channel error: points-events-student-${selectedStudentId}`)
+        }
+      })
 
     return () => {
       supabase.removeChannel(selectedPointsChannel)
