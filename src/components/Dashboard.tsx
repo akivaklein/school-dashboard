@@ -21,6 +21,7 @@ import AttendanceReportsPanel from './AttendanceReportsPanel'
 import AdminMainDashboard from './AdminMainDashboard'
 import TherapistAssignmentsPage from './TherapistAssignmentsPage'
 import IntakePage from './IntakePage'
+import { buildReportsOverview } from './reportsUtils'
 import {
   applyPointsEventTx,
   listPointsEventsForStudent,
@@ -3937,6 +3938,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }
 
   const contextInfo = useMemo(() => getDashboardContextInfo(page, role, divisionView), [page, role, divisionView])
+  const reportsOverview = useMemo(() => buildReportsOverview({
+    attendanceRows: buildAttendanceReportRows(filteredStudents),
+    intakeList,
+  }), [filteredStudents, intakeList])
   const realtimeScopeLabel = realtimeNotice?.scope === 'store'
     ? 'Token Store'
     : realtimeNotice?.scope === 'flags'
@@ -4976,17 +4981,34 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
 
         {page === 'todo' && role === 'admin' && (
-          <TodoPage
-            S={S}
-            todos={todos}
-            setTodos={setTodos}
-            newTodo={newTodo}
-            setNewTodo={setNewTodo}
-            newTodoCategory={newTodoCategory}
-            setNewTodoCategory={setNewTodoCategory}
-            newTodoTime={newTodoTime}
-            setNewTodoTime={setNewTodoTime}
-          />
+          <div style={{ display: 'grid', gap: 16 }}>
+            <div style={{ ...S.card, padding: '16px 18px', border: '1px solid #dbe8f5', borderRadius: 12 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#172033', marginBottom: 8 }}>Reports Overview</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                <div style={{ padding: 12, borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Attendance</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0f2942', marginTop: 4 }}>{reportsOverview.attendanceSummary.total}</div>
+                  <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>Present {reportsOverview.attendanceSummary.present} · Absent {reportsOverview.attendanceSummary.absent}</div>
+                </div>
+                <div style={{ padding: 12, borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Admissions</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0f2942', marginTop: 4 }}>{reportsOverview.admissionsSummary.total}</div>
+                  <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>Accepted {reportsOverview.admissionsSummary.accepted} · Needs info {reportsOverview.admissionsSummary.needsInfo}</div>
+                </div>
+              </div>
+            </div>
+            <TodoPage
+              S={S}
+              todos={todos}
+              setTodos={setTodos}
+              newTodo={newTodo}
+              setNewTodo={setNewTodo}
+              newTodoCategory={newTodoCategory}
+              setNewTodoCategory={setNewTodoCategory}
+              newTodoTime={newTodoTime}
+              setNewTodoTime={setNewTodoTime}
+            />
+          </div>
         )}
 
       </div>
