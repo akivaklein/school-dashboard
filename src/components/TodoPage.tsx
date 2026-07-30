@@ -1,5 +1,6 @@
 import type { Dispatch, KeyboardEvent, SetStateAction } from 'react'
 import { createTodo, updateTodo, deleteTodo } from '../services/todosService'
+import { groupTodosByStatus } from './todoUtils'
 
 type TodoItem = {
   id: number
@@ -33,8 +34,7 @@ export default function TodoPage({
   newTodoTime,
   setNewTodoTime,
 }: Props) {
-  const pendingTodos = todos.filter(todo => !todo.done)
-  const completedTodos = todos.filter(todo => todo.done)
+  const { pending: pendingTodos, completed: completedTodos } = groupTodosByStatus(todos)
 
   const categoryColors: Record<string, [string, string]> = {
     meeting: ['#5b5f7a', '#f5f3ff'],
