@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import playSound from '../utils/playSound'
 import { resolveActorName } from './dashboardData'
 
@@ -22,9 +22,11 @@ const BEHAVIORS_NEGATIVE = [
 
 export default function TeachingMode({
   students,
+  allStudents = [],
   setStudents,
   onExit,
   isAdmin,
+  role = 'teacher',
   userName,
   initialClass = null,
   S,
@@ -39,6 +41,10 @@ export default function TeachingMode({
   persistStudentFields,
   persistStudentFieldsBulk,
   recordStudentPointsAction,
+  canViewEntireSchool = false,
+  assignedStudentIds = [],
+  assignmentPeriods = {},
+  teachingAssignments = {},
 }) {
 
   const isStudentInClass = student =>
@@ -57,11 +63,162 @@ export default function TeachingMode({
   const [leaveStaffSearch, setLeaveStaffSearch] = useState('')
   const [leaveStaffId, setLeaveStaffId] = useState('')
   const [selectedClass, setSelectedClass] = useState(initialClass)
+  const [scopeType, setScopeType] = useState(canViewEntireSchool ? 'entire' : 'assigned')
+  const [selectedTeacher, setSelectedTeacher] = useState('')
+  const [selectedGrade, setSelectedGrade] = useState('')
+  const [selectedPeriod, setSelectedPeriod] = useState('')
   const [lateClassPopup, setLateClassPopup] = useState(null) // studentId
   const [lateClassStaffSearch, setLateClassStaffSearch] = useState('')
   const [lateClassStaffId, setLateClassStaffId] = useState('')
   const [lateClassNote, setLateClassNote] = useState('')
   const actingStaffName = resolveActorName(userName, isAdmin ? 'admin' : 'teacher')
+
+  const isTeacherRole = role === 'teacher' || role === 'rebbe'
+
+  const roleStudents = useMemo(() => {
+    const base = Array.isArray(students) ? students : []
+    const seen = new Set()
+    return base.filter(student => {
+      const key = Number(student.id)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [students])
+
+  const schoolStudents = useMemo(() => {
+    const base = Array.isArray(allStudents) && allStudents.length > 0
+      ? allStudents
+      : roleStudents
+    const seen = new Set()
+    return base.filter(student => {
+      const key = Number(student.id)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [allStudents, roleStudents])
+
+  const scopeBaseStudents = canViewEntireSchool ? schoolStudents : roleStudents
+  const scopeBaseIdSet = useMemo(
+    () => new Set(scopeBaseStudents.map(student => Number(student.id))),
+    [scopeBaseStudents],
+  )
+
+  const assignedIdSet = useMemo(
+    () => new Set((assignedStudentIds || []).map(id => Number(id)).filter(Number.isFinite)),
+    [assignedStudentIds],
+  )
+
+  const assignedStudents = useMemo(
+    () => scopeBaseStudents.filter(student => assignedIdSet.has(Number(student.id))),
+    [scopeBaseStudents, assignedIdSet],
+  )
+
+  const hasAssignedStudents = assignedStudents.length > 0
+
+  const classOptions = useMemo(() => {
+    const classIdsInScope = new Set(
+      scopeBaseStudents
+        .map(student => STUDENT_CLASSES[student.id])
+        .filter(Boolean),
+    )
+
+    return CLASSES.filter(cls => classIdsInScope.has(cls.id))
+  }, [scopeBaseStudents, STUDENT_CLASSES, CLASSES])
+
+  const teacherOptions = useMemo(
+    () => classOptions.map(cls => cls.teacher).filter((value, index, arr) => arr.indexOf(value) === index),
+    [classOptions],
+  )
+
+  const gradeOptions = useMemo(
+    () => classOptions.map(cls => cls.grade).filter((value, index, arr) => arr.indexOf(value) === index),
+    [classOptions],
+  )
+
+  const periodIds = [1, 2, 3]
+  const periodBuckets = useMemo(() => {
+    const ownerAssignments = canViewEntireSchool
+      ? Object.values(teachingAssignments || {})
+      : [{ periods: assignmentPeriods || {} }]
+
+    return periodIds.map(period => {
+      const idSet = new Set()
+
+      ownerAssignments.forEach(assignment => {
+        const ids = assignment?.periods?.[period] || []
+        ids.forEach(id => {
+          const numericId = Number(id)
+          if (!Number.isFinite(numericId)) return
+          if (!scopeBaseIdSet.has(numericId)) return
+          idSet.add(numericId)
+        })
+      })
+
+      return {
+        period,
+        ids: Array.from(idSet),
+      }
+    })
+  }, [canViewEntireSchool, teachingAssignments, assignmentPeriods, scopeBaseIdSet])
+
+  const periodOptions = periodBuckets.filter(bucket => bucket.ids.length > 0).map(bucket => String(bucket.period))
+
+  useEffect(() => {
+    const teacherDefaultClass = initialClass && classOptions.some(cls => cls.id === initialClass)
+      ? initialClass
+      : classOptions[0]?.id || null
+    const teacherDefaultPeriod = periodOptions[0] || ''
+
+    if (canViewEntireSchool) {
+      setScopeType('entire')
+      setSelectedClass(teacherDefaultClass)
+      setSelectedTeacher(teacherOptions[0] || '')
+      setSelectedGrade(gradeOptions[0] || '')
+      setSelectedPeriod(teacherDefaultPeriod)
+      return
+    }
+
+    if (isTeacherRole) {
+      if (teacherDefaultPeriod) {
+        setScopeType('period')
+        setSelectedPeriod(teacherDefaultPeriod)
+      } else if (teacherDefaultClass) {
+        setScopeType('class')
+        setSelectedClass(teacherDefaultClass)
+      } else if (hasAssignedStudents) {
+        setScopeType('assigned')
+      } else {
+        setScopeType('class')
+      }
+
+      if (teacherDefaultClass) setSelectedClass(teacherDefaultClass)
+      if (!selectedTeacher && teacherOptions.length > 0) setSelectedTeacher(teacherOptions[0])
+      if (!selectedGrade && gradeOptions.length > 0) setSelectedGrade(gradeOptions[0])
+      return
+    }
+
+    if (hasAssignedStudents) {
+      setScopeType('assigned')
+    } else {
+      setScopeType('class')
+      if (teacherDefaultClass) setSelectedClass(teacherDefaultClass)
+    }
+
+    if (!selectedTeacher && teacherOptions.length > 0) setSelectedTeacher(teacherOptions[0])
+    if (!selectedGrade && gradeOptions.length > 0) setSelectedGrade(gradeOptions[0])
+    if (!selectedPeriod && teacherDefaultPeriod) setSelectedPeriod(teacherDefaultPeriod)
+  }, [
+    canViewEntireSchool,
+    isTeacherRole,
+    hasAssignedStudents,
+    initialClass,
+    classOptions,
+    teacherOptions,
+    gradeOptions,
+    periodOptions,
+  ])
 
   function buildClassLogEntry(type, note, extra = {}) {
     return {
@@ -159,9 +316,76 @@ export default function TeachingMode({
     ? STAFF.filter(st => st.name.toLowerCase().includes(leaveStaffSearch.toLowerCase()) || (st.role || '').toLowerCase().includes(leaveStaffSearch.toLowerCase()))
     : STAFF
 
-  const classStudents = selectedClass
-    ? students.filter(s => STUDENT_CLASSES[s.id] === selectedClass)
-    : students
+  const scopeOptions = [
+    ...(canViewEntireSchool ? [{ value: 'entire', label: 'Entire School' }] : []),
+    ...(hasAssignedStudents ? [{ value: 'assigned', label: 'My Assigned Students' }] : []),
+    { value: 'class', label: 'Class' },
+    { value: 'teacher', label: 'Teacher' },
+    { value: 'grade', label: 'Grade' },
+    { value: 'period', label: 'Period' },
+  ]
+
+  const scopedStudents = useMemo(() => {
+    const byClass = (student, classId) => STUDENT_CLASSES[student.id] === classId
+    const byTeacher = (student, teacherName) => {
+      const classId = STUDENT_CLASSES[student.id]
+      const cls = CLASSES.find(item => item.id === classId)
+      return cls?.teacher === teacherName
+    }
+    const byGrade = (student, gradeName) => {
+      const classId = STUDENT_CLASSES[student.id]
+      const cls = CLASSES.find(item => item.id === classId)
+      return cls?.grade === gradeName
+    }
+
+    if (scopeType === 'entire') {
+      return canViewEntireSchool ? schoolStudents : scopeBaseStudents
+    }
+
+    if (scopeType === 'assigned') {
+      return hasAssignedStudents ? assignedStudents : scopeBaseStudents
+    }
+
+    if (scopeType === 'class') {
+      if (!selectedClass) return scopeBaseStudents
+      return scopeBaseStudents.filter(student => byClass(student, selectedClass))
+    }
+
+    if (scopeType === 'teacher') {
+      if (!selectedTeacher) return scopeBaseStudents
+      return scopeBaseStudents.filter(student => byTeacher(student, selectedTeacher))
+    }
+
+    if (scopeType === 'grade') {
+      if (!selectedGrade) return scopeBaseStudents
+      return scopeBaseStudents.filter(student => byGrade(student, selectedGrade))
+    }
+
+    if (scopeType === 'period') {
+      const bucket = periodBuckets.find(item => String(item.period) === String(selectedPeriod))
+      if (!bucket) return []
+      const periodSet = new Set(bucket.ids)
+      return scopeBaseStudents.filter(student => periodSet.has(Number(student.id)))
+    }
+
+    return scopeBaseStudents
+  }, [
+    scopeType,
+    canViewEntireSchool,
+    schoolStudents,
+    scopeBaseStudents,
+    hasAssignedStudents,
+    assignedStudents,
+    selectedClass,
+    selectedTeacher,
+    selectedGrade,
+    selectedPeriod,
+    periodBuckets,
+    STUDENT_CLASSES,
+    CLASSES,
+  ])
+
+  const classStudents = scopedStudents
   const filtered = classStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
 
   function closeTeachingActions() {
@@ -953,48 +1177,121 @@ export default function TeachingMode({
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
+            gap: 8,
             flex: 1,
             minWidth: 0,
             overflowX: 'auto',
             paddingBottom: 2
           }}>
-            <button
-              onClick={() => setSelectedClass(null)}
-              style={{
-                padding: '7px 11px',
-                borderRadius: 9,
-                border: `1px solid ${selectedClass === null ? '#769bd0' : '#d6e0ec'}`,
-                background: selectedClass === null ? '#edf4ff' : '#ffffff',
-                color: selectedClass === null ? '#254f83' : '#58677a',
-                fontSize: 11,
-                fontWeight: 800,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              All
-            </button>
-
-            {CLASSES.map(cls => (
-              <button
-                key={cls.id}
-                onClick={() => setSelectedClass(cls.id)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 11, color: '#52637a', fontWeight: 800, whiteSpace: 'nowrap' }}>Scope</div>
+              <select
+                value={scopeType}
+                onChange={event => setScopeType(event.target.value)}
                 style={{
-                  padding: '7px 11px',
+                  padding: '8px 10px',
                   borderRadius: 9,
-                  border: `1px solid ${selectedClass === cls.id ? '#769bd0' : '#d6e0ec'}`,
-                  background: selectedClass === cls.id ? '#edf4ff' : '#ffffff',
-                  color: selectedClass === cls.id ? '#254f83' : '#58677a',
+                  border: '1px solid #d6e0ec',
+                  background: '#ffffff',
+                  color: '#233952',
                   fontSize: 11,
                   fontWeight: 800,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap'
+                  minWidth: 178,
                 }}
               >
-                {cls.name}
-              </button>
-            ))}
+                {scopeOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+
+              {scopeType === 'class' && (
+                <select
+                  value={selectedClass || ''}
+                  onChange={event => setSelectedClass(event.target.value || null)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 9,
+                    border: '1px solid #d6e0ec',
+                    background: '#ffffff',
+                    color: '#233952',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    minWidth: 162,
+                  }}
+                >
+                  <option value="">All Classes</option>
+                  {classOptions.map(cls => (
+                    <option key={cls.id} value={cls.id}>{cls.name}</option>
+                  ))}
+                </select>
+              )}
+
+              {scopeType === 'teacher' && (
+                <select
+                  value={selectedTeacher}
+                  onChange={event => setSelectedTeacher(event.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 9,
+                    border: '1px solid #d6e0ec',
+                    background: '#ffffff',
+                    color: '#233952',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    minWidth: 170,
+                  }}
+                >
+                  <option value="">All Teachers</option>
+                  {teacherOptions.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              )}
+
+              {scopeType === 'grade' && (
+                <select
+                  value={selectedGrade}
+                  onChange={event => setSelectedGrade(event.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 9,
+                    border: '1px solid #d6e0ec',
+                    background: '#ffffff',
+                    color: '#233952',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    minWidth: 145,
+                  }}
+                >
+                  <option value="">All Grades</option>
+                  {gradeOptions.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              )}
+
+              {scopeType === 'period' && (
+                <select
+                  value={selectedPeriod}
+                  onChange={event => setSelectedPeriod(event.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 9,
+                    border: '1px solid #d6e0ec',
+                    background: '#ffffff',
+                    color: '#233952',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    minWidth: 120,
+                  }}
+                >
+                  {periodOptions.length === 0 && <option value="">No Periods</option>}
+                  {periodOptions.map(period => (
+                    <option key={period} value={period}>Period {period}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
 
           <div style={{

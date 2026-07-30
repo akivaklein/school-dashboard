@@ -4261,6 +4261,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const assignedTeacherStudentIdsForMode = isTeacherRoleForMode
     ? getTeacherAssignedStudentIds(userName, setupAssignments)
     : []
+  const assignedStaffStudentIdsForMode = getTeacherAssignedStudentIds(userName, setupAssignments)
+  const assignedStaffStudentSetForMode = new Set(assignedStaffStudentIdsForMode)
+  const isLeadershipRoleForMode = role === 'admin'
   const assignedTeacherStudentSetForMode = new Set(assignedTeacherStudentIdsForMode)
   const studentsForCurrentRole = isTeacherRoleForMode
     ? (
@@ -4270,15 +4273,24 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               s => assignedTeacherClassIdsForMode.includes(resolveStudentClassId(s))
             )
       )
-    : divisionScopedStudentsForMode
+    : isLeadershipRoleForMode
+      ? students
+      : (
+          assignedStaffStudentSetForMode.size > 0
+            ? divisionScopedStudentsForMode.filter(s => assignedStaffStudentSetForMode.has(Number(s.id)))
+            : divisionScopedStudentsForMode
+        )
   
   if (teachingMode) return (
     <TeachingMode
       students={studentsForCurrentRole}
+      allStudents={students}
       setStudents={setStudents}
       onExit={() => setTeachingMode(false)}
       isAdmin={role === 'admin'}
+      role={role}
       userName={userName}
+      initialClass={assignedTeacherClassIdsForMode[0] || null}
       S={S}
       STAFF={STAFF}
       STUDENT_CLASSES={STUDENT_CLASSES}
@@ -4291,6 +4303,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       persistStudentFields={persistStudentFields}
       persistStudentFieldsBulk={persistStudentFieldsBulk}
       recordStudentPointsAction={recordStudentPointsAction}
+      canViewEntireSchool={role === 'admin'}
+      assignedStudentIds={assignedStaffStudentIdsForMode}
+      assignmentPeriods={setupAssignments?.[userName]?.periods || {}}
+      teachingAssignments={setupAssignments}
     />
   )
 
@@ -4392,15 +4408,18 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'attendance', label: 'Attendance', icon: 'AT' },
     { id: 'academics', label: 'Academics', icon: 'AC' },
     { id: 'schedule', label: 'Schedule', icon: 'SC' },
+    { id: 'teaching-mode', label: 'Teaching Mode', icon: 'TM' },
     { id: 'store', label: 'Token Store', icon: 'TS' },
   ]
   const therapistNav = [
     { id: 'dashboard', label: 'My Students', icon: 'MS' },
     { id: 'support', label: 'Student Support', icon: 'SS' },
     { id: 'schedule', label: 'Schedule', icon: 'SC' },
+    { id: 'teaching-mode', label: 'Teaching Mode', icon: 'TM' },
   ]
   const storeNav = [
     { id: 'store', label: 'Token Store', icon: 'TS' },
+    { id: 'teaching-mode', label: 'Teaching Mode', icon: 'TM' },
   ]
 
   const adminTopAreas = [
@@ -4421,6 +4440,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     'school-day': [
       { id: 'attendance', label: 'Attendance' },
       { id: 'schedule', label: 'Schedule' },
+      { id: 'teaching-mode', label: 'Teaching Mode' },
       { id: 'store', label: 'Token Store' },
       { id: 'calls', label: 'Parent Calls' },
       { id: 'intake', label: 'Intake' },
@@ -4517,25 +4537,26 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             <div
               key={item.id}
               style={{
-                ...S.sidebarItem(page === item.id),
+                ...S.sidebarItem(page === item.id || (item.id === 'teaching-mode' && teachingMode)),
                 transition: 'transform 160ms ease, background 160ms ease, box-shadow 160ms ease',
-                boxShadow: page === item.id ? 'inset 0 0 0 1px rgba(255,255,255,0.16), 0 10px 20px rgba(15,23,42,0.16)' : 'inset 0 0 0 1px rgba(255,255,255,0.04)',
-                transform: page === item.id ? 'translateX(2px)' : 'none',
+                boxShadow: (page === item.id || (item.id === 'teaching-mode' && teachingMode)) ? 'inset 0 0 0 1px rgba(255,255,255,0.16), 0 10px 20px rgba(15,23,42,0.16)' : 'inset 0 0 0 1px rgba(255,255,255,0.04)',
+                transform: (page === item.id || (item.id === 'teaching-mode' && teachingMode)) ? 'translateX(2px)' : 'none',
               }}
-              onClick={() => setPage(item.id)}
+              onClick={() => {
+                if (item.id === 'teaching-mode') {
+                  setTeachingMode(true)
+                  return
+                }
+                setPage(item.id)
+              }}
             >
-              <span style={{ width: 26, height: 26, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, letterSpacing: '0.03em', background: page === item.id ? '#35506f' : 'rgba(255,255,255,0.10)', color: page === item.id ? '#fff' : 'rgba(255,255,255,0.78)', flexShrink: 0 }}>{item.icon}</span>
+              <span style={{ width: 26, height: 26, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, letterSpacing: '0.03em', background: (page === item.id || (item.id === 'teaching-mode' && teachingMode)) ? '#35506f' : 'rgba(255,255,255,0.10)', color: (page === item.id || (item.id === 'teaching-mode' && teachingMode)) ? '#fff' : 'rgba(255,255,255,0.78)', flexShrink: 0 }}>{item.icon}</span>
               <span style={{ flex: 1 }}>{item.label}</span>
               {item.id === 'support' && alerts.filter(a => a.type === 'danger').length > 0 && (
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#9f1239', flexShrink: 0 }} />
               )}
             </div>
           ))}
-          {role !== 'therapist' && role !== 'store' && (
-            <div onClick={() => setTeachingMode(true)} style={{ ...S.sidebarItem(false), background: 'rgba(255,255,255,0.06)', margin: '8px 8px 2px', border: '1px solid rgba(255,255,255,0.12)' }}>
-              <span style={{ width: 26, height: 26, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.10)' }}>{role === 'admin' ? 'SW' : 'TM'}</span><span>{role === 'admin' ? 'School-Wide Mode' : 'Teaching Mode'}</span>
-            </div>
-          )}
         </div>
         <div style={{ marginTop: 'auto', padding: '14px 16px 18px', borderTop: '1px solid rgba(255,255,255,0.10)', flexShrink: 0 }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 8 }}>{userName}</div>
@@ -4587,11 +4608,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
         <div style={{ display: 'grid', gap: 3 }}>
           {adminSubmenuItems.map(item => {
-            const isActive = page === item.id
+            const isActive = page === item.id || (item.id === 'teaching-mode' && teachingMode)
             return (
               <button
                 key={item.id}
-                onClick={() => setPage(item.id)}
+                onClick={() => {
+                  if (item.id === 'teaching-mode') {
+                    setTeachingMode(true)
+                    return
+                  }
+                  setPage(item.id)
+                }}
                 style={{
                   width: '100%',
                   textAlign: 'left',
