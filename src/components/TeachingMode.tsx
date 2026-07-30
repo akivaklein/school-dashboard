@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import playSound from '../utils/playSound'
 import { resolveActorName } from './dashboardData'
 import { buildLateToClassFields } from './teachingModeUtils'
-import { isInClassroom, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
+import { getDailyAttendanceStatus, isInClassroom, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
 
 const TEACHING_MODE_SCOPE_STATE_STORAGE_KEY = 'schoolDashboardTeachingModeScopeV1'
 
@@ -324,6 +324,9 @@ export default function TeachingMode({
   const [intervalReminders, setIntervalReminders] = useState({}) // {studentId: reminders this interval}
   const [showSummary, setShowSummary] = useState(false)
   const [showStartSessionConfirm, setShowStartSessionConfirm] = useState(false)
+  const [showClassStartConfirm, setShowClassStartConfirm] = useState(false)
+  const [confirmedInClassIds, setConfirmedInClassIds] = useState<Array<number | string>>([])
+  const [startingSession, setStartingSession] = useState(false)
 
   // Timer
   useEffect(() => {
@@ -468,6 +471,90 @@ export default function TeachingMode({
 
   const classStudents = scopedStudents
   const filtered = classStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+
+  function openClassStartConfirmation() {
+    const precheckedIds = filtered
+      .filter(student => isStudentInClass(student) && isInSchool(student))
+      .map(student => student.id)
+
+    setConfirmedInClassIds(precheckedIds)
+    setShowStartSessionConfirm(false)
+    setShowClassStartConfirm(true)
+  }
+
+  function toggleConfirmedInClass(studentId) {
+    setConfirmedInClassIds(prev => (
+      prev.includes(studentId)
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    ))
+  }
+
+  async function confirmStudentsAndStartSession() {
+    if (startingSession) return
+
+    setStartingSession(true)
+
+    const selectedSet = new Set(confirmedInClassIds.map(id => Number(id)))
+    const inSchoolStudents = filtered.filter(student => isInSchool(student))
+    const studentsToMarkPresent = inSchoolStudents.filter(student => (
+      selectedSet.has(Number(student.id)) && student.status !== 'present'
+    ))
+
+    if (studentsToMarkPresent.length > 0) {
+      const rollbackById = Object.fromEntries(
+        studentsToMarkPresent.map(student => [Number(student.id), student]),
+      )
+
+      const updateById = Object.fromEntries(
+        studentsToMarkPresent.map(student => {
+          const updatedClassLog = [
+            ...(student.classLog || []),
+            buildClassLogEntry(
+              'status-update',
+              `Confirmed in class at session start by ${actingStaffName}`,
+            ),
+          ]
+
+          return [
+            Number(student.id),
+            {
+              status: 'present',
+              withStaff: null,
+              classLog: updatedClassLog,
+            },
+          ]
+        }),
+      )
+
+      setStudents(prev => prev.map(student => {
+        const fields = updateById[Number(student.id)]
+        return fields ? { ...student, ...fields } : student
+      }))
+
+      const success = await persistStudentFieldsBulk(
+        studentsToMarkPresent.map(student => ({
+          id: student.id,
+          fields: updateById[Number(student.id)],
+        })),
+      )
+
+      if (!success) {
+        setStudents(prev => prev.map(student => {
+          const rollback = rollbackById[Number(student.id)]
+          return rollback ? rollback : student
+        }))
+        setStartingSession(false)
+        alert('Unable to save confirmed in-class roster to Supabase.')
+        return
+      }
+    }
+
+    setShowClassStartConfirm(false)
+    setConfirmedInClassIds([])
+    setStartingSession(false)
+    startSession()
+  }
 
   function closeTeachingActions() {
     setSelected([])
@@ -758,7 +845,98 @@ export default function TeachingMode({
             </div>
             <div style={{ padding: 18, display: 'flex', gap: 10 }}>
               <button onClick={() => setShowStartSessionConfirm(false)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>
-              <button onClick={startSession} style={{ ...S.btn('primary'), flex: 1 }}>Start Session</button>
+              <button onClick={openClassStartConfirmation} style={{ ...S.btn('primary'), flex: 1 }}>Continue</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showClassStartConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.56)', zIndex: 325, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 760, boxShadow: '0 24px 70px rgba(15,23,42,0.22)', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Confirm Students in Class</div>
+              <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>
+                Confirm who is physically in class before the session starts.
+              </div>
+            </div>
+
+            <div style={{ padding: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 12, color: '#334155', fontWeight: 700 }}>
+                  In class confirmed: {confirmedInClassIds.length} / {filtered.filter(student => isInSchool(student)).length}
+                </div>
+                <button
+                  onClick={() => {
+                    const inSchoolIds = filtered
+                      .filter(student => isInSchool(student))
+                      .map(student => student.id)
+                    setConfirmedInClassIds(inSchoolIds)
+                  }}
+                  style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11 }}
+                >
+                  Select All In-School
+                </button>
+              </div>
+
+              <div style={{ border: '1px solid #dbe5f0', borderRadius: 10, maxHeight: 360, overflowY: 'auto' }}>
+                {filtered.map((student, index) => {
+                  const attendanceStatus = getDailyAttendanceStatus(student)
+                  const outOfSchool = isOutOfSchool(student)
+                  const checked = confirmedInClassIds.includes(student.id)
+                  return (
+                    <label
+                      key={student.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '26px minmax(0, 1fr) auto',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '10px 12px',
+                        borderTop: index === 0 ? 'none' : '1px solid #eef2f7',
+                        background: outOfSchool ? '#f8fafc' : '#ffffff',
+                        opacity: outOfSchool ? 0.74 : 1,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={outOfSchool}
+                        onChange={() => toggleConfirmedInClass(student.id)}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1f2937' }}>{student.name}</div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                          Attendance: {attendanceStatus} · Location: {statusLabel[student.status] || student.status}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: outOfSchool ? '#9f1239' : '#4b5563' }}>
+                        {outOfSchool ? 'Out of school' : checked ? 'In class' : 'Not confirmed'}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div style={{ padding: 18, display: 'flex', gap: 10, borderTop: '1px solid #e2e8f0' }}>
+              <button
+                onClick={() => {
+                  setShowClassStartConfirm(false)
+                  setShowStartSessionConfirm(true)
+                }}
+                style={{ ...S.btn('ghost'), flex: 1 }}
+                disabled={startingSession}
+              >
+                Back
+              </button>
+              <button
+                onClick={confirmStudentsAndStartSession}
+                style={{ ...S.btn('primary'), flex: 1 }}
+                disabled={startingSession}
+              >
+                {startingSession ? 'Starting...' : 'Start Session'}
+              </button>
             </div>
           </div>
         </div>
