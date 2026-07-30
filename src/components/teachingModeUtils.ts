@@ -1,17 +1,34 @@
-export function buildLateToClassFields(student: Record<string, any>, options: { timeStr: string; actingStaffName: string; note: string; staffId?: number | string | null }) {
+import { isInSchool } from '../utils/attendancePresence'
+
+export function buildLateToClassFields(student: Record<string, any>, options: { timeStr: string; actingStaffName: string; note: string; staffId?: number | string | null; approval?: 'approved' | 'unapproved'; lateMinutes?: number | null }) {
+  const returnApproval = options.approval || 'approved'
+  const lateMinutes = Number.isFinite(Number(options.lateMinutes))
+    ? Math.max(0, Number(options.lateMinutes))
+    : null
+
+  const lateTimingLabel = lateMinutes === null
+    ? 'late minutes not recorded'
+    : `${lateMinutes} minute${lateMinutes === 1 ? '' : 's'} late`
+
   const classLogEntry = {
     time: options.timeStr,
     type: 'in',
-    note: `${options.note} (recorded by ${options.actingStaffName})`,
+    note: `${options.note} (${returnApproval} return, ${lateTimingLabel}; recorded by ${options.actingStaffName})`,
     staffId: options.staffId || null,
     staffName: options.actingStaffName,
     recordedAt: new Date().toISOString(),
   }
 
-  const wasNotInSchool =
-    student.dailyStatus === 'absent' ||
-    student.status === 'absent' ||
-    student.status === 'not-arrived'
+  const wasNotInSchool = !isInSchool(student)
+
+  const classReturn = {
+    approval: returnApproval,
+    lateMinutes,
+    note: options.note,
+    staffId: options.staffId || null,
+    markedBy: options.actingStaffName,
+    markedAt: new Date().toISOString(),
+  }
 
   return {
     status: 'present',
@@ -24,8 +41,12 @@ export function buildLateToClassFields(student: Record<string, any>, options: { 
           note: options.note,
           markedBy: options.actingStaffName,
           markedAt: new Date().toISOString(),
+          classReturn,
         }
-      : student.lateDetails || null,
+      : {
+          ...(student.lateDetails || {}),
+          classReturn,
+        },
     classLog: [...(student.classLog || []), classLogEntry],
   }
 }

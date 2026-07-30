@@ -88,6 +88,7 @@ export default function TeachingMode({
   const [lateClassStaffSearch, setLateClassStaffSearch] = useState('')
   const [lateClassStaffId, setLateClassStaffId] = useState('')
   const [lateClassNote, setLateClassNote] = useState('')
+  const [lateClassApproval, setLateClassApproval] = useState<'approved' | 'unapproved'>('approved')
   const actingStaffName = resolveActorName(userName, isAdmin ? 'admin' : 'teacher')
 
   const isTeacherRole = role === 'teacher' || role === 'rebbe'
@@ -969,6 +970,33 @@ export default function TeachingMode({
               )}
               <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Note (optional)</div>
               <input value={lateClassNote} onChange={e => setLateClassNote(e.target.value)} placeholder="e.g. was asked to come speak with Menahel" style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', marginBottom: 14 }} />
+
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Return Approval</div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                <button
+                  onClick={() => setLateClassApproval('approved')}
+                  style={{
+                    ...S.btn(lateClassApproval === 'approved' ? 'primary' : 'ghost'),
+                    flex: 1,
+                    padding: '7px 10px',
+                    fontSize: 12,
+                  }}
+                >
+                  Approved Return
+                </button>
+                <button
+                  onClick={() => setLateClassApproval('unapproved')}
+                  style={{
+                    ...S.btn(lateClassApproval === 'unapproved' ? 'danger' : 'ghost'),
+                    flex: 1,
+                    padding: '7px 10px',
+                    fontSize: 12,
+                  }}
+                >
+                  Unapproved Return
+                </button>
+              </div>
+
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setLateClassPopup(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Cancel</button>
                 <button onClick={async () => {
@@ -981,18 +1009,23 @@ export default function TeachingMode({
                     hour: 'numeric',
                     minute: '2-digit',
                   })
+                  const lateMinutes = sessionStartTime
+                    ? Math.max(0, Math.round((Date.now() - sessionStartTime.getTime()) / 60000))
+                    : null
                   const fields = buildLateToClassFields(original || {}, {
                     timeStr,
                     actingStaffName,
                     note,
                     staffId: lateClassStaffId || null,
+                    approval: lateClassApproval,
+                    lateMinutes,
                   })
 
                   setStudents(prev => prev.map(x => x.id === studentId ? {
                     ...x,
                     ...fields,
                   } : x))
-                  setLateClassPopup(null); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote('')
+                  setLateClassPopup(null); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote(''); setLateClassApproval('approved')
 
                   const success = await persistStudentFields(studentId, fields)
                   if (!success && original) {
@@ -2319,7 +2352,7 @@ export default function TeachingMode({
                       padding: '2px 7px',
                       borderRadius: 999,
                     }}>{inClass ? '✅ In Class' : `□ ${unavailableReason}`}</span>
-                    {inClass && s.dailyStatus === 'late' && <button onClick={e => { e.stopPropagation(); setLateClassPopup(s.id); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote('') }} style={{ padding: '2px 6px', borderRadius: 14, border: '1px solid #e8d7b6', background: '#fbf7ef', color: '#8a6428', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>⏰ Arrived Late</button>}
+                    {inClass && s.dailyStatus === 'late' && <button onClick={e => { e.stopPropagation(); setLateClassPopup(s.id); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote(''); setLateClassApproval('approved') }} style={{ padding: '2px 6px', borderRadius: 14, border: '1px solid #e8d7b6', background: '#fbf7ef', color: '#8a6428', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>⏰ Arrived Late</button>}
                   </div>
                   <div
                     onClick={e => {
