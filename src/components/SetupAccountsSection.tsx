@@ -7,6 +7,8 @@ export default function SetupAccountsSection({
   setSetupAccounts,
   S,
   DIVISIONS,
+  actorName,
+  actorRole,
 }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -42,6 +44,16 @@ export default function SetupAccountsSection({
       return matchesSearch && matchesStatus && matchesDivision
     })
   }, [people, setupAccounts, search, statusFilter, divisionFilter])
+
+  function withAttribution(baseAccount, overrides = {}) {
+    return {
+      ...baseAccount,
+      ...overrides,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actorName || 'System',
+      updatedByRole: actorRole || 'admin',
+    }
+  }
 
   return (
                     <div style={S.card}>
@@ -146,10 +158,11 @@ export default function SetupAccountsSection({
                                   setSetupAccounts(previous => ({
                                     ...previous,
                                     [person.name]: {
-                                      ...account,
+                                      ...withAttribution(account, {
                                       divisions: event.target.value,
                                       active: account.active !== false,
                                       accountState: account.accountState === 'missing' ? 'active' : account.accountState,
+                                      }),
                                     }
                                   }))
                                 }
@@ -166,9 +179,10 @@ export default function SetupAccountsSection({
                                     setSetupAccounts(previous => ({
                                       ...previous,
                                       [person.name]: {
-                                        ...account,
+                                        ...withAttribution(account, {
                                         active: nextState === 'active',
                                         accountState: nextState === 'active' ? 'active' : 'inactive',
+                                        }),
                                       }
                                     }))
                                   }
@@ -181,9 +195,13 @@ export default function SetupAccountsSection({
                                     setSetupAccounts(previous => ({
                                       ...previous,
                                       [person.name]: {
-                                        ...account,
+                                        ...withAttribution(account, {
                                         active: true,
                                         accountState: 'pending',
+                                        invitedAt: new Date().toISOString(),
+                                        invitedBy: actorName || 'System',
+                                        invitedByRole: actorRole || 'admin',
+                                        }),
                                       }
                                     }))
                                   }
@@ -198,10 +216,14 @@ export default function SetupAccountsSection({
                                   setSetupAccounts(previous => ({
                                     ...previous,
                                     [person.name]: {
-                                      ...account,
+                                      ...withAttribution(account, {
                                       active: true,
                                       accountState: account.accountState === 'active' ? 'active' : 'pending',
                                       divisions: account.divisions || 'both',
+                                      invitedAt: account.accountState === 'active' ? account.invitedAt : new Date().toISOString(),
+                                      invitedBy: account.accountState === 'active' ? account.invitedBy : (actorName || 'System'),
+                                      invitedByRole: account.accountState === 'active' ? account.invitedByRole : (actorRole || 'admin'),
+                                      }),
                                     }
                                   }))
                                 }

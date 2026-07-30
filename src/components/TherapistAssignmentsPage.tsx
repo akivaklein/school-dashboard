@@ -99,7 +99,7 @@ function TimePicker({ value, disabled, onChange }: { value: string; disabled: bo
   )
 }
 
-export default function TherapistAssignmentsPage({ S, students, setStudents, THERAPIST_OPTIONS, SCHEDULE_PERIODS }: any) {
+export default function TherapistAssignmentsPage({ S, students, setStudents, THERAPIST_OPTIONS, SCHEDULE_PERIODS, persistStudentFields }: any) {
   const [editingByAssignmentId, setEditingByAssignmentId] = useState<Record<string, boolean>>({})
 
   const byStudent = useMemo(() => getAssignmentsByStudent(students), [students])
@@ -132,11 +132,15 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
   }, [students, SCHEDULE_PERIODS])
 
   function patchStudent(studentId: number | string, updater: (assignments: AssignmentRow[]) => AssignmentRow[]) {
-    setStudents((prev: any[]) => prev.map(student => {
-      if (student.id !== studentId) return student
+    const sourceStudent = students.find((student: any) => String(student.id) === String(studentId))
+    const currentAssignments = sourceStudent
+      ? deriveStudentAssignments(sourceStudent).map(toRow)
+      : []
+    const nextAssignments = updater(currentAssignments)
+    const legacy = toLegacyTherapyFields(nextAssignments)
 
-      const nextAssignments = updater(deriveStudentAssignments(student).map(toRow))
-      const legacy = toLegacyTherapyFields(nextAssignments)
+    setStudents((prev: any[]) => prev.map(student => {
+      if (String(student.id) !== String(studentId)) return student
 
       return {
         ...student,
@@ -144,6 +148,17 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
         ...legacy,
       }
     }))
+
+    if (typeof persistStudentFields === 'function') {
+      persistStudentFields(studentId, {
+        therapyAssignments: nextAssignments,
+        assignedTherapist: legacy.assignedTherapist,
+        therapyFrequency: legacy.therapyFrequency,
+        therapyNotes: legacy.therapyNotes,
+      }).catch((error: unknown) => {
+        console.error(`Unable to persist therapist assignments for student ${studentId}:`, error)
+      })
+    }
   }
 
   function setEditing(assignmentId: string, editing: boolean) {

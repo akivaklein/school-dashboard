@@ -1718,6 +1718,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               behaviorLog: [],
               testScores: [],
               classLog: [],
+              therapyAssignments: [],
+              assignedTherapist: '',
+              therapyFrequency: '',
+              therapyNotes: '',
               lateDetails: null,
               family: {},
               medical: {},
@@ -1774,6 +1778,32 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         if (databaseStudent.class_log && Array.isArray(databaseStudent.class_log) && databaseStudent.class_log.length > 0) {
           merged.classLog = databaseStudent.class_log
         }
+
+        if (Object.prototype.hasOwnProperty.call(databaseStudent, 'therapy_assignments')) {
+          if (Array.isArray(databaseStudent.therapy_assignments)) {
+            merged.therapyAssignments = databaseStudent.therapy_assignments
+          }
+        } else if (Array.isArray(databaseStudent.therapyAssignments)) {
+          merged.therapyAssignments = databaseStudent.therapyAssignments
+        }
+
+        merged.assignedTherapist =
+          databaseStudent.assigned_therapist ??
+          databaseStudent.assignedTherapist ??
+          merged.assignedTherapist ??
+          ''
+
+        merged.therapyFrequency =
+          databaseStudent.therapy_frequency ??
+          databaseStudent.therapyFrequency ??
+          merged.therapyFrequency ??
+          ''
+
+        merged.therapyNotes =
+          databaseStudent.therapy_notes ??
+          databaseStudent.therapyNotes ??
+          merged.therapyNotes ??
+          ''
 
         return merged
       })
@@ -4635,6 +4665,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             setStudents={setStudents}
             THERAPIST_OPTIONS={THERAPIST_OPTIONS}
             SCHEDULE_PERIODS={SCHEDULE_PERIODS}
+            persistStudentFields={persistStudentFields}
           />
         )}
 

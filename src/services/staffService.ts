@@ -45,7 +45,12 @@ export interface StaffAccountRecord {
   active: boolean
   accountState: 'active' | 'inactive' | 'pending' | 'missing'
   invitedAt?: string
+  invitedBy?: string
+  invitedByRole?: string
   lastSeenAt?: string
+  updatedAt?: string
+  updatedBy?: string
+  updatedByRole?: string
 }
 
 interface AddStaffInput {

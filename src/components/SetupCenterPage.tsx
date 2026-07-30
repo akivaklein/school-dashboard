@@ -314,6 +314,8 @@ export default function SetupCenterPage({
               setSetupAccounts={setSetupAccounts}
               S={S}
               DIVISIONS={safeDivisions}
+              actorName={userName}
+              actorRole={role}
             />
           )}
       </div>

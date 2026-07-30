@@ -41,12 +41,29 @@ export async function persistStudentFields(id, fields, options = {}) {
     mappedFields.with_staff = mappedFields.withStaff
     delete mappedFields.withStaff
   }
+  if ('therapyAssignments' in mappedFields) {
+    mappedFields.therapy_assignments = mappedFields.therapyAssignments
+    delete mappedFields.therapyAssignments
+  }
+  if ('assignedTherapist' in mappedFields) {
+    mappedFields.assigned_therapist = mappedFields.assignedTherapist
+    delete mappedFields.assignedTherapist
+  }
+  if ('therapyFrequency' in mappedFields) {
+    mappedFields.therapy_frequency = mappedFields.therapyFrequency
+    delete mappedFields.therapyFrequency
+  }
+  if ('therapyNotes' in mappedFields) {
+    mappedFields.therapy_notes = mappedFields.therapyNotes
+    delete mappedFields.therapyNotes
+  }
 
-  const payload = { ...mappedFields }
+  let payload = { ...mappedFields }
   const missingColumnPattern = /column\s+"?([a-zA-Z0-9_]+)"?\s+of\s+relation\s+"?students"?\s+does\s+not\s+exist|could not find the ['"]([a-zA-Z0-9_]+)['"] column of ['"]students['"]/i
 
   while (true) {
-    const { error } = await supabase.from('students').update(payload).eq('id', id)
+    const attemptPayload = { ...payload }
+    const { error } = await supabase.from('students').update(attemptPayload).eq('id', id)
     if (!error) {
       clearStudentFallbackPatch(id)
       return true
@@ -57,6 +74,7 @@ export async function persistStudentFields(id, fields, options = {}) {
     const missingColumn = match?.[1] || match?.[2]
 
     if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
+      payload = { ...payload }
       delete payload[missingColumn]
 
       if (Object.keys(payload).length === 0) {
