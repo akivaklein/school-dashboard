@@ -1,10 +1,17 @@
 import { useMemo, useState } from 'react'
 import {
   buildAssignmentConflictIndex,
+  buildAffectedPeriodOptions,
+  clampToSchoolDay,
   createEmptyAssignment,
   deriveStudentAssignments,
+  fromTimeParts,
+  getAssignmentValidationIssues,
   getAssignmentsByStudent,
+  getDefaultServiceTypeForProvider,
+  type AssignmentRow,
   toLegacyTherapyFields,
+  toTimeParts,
 } from './therapistAssignmentsUtils'
 
 const SERVICE_TYPE_OPTIONS = [
@@ -25,20 +32,14 @@ const RECURRENCE_OPTIONS = [
   'Monthly',
   'As needed',
   'One-time',
+  'Custom',
 ]
 
-type AssignmentRow = {
-  id: string
-  provider: string
-  serviceType: string
-  day: string
-  date: string
-  startTime: string
-  endTime: string
-  recurrence: string
-  affectedPeriod: string
-  notes: string
-  active: boolean
+const WEEKDAY_OPTIONS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+const MINUTE_OPTIONS = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']
+const HOURS_BY_MERIDIEM: Record<'AM' | 'PM', string[]> = {
+  AM: ['7', '8', '9', '10', '11'],
+  PM: ['12', '1', '2', '3', '4', '5'],
 }
 
 function toRow(assignment: AssignmentRow) {
@@ -53,12 +54,52 @@ function toRow(assignment: AssignmentRow) {
     endTime: String(assignment.endTime || ''),
     recurrence: String(assignment.recurrence || ''),
     affectedPeriod: String(assignment.affectedPeriod || ''),
+    customDays: Array.isArray(assignment.customDays) ? assignment.customDays.map(value => String(value || '')) : [],
     notes: String(assignment.notes || ''),
     active: assignment.active !== false,
   }
 }
 
-export default function TherapistAssignmentsPage({ S, students, setStudents, THERAPIST_OPTIONS }: any) {
+function TimePicker({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (value: string) => void }) {
+  const parts = toTimeParts(value)
+  const hourOptions = HOURS_BY_MERIDIEM[parts.meridiem]
+
+  function patch(nextParts: { hour12?: string; minute?: string; meridiem?: 'AM' | 'PM' }) {
+    const merged = {
+      ...parts,
+      ...nextParts,
+    }
+
+    const allowedHours = HOURS_BY_MERIDIEM[merged.meridiem]
+    if (!allowedHours.includes(merged.hour12)) {
+      merged.hour12 = allowedHours[0]
+    }
+
+    const next = fromTimeParts(merged)
+    onChange(clampToSchoolDay(next))
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+      <select disabled={disabled} value={parts.hour12} onChange={event => patch({ hour12: event.target.value })} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+        {hourOptions.map(hour => (
+          <option key={hour} value={hour}>{hour}</option>
+        ))}
+      </select>
+      <select disabled={disabled} value={parts.minute} onChange={event => patch({ minute: event.target.value })} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+        {MINUTE_OPTIONS.map(minute => (
+          <option key={minute} value={minute}>{minute}</option>
+        ))}
+      </select>
+      <select disabled={disabled} value={parts.meridiem} onChange={event => patch({ meridiem: event.target.value === 'PM' ? 'PM' : 'AM' })} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  )
+}
+
+export default function TherapistAssignmentsPage({ S, students, setStudents, THERAPIST_OPTIONS, SCHEDULE_PERIODS }: any) {
   const [editingByAssignmentId, setEditingByAssignmentId] = useState<Record<string, boolean>>({})
 
   const byStudent = useMemo(() => getAssignmentsByStudent(students), [students])
@@ -83,6 +124,13 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
     return map
   }, [allAssignments])
 
+  const periodOptionsByStudentId = useMemo(() => {
+    return students.reduce((acc: Record<string, string[]>, student: any) => {
+      acc[String(student.id)] = buildAffectedPeriodOptions(student, SCHEDULE_PERIODS)
+      return acc
+    }, {})
+  }, [students, SCHEDULE_PERIODS])
+
   function patchStudent(studentId: number | string, updater: (assignments: AssignmentRow[]) => AssignmentRow[]) {
     setStudents((prev: any[]) => prev.map(student => {
       if (student.id !== studentId) return student
@@ -100,6 +148,10 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
 
   function setEditing(assignmentId: string, editing: boolean) {
     setEditingByAssignmentId(prev => ({ ...prev, [assignmentId]: editing }))
+  }
+
+  function patchAssignment(studentId: number | string, assignmentId: string, updater: (assignment: AssignmentRow) => AssignmentRow) {
+    patchStudent(studentId, prev => prev.map(row => row.id === assignmentId ? updater(row) : row))
   }
 
   return (
@@ -163,6 +215,11 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
                   {assignments.map((assignment: AssignmentRow) => {
                     const isEditing = !!editingByAssignmentId[assignment.id]
                     const providerWarnings = conflicts.providerWarningsByAssignmentId[String(assignment.id)] || []
+                    const validationIssues = getAssignmentValidationIssues(assignment)
+                    const periodOptions = periodOptionsByStudentId[String(student.id)] || []
+                    const recurrenceValue = String(assignment.recurrence || '')
+                    const isOneTime = recurrenceValue === 'One-time'
+                    const isCustom = recurrenceValue === 'Custom'
 
                     return (
                       <div key={assignment.id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: assignment.active ? '#ffffff' : '#f8fafc', opacity: assignment.active ? 1 : 0.72 }}>
@@ -201,44 +258,134 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
                           </div>
                         )}
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 8 }}>
-                          <select disabled={!isEditing} value={assignment.provider} onChange={event => patchStudent(student.id, prev => prev.map(row => row.id === assignment.id ? { ...row, provider: event.target.value } : row))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+                        {validationIssues.length > 0 && (
+                          <div style={{ border: '1px solid #ef4444', background: '#fef2f2', color: '#991b1b', borderRadius: 8, padding: '8px 10px', fontSize: 11.5, marginBottom: 8 }}>
+                            {validationIssues.map((issue: string, index: number) => (
+                              <div key={`${assignment.id}-validation-${index}`}>{issue}</div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))', gap: 8 }}>
+                          <select disabled={!isEditing} value={assignment.provider} onChange={event => {
+                            const nextProvider = event.target.value
+                            patchAssignment(student.id, assignment.id, row => {
+                              const previousDefault = getDefaultServiceTypeForProvider(row.provider, THERAPIST_OPTIONS)
+                              const nextDefault = getDefaultServiceTypeForProvider(nextProvider, THERAPIST_OPTIONS)
+                              const shouldAutoApplyDefault = !row.serviceType || row.serviceType === previousDefault
+                              return {
+                                ...row,
+                                provider: nextProvider,
+                                serviceType: shouldAutoApplyDefault && nextDefault ? nextDefault : row.serviceType,
+                              }
+                            })
+                          }} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
                             <option value="">Select provider</option>
                             {THERAPIST_OPTIONS.map((option: any) => (
                               <option key={option.name} value={option.name}>{option.name}</option>
                             ))}
                           </select>
 
-                          <select disabled={!isEditing} value={assignment.serviceType} onChange={event => patchStudent(student.id, prev => prev.map(row => row.id === assignment.id ? { ...row, serviceType: event.target.value } : row))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+                          <select disabled={!isEditing} value={assignment.serviceType} onChange={event => patchAssignment(student.id, assignment.id, row => ({ ...row, serviceType: event.target.value }))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
                             <option value="">Service type</option>
                             {SERVICE_TYPE_OPTIONS.map(value => (
                               <option key={value} value={value}>{value}</option>
                             ))}
                           </select>
 
-                          <select disabled={!isEditing} value={assignment.day} onChange={event => patchStudent(student.id, prev => prev.map(row => row.id === assignment.id ? { ...row, day: event.target.value } : row))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+                          <select disabled={!isEditing || isOneTime || isCustom} value={assignment.day} onChange={event => patchAssignment(student.id, assignment.id, row => ({ ...row, day: event.target.value }))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
                             <option value="">Day</option>
-                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
+                            {WEEKDAY_OPTIONS.map(day => (
                               <option key={day} value={day}>{day}</option>
                             ))}
                           </select>
 
-                          <input disabled={!isEditing} type="date" value={assignment.date} onChange={event => patchStudent(student.id, prev => prev.map(row => row.id === assignment.id ? { ...row, date: event.target.value } : row))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }} />
+                          <input disabled={!isEditing} type="date" value={assignment.date} onChange={event => patchAssignment(student.id, assignment.id, row => ({ ...row, date: event.target.value }))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }} />
 
-                          <input disabled={!isEditing} type="time" value={assignment.startTime} onChange={event => patchStudent(student.id, prev => prev.map(row => row.id === assignment.id ? { ...row, startTime: event.target.value } : row))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }} />
-                          <input disabled={!isEditing} type="time" value={assignment.endTime} onChange={event => patchStudent(student.id, prev => prev.map(row => row.id === assignment.id ? { ...row, endTime: event.target.value } : row))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }} />
+                          <TimePicker
+                            disabled={!isEditing}
+                            value={assignment.startTime}
+                            onChange={nextValue => patchAssignment(student.id, assignment.id, row => ({ ...row, startTime: nextValue }))}
+                          />
 
-                          <select disabled={!isEditing} value={assignment.recurrence} onChange={event => patchStudent(student.id, prev => prev.map(row => row.id === assignment.id ? { ...row, recurrence: event.target.value } : row))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+                          <TimePicker
+                            disabled={!isEditing}
+                            value={assignment.endTime}
+                            onChange={nextValue => patchAssignment(student.id, assignment.id, row => ({ ...row, endTime: nextValue }))}
+                          />
+
+                          <select disabled={!isEditing} value={assignment.recurrence} onChange={event => {
+                            const nextRecurrence = event.target.value
+                            patchAssignment(student.id, assignment.id, row => {
+                              if (nextRecurrence === 'One-time') {
+                                return { ...row, recurrence: nextRecurrence, day: '', customDays: [] }
+                              }
+
+                              if (nextRecurrence === 'Custom') {
+                                const nextCustomDays = Array.isArray(row.customDays) && row.customDays.length > 0
+                                  ? row.customDays
+                                  : (row.day ? [row.day] : [])
+                                return { ...row, recurrence: nextRecurrence, day: '', customDays: nextCustomDays }
+                              }
+
+                              return {
+                                ...row,
+                                recurrence: nextRecurrence,
+                                day: row.day || (nextRecurrence === 'Weekly' ? 'Monday' : row.day),
+                                customDays: [],
+                              }
+                            })
+                          }} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
                             <option value="">Recurrence</option>
                             {RECURRENCE_OPTIONS.map(value => (
                               <option key={value} value={value}>{value}</option>
                             ))}
                           </select>
 
-                          <input disabled={!isEditing} value={assignment.affectedPeriod} onChange={event => patchStudent(student.id, prev => prev.map(row => row.id === assignment.id ? { ...row, affectedPeriod: event.target.value } : row))} placeholder="Affected class/period" style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }} />
+                          <select disabled={!isEditing} value={assignment.affectedPeriod} onChange={event => patchAssignment(student.id, assignment.id, row => ({ ...row, affectedPeriod: event.target.value }))} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12 }}>
+                            <option value="">Affected class/period</option>
+                            {periodOptions.map(option => (
+                              <option key={option} value={option}>{option}</option>
+                            ))}
+                          </select>
                         </div>
 
-                        <textarea disabled={!isEditing} value={assignment.notes} onChange={event => patchStudent(student.id, prev => prev.map(row => row.id === assignment.id ? { ...row, notes: event.target.value } : row))} placeholder="Notes" style={{ marginTop: 8, width: '100%', minHeight: 56, padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }} />
+                        {isCustom && (
+                          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {WEEKDAY_OPTIONS.map(day => {
+                              const selected = Array.isArray(assignment.customDays) && assignment.customDays.includes(day)
+                              return (
+                                <button
+                                  key={`${assignment.id}-custom-day-${day}`}
+                                  disabled={!isEditing}
+                                  onClick={() => patchAssignment(student.id, assignment.id, row => {
+                                    const existing = Array.isArray(row.customDays) ? row.customDays : []
+                                    const next = existing.includes(day)
+                                      ? existing.filter(value => value !== day)
+                                      : [...existing, day]
+                                    return {
+                                      ...row,
+                                      customDays: next,
+                                    }
+                                  })}
+                                  style={{
+                                    ...S.btn('ghost'),
+                                    border: selected ? '1px solid #172033' : '1px solid #dbe5f0',
+                                    background: selected ? '#e2e8f0' : '#ffffff',
+                                  }}
+                                >
+                                  {day}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
+                          {isOneTime ? 'One-time sessions require a specific date.' : 'Date is optional for recurring sessions and can be used as the start date.'}
+                        </div>
+
+                        <textarea disabled={!isEditing} value={assignment.notes} onChange={event => patchAssignment(student.id, assignment.id, row => ({ ...row, notes: event.target.value }))} placeholder="Notes" style={{ marginTop: 8, width: '100%', minHeight: 56, padding: '7px 9px', borderRadius: 7, border: '1px solid #d8dee9', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }} />
                       </div>
                     )
                   })}

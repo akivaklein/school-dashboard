@@ -4634,6 +4634,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             students={students}
             setStudents={setStudents}
             THERAPIST_OPTIONS={THERAPIST_OPTIONS}
+            SCHEDULE_PERIODS={SCHEDULE_PERIODS}
           />
         )}
 
