@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import playSound from '../utils/playSound'
 import { resolveActorName } from './dashboardData'
+import { buildLateToClassFields } from './teachingModeUtils'
 
 const TEACHING_MODE_SCOPE_STATE_STORAGE_KEY = 'schoolDashboardTeachingModeScopeV1'
 
@@ -804,35 +805,24 @@ export default function TeachingMode({
                   const original = students.find(x => x.id === studentId)
                   const staffObj = lateClassStaffId ? STAFF.find(st => st.id === lateClassStaffId) : null
                   const note = staffObj ? `Came late — was with ${staffObj.name}${lateClassNote ? `: ${lateClassNote}` : ''}` : lateClassNote ? `Came late — ${lateClassNote}` : 'Came late to class'
-                  const classLogEntry = buildClassLogEntry(
-                    'in',
-                    `${note} (recorded by ${actingStaffName})`,
-                    { staffId: lateClassStaffId || null }
-                  )
-                  const lateDetails = {
-                    timeArrived: new Date().toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    }),
-                    reason: 'late-to-class',
+                  const timeStr = new Date().toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })
+                  const fields = buildLateToClassFields(original || {}, {
+                    timeStr,
+                    actingStaffName,
                     note,
-                    markedBy: actingStaffName,
-                    markedAt: new Date().toISOString(),
-                  }
+                    staffId: lateClassStaffId || null,
+                  })
 
                   setStudents(prev => prev.map(x => x.id === studentId ? {
-                    ...x, status: 'present',
-                    classLog: [...(x.classLog||[]), classLogEntry],
-                    lateDetails,
+                    ...x,
+                    ...fields,
                   } : x))
                   setLateClassPopup(null); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote('')
 
-                  const success = await persistStudentFields(studentId, {
-                    status: 'present',
-                    withStaff: null,
-                    lateDetails,
-                    classLog: [...(original?.classLog || []), classLogEntry],
-                  })
+                  const success = await persistStudentFields(studentId, fields)
                   if (!success && original) {
                     setStudents(prev => prev.map(x => x.id === studentId ? original : x))
                     alert('Unable to save student status to Supabase.')
