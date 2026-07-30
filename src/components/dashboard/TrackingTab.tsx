@@ -20,14 +20,32 @@ type TrackingTabProps = {
   HISTORICAL_DATA: Record<string | number, AttendanceHistoryEntry[]>
 }
 
+function normalizeHistoryEntries(rawHistory: unknown): AttendanceHistoryEntry[] {
+  const source = Array.isArray(rawHistory)
+    ? rawHistory
+    : rawHistory && typeof rawHistory === 'object' && Array.isArray((rawHistory as { entries?: unknown[] }).entries)
+      ? (rawHistory as { entries: unknown[] }).entries
+      : rawHistory && typeof rawHistory === 'object' && Array.isArray((rawHistory as { history?: unknown[] }).history)
+        ? (rawHistory as { history: unknown[] }).history
+        : []
+
+  return source
+    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object')
+    .map(entry => ({
+      date: typeof entry.date === 'string' ? entry.date : '',
+      inMins: Number(entry.inMins || 0),
+      outMins: Number(entry.outMins || 0),
+      pct: Number(entry.pct || 0),
+      staffName: typeof entry.staffName === 'string' ? entry.staffName : undefined,
+    }))
+}
+
 export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_DATA }: TrackingTabProps) {
   const [period, setPeriod] = useState('today')
   const [drillType, setDrillType] = useState<string | null>(null)
   const student = students.find((x: StudentLike) => x.id === s.id) || s
-  const rawHistory = (HISTORICAL_DATA as Record<string | number, AttendanceHistoryEntry[]> | undefined | null)?.[String(student.id)]
-  const histData: AttendanceHistoryEntry[] = Array.isArray(rawHistory)
-    ? rawHistory.filter((entry): entry is AttendanceHistoryEntry => !!entry && typeof entry === 'object')
-    : []
+  const rawHistory = (HISTORICAL_DATA as Record<string | number, unknown> | undefined | null)?.[String(student.id)]
+  const histData: AttendanceHistoryEntry[] = normalizeHistoryEntries(rawHistory)
 
   const filterData = () => {
     const now = new Date()
@@ -36,11 +54,11 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
       case 'today': return histData.filter((d: AttendanceHistoryEntry) => d.date === today).length > 0 ? histData.filter((d: AttendanceHistoryEntry) => d.date === today) : histData.slice(0, 1)
       case 'week': {
         const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10)
-        return histData.filter((d: AttendanceHistoryEntry) => d.date >= weekAgo)
+        return histData.filter((d: AttendanceHistoryEntry) => d.date && d.date >= weekAgo)
       }
       case 'month': {
         const monthAgo = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10)
-        return histData.filter((d: AttendanceHistoryEntry) => d.date >= monthAgo)
+        return histData.filter((d: AttendanceHistoryEntry) => d.date && d.date >= monthAgo)
       }
       case 'thismonth': return histData.filter((d: AttendanceHistoryEntry) => typeof d.date === 'string' && d.date.startsWith(now.toISOString().slice(0, 7)))
       case 'year': return histData.filter((d: AttendanceHistoryEntry) => typeof d.date === 'string' && d.date.startsWith(new Date().getFullYear().toString()))

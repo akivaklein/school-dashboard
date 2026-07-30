@@ -33,6 +33,21 @@ export interface StaffMemberRecord {
   updated_at?: string
 }
 
+export interface StaffAccountRecord {
+  staffName: string
+  fullName: string
+  role: string
+  roles: string[]
+  email: string
+  phone: string
+  divisions: string
+  assignments: string[]
+  active: boolean
+  accountState: 'active' | 'inactive' | 'pending' | 'missing'
+  invitedAt?: string
+  lastSeenAt?: string
+}
+
 interface AddStaffInput {
   name: string
   roles?: string[]
@@ -318,4 +333,34 @@ export async function deactivateStaffMember(id) {
 
 export async function reactivateStaffMember(id) {
   return updateStaffMember(id, { active: true })
+}
+
+export function buildStaffAccountData(staffMember: Partial<StaffMemberRecord> | null | undefined, overrides: Partial<StaffAccountRecord> = {}) {
+  const normalizedStaff = staffMember || {}
+  const role = String(normalizedStaff.role || '').trim() || 'staff'
+  const roles = Array.isArray(normalizedStaff.roles) && normalizedStaff.roles.length > 0
+    ? normalizedStaff.roles.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    : [role]
+
+  return {
+    staffName: String(normalizedStaff.name || '').trim(),
+    fullName: String(normalizedStaff.name || '').trim(),
+    role,
+    roles,
+    email: String(normalizedStaff.email || '').trim(),
+    phone: String(normalizedStaff.phone || '').trim(),
+    divisions: 'both',
+    assignments: [],
+    active: normalizedStaff.active !== false,
+    accountState: 'missing',
+    ...overrides,
+  } as StaffAccountRecord
+}
+
+export function getStaffAccountStatus(account: Partial<StaffAccountRecord> | null | undefined) {
+  if (!account) return 'no-account'
+  if (account.accountState === 'pending') return 'pending-invitation'
+  if (account.accountState === 'inactive' || account.active === false) return 'inactive-account'
+  if (account.accountState === 'active' || account.active === true) return 'active-account'
+  return 'no-account'
 }
