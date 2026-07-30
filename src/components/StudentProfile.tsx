@@ -13,6 +13,7 @@ export default function StudentProfile({
   S,
   STAFF,
   DAYS,
+  HISTORICAL_DATA,
   statusColor,
   statusEmoji,
   statusLabel,
@@ -189,7 +190,7 @@ export default function StudentProfile({
             </div>
           )}
           {effectiveTab === 'tracking' && (
-            <TrackingTab s={s} students={students} staffMembers={STAFF} />
+            <TrackingTab s={s} students={students} staffMembers={STAFF} S={S} HISTORICAL_DATA={HISTORICAL_DATA} />
           )}
 
           {effectiveTab === 'behavior' && (
