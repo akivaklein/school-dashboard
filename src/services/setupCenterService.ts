@@ -408,30 +408,7 @@ export type AcademicCatalogConfig = {
   subjects: AcademicCatalogSubject[]
 }
 
-export async function loadAcademicCatalog(): Promise<AcademicCatalogConfig | null> {
-  let data: { assignments_data?: unknown } | null = null
-  let error: { message?: string } | null = null
-
-  try {
-    const response = await supabase
-      .from('setup_assignments')
-      .select('assignments_data')
-      .eq('staff_name', ACADEMIC_CATALOG_ROW_KEY)
-      .maybeSingle()
-
-    data = response.data as { assignments_data?: unknown } | null
-    error = response.error
-  } catch (caughtError) {
-    console.error('Academic catalog request failed before Supabase response:', caughtError)
-    return null
-  }
-
-  if (error) {
-    console.error('Error loading academic catalog:', error)
-    return null
-  }
-
-  const raw = data?.assignments_data
+function parseAcademicCatalog(raw: unknown): AcademicCatalogConfig | null {
   if (!raw || typeof raw !== 'object') return null
 
   const subjects = Array.isArray((raw as any).subjects) ? (raw as any).subjects : []
@@ -457,6 +434,81 @@ export async function loadAcademicCatalog(): Promise<AcademicCatalogConfig | nul
           : [],
       })),
   }
+}
+
+type SetupAssignmentsRow = {
+  staff_name: string
+  assignments_data: unknown
+}
+
+export async function loadSetupAssignmentsBundle(): Promise<{
+  assignments: Record<string, any>
+  academicCatalog: AcademicCatalogConfig | null
+}> {
+  let rows: SetupAssignmentsRow[] = []
+
+  try {
+    const { data, error } = await supabase
+      .from('setup_assignments')
+      .select('staff_name, assignments_data')
+
+    if (error) {
+      console.error('Error loading setup assignments bundle:', error)
+      return { assignments: {}, academicCatalog: null }
+    }
+
+    rows = Array.isArray(data) ? (data as SetupAssignmentsRow[]) : []
+  } catch (caughtError) {
+    console.error('Setup assignments bundle request failed before Supabase response:', caughtError)
+    return { assignments: {}, academicCatalog: null }
+  }
+
+  const assignments: Record<string, any> = {}
+  let academicCatalog: AcademicCatalogConfig | null = null
+
+  rows.forEach(row => {
+    const staffName = String(row.staff_name || '')
+
+    if (staffName === ACADEMIC_CATALOG_ROW_KEY) {
+      academicCatalog = parseAcademicCatalog(row.assignments_data)
+      return
+    }
+
+    if (staffName.startsWith('__')) return
+
+    assignments[staffName] = row.assignments_data || {
+      periods: { 1: [], 2: [], 3: [] },
+      caseload: [],
+    }
+  })
+
+  return { assignments, academicCatalog }
+}
+
+export async function loadAcademicCatalog(): Promise<AcademicCatalogConfig | null> {
+  let data: { assignments_data?: unknown } | null = null
+  let error: { message?: string } | null = null
+
+  try {
+    const response = await supabase
+      .from('setup_assignments')
+      .select('assignments_data')
+      .eq('staff_name', ACADEMIC_CATALOG_ROW_KEY)
+      .maybeSingle()
+
+    data = response.data as { assignments_data?: unknown } | null
+    error = response.error
+  } catch (caughtError) {
+    console.error('Academic catalog request failed before Supabase response:', caughtError)
+    return null
+  }
+
+  if (error) {
+    console.error('Error loading academic catalog:', error)
+    return null
+  }
+
+  return parseAcademicCatalog(data?.assignments_data)
 }
 
 export async function saveAcademicCatalog(config: AcademicCatalogConfig): Promise<boolean> {

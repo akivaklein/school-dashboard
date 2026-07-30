@@ -63,13 +63,12 @@ import {
   createStoreSale,
   updateStoreSale,
   deleteStoreSale,
-  loadSetupAssignments,
   saveSetupAssignment,
   loadTherapySchedule,
   saveTherapySchedule,
   loadStaffAccounts,
   saveStaffAccount,
-  loadAcademicCatalog,
+  loadSetupAssignmentsBundle,
   saveAcademicCatalog,
   type AcademicCatalogConfig,
   type TeachingAction,
@@ -1246,6 +1245,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const shouldRestoreNavRef = useRef(false)
   const lastSchoolDayPageRef = useRef('attendance')
   const skipNextStudentFlagsPersistRef = useRef(false)
+  const skipInitialAcademicCatalogSaveRef = useRef(true)
   const [realtimeNotice, setRealtimeNotice] = useState<{ scope: string; at: number } | null>(null)
 
   const markRealtimeNotice = useCallback((scope: string) => {
@@ -2386,15 +2386,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     async function loadSetupData() {
       try {
-        const [actions, vipRules, sales, assignments, schedule, accounts, catalog] = await Promise.all([
+        const [actions, vipRules, sales, setupBundle, schedule, accounts] = await Promise.all([
           listTeachingActions(),
           getVIPRules(),
           listStoreSales(),
-          loadSetupAssignments(),
+          loadSetupAssignmentsBundle(),
           loadTherapySchedule(),
           loadStaffAccounts(),
-          loadAcademicCatalog(),
         ])
+
+        const assignments = setupBundle?.assignments || {}
+        const catalog = setupBundle?.academicCatalog || null
 
         if (active) {
           setSetupCustomActions(actions)
@@ -2777,6 +2779,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   useEffect(() => {
     if (!academicCatalog?.subjects?.length) return
+
+    if (skipInitialAcademicCatalogSaveRef.current) {
+      skipInitialAcademicCatalogSaveRef.current = false
+      return
+    }
 
     saveAcademicCatalog(academicCatalog).catch(error => {
       console.error('Unable to persist academic catalog:', error)
