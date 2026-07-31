@@ -188,15 +188,28 @@ export default function SchedulePage({
           <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', background: '#f8fafc' }}>
             <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8 }}>{selectedCoverage.classInfo.name} · {selectedCoverage.snapshot.expectedCount} expected</div>
             <div style={{ display: 'grid', gap: 6 }}>
-              {selectedCoverage.snapshot.students.map(entry => (
-                <div key={entry.studentId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderRadius: 8, padding: '8px 10px', background: '#ffffff', border: '1px solid #e2e8f0' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 12 }}>{entry.studentName}</div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{entry.location}</div>
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>{entry.status}</div>
-                </div>
-              ))}
+              {selectedCoverage.snapshot.students.map(entry => {
+                const student = students.find(item => String(item.id) === String(entry.studentId))
+                return (
+                  <button
+                    key={entry.studentId}
+                    onClick={() => student && openStudent(student, 'tracking')}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderRadius: 8, padding: '8px 10px', background: '#ffffff', border: '1px solid #e2e8f0', textAlign: 'left', cursor: student ? 'pointer' : 'default' }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 12 }}>{entry.studentName}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>
+                        <div><strong>Expected:</strong> {entry.expectedLocation}</div>
+                        <div><strong>Actual:</strong> {entry.actualCurrentLocation}</div>
+                        <div><strong>Provider:</strong> {entry.provider} · {entry.serviceType}</div>
+                        <div><strong>Departure:</strong> {entry.scheduledDeparture} / {entry.actualDeparture} · <strong>Return:</strong> {entry.expectedReturn} / {entry.actualReturn}</div>
+                        <div><strong>Flow:</strong> {entry.scheduledVersusUnexpected} · {entry.approvedVersusUnexplained} · {entry.statusCode}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>{entry.status}</div>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}

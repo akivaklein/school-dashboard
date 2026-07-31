@@ -37,6 +37,20 @@ type StudentMedicalDetails = {
 
 import { getDailyAttendanceStatus } from '../utils/attendancePresence'
 
+type DemoCoverageProfile = {
+  expectedLocation: string
+  actualCurrentLocation: string
+  provider: string
+  serviceType: string
+  scheduledDeparture: string
+  expectedReturn: string
+  actualDeparture: string
+  actualReturn: string
+  scheduledVersusUnexpected: 'scheduled' | 'unexpected'
+  approvedVersusUnexplained: 'approved' | 'unexplained'
+  statusCode: 'present' | 'late' | 'absent' | 'unresolved' | 'unknown'
+}
+
 type StudentRecord = {
   id: number
   name: string
@@ -72,6 +86,7 @@ type StudentRecord = {
   family: StudentFamilyDetails
   medical: StudentMedicalDetails
   dailyStatus?: string
+  coverageDemo?: DemoCoverageProfile
   [key: string]: unknown
 }
 
@@ -165,6 +180,10 @@ export const DEMO_STORE_ACTIVITY = [
   { id: 9004, time: '12:12 PM', studentId: 14, studentName: 'Feltman Daniel', itemName: 'Chocolate Chip Cookie', cost: 20, staff: 'Eli Bloom', division: 'mesivta' },
   { id: 9005, time: '12:46 PM', studentId: 21, studentName: 'Moskowitz Meir Shulem', itemName: 'Icy Cup', cost: 12, staff: 'Zev Reisman', division: 'mesivta' },
   { id: 9006, time: '01:18 PM', studentId: 108, studentName: 'Klein Yitzchok', itemName: 'Granola Bar', cost: 16, staff: 'Eli Stern', division: 'yeshiva_ketana' },
+  { id: 9007, time: '01:38 PM', studentId: 3, studentName: 'Haddad Moshe Chaim', itemName: 'Bagel with Cream Cheese', cost: 35, staff: 'Miri Shapiro', division: 'mesivta' },
+  { id: 9008, time: '02:04 PM', studentId: 8, studentName: 'Schwartz Moishe Michael', itemName: 'Hot Pretzel', cost: 28, staff: 'Eli Bloom', division: 'mesivta' },
+  { id: 9009, time: '02:21 PM', studentId: 18, studentName: 'Reich Nathan', itemName: 'Slush Cup', cost: 15, staff: 'Zev Reisman', division: 'yeshiva_ketana' },
+  { id: 9010, time: '02:43 PM', studentId: 1, studentName: 'Bloom Yair', itemName: 'Gatorade Berry', cost: 30, staff: 'Eli Stern', division: 'mesivta' },
 ]
 
 export const DEMO_STUDENT_FLAGS = [
@@ -238,6 +257,28 @@ export const DEMO_STUDENT_FLAGS = [
     createdAt: '2026-06-15',
     completed: false,
     observations: [],
+  },
+  {
+    id: 'flag-demo-5',
+    studentId: 3,
+    goal: 'Uses a calm-down strategy before leaving the room',
+    startDate: '2026-06-20',
+    endDate: '2026-07-15',
+    createdBy: 'Mrs. Friedman',
+    createdAt: '2026-06-20',
+    completed: false,
+    observations: [{ id: 'flag-demo-observation-4', observed: true, note: 'Used breathing routine before counseling check-in.', staffName: 'Mrs. Friedman', date: '2026-06-28', time: '10:42 AM' }],
+  },
+  {
+    id: 'flag-demo-6',
+    studentId: 6,
+    goal: 'Returns to class within five minutes after BT support',
+    startDate: '2026-06-21',
+    endDate: '2026-07-19',
+    createdBy: 'Ezriel',
+    createdAt: '2026-06-21',
+    completed: false,
+    observations: [{ id: 'flag-demo-observation-5', observed: false, note: 'Returned after a 7-minute delay with an unexplained late return.', staffName: 'Ezriel', date: '2026-06-24', time: '11:08 AM' }],
   },
 ]
 
@@ -1129,6 +1170,7 @@ export function buildClassroomCoverageSnapshot(students, classId, period = null)
     const latestRelevant = reverseLog.find(entry => entry?.type && entry.type !== 'end') || null
     const latestType = latestRelevant?.type || null
     const hasActiveEntry = latestType === 'in' || latestType === 'return'
+    const coverageDemo = (student as StudentRecord | undefined)?.coverageDemo
 
     let coverageStatus = 'present'
     if (attendanceStatus === 'absent' || status === 'absent') {
@@ -1143,7 +1185,45 @@ export function buildClassroomCoverageSnapshot(students, classId, period = null)
       coverageStatus = 'present'
     }
 
-    let location = 'In class'
+    const serviceType = String(
+      student?.services?.[0]?.type ||
+      (status === 'with-bt' ? 'BT Support' : status === 'therapy' ? 'Therapy' : 'Instruction')
+    )
+    const provider = String(
+      coverageDemo?.provider ||
+      student?.withStaff ||
+      student?.assignedTherapist ||
+      student?.services?.[0]?.staffId ||
+      'Teacher'
+    )
+
+    const actualDeparture = String(coverageDemo?.actualDeparture || classLog.find(entry => entry?.type === 'out')?.time || '—')
+    const actualReturn = String(coverageDemo?.actualReturn || classLog.find(entry => entry?.type === 'in' || entry?.type === 'return')?.time || '—')
+
+    const expectedLocation = String(
+      coverageDemo?.expectedLocation ||
+      (period?.subject ? `Classroom · ${period.subject}` : 'Classroom')
+    )
+    const actualCurrentLocation = String(
+      coverageDemo?.actualCurrentLocation ||
+      (coverageStatus === 'absent'
+        ? 'Not present'
+        : coverageStatus === 'late'
+          ? 'Arrived late'
+          : coverageStatus === 'unknown'
+            ? 'Location unknown'
+            : coverageStatus === 'pullout'
+              ? `Pullout · ${provider}`
+              : latestRelevant?.note || 'In class')
+    )
+
+    const scheduledDeparture = String(coverageDemo?.scheduledDeparture || (coverageStatus === 'pullout' ? '10:20' : '—'))
+    const expectedReturn = String(coverageDemo?.expectedReturn || (coverageStatus === 'pullout' ? '11:05' : '—'))
+    const scheduledVersusUnexpected = coverageDemo?.scheduledVersusUnexpected || (attendanceStatus === 'late' || status === 'late' || status === 'absent' ? 'unexpected' : 'scheduled')
+    const approvedVersusUnexplained = coverageDemo?.approvedVersusUnexplained || (student?.lateDetails?.reason ? 'approved' : 'unexplained')
+    const statusCode = coverageDemo?.statusCode || (coverageStatus === 'absent' ? 'absent' : coverageStatus === 'late' ? 'late' : coverageStatus === 'unknown' ? 'unknown' : coverageStatus === 'pullout' ? 'unresolved' : 'present')
+
+    let location = actualCurrentLocation
     if (coverageStatus === 'absent') {
       location = 'Absent'
     } else if (coverageStatus === 'late') {
@@ -1152,10 +1232,6 @@ export function buildClassroomCoverageSnapshot(students, classId, period = null)
       location = 'Location unknown'
     } else if (coverageStatus === 'pullout') {
       location = student?.withStaff ? `Pullout · ${student.withStaff}` : 'Pullout'
-    } else if (latestRelevant?.note) {
-      location = latestRelevant.note
-    } else if (student?.withStaff) {
-      location = `With ${student.withStaff}`
     }
 
     return {
@@ -1166,6 +1242,17 @@ export function buildClassroomCoverageSnapshot(students, classId, period = null)
       location,
       note: latestRelevant?.note || '',
       currentStatus: status,
+      expectedLocation,
+      actualCurrentLocation,
+      provider,
+      serviceType,
+      scheduledDeparture,
+      expectedReturn,
+      actualDeparture,
+      actualReturn,
+      scheduledVersusUnexpected,
+      approvedVersusUnexplained,
+      statusCode,
     }
   })
 
@@ -1199,6 +1286,9 @@ export const SCHEDULE_PERIODS = [
 
 export const THERAPY_SCHEDULE = [
   { student: 'Bloom Yair', staffId: 's6', day: 'Mon', time: '10:10', duration: '45 min', type: 'Speech' },
+  { student: 'Goldberger Yossi', staffId: 's6', day: 'Mon', time: '10:10', duration: '45 min', type: 'Speech' },
+  { student: 'Moskowitz Meir Shulem', staffId: 's6', day: 'Tue', time: '09:30', duration: '30 min', type: 'Speech' },
+  { student: 'Schwartz Moishe Michael', staffId: 's8', day: 'Thu', time: '11:20', duration: '30 min', type: 'Counseling' },
   { student: 'Haddad Moshe Chaim', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
   { student: 'Levitz Avrohom', staffId: 's7', day: 'Wed', time: '10:10', duration: '45 min', type: 'OT' },
   { student: 'Feltman Daniel', staffId: 's9', day: 'Thu', time: '10:10', duration: '45 min', type: 'Therapy' },
@@ -1207,7 +1297,9 @@ export const THERAPY_SCHEDULE = [
   { student: 'Barber Chaim', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
   { student: 'Ettlinger Moshe', staffId: 's10', day: 'Wed', time: '12:15', duration: '35 min', type: 'BT Check-in' },
   { student: 'Klein Yitzchok', staffId: 's9', day: 'Thu', time: '10:55', duration: '30 min', type: 'Therapy' },
-  { student: 'Moskowitz Meir Shulem', staffId: 's6', day: 'Tue', time: '09:30', duration: '30 min', type: 'Speech' },
+  { student: 'Rosenfeld Yehuda', staffId: 's9', day: 'Fri', time: '10:10', duration: '20 min', type: 'OT' },
+  { student: 'Reich Nathan', staffId: 's10', day: 'Wed', time: '12:15', duration: '35 min', type: 'BT Check-in' },
+  { student: 'Haddad Moshe Chaim', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
 ]
 
 export const mkStudent = (
@@ -1617,6 +1709,19 @@ if (haddadStudent) {
     { label: 'Completed counseling reflection form', points: 2, date: '2026-07-25' },
     { label: 'Escalated during transition', points: -2, date: '2026-07-29' },
   ]
+  haddadStudent.coverageDemo = {
+    expectedLocation: 'Classroom · Gemara / Skills Rotation',
+    actualCurrentLocation: 'In counseling room',
+    provider: 'Mrs. Friedman',
+    serviceType: 'Counseling',
+    scheduledDeparture: '10:20',
+    expectedReturn: '10:55',
+    actualDeparture: '10:20',
+    actualReturn: '10:58',
+    scheduledVersusUnexpected: 'scheduled',
+    approvedVersusUnexplained: 'approved',
+    statusCode: 'unresolved',
+  }
   haddadStudent.parentCalls = [
     ...(haddadStudent.parentCalls || []),
     { date: '2026-07-09', staff: 'Mrs. Friedman', notes: 'Discussed coping tools for transitions.', duration: '11 min' },
@@ -1632,6 +1737,19 @@ if (student12) {
     { label: 'Followed BT schedule independently', points: 2, date: '2026-07-26' },
     { label: 'Called out during shiur', points: -1, date: '2026-07-30' },
   ]
+  student12.coverageDemo = {
+    expectedLocation: 'Classroom · Math / Intervention',
+    actualCurrentLocation: 'BT support room',
+    provider: 'Dovid',
+    serviceType: 'BT Check-in',
+    scheduledDeparture: '10:30',
+    expectedReturn: '10:55',
+    actualDeparture: '10:30',
+    actualReturn: '10:52',
+    scheduledVersusUnexpected: 'scheduled',
+    approvedVersusUnexplained: 'approved',
+    statusCode: 'unresolved',
+  }
   student12.testScores = [
     { id:'ts12a', teacher:'Rabbi Abowitz', subject:'Math', skill:'3-digit', assessmentName:'Word Problem Check', date:'2026-02-05', scoreType:'points', score:15, maxScore:20, rating:null, notes:'Can solve single-step word problems with cues.' },
     { id:'ts12b', teacher:'Rabbi Abowitz', subject:'Writing', skill:'Grammar', assessmentName:'Editing Sentences', date:'2026-02-09', scoreType:'rating', score:null, maxScore:null, rating:'Developing', notes:'Improving punctuation consistency.' },
@@ -1644,6 +1762,19 @@ if (student14) {
     { date: '2026-07-24', author: 'Yitzi Liebowitz', text: 'Good carryover from therapy to class discussion.' },
     { date: '2026-07-30', author: 'Rabbi Schults', text: 'Needed support after returning from pullout but finished classwork.' },
   ]
+  student14.coverageDemo = {
+    expectedLocation: 'Classroom · English Reading',
+    actualCurrentLocation: 'Returned from therapy',
+    provider: 'Yitzi Liebowitz',
+    serviceType: 'Therapy',
+    scheduledDeparture: '10:15',
+    expectedReturn: '11:00',
+    actualDeparture: '10:15',
+    actualReturn: '11:02',
+    scheduledVersusUnexpected: 'scheduled',
+    approvedVersusUnexplained: 'approved',
+    statusCode: 'present',
+  }
 }
 
 if (rosenfeldStudent) {
@@ -1652,6 +1783,19 @@ if (rosenfeldStudent) {
     { date: '2026-07-15', staff: 'Rabbi Klein', notes: 'Planned morning routine to reduce late arrivals.', duration: '7 min' },
     { date: '2026-07-29', staff: 'Rabbi Baum', notes: 'Shared attendance progress and reinforcement plan.', duration: '5 min' },
   ]
+  rosenfeldStudent.coverageDemo = {
+    expectedLocation: 'Classroom · Gemara / Skills Rotation',
+    actualCurrentLocation: 'Arrived late',
+    provider: 'Teacher',
+    serviceType: 'Instruction',
+    scheduledDeparture: '—',
+    expectedReturn: '—',
+    actualDeparture: '10:42',
+    actualReturn: '10:42',
+    scheduledVersusUnexpected: 'unexpected',
+    approvedVersusUnexplained: 'unexplained',
+    statusCode: 'late',
+  }
 }
 
 export const yeshivaKetanaStudents = [
@@ -1686,21 +1830,90 @@ const student107 = initialStudents.find(s => s.id === 107)
 if (student107) {
   student107.dailyStatus = 'late'
   student107.lateDetails = { timeArrived: '10:45', reason: 'parent-called', note: 'Father called, said coming after doctor' }
+  student107.coverageDemo = {
+    expectedLocation: 'Classroom · Kriah / Writing Block',
+    actualCurrentLocation: 'Arrived late',
+    provider: 'Teacher',
+    serviceType: 'Instruction',
+    scheduledDeparture: '—',
+    expectedReturn: '—',
+    actualDeparture: '10:45',
+    actualReturn: '10:45',
+    scheduledVersusUnexpected: 'unexpected',
+    approvedVersusUnexplained: 'approved',
+    statusCode: 'late',
+  }
 }
 const student108 = initialStudents.find(s => s.id === 108)
 if (student108) {
   student108.dailyStatus = 'left-early'
   student108.status = 'left-early'
+  student108.coverageDemo = {
+    expectedLocation: 'Classroom · Social Skills / SEL',
+    actualCurrentLocation: 'Left early',
+    provider: 'Mrs. Friedman',
+    serviceType: 'Counseling',
+    scheduledDeparture: '12:15',
+    expectedReturn: '—',
+    actualDeparture: '12:10',
+    actualReturn: '—',
+    scheduledVersusUnexpected: 'unexpected',
+    approvedVersusUnexplained: 'approved',
+    statusCode: 'unresolved',
+  }
 }
 const student111 = initialStudents.find(s => s.id === 111)
-if (student111) student111.dailyStatus = 'absent'
+if (student111) {
+  student111.dailyStatus = 'absent'
+  student111.coverageDemo = {
+    expectedLocation: 'Classroom · Gemara / Skills Rotation',
+    actualCurrentLocation: 'Absent',
+    provider: 'Teacher',
+    serviceType: 'Instruction',
+    scheduledDeparture: '—',
+    expectedReturn: '—',
+    actualDeparture: '—',
+    actualReturn: '—',
+    scheduledVersusUnexpected: 'unexpected',
+    approvedVersusUnexplained: 'unexplained',
+    statusCode: 'absent',
+  }
+}
 const student115 = initialStudents.find(s => s.id === 115)
-if (student115) student115.dailyStatus = 'absent'
+if (student115) {
+  student115.dailyStatus = 'absent'
+  student115.coverageDemo = {
+    expectedLocation: 'Classroom · English Reading',
+    actualCurrentLocation: 'Absent',
+    provider: 'Teacher',
+    serviceType: 'Instruction',
+    scheduledDeparture: '—',
+    expectedReturn: '—',
+    actualDeparture: '—',
+    actualReturn: '—',
+    scheduledVersusUnexpected: 'unexpected',
+    approvedVersusUnexplained: 'unexplained',
+    statusCode: 'absent',
+  }
+}
 
 const student26 = initialStudents.find(s => s.id === 26)
 if (student26) {
   student26.dailyStatus = 'left-early'
   student26.status = 'left-early'
+  student26.coverageDemo = {
+    expectedLocation: 'Classroom · Math / Intervention',
+    actualCurrentLocation: 'Left early with note',
+    provider: 'Rabbi Klein',
+    serviceType: 'Support',
+    scheduledDeparture: '14:10',
+    expectedReturn: '—',
+    actualDeparture: '14:05',
+    actualReturn: '—',
+    scheduledVersusUnexpected: 'unexpected',
+    approvedVersusUnexplained: 'approved',
+    statusCode: 'unresolved',
+  }
 }
 
 export const statusColor = { present: '#475569', absent: '#9f1239', late: '#9a6a2a', 'left-early': '#6b7280', therapy: '#5b5f7a', 'with-bt': '#3f6b76', unknown: '#6b7280', 'not-arrived': '#94a3b8' }

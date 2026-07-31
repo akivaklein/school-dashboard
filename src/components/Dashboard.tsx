@@ -553,13 +553,18 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginTop: 12 }}>
-          {coverageSnapshot.students.slice(0, 6).map((entry: { studentName: string; status: string; location: string; studentId?: string | number }, index: number) => (
+          {coverageSnapshot.students.slice(0, 6).map((entry: { studentName: string; status: string; location: string; studentId?: string | number; expectedLocation?: string; actualCurrentLocation?: string; provider?: string; serviceType?: string; scheduledDeparture?: string; expectedReturn?: string; actualDeparture?: string; actualReturn?: string; scheduledVersusUnexpected?: string; approvedVersusUnexplained?: string; statusCode?: string }, index: number) => (
             <div key={entry.studentId || `${entry.studentName}-${index}`} onClick={() => {
               const match = classStudents.find((item: StudentLike) => String(item.id) === String(entry.studentId))
               if (match) setSelectedStudent(match)
             }} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 10px', background: '#f8fafc', cursor: 'pointer' }}>
               <div style={{ fontWeight: 700, fontSize: 12 }}>{entry.studentName}</div>
               <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{entry.location}</div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4, lineHeight: 1.4 }}>
+                {entry.provider && <div>Provider: {entry.provider}</div>}
+                {entry.serviceType && <div>Service: {entry.serviceType}</div>}
+                {entry.scheduledDeparture && <div>Out {entry.scheduledDeparture} / back {entry.expectedReturn}</div>}
+              </div>
             </div>
           ))}
         </div>
