@@ -35,6 +35,7 @@ export default function StudentProfile({
   const [callNotes, setCallNotes] = useState('')
   const [callStaff, setCallStaff] = useState(resolveActorName(userName, role))
   const [callDuration, setCallDuration] = useState('')
+  const [confirmDeleteCallIdx, setConfirmDeleteCallIdx] = useState<number | null>(null)
   const [pendingUndoEvent, setPendingUndoEvent] = useState(null)
   const [undoSaving, setUndoSaving] = useState(false)
   const [undoFeedback, setUndoFeedback] = useState(null)
@@ -105,6 +106,13 @@ export default function StudentProfile({
     
     setCallNotes('')
     setCallDuration('')
+  }
+
+  function deleteCall(idx: number) {
+    const updatedCalls = parentCalls.filter((_, i) => i !== idx)
+    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: updatedCalls } : x))
+    if (persistStudentFields) persistStudentFields(s.id, { parentCalls: updatedCalls })
+    setConfirmDeleteCallIdx(null)
   }
 
   return (
@@ -338,7 +346,22 @@ export default function StudentProfile({
               <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>📞 Parent Call Log</div>
               {s.parentCalls.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16 }}>No calls recorded yet.</div> : s.parentCalls.map((c, i) => (
                 <div key={i} style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
-                  <div style={{ displays: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontWeight: 600, fontSize: 13 }}>{c.staff}</span><span style={{ color: '#94a3b8', fontSize: 12 }}>{c.date} · {c.duration}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                    <div>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{c.staff}</span>
+                      <span style={{ color: '#94a3b8', fontSize: 12, marginLeft: 8 }}>{c.date}{c.duration ? ` · ${c.duration}` : ''}</span>
+                    </div>
+                    {role !== 'therapist' && role !== 'store' && (
+                      confirmDeleteCallIdx === i ? (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <button onClick={() => deleteCall(i)} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>Delete</button>
+                          <button onClick={() => setConfirmDeleteCallIdx(null)} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmDeleteCallIdx(i)} title="Delete call record" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 14, padding: '0 2px' }}>🗑</button>
+                      )
+                    )}
+                  </div>
                   <div style={{ fontSize: 13, color: '#334155' }}>{c.notes}</div>
                 </div>
               ))}

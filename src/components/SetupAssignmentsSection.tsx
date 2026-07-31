@@ -47,17 +47,17 @@ export default function SetupAssignmentsSection({
 
     if (isReassigning) {
       if (change.type === 'period') {
-        return `${change.studentName} is currently assigned to ${currentOwner}. This will move them from ${currentOwner} to ${targetLabel} for Morning Period ${change.period}. Continue?`
+        return `is currently assigned to ${currentOwner}. This will move them to ${targetLabel} for Morning Period ${change.period}.`
       }
 
-      return `${change.studentName} is currently assigned to ${currentOwner}. This will move them from ${currentOwner} to ${targetLabel}. Continue?`
+      return `is currently assigned to ${currentOwner}. This will reassign them to ${targetLabel}.`
     }
 
     if (change.type === 'period') {
-      return `${change.action === 'add' ? 'Add' : 'Remove'} ${change.studentName} ${change.action === 'add' ? 'to' : 'from'} Morning Period ${change.period}?`
+      return `will be ${change.action === 'add' ? 'added to' : 'removed from'} Morning Period ${change.period}.`
     }
 
-    return `${change.action === 'add' ? 'Add' : 'Remove'} ${change.studentName} ${change.action === 'add' ? 'to' : 'from'} this caseload?`
+    return `will be ${change.action === 'add' ? 'added to' : 'removed from'} this caseload.`
   }
 
   async function confirmAssignmentChange() {

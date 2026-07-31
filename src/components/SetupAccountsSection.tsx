@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 import { buildStaffAccountData, getStaffAccountStatus } from '../services/staffService'
 
+const STATUS_CONFIG = {
+  'active-account':      { label: 'Active',   dot: '#16a34a', text: '#14532d', bg: '#f0fdf4' },
+  'pending-invitation':  { label: 'Pending',  dot: '#d97706', text: '#78350f', bg: '#fffbeb' },
+  'inactive-account':    { label: 'Inactive', dot: '#64748b', text: '#334155', bg: '#f1f5f9' },
+  'missing':             { label: 'No account', dot: '#cbd5e1', text: '#64748b', bg: '#f8fafc' },
+}
+
 export default function SetupAccountsSection({
   SETUP_PEOPLE,
   setupAccounts,
@@ -13,16 +20,21 @@ export default function SetupAccountsSection({
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [divisionFilter, setDivisionFilter] = useState('all')
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({})
+  const [inviteSent, setInviteSent] = useState<Record<string, boolean>>({})
 
   const people = Array.isArray(SETUP_PEOPLE) ? SETUP_PEOPLE : []
   const totalUsers = people.length
   const activeCount = people.filter(person => getStaffAccountStatus(setupAccounts[person.name]) === 'active-account').length
-  const disabledCount = Math.max(totalUsers - activeCount, 0)
-  const adminLikeCount = people.filter(person => /admin|menahel|mashgiach/i.test(person.role || '')).length
+  const pendingCount = people.filter(person => getStaffAccountStatus(setupAccounts[person.name]) === 'pending-invitation').length
+  const disabledCount = people.filter(person => {
+    const s = getStaffAccountStatus(setupAccounts[person.name])
+    return s === 'inactive-account' || s === 'missing'
+  }).length
 
   const filteredPeople = useMemo(() => {
     const normalized = search.trim().toLowerCase()
-
     return people.filter(person => {
       const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })
       const state = getStaffAccountStatus(account)
@@ -32,10 +44,12 @@ export default function SetupAccountsSection({
       const matchesSearch = !normalized
         || String(person.name || '').toLowerCase().includes(normalized)
         || String(person.specialty || '').toLowerCase().includes(normalized)
+        || String(person.role || '').toLowerCase().includes(normalized)
 
       const matchesStatus = statusFilter === 'all'
         || (statusFilter === 'active' && active)
-        || (statusFilter === 'disabled' && !active)
+        || (statusFilter === 'pending' && state === 'pending-invitation')
+        || (statusFilter === 'disabled' && !active && state !== 'pending-invitation')
 
       const matchesDivision = divisionFilter === 'all'
         || divisions === 'both'
@@ -55,60 +69,70 @@ export default function SetupAccountsSection({
     }
   }
 
+  function sendInvite(person) {
+    const email = (inviteEmail[person.name] || '').trim()
+    setSetupAccounts(previous => ({
+      ...previous,
+      [person.name]: {
+        ...(previous[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })),
+        ...withAttribution(previous[person.name] || {}, {
+          active: true,
+          accountState: 'pending',
+          email: email || undefined,
+          invitedAt: new Date().toISOString(),
+          invitedBy: actorName || 'System',
+          invitedByRole: actorRole || 'admin',
+        }),
+      }
+    }))
+    setInviteSent(prev => ({ ...prev, [person.name]: true }))
+    setTimeout(() => setInviteSent(prev => ({ ...prev, [person.name]: false })), 3000)
+  }
+
+  function formatDate(iso?: string) {
+    if (!iso) return '—'
+    try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
+    catch { return '—' }
+  }
+
+  const isLeadership = (role?: string) => /admin|menahel|mashgiach|principal/i.test(role || '')
+
   return (
                     <div style={S.card}>
-                      <div style={{
-                        fontSize: 22,
-                        fontWeight: 900,
-                        color: '#102a43',
-                        marginBottom: 4
-                      }}>
-                        Staff Accounts and Permissions
+                      <div style={{ fontSize: 22, fontWeight: 900, color: '#102a43', marginBottom: 4 }}>
+                        Users &amp; Access
+                      </div>
+                      <div style={{ fontSize: 12, color: '#52667e', marginBottom: 14 }}>
+                        Manage account status, invitations, division scope, and access controls.
                       </div>
 
-                      <div style={{
-                        fontSize: 12,
-                        color: '#52667e',
-                        marginBottom: 14
-                      }}>
-                        Manage account status, division scope, and access controls.
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) repeat(2, minmax(140px, 180px))', gap: 8, marginBottom: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) repeat(3, minmax(120px, 160px))', gap: 8, marginBottom: 12 }}>
                         <input
                           value={search}
                           onChange={event => setSearch(event.target.value)}
-                          placeholder="Search staff"
-                          spellCheck
-                          lang="en"
+                          placeholder="Search by name, role, or specialty"
+                          spellCheck={false}
                           style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}
                         />
-                        <select
-                          value={statusFilter}
-                          onChange={event => setStatusFilter(event.target.value)}
-                          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}
-                        >
+                        <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}>
                           <option value="all">All status</option>
-                          <option value="active">Active only</option>
-                          <option value="disabled">Disabled only</option>
+                          <option value="active">Active</option>
+                          <option value="pending">Pending invite</option>
+                          <option value="disabled">Inactive / No account</option>
                         </select>
-                        <select
-                          value={divisionFilter}
-                          onChange={event => setDivisionFilter(event.target.value)}
-                          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}
-                        >
+                        <select value={divisionFilter} onChange={event => setDivisionFilter(event.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}>
                           <option value="all">All divisions</option>
                           <option value="mesivta">Mesivta</option>
                           <option value="yeshiva-ketana">Yeshiva Ketana</option>
                         </select>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 14 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 14 }}>
                         {[
-                          { label: 'Total Users', value: totalUsers, accent: '#5b7ea5' },
-                          { label: 'Admins', value: adminLikeCount, accent: '#5b7ea5' },
-                          { label: 'Active', value: activeCount, accent: '#2f855a' },
-                          { label: 'Disabled', value: disabledCount, accent: '#a16207' },
+                          { label: 'Total Staff', value: totalUsers, accent: '#5b7ea5' },
+                          { label: 'Active', value: activeCount, accent: '#16a34a' },
+                          { label: 'Pending', value: pendingCount, accent: '#d97706' },
+                          { label: 'Inactive', value: disabledCount, accent: '#64748b' },
                         ].map(summary => (
                           <div key={summary.label} style={{ border: '1px solid #dbe5f0', borderRadius: 8, background: '#ffffff', padding: '10px 11px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#475569', fontWeight: 700 }}>
@@ -120,7 +144,7 @@ export default function SetupAccountsSection({
                         ))}
                       </div>
 
-                      <div style={{ display: 'grid', gap: 8 }}>
+                      <div style={{ display: 'grid', gap: 6 }}>
                         {people.length === 0 && (
                           <div style={{ border: '1px dashed #dbe5f0', borderRadius: 8, background: '#fff', padding: '14px 12px', fontSize: 12, color: '#64748b' }}>
                             No staff accounts are available yet.
@@ -129,108 +153,144 @@ export default function SetupAccountsSection({
                         {filteredPeople.map(person => {
                           const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })
                           const accountStatus = getStaffAccountStatus(account)
-                          const statusLabel = accountStatus === 'active-account' ? 'Active' : accountStatus === 'inactive-account' ? 'Inactive' : accountStatus === 'pending-invitation' ? 'Pending' : 'No account'
-                          const nextState = account.accountState === 'pending' ? 'active' : account.active === false ? 'active' : 'inactive'
+                          const statusCfg = STATUS_CONFIG[accountStatus] || STATUS_CONFIG['missing']
+                          const isExpanded = expandedRow === person.name
+                          const isInactive = accountStatus === 'inactive-account' || accountStatus === 'missing'
+                          const leadership = isLeadership(person.role)
 
                           return (
-                            <div
-                              key={`account-${person.name}`}
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'minmax(180px, 1.2fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) auto',
-                                gap: 10,
-                                alignItems: 'center',
-                                padding: '10px 12px',
-                                border: '1px solid #dbe5f0',
-                                borderRadius: 8,
-                                background: '#fff'
-                              }}
-                            >
-                              <div>
-                                <div style={{ fontSize: 12, fontWeight: 900 }}>{person.name}</div>
-                                <div style={{ fontSize: 10.5, color: '#758398', marginTop: 2 }}>{person.specialty}</div>
-                                <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 4, fontWeight: 700 }}>{statusLabel}</div>
+                            <div key={`account-${person.name}`} style={{ border: '1px solid #dbe5f0', borderRadius: 10, background: '#fff', overflow: 'hidden' }}>
+                              {/* Summary row */}
+                              <div
+                                style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1.5fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr) auto', gap: 10, alignItems: 'center', padding: '10px 14px', cursor: 'pointer' }}
+                                onClick={() => setExpandedRow(isExpanded ? null : person.name)}
+                              >
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 900, color: '#102a43' }}>{person.name}</span>
+                                    {leadership && <span style={{ fontSize: 9, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 4, padding: '1px 5px', fontWeight: 700, textTransform: 'uppercase' }}>Leadership</span>}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: '#758398', marginTop: 2 }}>{person.specialty || person.role}</div>
+                                </div>
+
+                                <div>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: statusCfg.text, background: statusCfg.bg, border: `1px solid ${statusCfg.dot}22`, borderRadius: 6, padding: '2px 8px' }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusCfg.dot, flexShrink: 0 }} />
+                                    {statusCfg.label}
+                                  </span>
+                                </div>
+
+                                <div style={{ fontSize: 11, color: '#748297' }}>
+                                  {account.divisions === 'mesivta' ? 'Mesivta' : account.divisions === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Both divisions'}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                  {isInactive ? (
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setSetupAccounts(prev => ({ ...prev, [person.name]: { ...withAttribution(account, { active: true, accountState: 'pending', invitedAt: new Date().toISOString(), invitedBy: actorName || 'System', invitedByRole: actorRole || 'admin' }) } })) }}
+                                      style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                    >
+                                      Send Invite
+                                    </button>
+                                  ) : accountStatus === 'pending-invitation' ? (
+                                    <button
+                                      onClick={e => { e.stopPropagation(); sendInvite(person) }}
+                                      style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                    >
+                                      {inviteSent[person.name] ? 'Sent ✓' : 'Resend Invite'}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setSetupAccounts(prev => ({ ...prev, [person.name]: { ...withAttribution(account, { active: false, accountState: 'inactive' }) } })) }}
+                                      style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                    >
+                                      Deactivate
+                                    </button>
+                                  )}
+                                  <span style={{ fontSize: 12, color: '#94a3b8', userSelect: 'none' }}>{isExpanded ? '▲' : '▼'}</span>
+                                </div>
                               </div>
 
-                              <select
-                                value={account.divisions || 'both'}
-                                onChange={event =>
-                                  setSetupAccounts(previous => ({
-                                    ...previous,
-                                    [person.name]: {
-                                      ...withAttribution(account, {
-                                      divisions: event.target.value,
-                                      active: account.active !== false,
-                                      accountState: account.accountState === 'missing' ? 'active' : account.accountState,
-                                      }),
-                                    }
-                                  }))
-                                }
-                                style={{ padding: '7px 8px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 11 }}
-                              >
-                                <option value="both">Both divisions</option>
-                                <option value="mesivta">Mesivta</option>
-                                <option value="yeshiva-ketana">Yeshiva Ketana</option>
-                              </select>
+                              {/* Expanded detail panel */}
+                              {isExpanded && (
+                                <div style={{ borderTop: '1px solid #eef2f7', background: '#f8fafc', padding: '12px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                  <div style={{ display: 'grid', gap: 8 }}>
+                                    <div>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 3 }}>Role</div>
+                                      <div style={{ fontSize: 12, color: '#334155' }}>{person.role || '—'}</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 3 }}>Email / Username</div>
+                                      {account.email ? (
+                                        <div style={{ fontSize: 12, color: '#334155' }}>{account.email}</div>
+                                      ) : (
+                                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                          <input
+                                            value={inviteEmail[person.name] || ''}
+                                            onChange={e => setInviteEmail(prev => ({ ...prev, [person.name]: e.target.value }))}
+                                            placeholder="Enter email to invite"
+                                            spellCheck={false}
+                                            onClick={e => e.stopPropagation()}
+                                            style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: '1px solid #dce4ed', fontSize: 11 }}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 3 }}>Division Scope</div>
+                                      <select
+                                        value={account.divisions || 'both'}
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={event => setSetupAccounts(prev => ({ ...prev, [person.name]: { ...withAttribution(account, { divisions: event.target.value, active: account.active !== false, accountState: account.accountState === 'missing' ? 'active' : account.accountState }) } }))}
+                                        style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #dce4ed', fontSize: 11 }}
+                                      >
+                                        <option value="both">Both divisions</option>
+                                        <option value="mesivta">Mesivta only</option>
+                                        <option value="yeshiva-ketana">Yeshiva Ketana only</option>
+                                      </select>
+                                    </div>
+                                  </div>
 
-                              <div style={{ display: 'grid', gap: 6 }}>
-                                <button
-                                  onClick={() =>
-                                    setSetupAccounts(previous => ({
-                                      ...previous,
-                                      [person.name]: {
-                                        ...withAttribution(account, {
-                                        active: nextState === 'active',
-                                        accountState: nextState === 'active' ? 'active' : 'inactive',
-                                        }),
-                                      }
-                                    }))
-                                  }
-                                  style={account.active !== false ? S.btn('success') : S.btn('ghost')}
-                                >
-                                  {account.active !== false ? 'Active' : 'Inactive'}
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    setSetupAccounts(previous => ({
-                                      ...previous,
-                                      [person.name]: {
-                                        ...withAttribution(account, {
-                                        active: true,
-                                        accountState: 'pending',
-                                        invitedAt: new Date().toISOString(),
-                                        invitedBy: actorName || 'System',
-                                        invitedByRole: actorRole || 'admin',
-                                        }),
-                                      }
-                                    }))
-                                  }
-                                  style={S.btn('ghost')}
-                                >
-                                  Resend Invite
-                                </button>
-                              </div>
-
-                              <button
-                                onClick={() =>
-                                  setSetupAccounts(previous => ({
-                                    ...previous,
-                                    [person.name]: {
-                                      ...withAttribution(account, {
-                                      active: true,
-                                      accountState: account.accountState === 'active' ? 'active' : 'pending',
-                                      divisions: account.divisions || 'both',
-                                      invitedAt: account.accountState === 'active' ? account.invitedAt : new Date().toISOString(),
-                                      invitedBy: account.accountState === 'active' ? account.invitedBy : (actorName || 'System'),
-                                      invitedByRole: account.accountState === 'active' ? account.invitedByRole : (actorRole || 'admin'),
-                                      }),
-                                    }
-                                  }))
-                                }
-                                style={S.btn('ghost')}
-                              >
-                                {account.accountState === 'missing' ? 'Create Account' : 'Manage'}
-                              </button>
+                                  <div style={{ display: 'grid', gap: 8 }}>
+                                    <div>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 3 }}>Invited</div>
+                                      <div style={{ fontSize: 12, color: '#334155' }}>
+                                        {account.invitedAt ? `${formatDate(account.invitedAt)} by ${account.invitedBy || '—'}` : '—'}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 3 }}>Last Updated</div>
+                                      <div style={{ fontSize: 12, color: '#334155' }}>
+                                        {account.updatedAt ? `${formatDate(account.updatedAt)} by ${account.updatedBy || '—'}` : '—'}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 4 }}>
+                                      {accountStatus !== 'active-account' && (
+                                        <button
+                                          onClick={e => { e.stopPropagation(); setSetupAccounts(prev => ({ ...prev, [person.name]: { ...withAttribution(account, { active: true, accountState: 'active' }) } })) }}
+                                          style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                                        >
+                                          Activate Account
+                                        </button>
+                                      )}
+                                      {accountStatus === 'active-account' && (
+                                        <button
+                                          onClick={e => { e.stopPropagation(); setSetupAccounts(prev => ({ ...prev, [person.name]: { ...withAttribution(account, { active: false, accountState: 'inactive' }) } })) }}
+                                          style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#475569', fontSize: 11, cursor: 'pointer' }}
+                                        >
+                                          Deactivate
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={e => { e.stopPropagation(); sendInvite(person) }}
+                                        style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', fontSize: 11, cursor: 'pointer', fontWeight: inviteSent[person.name] ? 700 : 400 }}
+                                      >
+                                        {inviteSent[person.name] ? 'Invite sent ✓' : accountStatus === 'pending-invitation' ? 'Resend Invite' : 'Send Invite'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )
                         })}
@@ -243,3 +303,5 @@ export default function SetupAccountsSection({
                     </div>
   )
 }
+
+

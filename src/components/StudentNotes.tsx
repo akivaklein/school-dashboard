@@ -7,6 +7,7 @@ export default function StudentNotes({ student, students, setStudents, userName,
   const [noteText, setNoteText] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
   const s = students.find(x => x.id === student.id) || student
 
   useEffect(() => {
@@ -112,6 +113,15 @@ export default function StudentNotes({ student, students, setStudents, userName,
     setNoteText('')
   }
 
+  async function deleteNote(idx: number) {
+    if (!s?.id) return
+    const updatedNotes = (s.notes || []).filter((_, i) => i !== idx)
+    const { error } = await supabase.from('students').update({ notes: updatedNotes }).eq('id', s.id)
+    if (error) { console.error('Error deleting note:', error); return }
+    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, notes: updatedNotes } : x))
+    setConfirmDeleteIdx(null)
+  }
+
   return (
     <div style={S.card}>
       <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>Staff Notes</div>
@@ -120,9 +130,20 @@ export default function StudentNotes({ student, students, setStudents, userName,
       ) : (
         s.notes.map((n, i) => (
           <div key={i} style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ fontWeight: 600, fontSize: 12 }}>{n.author}</span>
-              <span style={{ color: '#94a3b8', fontSize: 12 }}>{n.date}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+              <div>
+                <span style={{ fontWeight: 600, fontSize: 12 }}>{n.author}</span>
+                <span style={{ color: '#94a3b8', fontSize: 12, marginLeft: 8 }}>{n.date}</span>
+              </div>
+              {confirmDeleteIdx === i ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: '#64748b' }}>Delete this note?</span>
+                  <button onClick={() => deleteNote(i)} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>Delete</button>
+                  <button onClick={() => setConfirmDeleteIdx(null)} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDeleteIdx(i)} title="Delete note" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 14, padding: '0 2px', lineHeight: 1 }}>🗑</button>
+              )}
             </div>
             <div style={{ fontSize: 13, color: '#334155' }}>{n.text}</div>
           </div>

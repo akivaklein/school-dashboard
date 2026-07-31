@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Dispatch, KeyboardEvent, SetStateAction } from 'react'
 import { createTodo, updateTodo, deleteTodo } from '../services/todosService'
 import { groupTodosByStatus } from './todoUtils'
@@ -35,6 +36,7 @@ export default function TodoPage({
   setNewTodoTime,
 }: Props) {
   const { pending: pendingTodos, completed: completedTodos } = groupTodosByStatus(todos)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
   const categoryColors: Record<string, [string, string]> = {
     meeting: ['#5b5f7a', '#f5f3ff'],
@@ -158,12 +160,14 @@ export default function TodoPage({
                   <span style={S.badge(textColor, backgroundColor)}>{todo.category}</span>
                 </div>
               </div>
-              <button
-                onClick={() => handleDeleteTodo(todo)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 16 }}
-              >
-                ✕
-              </button>
+              {confirmDeleteId === todo.id ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                  <button onClick={() => handleDeleteTodo(todo)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>Delete</button>
+                  <button onClick={() => setConfirmDeleteId(null)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDeleteId(todo.id)} title="Delete task" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 14, padding: '0 2px', flexShrink: 0 }}>🗑</button>
+              )}
             </div>
           )
         })}
@@ -190,12 +194,14 @@ export default function TodoPage({
                 <div style={{ flex: 1, textDecoration: 'line-through', fontSize: 13, color: '#64748b' }}>
                   {todo.text}
                 </div>
-                <button
-                  onClick={() => handleDeleteTodo(todo)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 16 }}
-                >
-                  ✕
-                </button>
+                {confirmDeleteId === todo.id ? (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                    <button onClick={() => handleDeleteTodo(todo)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>Delete</button>
+                    <button onClick={() => setConfirmDeleteId(null)} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDeleteId(todo.id)} title="Delete task" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 14, padding: '0 2px', flexShrink: 0 }}>🗑</button>
+                )}
               </div>
             ))}
           </div>
