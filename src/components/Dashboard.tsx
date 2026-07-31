@@ -44,6 +44,7 @@ import {
   reverseStorePurchaseTx,
   seedStoreItems,
   setStoreItemActive,
+  shouldUseDemoStoreActivity,
   updateStoreItem as saveStoreItem,
 } from '../services/storeService'
 import {
@@ -145,6 +146,7 @@ import {
   DEMO_STORE_ACTIVITY,
   DEMO_STUDENT_FLAGS,
   initialStudents,
+  STAFF,
   statusColor,
   statusLabel,
   statusEmoji,
@@ -617,7 +619,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 {selectedClass ? CLASSES.find(c=>c.id===selectedClass)?.name : 'Class roster'} · Quick actions</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
           {classStudents.map((s: StudentLike, i: number) => {
-            const withStaffObj = s.withStaff ? STAFF.find((st: StaffMemberLike) => st.id === s.withStaff) : null
+            const withStaffObj = s.withStaff ? staffMembers.find((st: StaffMemberLike) => String(st.id) === String(s.withStaff)) : null
             const vip = isVIP ? isVIP(s) : false
             const studentName = typeof s.name === 'string' ? s.name : 'Student'
             const studentStatus = typeof s.status === 'string' ? s.status : 'present'
@@ -4591,8 +4593,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           />
         )}
 
-        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} />}
-        {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={visibleStudents} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} />}
+        {page === 'dashboard' && role === 'teacher' && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={userName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} />}
+        {page === 'dashboard' && role === 'therapist' && <TherapistDashboard students={visibleStudents} userName={userName} setSelectedStudent={s => openStudent(s, 'therapy')} staffMembers={staffMembers} therapySchedule={THERAPY_SCHEDULE_STATE} />}
 
         {page === 'dashboard' && role === 'admin' && isOfficeUser && (
           <AdminOfficeDashboardPage
