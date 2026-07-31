@@ -19,16 +19,16 @@
 - [x] Student profile tab navigation arrows
 - [x] Collapsible dense sections
 - [x] Dashboard/attendance/behavior/store/academics spacing consistency
-- [ ] Dedicated Reports section
+- [x] Dedicated Reports section
 - [x] Class-wide live status board
-- [ ] Unknown-location smart rules
+- [x] Unknown-location smart rules
 - [ ] Custom pattern-based VIP rules
 - [x] Scheduling conflict enforcement + multi-class teacher support
 - [x] Setup Center visual polish
 - [x] Unknown-location smart rules
-- [ ] Assignment-change confirmation modal complete
-- [ ] Compact/sortable/searchable/paginated student table view
-- [ ] Email invite account system UI
+- [x] Assignment-change confirmation modal complete
+- [x] Compact/sortable/searchable/paginated student table view
+- [x] Email invite account system UI
 - [x] Contextual search
 - [x] Points history undo display polish
 - [x] Real-time sync scope and implementation
