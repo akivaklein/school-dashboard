@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { createTeachingAction, deleteTeachingAction } from '../services/setupCenterService'
+import { createTeachingAction, deleteTeachingAction, saveAcademicCatalog } from '../services/setupCenterService'
 
 export default function SetupTeachingConfigSection({
   setupActionDraft,
@@ -16,6 +16,7 @@ export default function SetupTeachingConfigSection({
   const [newSubjectLabel, setNewSubjectLabel] = useState('')
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null)
   const [newSkillLabel, setNewSkillLabel] = useState('')
+  const [catalogSaveStatus, setCatalogSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   const subjects = useMemo(
     () => (academicCatalog?.subjects || []).slice().sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''))),
@@ -88,6 +89,14 @@ export default function SetupTeachingConfigSection({
       ],
     }))
     setNewSkillLabel('')
+  }
+
+  async function saveCatalogNow() {
+    if (!academicCatalog?.subjects?.length) return
+    setCatalogSaveStatus('saving')
+    const ok = await saveAcademicCatalog(academicCatalog)
+    setCatalogSaveStatus(ok ? 'saved' : 'error')
+    setTimeout(() => setCatalogSaveStatus('idle'), 2500)
   }
 
   async function handleAddAction() {
@@ -337,7 +346,7 @@ export default function SetupTeachingConfigSection({
               Add/edit subjects, archive inactive items, and assign by division, class, or teacher.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               value={newSubjectLabel}
               onChange={event => setNewSubjectLabel(event.target.value)}
@@ -347,6 +356,19 @@ export default function SetupTeachingConfigSection({
               style={{ padding: '8px 10px', border: '1px solid #dce4ed', borderRadius: 8, minWidth: 220 }}
             />
             <button onClick={addSubject} style={S.btn('primary')}>Add Subject</button>
+            <button
+              onClick={saveCatalogNow}
+              disabled={catalogSaveStatus === 'saving'}
+              style={{
+                padding: '8px 14px', borderRadius: 8, border: '1px solid',
+                borderColor: catalogSaveStatus === 'saved' ? '#bbf7d0' : catalogSaveStatus === 'error' ? '#fecaca' : '#dce4ed',
+                background: catalogSaveStatus === 'saved' ? '#f0fdf4' : catalogSaveStatus === 'error' ? '#fef2f2' : '#f8fafc',
+                color: catalogSaveStatus === 'saved' ? '#15803d' : catalogSaveStatus === 'error' ? '#dc2626' : '#334155',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              {catalogSaveStatus === 'saving' ? 'Saving...' : catalogSaveStatus === 'saved' ? '✓ Saved' : catalogSaveStatus === 'error' ? '✗ Error' : '💾 Save'}
+            </button>
           </div>
         </div>
 
@@ -408,7 +430,10 @@ export default function SetupTeachingConfigSection({
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginBottom: 12 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, marginBottom: 6 }}>Divisions</div>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      Divisions
+                      <button onClick={() => updateCatalogSubject(selectedSubject.id, s => ({ ...s, divisionKeys: Object.keys(DIVISIONS || {}) }))} style={{ fontSize: 10, background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 700 }}>Select All</button>
+                    </div>
                     <div style={{ display: 'grid', gap: 6 }}>
                       {Object.entries(DIVISIONS || {}).map(([divisionKey, division]) => (
                         <label key={divisionKey} style={{ fontSize: 11, color: '#334155', display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -424,7 +449,13 @@ export default function SetupTeachingConfigSection({
                   </div>
 
                   <div>
-                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, marginBottom: 6 }}>Classes</div>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      Classes
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => updateCatalogSubject(selectedSubject.id, s => ({ ...s, classIds: (CLASSES || []).map(c => c.id) }))} style={{ fontSize: 10, background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 700 }}>All</button>
+                        <button onClick={() => updateCatalogSubject(selectedSubject.id, s => ({ ...s, classIds: [] }))} style={{ fontSize: 10, background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>Clear</button>
+                      </div>
+                    </div>
                     <div style={{ display: 'grid', gap: 6, maxHeight: 132, overflowY: 'auto', paddingRight: 2 }}>
                       {(CLASSES || []).map(classItem => (
                         <label key={classItem.id} style={{ fontSize: 11, color: '#334155', display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -440,7 +471,13 @@ export default function SetupTeachingConfigSection({
                   </div>
 
                   <div>
-                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, marginBottom: 6 }}>Teachers</div>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      Teachers
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => updateCatalogSubject(selectedSubject.id, s => ({ ...s, teacherNames: (TEACHING_STAFF_OPTIONS || []) }))} style={{ fontSize: 10, background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 700 }}>All</button>
+                        <button onClick={() => updateCatalogSubject(selectedSubject.id, s => ({ ...s, teacherNames: [] }))} style={{ fontSize: 10, background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>Clear</button>
+                      </div>
+                    </div>
                     <div style={{ display: 'grid', gap: 6, maxHeight: 132, overflowY: 'auto', paddingRight: 2 }}>
                       {(TEACHING_STAFF_OPTIONS || []).map(teacherName => (
                         <label key={teacherName} style={{ fontSize: 11, color: '#334155', display: 'flex', gap: 6, alignItems: 'center' }}>

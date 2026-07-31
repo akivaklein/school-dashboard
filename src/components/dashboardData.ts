@@ -764,18 +764,68 @@ export function enrichIntakeDemoData(list) {
 export const SKILL_RATINGS = ['Weak', 'Developing', 'Good', 'Great']
 export const RATING_SCORE = { Weak: 1, Developing: 2, Good: 3, Great: 4 }
 export const ACADEMIC_AREAS = {
-  'Rabbi Abowitz': {
-    Math: ['2-digit', '3-digit'],
-    Reading: ['Decoding', 'Fluency', 'Comprehension'],
-    Writing: ['Grammar', 'Writing Project'],
+  'Rabbi Klein': {
+    Chumash: ['Bereishis', 'Shemos', 'Vayikra', 'Bamidbar', 'Devarim'],
+    Gemara: ['Bava Kamma', 'Bava Metzia', 'Sanhedrin'],
   },
-  'Rabbi Abramowitz': {
-    Math: ['2-digit', '3-digit'],
-    Reading: ['Decoding', 'Fluency', 'Comprehension'],
-    Writing: ['Grammar', 'Writing Project'],
-  }
+  'Rabbi Goldstein': {
+    Gemara: ['Berachos', 'Shabbos', 'Eruvin'],
+    Mishnah: ['Zraim', 'Moed', 'Nashim', 'Nezikin'],
+  },
+  'Rabbi Ehrnreich': {
+    Chumash: ['Bereishis', 'Shemos'],
+    Gemara: ['Gittin', 'Kiddushin'],
+  },
+  'Rabbi Ambush': {
+    Gemara: ['Makkos', "Shevu'os", 'Avoda Zarah'],
+    Mishnah: ['Taharos', 'Kodashim'],
+  },
+  'Rabbi Lefkowitz': {
+    Davening: ['Shacharis', 'Mincha', 'Maariv'],
+    English: ['Reading Comprehension', 'Grammar', 'Essay Writing', 'Vocabulary'],
+  },
+  'Rabbi Abowitz': {
+    Math: ['Algebra', 'Geometry', 'Statistics', 'Arithmetic'],
+    Science: ['Biology', 'Chemistry', 'Physics'],
+  },
+  'Rabbi Altshull': {
+    English: ['Reading', 'Writing', 'Grammar'],
+    Math: ['Arithmetic', 'Word Problems'],
+  },
+  'Rabbi Schults': {
+    Chumash: ['Bereishis', 'Shemos'],
+    Gemara: ['Brachos', 'Peah'],
+    Kriah: ['Fluency', 'Nikud', 'Trop'],
+  },
+  'Rabbi Schimborski': {
+    Chumash: ['Vayikra', 'Bamidbar'],
+    Mishnah: ['Brachos', 'Peah', 'Kilayim'],
+    Davening: ['Shacharis', 'Maariv'],
+  },
 }
-export const DEFAULT_ACADEMIC_TEACHER = 'Rabbi Abowitz'
+export const DEFAULT_ACADEMIC_TEACHER = 'Rabbi Klein'
+export function pctToLetterGrade(pct: number | null): string {
+  if (pct === null || pct === undefined) return '—'
+  if (pct >= 97) return 'A+'
+  if (pct >= 93) return 'A'
+  if (pct >= 90) return 'A-'
+  if (pct >= 87) return 'B+'
+  if (pct >= 83) return 'B'
+  if (pct >= 80) return 'B-'
+  if (pct >= 77) return 'C+'
+  if (pct >= 73) return 'C'
+  if (pct >= 70) return 'C-'
+  if (pct >= 67) return 'D+'
+  if (pct >= 60) return 'D'
+  return 'F'
+}
+export function letterGradeColor(grade: string): string {
+  if (grade.startsWith('A')) return '#16a34a'
+  if (grade.startsWith('B')) return '#2563eb'
+  if (grade.startsWith('C')) return '#ca8a04'
+  if (grade.startsWith('D') || grade === 'F') return '#dc2626'
+  return '#64748b'
+}
 export function academicPct(score) { return score.maxScore ? Math.round((score.score / score.maxScore) * 100) : null }
 export function academicDisplay(score) { return score.scoreType === 'rating' ? score.rating : `${score.score}/${score.maxScore} (${academicPct(score)}%)` }
 export function academicStatusFromPct(pct) { if (pct === null || pct === undefined) return 'Missing'; if (pct >= 90) return 'Excellent'; if (pct >= 80) return 'Doing Well'; if (pct >= 70) return 'Watch'; return 'Needs Support' }
@@ -1919,3 +1969,149 @@ if (student26) {
 export const statusColor = { present: '#475569', absent: '#9f1239', late: '#9a6a2a', 'left-early': '#6b7280', therapy: '#5b5f7a', 'with-bt': '#3f6b76', unknown: '#6b7280', 'not-arrived': '#94a3b8' }
 export const statusLabel = { present: 'Present', absent: 'Absent', late: 'Late', 'left-early': 'Left Early', therapy: 'In Therapy', 'with-bt': 'With BT', unknown: 'Location Unknown', 'not-arrived': 'Not Arrived' }
 export const statusEmoji = { present: '✅', absent: '❌', late: '⏰', 'left-early': '🚪', therapy: '🧠', 'with-bt': '👤', unknown: '❓', 'not-arrived': '🕐' }
+
+// Demo grade fixtures — added 2026-07-31
+// Class a (Dargei Alef): students 1-7, teacher Rabbi Klein
+;(function addDemoGrades() {
+  const Q = (id, teacher, subject, skill, name, date, score, max, notes, type = 'Quiz', enteredBy = teacher) => ({
+    id: `demo-${id}`, teacher, subject, skill, assessmentName: name, date, scoreType: 'points',
+    score, maxScore: max, rating: null, notes, assessmentType: type, enteredBy, enteredAt: `${date}T09:00:00Z`, sourceContext: 'demo',
+  })
+  const M = (id, teacher, subject, skill, name, date, notes = '', enteredBy = teacher) => ({
+    id: `demo-${id}`, teacher, subject, skill, assessmentName: name, date, scoreType: 'status',
+    score: null, maxScore: null, rating: null, notes, attemptStatus: 'missed', assessmentType: 'Quiz', enteredBy, enteredAt: `${date}T09:00:00Z`, sourceContext: 'demo',
+  })
+
+  const sId = (id) => initialStudents.find(s => s.id === id)
+
+  // Dargei Alef (class a) – Rabbi Klein – Chumash & Gemara
+  const s1 = sId(1)
+  if (s1 && !s1.testScores?.length) s1.testScores = [
+    Q('a1a','Rabbi Klein','Chumash','Bereishis','Parshas Quiz',  '2026-07-21', 76,100,'Good understanding of narrative flow.'),
+    Q('a1b','Rabbi Klein','Gemara','Bava Kamma','Sugya Review',  '2026-07-14',88,100,'Grasps basic halachic logic.'),
+    Q('a1c','Rabbi Lefkowitz','English','Grammar','Grammar Test', '2026-07-07',72,100,'Needs review of comma rules.'),
+  ]
+  const s2 = sId(2)
+  if (s2 && !s2.testScores?.length) s2.testScores = [
+    Q('a2a','Rabbi Klein','Chumash','Bereishis','Parshas Quiz',  '2026-07-21',101,100,'Outstanding memorization!', 'Quiz', 'Rabbi Klein'),
+    Q('a2b','Rabbi Klein','Gemara','Bava Kamma','Sugya Review',  '2026-07-14', 95,100,'Excellent havanah.'),
+    Q('a2c','Rabbi Lefkowitz','English','Vocabulary','Vocab Test','2026-07-07',88,100,''),
+  ]
+  const s3 = sId(3)
+  if (s3 && !s3.testScores?.length) s3.testScores = [
+    Q('a3a','Rabbi Klein','Chumash','Shemos','Parshas Quiz',     '2026-07-21', 90,100,'Solid grasp of the pesukim.'),
+    Q('a3b','Rabbi Klein','Gemara','Bava Kamma','Sugya Review',  '2026-07-14',100,100,'Perfect score!'),
+    Q('a3c','Rabbi Lefkowitz','Davening','Shacharis','Davening Check','2026-07-07',85,100,''),
+  ]
+  const s4 = sId(4)
+  if (s4 && !s4.testScores?.length) s4.testScores = [
+    Q('a4a','Rabbi Klein','Chumash','Bereishis','Parshas Quiz',  '2026-07-21',100,100,'Exceptional review.'),
+    M('a4b','Rabbi Klein','Gemara','Bava Kamma','Sugya Review',  '2026-07-14', 'Was absent'),
+    Q('a4c','Rabbi Lefkowitz','English','Reading Comprehension','Reading Quiz','2026-07-07',80,100,''),
+  ]
+  const s5 = sId(5)
+  if (s5 && !s5.testScores?.length) s5.testScores = [
+    M('a5a','Rabbi Klein','Chumash','Bereishis','Parshas Quiz',  '2026-07-21', 'Absent'),
+    Q('a5b','Rabbi Klein','Gemara','Bava Metzia','Gemara Quiz',  '2026-06-30', 70,100,''),
+    Q('a5c','Rabbi Lefkowitz','English','Grammar','Grammar Test', '2026-06-23', 65,100,'Needs support'),
+  ]
+
+  // Dargei Beis (class b) – Rabbi Goldstein – Gemara & Mishnah
+  const s8 = sId(8)
+  if (s8 && !s8.testScores?.length) s8.testScores = [
+    Q('b8a','Rabbi Goldstein','Gemara','Berachos','Mishna Baal Peh','2026-07-21',85,100,''),
+    Q('b8b','Rabbi Goldstein','Mishnah','Zraim','Mishnah Quiz',  '2026-07-14', 90,100,'Good retention.'),
+    Q('b8c','Rabbi Lefkowitz','Davening','Shacharis','Birchas Hashachar Test','2026-07-07',95,100,''),
+  ]
+  const s9 = sId(9)
+  if (s9 && !s9.testScores?.length) s9.testScores = [
+    Q('b9a','Rabbi Goldstein','Gemara','Berachos','Mishna Baal Peh','2026-07-21',70,100,''),
+    Q('b9b','Rabbi Goldstein','Mishnah','Moed','Mishnah Quiz',   '2026-07-14', 75,100,''),
+    M('b9c','Rabbi Lefkowitz','English','Grammar','Grammar Test', '2026-07-07','Not submitted'),
+  ]
+  const s10 = sId(10)
+  if (s10 && !s10.testScores?.length) s10.testScores = [
+    Q('b10a','Rabbi Goldstein','Gemara','Shabbos','Weekly Chazara','2026-07-21',100,100,'Perfect!'),
+    Q('b10b','Rabbi Goldstein','Mishnah','Moed','Mishnah Quiz',   '2026-07-14',88,100,''),
+    Q('b10c','Rabbi Lefkowitz','Davening','Mincha','Mincha Baal Peh','2026-07-07',92,100,''),
+  ]
+
+  // Dargei Gimmel (class c) – Rabbi Ehrnreich
+  const s15 = sId(15)
+  if (s15 && !s15.testScores?.length) s15.testScores = [
+    Q('c15a','Rabbi Ehrnreich','Chumash','Bereishis','Parshas Review','2026-07-21',82,100,''),
+    Q('c15b','Rabbi Ehrnreich','Gemara','Gittin','Daf Yomi Quiz', '2026-07-14', 78,100,''),
+    Q('c15c','Rabbi Lefkowitz','English','Essay Writing','Essay Draft','2026-07-07',88,100,'Good thesis.'),
+  ]
+  const s16 = sId(16)
+  if (s16 && !s16.testScores?.length) s16.testScores = [
+    M('c16a','Rabbi Ehrnreich','Chumash','Bereishis','Parshas Review','2026-07-21','Absent from school'),
+    Q('c16b','Rabbi Ehrnreich','Gemara','Kiddushin','Daf Quiz',  '2026-07-14', 65,100,'Needs support with Rashi.'),
+    Q('c16c','Rabbi Lefkowitz','English','Grammar','Grammar Test', '2026-07-07', 71,100,''),
+  ]
+  const s17 = sId(17)
+  if (s17 && !s17.testScores?.length) s17.testScores = [
+    Q('c17a','Rabbi Ehrnreich','Chumash','Shemos','Parsha Test',  '2026-07-21',95,100,'Excellent havanah on the sugyos.'),
+    Q('c17b','Rabbi Ehrnreich','Gemara','Gittin','Daf Yomi Quiz', '2026-07-14',90,100,''),
+    Q('c17c','Rabbi Abowitz','Math','Algebra','Mid-Unit Test',   '2026-07-07',87,100,''),
+  ]
+
+  // Dargei Daled (class d) – Rabbi Ambush
+  const s22 = sId(22)
+  if (s22 && !s22.testScores?.length) s22.testScores = [
+    Q('d22a',"Rabbi Ambush",'Gemara','Makkos','Mesechta Quiz',   '2026-07-21',93,100,'Strong bekius.'),
+    Q('d22b',"Rabbi Ambush",'Mishnah','Taharos','Mishnah Test',  '2026-07-14',88,100,''),
+    Q('d22c','Rabbi Lefkowitz','Davening','Maariv','Maariv Baal Peh','2026-07-07',100,100,'Perfect!'),
+  ]
+  const s23 = sId(23)
+  if (s23 && !s23.testScores?.length) s23.testScores = [
+    Q('d23a',"Rabbi Ambush",'Gemara','Makkos','Mesechta Quiz',   '2026-07-21',68,100,'Needs chazara.'),
+    Q('d23b',"Rabbi Ambush",'Mishnah','Kodashim','Mishnah Test', '2026-07-14',72,100,''),
+    M('d23c','Rabbi Lefkowitz','English','Vocabulary','Vocab Test','2026-07-07','Missed—was in therapy'),
+  ]
+  const s24 = sId(24)
+  if (s24 && !s24.testScores?.length) s24.testScores = [
+    Q('d24a',"Rabbi Ambush",'Gemara',"Shevu'os",'Weekly Quiz',   '2026-07-21',80,100,''),
+    Q('d24b',"Rabbi Ambush",'Mishnah','Taharos','Mishnah Test',  '2026-07-14',85,100,''),
+    Q('d24c','Rabbi Abowitz','Math','Statistics','Stats Problem Set','2026-07-07',91,100,''),
+  ]
+
+  // YK Alef (yk-a) – Rabbi Schults
+  const s101 = sId(101)
+  if (s101 && !s101.testScores?.length) s101.testScores = [
+    Q('yk101a','Rabbi Schults','Chumash','Bereishis','Chumash Test','2026-07-21',100,100,'A+', 'Test'),
+    Q('yk101b','Rabbi Schults','Gemara','Brachos','Gemara Quiz',  '2026-07-14',90,100,''),
+    Q('yk101c','Rabbi Schults','Kriah','Fluency','Fluency Check', '2026-07-07',85,100,'Good pace.'),
+  ]
+  const s102 = sId(102)
+  if (s102 && !s102.testScores?.length) s102.testScores = [
+    Q('yk102a','Rabbi Schults','Chumash','Bereishis','Chumash Test','2026-07-21',76,100,'Some errors in translation.','Test'),
+    Q('yk102b','Rabbi Schults','Gemara','Brachos','Gemara Quiz',  '2026-07-14',83,100,''),
+    M('yk102c','Rabbi Schults','Kriah','Nikud','Dikduk Quiz',     '2026-07-07','Was absent'),
+  ]
+  const s103 = sId(103)
+  if (s103 && !s103.testScores?.length) s103.testScores = [
+    Q('yk103a','Rabbi Schults','Chumash','Shemos','Chumash Test', '2026-07-21',88,100,''),
+    Q('yk103b','Rabbi Schults','Kriah','Fluency','Fluency Check', '2026-07-07',92,100,'Great improvement!'),
+  ]
+
+  // YK Beis (yk-b) – Rabbi Schimborski
+  const s109 = sId(109)
+  if (s109 && !s109.testScores?.length) s109.testScores = [
+    Q('yk109a','Rabbi Schimborski','Chumash','Vayikra','Parsha Quiz','2026-07-21',95,100,''),
+    Q('yk109b','Rabbi Schimborski','Mishnah','Brachos','Mishnah Test','2026-07-14',100,100,'Perfect score!'),
+    Q('yk109c','Rabbi Schimborski','Davening','Shacharis','Birchas Test','2026-07-07',88,100,''),
+  ]
+  const s110 = sId(110)
+  if (s110 && !s110.testScores?.length) s110.testScores = [
+    Q('yk110a','Rabbi Schimborski','Chumash','Bamidbar','Parsha Quiz','2026-07-21',72,100,''),
+    Q('yk110b','Rabbi Schimborski','Mishnah','Peah','Mishnah Test','2026-07-14',68,100,'Needs review'),
+    Q('yk110c','Rabbi Lefkowitz','English','Reading','Reading Quiz','2026-07-07',75,100,''),
+  ]
+  const s111 = sId(111)
+  if (s111 && !s111.testScores?.length) s111.testScores = [
+    Q('yk111a','Rabbi Schimborski','Chumash','Vayikra','Parsha Quiz','2026-07-21',15,15,'Perfect!','Quiz','Rabbi Lefkowitz'),
+    Q('yk111b','Rabbi Schimborski','Mishnah','Brachos','Mishnah Test','2026-07-14',14,15,''),
+    Q('yk111c','Rabbi Schimborski','Davening','Maariv','Maariv Test','2026-07-07',80,100,''),
+  ]
+})()

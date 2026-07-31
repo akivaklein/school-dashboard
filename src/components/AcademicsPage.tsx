@@ -183,6 +183,9 @@ export default function AcademicsPage({
   const [addStudentId, setAddStudentId] = useState(null)
   const [showBulkEntry, setShowBulkEntry] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [selectedScore, setSelectedScore] = useState<Record<string, any> | null>(null)
+  const [showAddSingle, setShowAddSingle] = useState(false)
+  const [addSingleStudentId, setAddSingleStudentId] = useState<number | null>(null)
   const [bulkStudentStates, setBulkStudentStates] = useState({})
   const [bulkForm, setBulkForm] = useState({
     teacher: loggedInTeacher,
@@ -551,71 +554,156 @@ export default function AcademicsPage({
     return state.score !== '' && state.score !== null && state.score !== undefined
   }).length
 
+  function pctToLetterGrade(pct: number | null): string {
+    if (pct === null || pct === undefined) return '—'
+    if (pct >= 97) return 'A+'; if (pct >= 93) return 'A'; if (pct >= 90) return 'A-'
+    if (pct >= 87) return 'B+'; if (pct >= 83) return 'B'; if (pct >= 80) return 'B-'
+    if (pct >= 77) return 'C+'; if (pct >= 73) return 'C'; if (pct >= 70) return 'C-'
+    if (pct >= 67) return 'D+'; if (pct >= 60) return 'D'; return 'F'
+  }
+  function letterGradeColor(grade: string): string {
+    if (grade.startsWith('A')) return '#16a34a'
+    if (grade.startsWith('B')) return '#2563eb'
+    if (grade.startsWith('C')) return '#ca8a04'
+    return '#dc2626'
+  }
+  function renderScoreBadge(score: Record<string, any>) {
+    if (score.attemptStatus === 'missed' || score.scoreType === 'status') {
+      return <span style={{ background: '#f1f5f9', color: '#64748b', borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 12 }}>Missed</span>
+    }
+    if (score.attemptStatus === 'absent') {
+      return <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 12 }}>Absent</span>
+    }
+    if (score.scoreType === 'rating') {
+      const colors: Record<string, string> = { Great: '#16a34a', Good: '#2563eb', Developing: '#ca8a04', Weak: '#dc2626' }
+      const c = colors[score.rating] || '#64748b'
+      return <span style={{ background: c + '18', color: c, borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 12, border: `1px solid ${c}33` }}>{score.rating}</span>
+    }
+    if (score.scoreType === 'points' && score.maxScore) {
+      const pct = Math.round((score.score / score.maxScore) * 100)
+      const letter = pctToLetterGrade(pct)
+      const c = letterGradeColor(letter)
+      return (
+        <span style={{ background: c + '18', color: c, borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 12, border: `1px solid ${c}33`, whiteSpace: 'nowrap' }}>
+          {score.score}/{score.maxScore} · {letter}
+        </span>
+      )
+    }
+    return <span style={{ color: '#64748b', fontSize: 12 }}>—</span>
+  }
+  function getClassName(studentId: number): string {
+    const cls = CLASSES.find(c => c.id === STUDENT_CLASSES[studentId])
+    return cls?.name || '—'
+  }
+
+  const sortedScores = allScores.slice().sort((a, b) => b.date.localeCompare(a.date))
+  const allSubjectChips = ['all', ...Array.from(new Set(
+    (academicCatalog?.subjects || []).filter(s => s.active !== false).map(s => s.label)
+  )).sort()]
+
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap: 12, marginBottom:18, flexWrap: 'wrap' }}>
-        <div><h1 style={{ fontSize:24, fontWeight:800, color:'#16243a', margin:'0 0 6px' }}>Academics and Grades</h1><div style={{ fontSize:13, color:'#64748b' }}>Class view for test scores and skill ratings</div></div>
-        <button onClick={openBulkEntry} disabled={bulkVisibleStudents.length === 0} style={{ ...S.btn(bulkVisibleStudents.length ? 'primary' : 'ghost'), whiteSpace: 'nowrap' }}>Bulk Grade Entry</button>
-      </div>
-
-      <div style={{ ...S.card, marginBottom:16, display:'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap:10 }}>
-        {role === 'admin' && <select value={teacherFilter} onChange={e=>setTeacherFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{teacherFilterOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All teachers' : option}</option>)}</select>}
-        <select value={enteredByFilter} onChange={e=>setEnteredByFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>
-          {enteredByFilterOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All entered by' : option}</option>)}
-        </select>
-        <select value={classFilter} onChange={e=>setClassFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="all">All classes</option>{CLASSES.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <select value={subjectFilter} onChange={e=>{setSubjectFilter(e.target.value); setSkillFilter('all')}} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{filterSubjectOptions.map(x=><option key={x} value={x}>{x === 'all' ? 'All subjects' : x}</option>)}</select>
-        <select value={skillFilter} onChange={e=>setSkillFilter(e.target.value)} style={{ padding:10, border:'1px solid #e5e7eb', borderRadius:8 }}>{filterSkills.filter(x=> subjectFilter==='all' || x==='all' || (academicCatalog?.subjects || []).some(subject => subject.label === subjectFilter && (subject.skills || []).some(skill => skill.label === x && skill.active !== false))).map(x=><option key={x} value={x}>{x === 'all' ? 'All skills' : x}</option>)}</select>
-      </div>
-
-      <div style={{ ...S.card, marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 15 }}>Filterable Grades View</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              {allScores.length} matching entries · Teacher: {teacherFilter === 'all' ? 'All' : teacherFilter} · Subject: {subjectFilter === 'all' ? 'All' : subjectFilter} · Entered by: {enteredByFilter === 'all' ? 'All' : enteredByFilter}
-            </div>
-          </div>
-          <input
-            value={gradeSearch}
-            onChange={e => setGradeSearch(e.target.value)}
-            placeholder="Search student, assessment, teacher, notes..."
-            spellCheck
-            lang="en"
-            style={{ width: 340, maxWidth: '100%', padding: 9, border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13 }}
-          />
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#16243a', margin: '0 0 4px' }}>Grades</h1>
+          <div style={{ fontSize: 12, color: '#64748b' }}>{allScores.length} records</div>
         </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => alert('Import — coming soon')} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#334155', fontWeight: 600 }}>↑ Import</button>
+          <button onClick={openBulkEntry} disabled={bulkVisibleStudents.length === 0} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 700, cursor: bulkVisibleStudents.length ? 'pointer' : 'default', opacity: bulkVisibleStudents.length ? 1 : 0.6 }}>✎ New Marks</button>
+          <button onClick={() => setShowAddSingle(true)} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#0f172a', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Add Grade</button>
+        </div>
+      </div>
 
-        <div style={{ maxHeight: 260, overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: 10 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      {/* Search + Teacher/Class dropdowns */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        <input
+          value={gradeSearch}
+          onChange={e => { setGradeSearch(e.target.value) }}
+          placeholder="Search student..."
+          spellCheck={false}
+          style={{ flex: '1 1 220px', padding: '9px 12px', borderRadius: 9, border: '1px solid #e2e8f0', fontSize: 13 }}
+        />
+        {role === 'admin' && (
+          <select value={teacherFilter} onChange={e => setTeacherFilter(e.target.value)} style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid #e2e8f0', fontSize: 13, background: '#fff', minWidth: 140 }}>
+            <option value="all">All</option>
+            {teacherOptions.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        )}
+        {role === 'admin' && (
+          <select value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid #e2e8f0', fontSize: 13, background: '#fff', minWidth: 140 }}>
+            <option value="all">All Classes</option>
+            {CLASSES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* Subject filter chips */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+        {allSubjectChips.map(subject => (
+          <button
+            key={subject}
+            onClick={() => { setSubjectFilter(subject); setSkillFilter('all') }}
+            style={{
+              padding: '5px 14px',
+              borderRadius: 99,
+              border: `1.5px solid ${subjectFilter === subject ? '#0f172a' : '#e2e8f0'}`,
+              background: subjectFilter === subject ? '#0f172a' : '#fff',
+              color: subjectFilter === subject ? '#fff' : '#334155',
+              fontSize: 13,
+              fontWeight: subjectFilter === subject ? 700 : 400,
+              cursor: 'pointer',
+            }}
+          >
+            {subject === 'all' ? 'All' : subject}
+          </button>
+        ))}
+      </div>
+
+      {/* Grades table */}
+      <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ position: 'sticky', top: 0, background: '#f8fafc', textAlign: 'left' }}>
-                <th style={{ padding: 9 }}>Student</th>
-                <th style={{ padding: 9 }}>Teacher</th>
-                <th style={{ padding: 9 }}>Subject</th>
-                <th style={{ padding: 9 }}>Skill</th>
-                <th style={{ padding: 9 }}>Assessment</th>
-                <th style={{ padding: 9 }}>Result</th>
-                <th style={{ padding: 9 }}>Entered By</th>
-                <th style={{ padding: 9 }}>Date</th>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                <th style={{ textAlign: 'left', padding: '11px 16px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Student</th>
+                <th style={{ textAlign: 'left', padding: '11px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subject</th>
+                <th style={{ textAlign: 'left', padding: '11px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
+                <th style={{ textAlign: 'left', padding: '11px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</th>
+                <th style={{ textAlign: 'left', padding: '11px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+                <th style={{ textAlign: 'left', padding: '11px 14px', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Teacher</th>
+                <th style={{ width: 32 }} />
               </tr>
             </thead>
             <tbody>
-              {allScores.slice().sort((a, b) => b.date.localeCompare(a.date)).map(score => (
-                <tr key={`${score.id}-${score.studentId}`} style={{ borderTop: '1px solid #eef2f7' }}>
-                  <td style={{ padding: 9, fontWeight: 700 }}>{score.studentName}</td>
-                  <td style={{ padding: 9 }}>{score.teacher}</td>
-                  <td style={{ padding: 9 }}>{score.subject}</td>
-                  <td style={{ padding: 9 }}>{score.skill}</td>
-                  <td style={{ padding: 9 }}>{score.assessmentName || '—'}</td>
-                  <td style={{ padding: 9, fontWeight: 700 }}>{scoreDisplayValue(score)}</td>
-                  <td style={{ padding: 9 }}>{score.enteredBy || 'Unknown'}</td>
-                  <td style={{ padding: 9 }}>{score.date}</td>
+              {sortedScores.map(score => (
+                <tr
+                  key={`${score.id}-${score.studentId}`}
+                  onClick={() => setSelectedScore(score)}
+                  style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.1s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
+                >
+                  <td style={{ padding: '12px 16px' }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a' }}>{score.studentName}</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{getClassName(score.studentId)}</div>
+                  </td>
+                  <td style={{ padding: '12px 14px', color: '#334155' }}>{score.subject}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <span style={{ background: '#f1f5f9', color: '#475569', borderRadius: 6, padding: '2px 8px', fontSize: 12 }}>{score.assessmentType || 'Quiz'}</span>
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>{renderScoreBadge(score)}</td>
+                  <td style={{ padding: '12px 14px', color: '#64748b', fontSize: 12 }}>{score.date}</td>
+                  <td style={{ padding: '12px 14px', color: '#64748b', fontSize: 12 }}>{score.teacher || '—'}</td>
+                  <td style={{ padding: '12px 8px', color: '#94a3b8', fontSize: 16 }}>›</td>
                 </tr>
               ))}
-              {allScores.length === 0 && (
+              {sortedScores.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ padding: 14, color: '#64748b', textAlign: 'center' }}>No grade entries match current filters.</td>
+                  <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                    No grade entries match current filters.
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -623,40 +711,88 @@ export default function AcademicsPage({
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:12, marginBottom:16 }}>
-        <div style={S.card}><div style={{ fontSize:11, color:'#64748b' }}>Class Avg</div><div style={{ fontSize:26, fontWeight:900, color:'#1e293b' }}>{classAvg !== null ? `${classAvg}%` : '—'}</div></div>
-        <div style={S.card}><div style={{ fontSize:11, color:'#64748b' }}>Doing Well+</div><div style={{ fontSize:26, fontWeight:900, color:'#4b6854' }}>{statusCounts.Excellent + statusCounts['Doing Well']}</div></div>
-        <div style={S.card}><div style={{ fontSize:11, color:'#64748b' }}>Needs Support</div><div style={{ fontSize:26, fontWeight:900, color:'#9f1239' }}>{statusCounts['Needs Support']}</div></div>
-        <div style={S.card}><div style={{ fontSize:11, color:'#64748b' }}>Watch</div><div style={{ fontSize:26, fontWeight:900, color:'#9a6a2a' }}>{statusCounts.Watch}</div></div>
-        <div style={S.card}><div style={{ fontSize:11, color:'#64748b' }}>Missing</div><div style={{ fontSize:26, fontWeight:900, color:'#64748b' }}>{statusCounts.Missing}</div></div>
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))', gap:16 }}>
-        <div style={S.card}>
-          <div style={{ fontWeight:900, fontSize:15, marginBottom:12 }}>Class Student View</div>
-          {latestByStudent.map(row => <div key={row.student.id} style={{ display:'grid', gridTemplateColumns:'1.2fr 0.6fr 1.2fr 0.8fr 0.7fr', gap:12, alignItems:'center', padding:'11px 0', borderTop:'1px solid #f0f1f6' }}>
-            <div onClick={()=>openStudent(row.student, 'testScores')} style={{ cursor:'pointer' }}><div style={{ fontWeight:850, fontSize:13 }}>{row.student.name}</div><div style={{ fontSize:11, color:'#64748b' }}>{CLASSES.find(c=>c.id===STUDENT_CLASSES[row.student.id])?.name}</div></div>
-            <div style={{ fontWeight:900, color:'#1e293b' }}>{row.avg !== null ? `${row.avg}%` : '—'}</div>
-            <div>{row.latest ? <><div style={{ fontWeight:750, fontSize:12 }}>{row.latest.assessmentName}</div><div style={{ fontSize:11, color:'#64748b' }}>{row.latest.subject} · {row.latest.skill}</div></> : <span style={{ color:'#94a3b8', fontSize:12 }}>No scores</span>}</div>
-            <div>{row.latest ? scoreDisplayValue(row.latest) : '—'}</div>
-            <div><span style={S.badge(academicStatusColor(row.status), academicStatusColor(row.status)+'15')}>{row.status}</span></div>
-          </div>)}
-        </div>
-
-        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-          <div style={S.card}>
-            <div style={{ fontWeight:900, fontSize:15, marginBottom:12 }}>Rating Breakdown</div>
-            {SKILL_RATINGS.map(r => <div key={r} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderTop:'1px solid #f0f1f6' }}><span style={{ fontSize:13 }}>{r}</span><strong>{ratingCounts[r]}</strong></div>)}
+      {/* Grade detail panel */}
+      {selectedScore && (
+        <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 380, background: '#fff', boxShadow: '-4px 0 32px rgba(15,23,42,0.14)', zIndex: 900, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ background: '#0f172a', padding: '18px 20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16 }}>{selectedScore.assessmentName || 'Grade Detail'}</div>
+              <div style={{ fontSize: 12, opacity: 0.78, marginTop: 2 }}>{selectedScore.subject} · {selectedScore.skill}</div>
+            </div>
+            <button onClick={() => setSelectedScore(null)} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', fontWeight: 700, fontSize: 16 }}>×</button>
           </div>
-
-          <div style={S.card}>
-            <div style={{ fontWeight:900, fontSize:15, marginBottom:12 }}>Add Score</div>
-            <select value={addStudentId || ''} onChange={e=>setAddStudentId(Number(e.target.value))} style={{ width:'100%', padding:10, border:'1px solid #e5e7eb', borderRadius:8, marginBottom:10 }}><option value="">Choose student</option>{visibleStudents.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
-            <button disabled={!addStudentId} onClick={()=>{ const st = students.find(s=>s.id===addStudentId); if (st) openStudent(st, 'testScores') }} style={{ ...S.btn(addStudentId ? 'primary' : 'ghost'), width:'100%' }}>Open Student Scores</button>
-            <div style={{ fontSize:11, color:'#64748b', marginTop:10 }}>Scores are added inside the student profile so each boy keeps a full academic history.</div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+              {renderScoreBadge({ ...selectedScore, _large: true })}
+            </div>
+            {[
+              { label: 'Student', value: selectedScore.studentName },
+              { label: 'Class', value: getClassName(selectedScore.studentId) },
+              { label: 'Teacher', value: selectedScore.teacher },
+              { label: 'Subject', value: selectedScore.subject },
+              { label: 'Skill / Topic', value: selectedScore.skill },
+              { label: 'Assessment Type', value: selectedScore.assessmentType || '—' },
+              { label: 'Date', value: selectedScore.date },
+              { label: 'Entered By', value: selectedScore.enteredBy || '—' },
+              ...(selectedScore.scoreType === 'points' && selectedScore.maxScore ? [
+                { label: 'Score', value: `${selectedScore.score} / ${selectedScore.maxScore}` },
+                { label: 'Percentage', value: `${Math.round((selectedScore.score / selectedScore.maxScore) * 100)}%` },
+                { label: 'Letter Grade', value: pctToLetterGrade(Math.round((selectedScore.score / selectedScore.maxScore) * 100)) },
+              ] : []),
+            ].map(row => (
+              <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: 10 }}>
+                <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{row.label}</span>
+                <span style={{ fontSize: 13, color: '#0f172a', fontWeight: 700, textAlign: 'right', maxWidth: '60%' }}>{row.value}</span>
+              </div>
+            ))}
+            {selectedScore.notes && (
+              <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>TEACHER COMMENT</div>
+                <div style={{ fontSize: 13, color: '#334155' }}>{selectedScore.notes}</div>
+              </div>
+            )}
+            <button
+              onClick={() => { const s = students.find(x => x.id === selectedScore.studentId); if (s) { openStudent(s, 'testScores'); setSelectedScore(null) } }}
+              style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#334155' }}
+            >
+              Open Student Profile →
+            </button>
           </div>
         </div>
-      </div>
+      )}
+      {selectedScore && <div onClick={() => setSelectedScore(null)} style={{ position: 'fixed', inset: 0, zIndex: 899 }} />}
+
+      {/* Add single grade modal */}
+      {showAddSingle && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 24px 80px rgba(15,23,42,0.28)', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #eef2f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>Add Grade</div>
+              <button onClick={() => setShowAddSingle(false)} style={{ border: 'none', background: '#f4f5f8', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', fontWeight: 700 }}>×</button>
+            </div>
+            <div style={{ padding: '14px 18px' }}>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>STUDENT</div>
+                <select value={addSingleStudentId ?? ''} onChange={e => setAddSingleStudentId(Number(e.target.value))} style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }}>
+                  <option value="">Choose student...</option>
+                  {visibleStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({getClassName(s.id)})</option>)}
+                </select>
+              </div>
+              <button
+                disabled={!addSingleStudentId}
+                onClick={() => {
+                  const s = students.find(x => x.id === addSingleStudentId)
+                  if (s) { openStudent(s, 'testScores'); setShowAddSingle(false) }
+                }}
+                style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: addSingleStudentId ? '#0f172a' : '#e2e8f0', color: addSingleStudentId ? '#fff' : '#94a3b8', fontSize: 13, fontWeight: 700, cursor: addSingleStudentId ? 'pointer' : 'default' }}
+              >
+                Open Student to Add Grade
+              </button>
+              <div style={{ marginTop: 10, fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>Grade entry uses the student profile to maintain full academic history.</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showBulkEntry && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.48)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
