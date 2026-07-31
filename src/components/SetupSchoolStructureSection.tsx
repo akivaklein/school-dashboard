@@ -27,7 +27,14 @@ function loadStoredConfig<T>(key: string, fallback: T): T {
   }
 }
 
-export default function SetupSchoolStructureSection({ S, students = [], STUDENT_CLASSES_MAP = {} }) {
+export default function SetupSchoolStructureSection({
+  S,
+  students = [],
+  STUDENT_CLASSES_MAP = {},
+  studentClassOverrides = {},
+  onSaveAssignment = null as ((studentId: number, classId: string, divisionKey: string) => Promise<void>) | null,
+  onSaveAssignmentBatch = null as ((batch: Array<{ studentId: number; classId: string; divisionKey: string }>) => Promise<void>) | null,
+}) {
   const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>(() =>
     loadStoredConfig('school-dashboard-classes', CLASSES.map(cls => ({
       ...cls,
@@ -83,7 +90,7 @@ export default function SetupSchoolStructureSection({ S, students = [], STUDENT_
 
   const defaultDivisionKey = Object.keys(schoolDivisions)[0] || 'mesivta'
 
-  // Student assignment state
+  // Student assignment state — merges localStorage fallback with Supabase overrides
   const [studentClassMap, setStudentClassMap] = useState<Record<number, string>>(() =>
     loadStoredConfig('school-dashboard-student-classes', { ...STUDENT_CLASSES_MAP })
   )
@@ -91,6 +98,18 @@ export default function SetupSchoolStructureSection({ S, students = [], STUDENT_
   const [moveToClass, setMoveToClass] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
   const [classViewFilter, setClassViewFilter] = useState('all')
+
+  // Merge Supabase overrides into local map whenever they arrive
+  useEffect(() => {
+    if (!Object.keys(studentClassOverrides).length) return
+    setStudentClassMap(prev => {
+      const next = { ...prev }
+      Object.entries(studentClassOverrides).forEach(([id, { classId }]) => {
+        next[Number(id)] = classId
+      })
+      return next
+    })
+  }, [studentClassOverrides])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -126,11 +145,18 @@ export default function SetupSchoolStructureSection({ S, students = [], STUDENT_
 
   function moveSelected() {
     if (!moveToClass || selectedStudents.size === 0) return
+    const targetClass = schoolClasses.find(c => c.id === moveToClass)
+    const divisionKey = targetClass?.divisionKey || CLASS_DIVISION[moveToClass] || ''
+    const batch: Array<{ studentId: number; classId: string; divisionKey: string }> = []
     setStudentClassMap(prev => {
       const next = { ...prev }
-      selectedStudents.forEach(id => { next[id] = moveToClass })
+      selectedStudents.forEach(id => {
+        next[id] = moveToClass
+        batch.push({ studentId: id, classId: moveToClass, divisionKey })
+      })
       return next
     })
+    if (onSaveAssignmentBatch) onSaveAssignmentBatch(batch)
     setSelectedStudents(new Set())
     setMoveToClass('')
   }
@@ -450,7 +476,14 @@ export default function SetupSchoolStructureSection({ S, students = [], STUDENT_
                   </div>
                   <select
                     value={classId}
-                    onChange={e => { e.stopPropagation(); setStudentClassMap(prev => ({ ...prev, [student.id]: e.target.value })) }}
+                    onChange={e => {
+                      e.stopPropagation()
+                      const newClassId = e.target.value
+                      const targetClass = schoolClasses.find(c => c.id === newClassId)
+                      const divKey = targetClass?.divisionKey || CLASS_DIVISION[newClassId] || ''
+                      setStudentClassMap(prev => ({ ...prev, [student.id]: newClassId }))
+                      if (onSaveAssignment) onSaveAssignment(student.id, newClassId, divKey)
+                    }}
                     onClick={e => e.stopPropagation()}
                     style={{ padding: '3px 6px', borderRadius: 6, border: '1px solid #dce4ed', fontSize: 10 }}
                   >

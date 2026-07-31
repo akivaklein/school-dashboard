@@ -17,6 +17,7 @@ export function StudentScoresTab({
   academicStatus,
   academicStatusColor,
   persistStudentFields,
+  onSaveGradeEntry = null,
 }) {
   const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS || {})].filter(Boolean)))
   const initialTeacher = userName && teacherOptions.includes(userName) ? userName : teacherOptions[0] || DEFAULT_ACADEMIC_TEACHER
@@ -76,12 +77,14 @@ export function StudentScoresTab({
     }
     const updatedScores = [entry, ...(s.testScores || [])]
     setStudents(prev => prev.map(x => x.id === s.id ? { ...x, testScores: updatedScores } : x))
-    
-    // Persist to database
-    if (persistStudentFields) {
+
+    // Use grade_entries path when available (syncs in realtime to other sessions)
+    if (onSaveGradeEntry) {
+      onSaveGradeEntry(s.id, entry)
+    } else if (persistStudentFields) {
       persistStudentFields(s.id, { testScores: updatedScores })
     }
-    
+
     setShowAdd(false)
     setForm(prev => ({ ...prev, assessmentName: '', score: '', notes: '' }))
   }
@@ -168,6 +171,8 @@ export default function AcademicsPage({
   academicStatusColor,
   persistStudentFields,
   setupAssignments = {},
+  onSaveGradeEntry = null,
+  onSaveGradeEntries = null,
 }) {
   const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS)]))
   const initialTeacher = role === 'teacher' && userName && teacherOptions.includes(userName)
@@ -467,6 +472,7 @@ export default function AcademicsPage({
 
       payload.push({
         studentId: student.id,
+        entry,
         nextScores: [entry, ...(student.testScores || [])],
       })
     }
@@ -484,28 +490,34 @@ export default function AcademicsPage({
 
     setBulkSaving(true)
 
-    setStudents(prev => prev.map(student => {
-      const update = payload.find(item => item.studentId === student.id)
-      return update ? { ...student, testScores: update.nextScores } : student
-    }))
-
-    if (persistStudentFields) {
-      const saveResults = await Promise.all(
-        payload.map(item =>
-          persistStudentFields(item.studentId, { testScores: item.nextScores })
-        )
-      )
-
-      if (!saveResults.every(Boolean)) {
-        setStudents(prev => prev.map(student => {
-          if (!Object.prototype.hasOwnProperty.call(previousById, student.id)) {
-            return student
-          }
-          return { ...student, testScores: previousById[student.id] }
-        }))
+    // Use the dedicated grade_entries path when available (realtime sync)
+    if (onSaveGradeEntries) {
+      const gradePayload = payload.map(item => ({ studentId: item.studentId, score: item.entry }))
+      const ok = await onSaveGradeEntries(gradePayload)
+      if (!ok) {
         setBulkSaving(false)
-        alert('Some bulk scores could not be saved to Supabase.')
+        alert('Some bulk scores could not be saved. Please try again.')
         return
+      }
+    } else {
+      // Fallback: write to students.test_scores JSONB only
+      setStudents(prev => prev.map(student => {
+        const update = payload.find(item => item.studentId === student.id)
+        return update ? { ...student, testScores: update.nextScores } : student
+      }))
+      if (persistStudentFields) {
+        const saveResults = await Promise.all(
+          payload.map(item => persistStudentFields(item.studentId, { testScores: item.nextScores }))
+        )
+        if (!saveResults.every(Boolean)) {
+          setStudents(prev => prev.map(student => {
+            if (!Object.prototype.hasOwnProperty.call(previousById, student.id)) return student
+            return { ...student, testScores: previousById[student.id] }
+          }))
+          setBulkSaving(false)
+          alert('Some bulk scores could not be saved to Supabase.')
+          return
+        }
       }
     }
 

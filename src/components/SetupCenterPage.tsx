@@ -74,6 +74,9 @@ export default function SetupCenterPage({
   setPage,
   SETUP_PEOPLE,
   onPreviewAs,
+  studentClassOverrides = {},
+  onSaveStudentClassAssignment,
+  onSaveStudentClassAssignmentBatch,
 }) {
   const safeSetupNavItems = Array.isArray(setupNavItems) ? setupNavItems : []
   const safeDivisions = DIVISIONS || {}
@@ -265,7 +268,14 @@ export default function SetupCenterPage({
           )}
 
           {setupTab === 'classes-divisions' && (
-            <SetupSchoolStructureSection S={S} students={students} STUDENT_CLASSES_MAP={STUDENT_CLASSES} />
+            <SetupSchoolStructureSection
+              S={S}
+              students={students}
+              STUDENT_CLASSES_MAP={STUDENT_CLASSES}
+              studentClassOverrides={studentClassOverrides}
+              onSaveAssignment={onSaveStudentClassAssignment}
+              onSaveAssignmentBatch={onSaveStudentClassAssignmentBatch}
+            />
           )}
 
           {setupTab === 'schedule-setup' && (

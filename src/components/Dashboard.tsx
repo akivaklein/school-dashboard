@@ -32,6 +32,17 @@ import {
 } from '../services/pointsEventsService'
 import { applyDailyAttendanceReset } from '../services/attendanceService'
 import {
+  loadGradeEntries,
+  upsertGradeEntry,
+  upsertGradeEntries,
+  testScoreToGradeEntry,
+  gradeEntryToTestScore,
+  loadStudentClassAssignments,
+  upsertStudentClassAssignment,
+  upsertStudentClassAssignmentBatch,
+  type GradeEntry,
+} from '../services/gradeEntriesService'
+import {
   listStudentFlags,
   replaceStudentFlags,
 } from '../services/studentFlagsService'
@@ -2465,6 +2476,85 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }, [])
 
+  // Load student class assignments from Supabase and subscribe to realtime changes
+  useEffect(() => {
+    let active = true
+    loadStudentClassAssignments().then(rows => {
+      if (!active || !rows.length) return
+      setStudentClassOverrides(prev => {
+        const next = { ...prev }
+        rows.forEach(row => { next[row.student_id] = { classId: row.class_id, divisionKey: row.division_key } })
+        return next
+      })
+    })
+
+    const channel = supabase
+      .channel('student-class-assignments-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_class_assignments' }, payload => {
+        if (!active) return
+        if (payload.eventType === 'DELETE') {
+          setStudentClassOverrides(prev => { const next = { ...prev }; delete next[(payload.old as any)?.student_id]; return next })
+          return
+        }
+        const row = payload.new as any
+        if (row?.student_id) {
+          setStudentClassOverrides(prev => ({ ...prev, [row.student_id]: { classId: row.class_id, divisionKey: row.division_key } }))
+        }
+      })
+      .subscribe()
+
+    return () => { active = false; supabase.removeChannel(channel) }
+  }, [])
+
+  // Load grade_entries from Supabase and subscribe to realtime changes
+  useEffect(() => {
+    let active = true
+    loadGradeEntries().then(rows => {
+      if (!active || !rows.length) return
+      setStudents(prev => {
+        const byStudentId = new Map<number, GradeEntry[]>()
+        rows.forEach(row => {
+          if (!byStudentId.has(row.student_id)) byStudentId.set(row.student_id, [])
+          byStudentId.get(row.student_id)!.push(row)
+        })
+        return prev.map(student => {
+          const entries = byStudentId.get(student.id)
+          if (!entries?.length) return student
+          // Merge: DB entries take precedence over demo/local entries for same id
+          const dbIds = new Set(entries.map(e => e.id))
+          const existing = (student.testScores || []).filter((s: any) => !dbIds.has(s.id))
+          return { ...student, testScores: [...entries.map(gradeEntryToTestScore), ...existing] }
+        })
+      })
+    })
+
+    const channel = supabase
+      .channel('grade-entries-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'grade_entries' }, payload => {
+        if (!active) return
+        if (payload.eventType === 'DELETE') {
+          const deletedId = (payload.old as any)?.id
+          if (!deletedId) return
+          setStudents(prev => prev.map(student => ({
+            ...student,
+            testScores: (student.testScores || []).filter((s: any) => s.id !== deletedId),
+          })))
+          return
+        }
+        const row = payload.new as GradeEntry
+        if (!row?.student_id) return
+        const score = gradeEntryToTestScore(row)
+        setStudents(prev => prev.map(student => {
+          if (student.id !== row.student_id) return student
+          const existing = (student.testScores || []).filter((s: any) => s.id !== row.id)
+          return { ...student, testScores: [score, ...existing] }
+        }))
+      })
+      .subscribe()
+
+    return () => { active = false; supabase.removeChannel(channel) }
+  }, [])
+
   const [setupTab, setSetupTab] = useState('assignments')
   const [setupAssignmentError, setSetupAssignmentError] = useState<string | null>(null)
   const [setupPerson, setSetupPerson] = useState('Rabbi Klein')
@@ -2783,7 +2873,18 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const [setupAccounts, setSetupAccounts] = useState<Record<string, Record<string, unknown>>>({})
 
+  // student_class_assignments from Supabase — keyed by student_id
+  const [studentClassOverrides, setStudentClassOverrides] = useState<Record<number, { classId: string; divisionKey: string }>>({})
+
   const [THERAPY_SCHEDULE_STATE, setTHERAPY_SCHEDULE] = useState(THERAPY_SCHEDULE)
+
+  // Apply Supabase class overrides to the live STUDENT_CLASSES object so all scoping picks them up
+  useEffect(() => {
+    if (!Object.keys(studentClassOverrides).length) return
+    Object.entries(studentClassOverrides).forEach(([id, { classId }]) => {
+      (STUDENT_CLASSES as Record<string | number, string>)[Number(id)] = classId
+    })
+  }, [studentClassOverrides])
 
   useEffect(() => {
     if (role !== 'teacher' && role !== 'rebbe') return
@@ -2821,6 +2922,68 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       console.error('Unable to persist academic catalog:', error)
     })
   }, [academicCatalog])
+
+  // Dual-write: saves a new/updated score to both students.test_scores JSONB AND grade_entries table
+  async function recordGradeEntry(studentId: number, score: Record<string, any>) {
+    const student = students.find(s => s.id === studentId)
+    if (!student) return false
+
+    const entry = testScoreToGradeEntry(score, studentId)
+    // Optimistic update
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s
+      const existing = (s.testScores || []).filter((t: any) => t.id !== score.id)
+      return { ...s, testScores: [score, ...existing] }
+    }))
+
+    // Persist to grade_entries (realtime will sync to other sessions)
+    const gradeOk = await upsertGradeEntry(entry)
+
+    // Also keep students.test_scores JSONB in sync for backward compat
+    const updatedScores = [score, ...(student.testScores || []).filter((t: any) => t.id !== score.id)]
+    persistStudentFields(studentId, { testScores: updatedScores })
+
+    return gradeOk !== null
+  }
+
+  // Dual-write bulk: saves multiple scores for multiple students
+  async function recordGradeEntries(payload: Array<{ studentId: number; score: Record<string, any> }>) {
+    if (!payload.length) return false
+    const entries = payload.map(({ score, studentId }) => testScoreToGradeEntry(score, studentId))
+    // Optimistic update
+    setStudents(prev => {
+      const byStudent = new Map<number, Record<string, any>[]>()
+      payload.forEach(({ studentId, score }) => {
+        if (!byStudent.has(studentId)) byStudent.set(studentId, [])
+        byStudent.get(studentId)!.push(score)
+      })
+      return prev.map(s => {
+        const newScores = byStudent.get(s.id)
+        if (!newScores?.length) return s
+        const newIds = new Set(newScores.map(n => n.id))
+        const existing = (s.testScores || []).filter((t: any) => !newIds.has(t.id))
+        return { ...s, testScores: [...newScores, ...existing] }
+      })
+    })
+    // Write to grade_entries
+    const ok = await upsertGradeEntries(entries)
+    // Also keep JSONB in sync
+    const byStudent = new Map<number, Record<string, any>[]>()
+    payload.forEach(({ studentId, score }) => {
+      if (!byStudent.has(studentId)) byStudent.set(studentId, [])
+      byStudent.get(studentId)!.push(score)
+    })
+    await Promise.all(
+      Array.from(byStudent.entries()).map(async ([studentId, newScores]) => {
+        const student = students.find(s => s.id === studentId)
+        if (!student) return
+        const newIds = new Set(newScores.map(n => n.id))
+        const updated = [...newScores, ...(student.testScores || []).filter((t: any) => !newIds.has(t.id))]
+        persistStudentFields(studentId, { testScores: updated })
+      })
+    )
+    return ok
+  }
 
   const createFakeTherapySchedule = () => {
     // Demo scheduling runs Monday through Thursday only.
@@ -4711,6 +4874,19 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             setPage={setPage}
             SETUP_PEOPLE={SETUP_PEOPLE}
             onPreviewAs={(name: string, previewRole: string) => setPreviewAs({ name, role: previewRole })}
+            studentClassOverrides={studentClassOverrides}
+            onSaveStudentClassAssignment={async (studentId: number, classId: string, divisionKey: string) => {
+              setStudentClassOverrides(prev => ({ ...prev, [studentId]: { classId, divisionKey } }))
+              await upsertStudentClassAssignment(studentId, classId, divisionKey, userName || 'Admin')
+            }}
+            onSaveStudentClassAssignmentBatch={async (batch: Array<{ studentId: number; classId: string; divisionKey: string }>) => {
+              setStudentClassOverrides(prev => {
+                const next = { ...prev }
+                batch.forEach(({ studentId, classId, divisionKey }) => { next[studentId] = { classId, divisionKey } })
+                return next
+              })
+              await upsertStudentClassAssignmentBatch(batch.map(b => ({ ...b, updatedBy: userName || 'Admin' })))
+            }}
           />
         )}
 
@@ -4876,6 +5052,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             academicStatusColor={academicStatusColor}
             persistStudentFields={persistStudentFields}
             setupAssignments={setupAssignments}
+            onSaveGradeEntry={recordGradeEntry}
+            onSaveGradeEntries={recordGradeEntries}
           />
         )}
 
@@ -5149,6 +5327,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             academicStatus={academicStatus}
             academicStatusColor={academicStatusColor}
             persistStudentFields={persistStudentFields}
+            onSaveGradeEntry={recordGradeEntry}
           />
         )}
         FamilyEditorPopup={FamilyEditorPopup}
