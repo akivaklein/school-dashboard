@@ -370,40 +370,44 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
         </div>
       )}
       <div style={{ ...S.card, padding: 14 }}>
-        <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 28, color: '#334155', marginBottom: 12 }}>
+        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#334155', marginBottom: 10 }}>
           Overall Time Split
         </div>
-        <div style={{ height: 16, borderRadius: 999, background: '#f1f5f9', overflow: 'hidden', display: 'flex' }}>
+        <div style={{ height: 10, borderRadius: 999, background: '#f1f5f9', overflow: 'hidden', display: 'flex' }}>
           <div style={{ width: `${Math.max(0, avgPct)}%`, minWidth: avgPct > 0 ? 4 : 0, height: '100%', background: '#4b6854' }} />
           <div style={{ width: `${Math.max(0, outPct)}%`, minWidth: outPct > 0 ? 4 : 0, height: '100%', background: '#fb7185' }} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, fontSize: 15, color: '#475569', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9, fontSize: 12, color: '#475569', flexWrap: 'wrap', gap: 8 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 11, height: 11, borderRadius: 999, background: '#22c55e', display: 'inline-block' }} />In class: {avgPct}%</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 11, height: 11, borderRadius: 999, background: '#dc2626', display: 'inline-block' }} />Out: {outPct}%</span>
         </div>
       </div>
       <div style={S.card}>
-        <div style={{ fontWeight: 800, marginBottom: 12, fontSize: 30, color: '#334155', textAlign: 'center' }}>Time Out - By Staff Member</div>
+        <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14, color: '#334155', textAlign: 'center' }}>Time Out - By Staff Member</div>
         <div style={{ display: 'grid', gap: 8 }}>
           {staffTimeRows.length === 0 ? (
             <div style={{ color: '#94a3b8', fontSize: 13 }}>No tracking data yet.</div>
           ) : staffTimeRows.map(([name, mins]) => (
             <div key={name} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(120px, 1.1fr) auto', gap: 12, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f8fafc' }}>
-              <span style={{ fontSize: 16, color: '#334155', fontWeight: 600 }}>{name}</span>
+              <span style={{ fontSize: 13, color: '#334155', fontWeight: 600 }}>{name}</span>
               <span style={{ height: 8, borderRadius: 999, background: '#ede9fe', overflow: 'hidden' }}>
                 <span style={{ display: 'block', height: '100%', width: `${maxStaffOut > 0 ? Math.max(10, Math.round((mins / maxStaffOut) * 100)) : 0}%`, borderRadius: 999, background: '#7c3aed' }} />
               </span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#7c3aed' }}>{formatStatMinutes(mins)}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed' }}>{formatStatMinutes(mins)}</span>
             </div>
           ))}
         </div>
       </div>
       <div style={S.card}>
-        <div style={{ fontWeight: 800, marginBottom: 12, fontSize: 30, color: '#334155', textAlign: 'center' }}>Daily Breakdown <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>(click any day for details)</span></div>
+        <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14, color: '#334155', textAlign: 'center' }}>Daily Breakdown <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>(click any day for details)</span></div>
         <div style={{ display: 'grid', gap: 8 }}>
           {data.length === 0 ? (
             <div style={{ color: '#94a3b8', fontSize: 12 }}>No drill-down rows available for this day.</div>
           ) : data.map((entry: AttendanceHistoryEntry) => (
+            (() => {
+              const pct = Number(entry.pct || 0)
+              const dailyBarColor = pct >= 70 ? '#5f7f6f' : pct >= 50 ? '#9a6a2a' : '#9f1239'
+              return (
             <button
               key={entry.date}
               onClick={() => {
@@ -411,7 +415,7 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
               }}
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(108px, auto) minmax(140px, 1fr) auto auto minmax(130px, auto) auto',
+                gridTemplateColumns: 'minmax(108px, auto) minmax(100px, 1fr) auto auto minmax(98px, auto) auto',
                 alignItems: 'center',
                 gap: 10,
                 padding: '9px 10px',
@@ -424,13 +428,15 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
             >
               <span style={{ fontSize: 13, color: '#334155', fontWeight: 700 }}>{formatDayLabel(entry.date)} {entry.date}</span>
               <span style={{ height: 8, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
-                <span style={{ display: 'block', height: '100%', width: `${Math.max(6, Number(entry.pct || 0))}%`, borderRadius: 999, background: '#9f1239' }} />
+                <span style={{ display: 'block', height: '100%', width: `${Math.max(6, Number(entry.pct || 0))}%`, borderRadius: 999, background: dailyBarColor }} />
               </span>
-              <span style={{ fontSize: 13, color: '#9f1239', fontWeight: 800 }}>{Number(entry.pct || 0)}%</span>
+              <span style={{ fontSize: 13, color: dailyBarColor, fontWeight: 800 }}>{Number(entry.pct || 0)}%</span>
               <span style={{ fontSize: 12, color: '#64748b' }}>{formatStatMinutes(Number(entry.inMins || 0))} in / <span style={{ color: '#9f1239', fontWeight: 700 }}>{formatStatMinutes(Number(entry.outMins || 0))} out</span></span>
               <span style={{ fontSize: 12, color: '#6d28d9' }}>{entry.staffName || 'No staff'}</span>
               <span style={{ fontSize: 14, color: '#64748b' }}>-&gt;</span>
             </button>
+              )
+            })()
           ))}
         </div>
       </div>
