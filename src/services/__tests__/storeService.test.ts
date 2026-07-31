@@ -6,6 +6,7 @@ import {
   normalizeStoreRedemptionInput,
   redeemStorePurchaseTx,
   reverseStorePurchaseTx,
+  shouldUseDemoStoreActivity,
 } from '../storeService'
 import { supabase } from '../../supabaseClient'
 
@@ -136,6 +137,14 @@ describe('normalizeStoreRedemptionInput', () => {
       cost: 12,
       source: 'token-store',
     })
+  })
+})
+
+describe('shouldUseDemoStoreActivity', () => {
+  it('uses demo activity only when there are no persisted items or redemptions', () => {
+    expect(shouldUseDemoStoreActivity({ hasPersistedItems: false, hasPersistedRedemptions: false })).toBe(true)
+    expect(shouldUseDemoStoreActivity({ hasPersistedItems: true, hasPersistedRedemptions: false })).toBe(false)
+    expect(shouldUseDemoStoreActivity({ hasPersistedItems: false, hasPersistedRedemptions: true })).toBe(false)
   })
 })
 

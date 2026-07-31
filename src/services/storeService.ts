@@ -617,6 +617,13 @@ export type StoreSyncUiState = {
   isPending: boolean
 }
 
+export function shouldUseDemoStoreActivity(input: {
+  hasPersistedItems: boolean
+  hasPersistedRedemptions: boolean
+}): boolean {
+  return !input.hasPersistedItems && !input.hasPersistedRedemptions
+}
+
 export function getStoreSyncUiState(input: {
   persistenceReady: boolean
   pendingSync?: boolean

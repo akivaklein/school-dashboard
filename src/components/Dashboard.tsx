@@ -2285,11 +2285,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       }
 
       const loadedRedemptions = await listStoreRedemptions(25)
+      const useDemoActivity = shouldUseDemoStoreActivity({
+        hasPersistedItems: loadedItems.length > 0,
+        hasPersistedRedemptions: loadedRedemptions.length > 0,
+      })
 
       setStoreItems(loadedItems.length > 0 ? loadedItems : STORE_ITEMS.slice())
       setPurchaseLog(
-        loadedRedemptions.length > 0
-          ? loadedRedemptions.map(redemption => ({
+        useDemoActivity
+          ? DEMO_STORE_ACTIVITY.slice()
+          : loadedRedemptions.map(redemption => ({
             id: redemption.id,
             time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
               hour: '2-digit',
@@ -2301,8 +2306,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             cost: redemption.cost,
             staff: redemption.staffName,
             division: String(redemption.metadata?.division || ''),
-          }))
-          : DEMO_STORE_ACTIVITY.slice(),
+          })),
       )
       setStorePersistenceReady(true)
       setStoreSyncState('ready')
