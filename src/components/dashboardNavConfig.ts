@@ -22,6 +22,7 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
     { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'store', 'calls', 'intake', 'teaching-mode'] },
     { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior', 'alerts'] },
     { id: 'reports', label: 'Reports', defaultPage: 'todo', pages: ['todo'] },
+    { id: 'messages', label: 'Messages', defaultPage: 'messages', pages: ['messages'] },
     { id: 'setup', label: 'Setup', defaultPage: 'setup', pages: ['setup', 'staff-directory', 'therapists'] },
   ],
   submenuByArea: {
@@ -44,6 +45,7 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
       { id: 'alerts', label: 'Alerts' },
     ],
     reports: [{ id: 'todo', label: 'To-Do Queue' }],
+    messages: [{ id: 'messages', label: 'Messages' }],
     setup: [
       { id: 'setup', label: 'Setup Center' },
       { id: 'staff-directory', label: 'Staff Directory' },

@@ -9,6 +9,7 @@ import StudentNotes from './StudentNotes'
 import StudentSupport from './StudentSupport'
 import SchedulePage from './SchedulePage'
 import TodoPage from './TodoPage'
+import MessagesPage from './MessagesPage'
 import TokenStorePage from './TokenStorePage'
 import AcademicsPage, { StudentScoresTab } from './AcademicsPage'
 import SetupCenterPage from './SetupCenterPage'
@@ -5013,6 +5014,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               newTodoTime={newTodoTime}
               setNewTodoTime={setNewTodoTime}
             />
+          </div>
+        )}
+
+        {page === 'messages' && role === 'admin' && (
+          <div style={{ animation: 'dashboardPageFade 0.18s ease' }}>
+            <MessagesPage S={S} userName={userName} role={role} />
           </div>
         )}
 
