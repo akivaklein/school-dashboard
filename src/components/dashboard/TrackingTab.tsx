@@ -57,6 +57,22 @@ const statusLabel: Record<TrackingSegment['status'], string> = {
   return: 'Returned to class',
 }
 
+function statusTone(status: TrackingSegment['status']) {
+  switch (status) {
+    case 'therapy':
+    case 'bt-support':
+      return { bg: '#f5f3ff', title: '#6d28d9', sub: '#5b21b6', minutes: '#6d28d9' }
+    case 'hallway':
+      return { bg: '#fff7ed', title: '#9a3412', sub: '#9a3412', minutes: '#9a3412' }
+    case 'unaccounted':
+      return { bg: '#fff1f2', title: '#9f1239', sub: '#9f1239', minutes: '#9f1239' }
+    case 'classroom':
+    case 'return':
+    default:
+      return { bg: '#f2fcf5', title: '#365444', sub: '#4b6854', minutes: '#365444' }
+  }
+}
+
 export function normalizeHistoryEntries(rawHistory: unknown): AttendanceHistoryEntry[] {
   const source = Array.isArray(rawHistory)
     ? rawHistory
@@ -260,7 +276,7 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
           ? `Late Arrivals - ${student.name}`
           : `Tracking Details - ${student.name}`
 
-  const detailAccent = drillType === 'out' ? '#7f1d1d' : drillType === 'late' ? '#92400e' : '#4b6854'
+  const detailAccent = selectedDate ? '#475569' : drillType === 'out' ? '#7f1d1d' : drillType === 'late' ? '#92400e' : '#4b6854'
 
   const totalLabel = (() => {
     if (drillType === 'out') return formatStatMinutes(totalOut)
@@ -277,6 +293,7 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
     const value = drillType === 'out' ? outMins : inMins
     const total = Math.max(1, inMins + outMins)
     const fillPct = drillType === 'late' ? 0 : Math.max(4, Math.min(100, Math.round((value / total) * 100)))
+    const barColor = drillType === 'out' ? '#fb7185' : drillType === 'late' ? '#94a3b8' : '#5f7f6f'
 
     return {
       date: entry.date,
@@ -284,6 +301,7 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
       value,
       fillPct,
       pct,
+      barColor,
     }
   })
 
@@ -317,52 +335,54 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
               cursor: card.drillId ? 'pointer' : 'default',
             }}
           >
-            <div style={{ fontSize: 34, lineHeight: 1.05, fontWeight: 800, color: card.color }}>{card.value}</div>
-            <div style={{ fontSize: 17, color: '#334155', marginTop: 5 }}>{card.label}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 10 }}>{card.caption}</div>
+            <div style={{ fontSize: 28, lineHeight: 1.05, fontWeight: 800, color: card.color }}>{card.value}</div>
+            <div style={{ fontSize: 14, color: '#334155', marginTop: 4 }}>{card.label}</div>
+            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8 }}>{card.caption}</div>
           </button>
         ))}
       </div>
       {drillType && (
         <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: detailAccent, color: '#ffffff', padding: '12px 16px' }}>
-            <div style={{ fontWeight: 800, fontSize: 31 }}>{detailHeaderTitle}</div>
+            <div style={{ fontWeight: 800, fontSize: 18 }}>{detailHeaderTitle}</div>
             <button
               onClick={() => setDrillType(null)}
-              style={{ border: 'none', background: 'rgba(255,255,255,0.2)', color: '#ffffff', borderRadius: 999, width: 34, height: 34, cursor: 'pointer', fontSize: 18, fontWeight: 700 }}
+              style={{ border: 'none', background: 'rgba(255,255,255,0.2)', color: '#ffffff', borderRadius: 999, width: 28, height: 28, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}
               aria-label='Close details'
             >
               x
             </button>
           </div>
           <div style={{ padding: 14, display: 'grid', gap: 14 }}>
-            <div style={{ textAlign: 'center', fontSize: 31, color: '#4b6854', fontWeight: 700 }}>
+            <div style={{ textAlign: 'center', fontSize: 18, color: '#365444', fontWeight: 700 }}>
               Total: {totalLabel} across {Math.max(1, data.length)} {data.length === 1 ? 'day' : 'days'}
             </div>
-            <div style={{ fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 30 }}>{timelineTitle}</div>
+            <div style={{ fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 13, letterSpacing: '0.03em' }}>{timelineTitle}</div>
             <div style={{ display: 'grid', gap: 4 }}>
               {selectedSegmentRows.length === 0 ? (
                 <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>No timeline rows available for this selection.</div>
-              ) : selectedSegmentRows.map((segment, index) => (
-                <div key={`${segment.time}-${segment.status}-${index}`} style={{ display: 'grid', gridTemplateColumns: '84px minmax(0, 1fr) auto', alignItems: 'center', gap: 10, padding: '12px 12px', borderRadius: 11, background: '#f2fcf5' }}>
+              ) : selectedSegmentRows.map((segment, index) => {
+                const tone = statusTone(segment.status)
+                return (
+                <div key={`${segment.time}-${segment.status}-${index}`} style={{ display: 'grid', gridTemplateColumns: '72px minmax(0, 1fr) auto', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: tone.bg }}>
                   <div style={{ color: '#64748b', fontWeight: 700, fontSize: 14 }}>{segment.time}</div>
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#334155' }}>{segment.note || statusLabel[segment.status]}</div>
-                    <div style={{ fontSize: 14, color: '#64748b', marginTop: 2 }}>{segment.location}{segment.staffName ? ` - ${segment.staffName}` : ''}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: tone.title }}>{segment.note || statusLabel[segment.status]}</div>
+                    <div style={{ fontSize: 12, color: tone.sub, marginTop: 1 }}>{segment.location}{segment.staffName ? ` - ${segment.staffName}` : ''}</div>
                   </div>
-                  <div style={{ fontSize: 31, fontWeight: 700, color: '#4b6854' }}>{segment.estimatedDuration} min</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: tone.minutes }}>{segment.estimatedDuration} min</div>
                 </div>
-              ))}
+              )})}
             </div>
-            <div style={{ fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 30 }}>BY DAY</div>
+            <div style={{ fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 13, letterSpacing: '0.03em' }}>BY DAY</div>
             <div style={{ display: 'grid', gap: 6 }}>
               {byDayRows.map(row => (
                 <div key={`${row.date}-${row.value}`} style={{ display: 'grid', gridTemplateColumns: '120px 1fr auto', alignItems: 'center', gap: 8 }}>
-                  <div style={{ color: '#94a3b8', fontSize: 14 }}>{row.date}</div>
+                  <div style={{ color: '#94a3b8', fontSize: 12 }}>{row.date}</div>
                   <div style={{ height: 10, borderRadius: 999, background: '#f1f5f9', overflow: 'hidden' }}>
-                    <div style={{ width: `${row.fillPct}%`, height: '100%', borderRadius: 999, background: '#5f7f6f' }} />
+                    <div style={{ width: `${row.fillPct}%`, height: '100%', borderRadius: 999, background: row.barColor }} />
                   </div>
-                  <div style={{ color: '#4b6854', fontWeight: 700, fontSize: 30 }}>{drillType === 'late' ? `${row.pct}%` : formatStatMinutes(row.value)}</div>
+                  <div style={{ color: '#334155', fontWeight: 700, fontSize: 14 }}>{drillType === 'late' ? `${row.pct}%` : formatStatMinutes(row.value)}</div>
                 </div>
               ))}
             </div>
