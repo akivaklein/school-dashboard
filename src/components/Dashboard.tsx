@@ -5018,7 +5018,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           </div>
         )}
 
-        {page === 'messages' && role === 'admin' && (
+        {page === 'messages' && (role === 'admin' || role === 'teacher' || role === 'rebbe') && (
           <div style={{ animation: 'dashboardPageFade 0.18s ease' }}>
             <MessagesPage S={S} userName={userName} role={role} />
           </div>

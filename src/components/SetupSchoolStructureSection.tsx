@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CLASSES, DIVISIONS, CLASS_DIVISION } from './dashboardData'
 
 type SchoolClass = {
@@ -27,7 +27,7 @@ function loadStoredConfig<T>(key: string, fallback: T): T {
   }
 }
 
-export default function SetupSchoolStructureSection({ S }) {
+export default function SetupSchoolStructureSection({ S, students = [], STUDENT_CLASSES_MAP = {} }) {
   const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>(() =>
     loadStoredConfig('school-dashboard-classes', CLASSES.map(cls => ({
       ...cls,
@@ -82,6 +82,58 @@ export default function SetupSchoolStructureSection({ S }) {
   }, [schoolClasses, schoolDivisions])
 
   const defaultDivisionKey = Object.keys(schoolDivisions)[0] || 'mesivta'
+
+  // Student assignment state
+  const [studentClassMap, setStudentClassMap] = useState<Record<number, string>>(() =>
+    loadStoredConfig('school-dashboard-student-classes', { ...STUDENT_CLASSES_MAP })
+  )
+  const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set())
+  const [moveToClass, setMoveToClass] = useState('')
+  const [studentSearch, setStudentSearch] = useState('')
+  const [classViewFilter, setClassViewFilter] = useState('all')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('school-dashboard-student-classes', JSON.stringify(studentClassMap))
+    }
+    // Sync back to the live STUDENT_CLASSES_MAP object so the rest of the app picks it up
+    Object.keys(studentClassMap).forEach(id => {
+      STUDENT_CLASSES_MAP[Number(id)] = studentClassMap[Number(id)]
+    })
+  }, [studentClassMap, STUDENT_CLASSES_MAP])
+
+  const filteredStudents = useMemo(() => {
+    const q = studentSearch.trim().toLowerCase()
+    return (students || []).filter(s => {
+      const classId = studentClassMap[s.id] || STUDENT_CLASSES_MAP[s.id] || ''
+      if (classViewFilter !== 'all' && classId !== classViewFilter) return false
+      if (q && !s.name.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [students, studentClassMap, STUDENT_CLASSES_MAP, studentSearch, classViewFilter])
+
+  function toggleStudent(id: number) {
+    setSelectedStudents(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function selectAll() {
+    setSelectedStudents(new Set(filteredStudents.map(s => s.id)))
+  }
+
+  function moveSelected() {
+    if (!moveToClass || selectedStudents.size === 0) return
+    setStudentClassMap(prev => {
+      const next = { ...prev }
+      selectedStudents.forEach(id => { next[id] = moveToClass })
+      return next
+    })
+    setSelectedStudents(new Set())
+    setMoveToClass('')
+  }
 
   const resetClassForm = () => {
     setClassForm({
@@ -332,6 +384,84 @@ export default function SetupSchoolStructureSection({ S }) {
           ))}
         </div>
       </div>
+
+      {/* Student Assignment Panel */}
+      {students?.length > 0 && (
+        <div style={S.card}>
+          <div style={{ fontSize: 17, fontWeight: 900, color: '#223046', marginBottom: 6 }}>Student Class Assignments</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
+            View and bulk-move students between classes. Changes apply immediately across the application.
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            <input
+              value={studentSearch}
+              onChange={e => setStudentSearch(e.target.value)}
+              placeholder="Search student..."
+              spellCheck={false}
+              style={{ flex: '1 1 180px', padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}
+            />
+            <select value={classViewFilter} onChange={e => setClassViewFilter(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}>
+              <option value="all">All classes</option>
+              {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+
+          {selectedStudents.size > 0 && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, padding: '10px 12px', background: '#eff6ff', borderRadius: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>{selectedStudents.size} selected</span>
+              <select value={moveToClass} onChange={e => setMoveToClass(e.target.value)} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid #bfdbfe', fontSize: 12 }}>
+                <option value="">Move to class...</option>
+                {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <button onClick={moveSelected} disabled={!moveToClass} style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: moveToClass ? '#1d4ed8' : '#e2e8f0', color: moveToClass ? '#fff' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: moveToClass ? 'pointer' : 'default' }}>Move</button>
+              <button onClick={() => setSelectedStudents(new Set())} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid #bfdbfe', background: '#fff', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Clear</button>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+            <button onClick={selectAll} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #dce4ed', background: '#f8fafc', color: '#475569', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>Select All</button>
+            {selectedStudents.size > 0 && <span style={{ fontSize: 11, color: '#64748b' }}>{selectedStudents.size} of {filteredStudents.length} selected</span>}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 6, maxHeight: 400, overflowY: 'auto' }}>
+            {filteredStudents.map(student => {
+              const classId = studentClassMap[student.id] || STUDENT_CLASSES_MAP[student.id] || ''
+              const cls = schoolClasses.find(c => c.id === classId)
+              const divKey = cls?.divisionKey || CLASS_DIVISION[classId] || ''
+              const div = schoolDivisions[divKey]
+              const isSelected = selectedStudents.has(student.id)
+              return (
+                <div
+                  key={student.id}
+                  onClick={() => toggleStudent(student.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+                    border: `1px solid ${isSelected ? '#bfdbfe' : '#e2e8f0'}`,
+                    borderRadius: 8, background: isSelected ? '#eff6ff' : '#fff', cursor: 'pointer',
+                  }}
+                >
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleStudent(student.id)} onClick={e => e.stopPropagation()} style={{ width: 14, height: 14 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.name}</div>
+                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
+                      {cls?.name || '—'}{div ? ` · ${div.shortLabel}` : ''}
+                    </div>
+                  </div>
+                  <select
+                    value={classId}
+                    onChange={e => { e.stopPropagation(); setStudentClassMap(prev => ({ ...prev, [student.id]: e.target.value })) }}
+                    onClick={e => e.stopPropagation()}
+                    style={{ padding: '3px 6px', borderRadius: 6, border: '1px solid #dce4ed', fontSize: 10 }}
+                  >
+                    {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

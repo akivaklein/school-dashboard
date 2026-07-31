@@ -57,19 +57,21 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
 const TEACHER_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
     { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
+    { id: 'school-day', label: 'School Day', defaultPage: 'teaching-mode', pages: ['teaching-mode', 'attendance', 'schedule'] },
     { id: 'students', label: 'Students', defaultPage: 'academics', pages: ['academics'] },
-    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'teaching-mode'] },
     { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
+    { id: 'messages', label: 'Messages', defaultPage: 'messages', pages: ['messages'] },
   ],
   submenuByArea: {
     dashboard: [{ id: 'dashboard', label: 'My Class' }],
-    students: [{ id: 'academics', label: 'Grades & Test Scores' }],
     'school-day': [
+      { id: 'teaching-mode', label: 'Teaching Mode' },
       { id: 'attendance', label: 'Attendance' },
       { id: 'schedule', label: 'Schedule' },
-      { id: 'teaching-mode', label: 'Teaching Mode' },
     ],
+    students: [{ id: 'academics', label: 'Grades & Test Scores' }],
     support: [{ id: 'support', label: 'Support Overview' }],
+    messages: [{ id: 'messages', label: 'Messages' }],
   },
 }
 

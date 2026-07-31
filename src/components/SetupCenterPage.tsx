@@ -8,6 +8,7 @@ import SetupAccountsSection from './SetupAccountsSection'
 import SetupSchoolStructureSection from './SetupSchoolStructureSection'
 import StaffDirectoryPage from './StaffDirectoryPage'
 import { getSetupSectionMeta } from './setupCenterUtils'
+import { STUDENT_CLASSES } from './dashboardData'
 
 export default function SetupCenterPage({
   S,
@@ -264,7 +265,7 @@ export default function SetupCenterPage({
           )}
 
           {setupTab === 'classes-divisions' && (
-            <SetupSchoolStructureSection S={S} />
+            <SetupSchoolStructureSection S={S} students={students} STUDENT_CLASSES_MAP={STUDENT_CLASSES} />
           )}
 
           {setupTab === 'schedule-setup' && (
