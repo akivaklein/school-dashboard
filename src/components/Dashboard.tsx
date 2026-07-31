@@ -453,6 +453,8 @@ function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = nu
 
 function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP, staffMembers }: { students: StudentLike[]; setStudents: Dispatch<SetStateAction<StudentLike[]>>; userName: string | null; setSelectedStudent: (student: StudentLike) => void; setTeachingMode: Dispatch<SetStateAction<boolean>>; initialClass?: string | number | null; setDrillDown: Dispatch<SetStateAction<{ title: string; students: StudentLike[] } | null>>; recordStudentPointsAction: (payload: Record<string, unknown>) => Promise<void>; isVIP: (student: StudentLike) => boolean; staffMembers: StaffMemberLike[] }) {
   const [selectedClass, setSelectedClass] = useState(initialClass)
+  const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+  const currentTimeLabel = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
   useEffect(() => {
     setSelectedClass(initialClass)
@@ -484,6 +486,13 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
   const inTherapy = classStudents.filter((s: StudentLike) => s.status === 'therapy').length
   const withBT = classStudents.filter((s: StudentLike) => s.status === 'with-bt').length
   const unknown = classStudents.filter((s: StudentLike) => s.status === 'unknown').length
+  const unresolved = classStudents.filter((s: StudentLike) => !isInClassroom(s) && !isInSchool(s) && getDailyAttendanceStatus(s) !== 'absent' && getDailyAttendanceStatus(s) !== 'late').length
+  const pulloutStudents = classStudents.filter((s: StudentLike) => ['therapy', 'with-bt', 'unknown'].includes(String(s.status)))
+  const currentClassInfo = selectedClass ? CLASSES.find(c => c.id === selectedClass) : null
+  const expectedRoster = classStudents.length
+  const confirmedInClass = present
+  const currentPeriod = SCHEDULE_PERIODS[0]
+  const nextPullout = pulloutStudents[0]
 
   async function quickPoints(id: number | string, amount: number) {
     playSound(amount > 0 ? 'positive' : 'negative')
@@ -512,69 +521,40 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Good morning, {userName} 👋</h1>
-        <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>{classStudents.length} students</p>
-      </div>
-
-      {/* Class Selection */}
-      <div style={{ ...S.card, marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>👨‍🏫 Which class are you teaching now?</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {initialClass ? (
-            (() => {
-              const cls = CLASSES.find(c => c.id === initialClass)
-              const count = students.filter(s => getStudentClassId(s) === initialClass).length
-              const presentCount = students.filter(s => getStudentClassId(s) === initialClass && isInClassroom(s)).length
-              return (
-                <button
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 8,
-                    border: '2px solid #4f6687',
-                    background: '#4f6687',
-                    color: '#fff',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'default',
-                  }}
-                  disabled
-                >
-                  🏫 {cls?.name || 'Assigned Class'} ({presentCount}/{count})
-                </button>
-              )
-            })()
-          ) : (
-            <>
-              <button onClick={() => setSelectedClass(null)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === null ? '#0f172a' : '#e5e7eb'}`, background: selectedClass === null ? '#0f172a' : '#fff', color: selectedClass === null ? '#fff' : '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                📚 All Classes ({students.length})
-              </button>
-              {CLASSES.map(cls => {
-                const count = students.filter(s => getStudentClassId(s) === cls.id).length
-                const presentCount = students.filter(s => getStudentClassId(s) === cls.id && isInClassroom(s)).length
-                return (
-                  <button key={cls.id} onClick={() => setSelectedClass(cls.id)} style={{ padding: '8px 16px', borderRadius: 8, border: `2px solid ${selectedClass === cls.id ? '#4f6687' : '#e5e7eb'}`, background: selectedClass === cls.id ? '#4f6687' : '#fff', color: selectedClass === cls.id ? '#fff' : '#334155', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                    🏫 {cls.name} ({presentCount}/{count})
-                  </button>
-                )
-              })}
-            </>
-          )}
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <button onClick={() => setTeachingMode(true)} style={{ ...S.btn('primary'), padding: '8px 20px', fontSize: 13 }}>▶ Start Class Session</button>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#16243a' }}>{userName ? `Good afternoon, ${userName}` : 'Teacher Dashboard'}</h1>
+            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>{todayLabel} · {currentTimeLabel}</p>
+          </div>
+          <button onClick={() => setTeachingMode(true)} style={{ ...S.btn('primary'), padding: '8px 16px', fontSize: 13 }}>▶ Start Class Session</button>
         </div>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 20 }}>
+      <div style={{ ...S.card, marginBottom: 16, padding: '14px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: '#16243a' }}>{currentClassInfo?.name || 'Current Class'}</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
+              {currentPeriod?.subject || 'Class period'} · {currentPeriod?.time || 'Today'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ ...S.badge('#0f766e', '#ccfbf1') }}>{expectedRoster} expected</span>
+            <span style={{ ...S.badge('#2563eb', '#dbeafe') }}>{confirmedInClass} confirmed</span>
+            <span style={{ ...S.badge('#9a6a2a', '#fef3c7') }}>{absent + late} absent/late</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
         {([
-          ['Present', present, '#4f6687', classStudents.filter((s: StudentLike) => isInClassroom(s))],
+          ['Confirmed', confirmedInClass, '#4f6687', classStudents.filter((s: StudentLike) => isInClassroom(s))],
           ['Absent', absent, '#9f1239', classStudents.filter((s: StudentLike) => getDailyAttendanceStatus(s) === 'absent')],
           ['Late', late, '#9a6a2a', classStudents.filter((s: StudentLike) => getDailyAttendanceStatus(s) === 'late')],
-          ['Therapy', inTherapy, '#6d28d9', classStudents.filter((s: StudentLike) => s.status === 'therapy')],
-          ['With BT', withBT, '#3f6b76', classStudents.filter((s: StudentLike) => s.status === 'with-bt')],
+          ['Pullouts', inTherapy + withBT, '#6d28d9', pulloutStudents],
           ['Unknown', unknown, '#9f1239', classStudents.filter((s: StudentLike) => s.status === 'unknown')],
+          ['Unresolved', unresolved, '#334155', classStudents.filter((s: StudentLike) => !isInClassroom(s) && !isInSchool(s) && getDailyAttendanceStatus(s) !== 'absent' && getDailyAttendanceStatus(s) !== 'late')],
         ] as Array<[string, number, string, StudentLike[]]>).map(([label, val, color, filtered]) => (
           <div key={label} onClick={() => filtered.length > 0 && setDrillDown({ title: `${label}`, students: filtered })}
             style={{ background: '#fff', borderRadius: 10, padding: '14px', border: '1px solid #e2e8f0', textAlign: 'center', borderTop: `3px solid ${color}`, cursor: filtered.length > 0 ? 'pointer' : 'default' }}
@@ -586,23 +566,50 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
         ))}
       </div>
 
-      {/* Student cards */}
+      <div style={{ ...S.card, marginBottom: 16, padding: '14px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>🧭 Class timeline</div>
+          <div style={{ fontSize: 12, color: '#64748b' }}>Expected roster · pullouts · returns</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 10 }}>
+          <div style={{ background: '#f8fafc', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 11, textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>Now</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#16243a', marginTop: 4 }}>{expectedRoster} expected</div>
+            <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{confirmedInClass} in class · {absent} absent · {late} late</div>
+          </div>
+          <div style={{ background: '#f8fafc', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 11, textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>Next pullout</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#16243a', marginTop: 4 }}>{nextPullout ? nextPullout.name : 'No pullouts scheduled'}</div>
+            <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{nextPullout ? `${nextPullout.status} · ${nextPullout.withStaff || 'provider pending'}` : 'All students accounted for'}</div>
+          </div>
+          <div style={{ background: '#f8fafc', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 11, textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>Today</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#16243a', marginTop: 4 }}>{currentPeriod?.subject || 'Class period'}</div>
+            <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{currentPeriod?.time || 'Schedule available in the School Day view'}</div>
+          </div>
+        </div>
+      </div>
+
       <div style={S.card}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 {selectedClass ? CLASSES.find(c=>c.id===selectedClass)?.name : 'All Students'} — Quick Actions</div>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 {selectedClass ? CLASSES.find(c=>c.id===selectedClass)?.name : 'Class roster'} · Quick actions</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
           {classStudents.map((s: StudentLike, i: number) => {
             const withStaffObj = s.withStaff ? STAFF.find((st: StaffMemberLike) => st.id === s.withStaff) : null
             const vip = isVIP ? isVIP(s) : false
             const studentName = typeof s.name === 'string' ? s.name : 'Student'
             const studentStatus = typeof s.status === 'string' ? s.status : 'present'
+            const attendanceStatus = getDailyAttendanceStatus(s)
+            const shouldShowPullout = ['therapy', 'with-bt', 'unknown'].includes(String(studentStatus))
             return (
               <div key={s.id} style={{ background: vip ? '#fefce8' : studentStatus === 'unknown' ? '#fef2f2' : '#ffffff', border: `1px solid ${vip ? '#ca8a04' : studentStatus === 'unknown' ? '#fecaca' : '#e2e8f0'}`, borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => setSelectedStudent(s)}>
                   <div style={S.avatar(i, 34)}>{initials(studentName)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 12 }}>{studentName}{vip && ' ⭐'}</div>
-                    <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
                       <span style={{ ...S.tag(statusColor[studentStatus as keyof typeof statusColor]), fontSize: 10 }}>{statusEmoji[studentStatus as keyof typeof statusEmoji]}</span>
+                      <span style={{ ...S.tag('#64748b', '#f8fafc'), fontSize: 10 }}>{attendanceStatus}</span>
+                      {shouldShowPullout && <span style={{ ...S.tag('#7c3aed', '#f5f3ff'), fontSize: 10 }}>Pullout</span>}
                       {withStaffObj && <span style={{ fontSize: 10, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</span>}
                     </div>
                   </div>
@@ -614,7 +621,6 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button onClick={() => quickPoints(s.id, 2)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
                   <button onClick={() => quickPoints(s.id, 5)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
-                  <button onClick={() => quickPoints(s.id, 10)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+10</button>
                   <button onClick={() => quickReminder(s.id)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#9f1239', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
                 </div>
               </div>
