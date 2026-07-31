@@ -117,6 +117,7 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
       }
       case 'thismonth': return histData.filter((d: AttendanceHistoryEntry) => typeof d.date === 'string' && d.date.startsWith(now.toISOString().slice(0, 7)))
       case 'year': return histData.filter((d: AttendanceHistoryEntry) => typeof d.date === 'string' && d.date.startsWith(new Date().getFullYear().toString()))
+      case 'all': return histData
       default: return histData
     }
   }
@@ -132,6 +133,7 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
       staffTime[d.staffName] = (staffTime[d.staffName] || 0) + d.outMins
     }
   })
+  const lateCount = Number((student as StudentLike & { lateCount?: number }).lateCount || 0) + (student.lateDetails ? 1 : 0)
 
   const periods = [
     { id: 'today', label: 'Today' },
@@ -139,6 +141,7 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
     { id: 'month', label: 'Last 30 days' },
     { id: 'thismonth', label: 'This month' },
     { id: 'year', label: 'This year' },
+    { id: 'all', label: 'All Time' },
   ]
 
   const drillOptions = [
@@ -158,6 +161,44 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
     ? ((selectedEntry as { segments?: TrackingSegment[] }).segments || [])
     : []
 
+  const metricCards = [
+    {
+      label: 'In Class',
+      value: formatMinutes(totalIn),
+      caption: 'time in the building',
+      color: '#4f6687',
+      bg: '#eef5ff',
+    },
+    {
+      label: 'Out of Class',
+      value: formatMinutes(totalOut),
+      caption: 'time away from class',
+      color: '#9a6a2a',
+      bg: '#fff7e8',
+    },
+    {
+      label: 'Average In Class',
+      value: `${avgPct}%`,
+      caption: 'presence across the window',
+      color: pctColor,
+      bg: '#f4fff9',
+    },
+    {
+      label: 'Days Tracked',
+      value: String(data.length),
+      caption: 'entries in view',
+      color: '#6d4c41',
+      bg: '#f9f0eb',
+    },
+    {
+      label: 'Times Late',
+      value: String(lateCount),
+      caption: 'late arrival notes',
+      color: '#b45309',
+      bg: '#fff7ed',
+    },
+  ]
+
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -172,17 +213,35 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
         ))}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-        <div style={S.statCard('#4f6687')}>
-          <div style={{ fontSize: 11, color: '#64748b' }}>Total time in</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>{formatMinutes(totalIn)}</div>
+        {metricCards.map(card => (
+          <div
+            key={card.label}
+            style={{
+              ...S.statCard(card.color),
+              background: card.bg,
+              border: `1px solid ${card.color}22`,
+              boxShadow: '0 8px 20px rgba(15, 23, 42, 0.05)',
+              borderRadius: 14,
+              padding: '12px 14px',
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{card.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>{card.value}</div>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{card.caption}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ ...S.card, padding: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ fontWeight: 800, fontSize: 14 }}>Presence split</div>
+          <div style={{ fontSize: 12, color: '#64748b' }}>{avgPct}% in class</div>
         </div>
-        <div style={S.statCard('#9a6a2a')}>
-          <div style={{ fontSize: 11, color: '#64748b' }}>Total time out</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>{formatMinutes(totalOut)}</div>
+        <div style={{ height: 10, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+          <div style={{ width: `${Math.max(6, avgPct)}%`, height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${pctColor}, #2563eb)` }} />
         </div>
-        <div style={S.statCard(pctColor)}>
-          <div style={{ fontSize: 11, color: '#64748b' }}>Avg. presence</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: pctColor }}>{avgPct}%</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: '#64748b' }}>
+          <span>{formatMinutes(totalIn)} in</span>
+          <span>{formatMinutes(totalOut)} out</span>
         </div>
       </div>
       <div style={S.card}>
@@ -195,6 +254,35 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
               <span style={{ fontSize: 13, color: '#334155' }}>{name}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#4b6854' }}>{formatMinutes(mins)}</span>
             </div>
+          ))}
+        </div>
+      </div>
+      <div style={S.card}>
+        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 14 }}>Daily breakdown</div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {data.length === 0 ? (
+            <div style={{ color: '#94a3b8', fontSize: 12 }}>No drill-down rows available for this day.</div>
+          ) : data.map((entry: AttendanceHistoryEntry) => (
+            <button
+              key={entry.date}
+              onClick={() => {
+                setDrillType(entry.date)
+              }}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 12px',
+                borderRadius: 10,
+                background: drillType === entry.date ? '#eef2ff' : '#ffffff',
+                border: `1px solid ${drillType === entry.date ? '#818cf8' : '#e2e8f0'}`,
+                textAlign: 'left',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{entry.date}</span>
+              <span style={{ fontSize: 12, color: '#64748b' }}>{formatMinutes(Number(entry.inMins || 0))} in · {formatMinutes(Number(entry.outMins || 0))} out</span>
+            </button>
           ))}
         </div>
       </div>

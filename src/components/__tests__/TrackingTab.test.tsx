@@ -145,4 +145,40 @@ describe('TrackingTab', () => {
     expect(markup).toContain('Mrs. Goldberg')
     expect(markup).not.toContain('No tracking data yet.')
   })
+
+  it('renders the classic summary cards and filters for tracking overview', () => {
+    const student = makeStudent(2, 'Ari Cohen')
+
+    const markup = renderToStaticMarkup(
+      <TrackingTab
+        s={student}
+        students={[student]}
+        staffMembers={[]}
+        S={{
+          card: {},
+          statCard: () => ({}),
+          badge: () => ({}),
+        }}
+        HISTORICAL_DATA={{
+          2: [
+            {
+              date: '2026-07-31',
+              inMins: 180,
+              outMins: 60,
+              pct: 75,
+              staffName: 'Mrs. Goldberg',
+              segments: [{ time: '09:00', status: 'classroom', location: 'Classroom', note: 'In class' }],
+            },
+          ],
+        } as any}
+      />,
+    )
+
+    expect(markup).toContain('In Class')
+    expect(markup).toContain('Out of Class')
+    expect(markup).toContain('Average In Class')
+    expect(markup).toContain('Days Tracked')
+    expect(markup).toContain('Times Late')
+    expect(markup).toContain('All Time')
+  })
 })
