@@ -5,7 +5,7 @@ const migrationPath = '../../../supabase/migrations/20260731_add_support_and_not
 const migrationSql = readFileSync(new URL(migrationPath, import.meta.url), 'utf8')
 
 describe('persistence migration coverage', () => {
-  it('creates support session and student note tables with the expected columns', () => {
+  it('creates support session and student note tables with the expected columns and portal-safe RLS', () => {
     expect(migrationSql).toContain('create table if not exists public.support_sessions')
     expect(migrationSql).toContain('student_id bigint references public.students(id)')
     expect(migrationSql).toContain('service_type text not null')
@@ -14,5 +14,10 @@ describe('persistence migration coverage', () => {
     expect(migrationSql).toContain('student_name text not null')
     expect(migrationSql).toContain('note text not null')
     expect(migrationSql).toContain('author text not null')
+    expect(migrationSql).toContain('alter table public.support_sessions enable row level security')
+    expect(migrationSql).toContain('alter table public.student_notes enable row level security')
+    expect(migrationSql).toContain('grant select, insert, update, delete on table public.support_sessions to anon, authenticated')
+    expect(migrationSql).toContain('create policy support_sessions_select_portal')
+    expect(migrationSql).toContain('alter publication supabase_realtime add table public.support_sessions')
   })
 })

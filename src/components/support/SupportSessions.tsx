@@ -4,6 +4,8 @@ import {
   listSupportSessions,
   startSupportSessionRecord,
 } from '../../services/supportSessionsService'
+import { supabase } from '../../supabaseClient'
+import { mergeSupportSessionEntries, type SupportSessionEntry } from '../../services/realtimePersistence'
 import type {
   StaffMember,
   StudentLike,
@@ -58,6 +60,41 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    const sessionsChannel = supabase
+      .channel('support-sessions-shared')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'support_sessions',
+        },
+        payload => {
+          const nextRow = payload.new as Record<string, unknown> | null
+          const oldRow = payload.old as Record<string, unknown> | null
+          const eventType = payload.eventType || 'INSERT'
+
+          if (eventType === 'DELETE') {
+            setSessions(prev => mergeSupportSessionEntries(prev as SupportSessionEntry[], oldRow as SupportSessionEntry, 'DELETE'))
+            return
+          }
+
+          if (!nextRow) return
+          setSessions(prev => mergeSupportSessionEntries(prev as SupportSessionEntry[], nextRow as SupportSessionEntry, eventType as string))
+        },
+      )
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Supabase realtime channel error: support-sessions-shared')
+        }
+      })
+
+    return () => {
+      supabase.removeChannel(sessionsChannel)
+    }
+  }, [])
 
   const [studentId, setStudentId] = useState<StudentLike['id']>(students[0]?.id || '')
   const [staffId, setStaffId] = useState('')
@@ -124,7 +161,8 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
       setServiceType('Therapy')
     } catch (error) {
       console.error('Error starting support session:', error)
-      setErrorMessage('Unable to start the support session.')
+      const details = error instanceof Error ? error.message : 'Unable to start the support session.'
+      setErrorMessage(details)
     } finally {
       setSaving(false)
     }
@@ -168,7 +206,8 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
       setFollowUpNeeded(false)
     } catch (error) {
       console.error('Error ending support session:', error)
-      setErrorMessage('Unable to end the support session.')
+      const details = error instanceof Error ? error.message : 'Unable to end the support session.'
+      setErrorMessage(details)
     } finally {
       setSaving(false)
     }

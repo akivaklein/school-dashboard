@@ -1,11 +1,55 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { resolveActorName } from './dashboardData'
 import { supabase } from '../supabaseClient'
+import { mergeStudentNoteEntries, type StudentNoteEntry } from '../services/realtimePersistence'
 
 export default function StudentNotes({ student, students, setStudents, userName, S }) {
   const [noteText, setNoteText] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const s = students.find(x => x.id === student.id) || student
+
+  useEffect(() => {
+    if (!s?.id) return
+
+    const notesChannel = supabase
+      .channel(`student-notes-${s.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'student_notes',
+          filter: `student_id=eq.${Number(s.id)}`,
+        },
+        payload => {
+          const nextNote = payload.new as Record<string, unknown> | null
+          if (payload.eventType === 'DELETE') {
+            setStudents(prev => prev.map(studentEntry => studentEntry.id === s.id ? { ...studentEntry, notes: (studentEntry.notes || []).filter((note: any) => String(note.id ?? `${note.date}|${note.author}|${note.text}`) !== String((payload.old as Record<string, unknown> | null)?.id ?? '')) } : studentEntry))
+            return
+          }
+
+          if (!nextNote) return
+          const entry = {
+            id: Number(nextNote.id),
+            date: nextNote.created_at ? String(nextNote.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10),
+            author: String(nextNote.author || 'Staff'),
+            text: String(nextNote.note || ''),
+          }
+
+          setStudents(prev => prev.map(studentEntry => studentEntry.id === s.id ? { ...studentEntry, notes: mergeStudentNoteEntries(studentEntry.notes || [], entry as StudentNoteEntry) } : studentEntry))
+        },
+      )
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Supabase realtime channel error: student-notes')
+        }
+      })
+
+    return () => {
+      supabase.removeChannel(notesChannel)
+    }
+  }, [s?.id, setStudents])
 
   async function addNote() {
     if (!noteText.trim()) return
@@ -18,6 +62,7 @@ export default function StudentNotes({ student, students, setStudents, userName,
     }
 
     setSaving(true)
+    setSaveError(null)
 
     // Update student notes array in students table (JSONB persistence)
     const updatedNotes = [...(s.notes || []), newNote]
@@ -28,8 +73,9 @@ export default function StudentNotes({ student, students, setStudents, userName,
 
     if (updateError) {
       setSaving(false)
+      const message = updateError.message || 'Unable to save note to the student record.'
+      setSaveError(message)
       console.error('Error saving student note to students table:', updateError)
-      alert('Could not save note. Check console.')
       return
     }
 
@@ -49,6 +95,8 @@ export default function StudentNotes({ student, students, setStudents, userName,
     setSaving(false)
 
     if (insertError) {
+      const message = insertError.message || 'Unable to save note to the audit log.'
+      setSaveError(message)
       console.error('Error saving note to audit log:', insertError)
       // Note was saved to student record, so don't fail completely
     }
@@ -89,6 +137,9 @@ export default function StudentNotes({ student, students, setStudents, userName,
           lang="en"
           style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', marginBottom: 8, fontSize: 13, minHeight: 70, boxSizing: 'border-box', resize: 'vertical' }}
         />
+        {saveError && (
+          <div style={{ color: '#b91c1c', fontSize: 12, marginBottom: 8 }}>{saveError}</div>
+        )}
         <button onClick={addNote} style={S.btn('primary')} disabled={saving || !noteText.trim()}>
           {saving ? 'Saving...' : 'Add Note'}
         </button>

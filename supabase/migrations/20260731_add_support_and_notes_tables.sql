@@ -35,6 +35,103 @@ create table if not exists public.student_notes (
 create index if not exists student_notes_student_id_created_at_idx
   on public.student_notes (student_id, created_at desc);
 
+alter table public.support_sessions enable row level security;
+alter table public.student_notes enable row level security;
+
+-- The deployed app currently uses a custom in-app selected-user login flow and
+-- does not rely on Supabase Auth identities for these portal writes. Because the
+-- browser sends requests with the anon/authenticated roles, these policies are
+-- intentionally portal-safe but broader than a per-user policy.
+grant usage, select, update on sequence public.support_sessions_id_seq to anon, authenticated;
+grant usage, select, update on sequence public.student_notes_id_seq to anon, authenticated;
+
+grant select, insert, update, delete on table public.support_sessions to anon, authenticated;
+grant select, insert, update, delete on table public.student_notes to anon, authenticated;
+
+drop policy if exists support_sessions_select_portal on public.support_sessions;
+create policy support_sessions_select_portal
+on public.support_sessions
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists support_sessions_insert_portal on public.support_sessions;
+create policy support_sessions_insert_portal
+on public.support_sessions
+for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists support_sessions_update_portal on public.support_sessions;
+create policy support_sessions_update_portal
+on public.support_sessions
+for update
+to anon, authenticated
+using (true)
+with check (true);
+
+drop policy if exists support_sessions_delete_portal on public.support_sessions;
+create policy support_sessions_delete_portal
+on public.support_sessions
+for delete
+to anon, authenticated
+using (true);
+
+drop policy if exists student_notes_select_portal on public.student_notes;
+create policy student_notes_select_portal
+on public.student_notes
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists student_notes_insert_portal on public.student_notes;
+create policy student_notes_insert_portal
+on public.student_notes
+for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists student_notes_update_portal on public.student_notes;
+create policy student_notes_update_portal
+on public.student_notes
+for update
+to anon, authenticated
+using (true)
+with check (true);
+
+drop policy if exists student_notes_delete_portal on public.student_notes;
+create policy student_notes_delete_portal
+on public.student_notes
+for delete
+to anon, authenticated
+using (true);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'support_sessions'
+  ) then
+    execute 'alter publication supabase_realtime add table public.support_sessions';
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'student_notes'
+  ) then
+    execute 'alter publication supabase_realtime add table public.student_notes';
+  end if;
+end $$;
+
 comment on table public.support_sessions is
   'Persisted support session lifecycle records for therapist and support workflows.';
 
