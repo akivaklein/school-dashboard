@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { isInClassroom } from '../utils/attendancePresence'
+import { buildClassroomCoverageSnapshot } from './dashboardData'
 
 type Props = {
   S: any
@@ -12,6 +13,7 @@ type Props = {
   statusColor: Record<string, string>
   statusEmoji: Record<string, string>
   statusLabel: Record<string, string>
+  CLASSES?: Array<{ id: string; name: string }>
 }
 
 export default function SchedulePage({
@@ -25,8 +27,10 @@ export default function SchedulePage({
   statusColor,
   statusEmoji,
   statusLabel,
+  CLASSES = [],
 }: Props) {
   const [horizonDays, setHorizonDays] = useState(3)
+  const [selectedCoverageClassId, setSelectedCoverageClassId] = useState<string | null>(CLASSES[0]?.id || null)
 
   const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const jsDayToName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -78,6 +82,22 @@ export default function SchedulePage({
   }, [therapyRows, STAFF])
 
   const studentsNotInClass = students.filter(student => !isInClassroom(student))
+
+  const classroomCoverage = useMemo(() => {
+    const selectedPeriod = SCHEDULE_PERIODS[0] || null
+    return (CLASSES || []).map(cls => ({
+      classInfo: cls,
+      snapshot: buildClassroomCoverageSnapshot(students, cls.id, selectedPeriod),
+    }))
+  }, [CLASSES, SCHEDULE_PERIODS, students])
+
+  useEffect(() => {
+    if (!selectedCoverageClassId && classroomCoverage.length > 0) {
+      setSelectedCoverageClassId(classroomCoverage[0].classInfo.id)
+    }
+  }, [classroomCoverage, selectedCoverageClassId])
+
+  const selectedCoverage = classroomCoverage.find(item => item.classInfo.id === selectedCoverageClassId) || classroomCoverage[0] || null
 
   return (
     <div>
@@ -138,6 +158,46 @@ export default function SchedulePage({
                 ⚠ {warning}
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ ...S.card, marginBottom: 16, padding: '14px 16px' }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>🏫 Classroom coverage snapshot</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+          {classroomCoverage.map(({ classInfo, snapshot }) => (
+            <button
+              key={classInfo.id}
+              onClick={() => setSelectedCoverageClassId(classInfo.id)}
+              style={{
+                textAlign: 'left',
+                border: `1px solid ${selectedCoverageClassId === classInfo.id ? '#5f83aa' : '#e2e8f0'}`,
+                borderRadius: 10,
+                padding: '10px 12px',
+                background: selectedCoverageClassId === classInfo.id ? '#dbe8f5' : '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: 12 }}>{classInfo.name}</div>
+              <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{snapshot.metrics.present} of {snapshot.expectedCount} in class</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{snapshot.metrics.absent} absent · {snapshot.metrics.late} late · {snapshot.metrics.pullout} pullout</div>
+            </button>
+          ))}
+        </div>
+        {selectedCoverage && (
+          <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', background: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8 }}>{selectedCoverage.classInfo.name} · {selectedCoverage.snapshot.expectedCount} expected</div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              {selectedCoverage.snapshot.students.map(entry => (
+                <div key={entry.studentId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderRadius: 8, padding: '8px 10px', background: '#ffffff', border: '1px solid #e2e8f0' }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 12 }}>{entry.studentName}</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{entry.location}</div>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>{entry.status}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

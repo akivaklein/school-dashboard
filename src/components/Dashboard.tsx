@@ -140,6 +140,7 @@ import {
   divisionLabel,
   SCHEDULE_PERIODS,
   THERAPY_SCHEDULE,
+  buildClassroomCoverageSnapshot,
   HISTORICAL_DATA,
   DEMO_STORE_ACTIVITY,
   DEMO_STUDENT_FLAGS,
@@ -481,18 +482,22 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
     ? students.filter((s: StudentLike) => getStudentClassId(s) === selectedClass)
     : students
 
-  const present = classStudents.filter((s: StudentLike) => isInClassroom(s)).length
-  const absent = classStudents.filter((s: StudentLike) => getDailyAttendanceStatus(s) === 'absent').length
-  const late = classStudents.filter((s: StudentLike) => getDailyAttendanceStatus(s) === 'late').length
-  const inTherapy = classStudents.filter((s: StudentLike) => s.status === 'therapy').length
-  const withBT = classStudents.filter((s: StudentLike) => s.status === 'with-bt').length
-  const unknown = classStudents.filter((s: StudentLike) => s.status === 'unknown').length
+  const currentPeriod = SCHEDULE_PERIODS[0]
+  const coverageSnapshot = useMemo(
+    () => buildClassroomCoverageSnapshot(classStudents, selectedClass, currentPeriod),
+    [classStudents, selectedClass, currentPeriod],
+  )
+  const present = coverageSnapshot.metrics.present
+  const absent = coverageSnapshot.metrics.absent
+  const late = coverageSnapshot.metrics.late
+  const inTherapy = coverageSnapshot.students.filter((entry: { status: string }) => entry.status === 'pullout').length
+  const withBT = coverageSnapshot.students.filter((entry: { status: string }) => entry.status === 'pullout' && entry.currentStatus === 'with-bt').length
+  const unknown = coverageSnapshot.students.filter((entry: { status: string }) => entry.status === 'unknown').length
   const unresolved = classStudents.filter((s: StudentLike) => !isInClassroom(s) && !isInSchool(s) && getDailyAttendanceStatus(s) !== 'absent' && getDailyAttendanceStatus(s) !== 'late').length
   const pulloutStudents = classStudents.filter((s: StudentLike) => ['therapy', 'with-bt', 'unknown'].includes(String(s.status)))
   const currentClassInfo = selectedClass ? CLASSES.find(c => c.id === selectedClass) : null
-  const expectedRoster = classStudents.length
+  const expectedRoster = coverageSnapshot.expectedCount
   const confirmedInClass = present
-  const currentPeriod = SCHEDULE_PERIODS[0]
   const nextPullout = pulloutStudents[0]
 
   async function quickPoints(id: number | string, amount: number) {
@@ -541,10 +546,22 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ ...S.badge('#0f766e', '#ccfbf1') }}>{expectedRoster} expected</span>
-            <span style={{ ...S.badge('#2563eb', '#dbeafe') }}>{confirmedInClass} confirmed</span>
-            <span style={{ ...S.badge('#9a6a2a', '#fef3c7') }}>{absent + late} absent/late</span>
+            <span style={{ ...S.badge('#0f766e', '#ccfbf1') }}>{confirmedInClass} of {expectedRoster} in class</span>
+            <span style={{ ...S.badge('#2563eb', '#dbeafe') }}>{absent} absent</span>
+            <span style={{ ...S.badge('#9a6a2a', '#fef3c7') }}>{late} late</span>
+            <span style={{ ...S.badge('#7c3aed', '#f5f3ff') }}>{coverageSnapshot.metrics.pullout} pullout</span>
           </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginTop: 12 }}>
+          {coverageSnapshot.students.slice(0, 6).map((entry: { studentName: string; status: string; location: string; studentId?: string | number }, index: number) => (
+            <div key={entry.studentId || `${entry.studentName}-${index}`} onClick={() => {
+              const match = classStudents.find((item: StudentLike) => String(item.id) === String(entry.studentId))
+              if (match) setSelectedStudent(match)
+            }} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 10px', background: '#f8fafc', cursor: 'pointer' }}>
+              <div style={{ fontWeight: 700, fontSize: 12 }}>{entry.studentName}</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{entry.location}</div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -4855,6 +4872,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusColor={statusColor}
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
+            CLASSES={CLASSES}
           />
         )}
 

@@ -35,6 +35,8 @@ type StudentMedicalDetails = {
   notes: string
 }
 
+import { getDailyAttendanceStatus } from '../utils/attendancePresence'
+
 type StudentRecord = {
   id: number
   name: string
@@ -1114,6 +1116,75 @@ export function canAccessStudentForRole(student, context = {}) {
   }
 
   return true
+}
+
+export function buildClassroomCoverageSnapshot(students, classId, period = null) {
+  const roster = (students || []).filter(student => resolveStudentClassId(student) === classId)
+
+  const entries = roster.map(student => {
+    const attendanceStatus = String(getDailyAttendanceStatus(student) || 'present')
+    const status = String(student?.status || 'present')
+    const classLog = Array.isArray(student?.classLog) ? student.classLog : []
+    const reverseLog = [...classLog].reverse()
+    const latestRelevant = reverseLog.find(entry => entry?.type && entry.type !== 'end') || null
+    const latestType = latestRelevant?.type || null
+    const hasActiveEntry = latestType === 'in' || latestType === 'return'
+
+    let coverageStatus = 'present'
+    if (attendanceStatus === 'absent' || status === 'absent') {
+      coverageStatus = 'absent'
+    } else if (attendanceStatus === 'late' || status === 'late' || status === 'left-early') {
+      coverageStatus = 'late'
+    } else if (status === 'unknown' || status === 'not-arrived') {
+      coverageStatus = 'unknown'
+    } else if (['therapy', 'with-bt'].includes(String(status))) {
+      coverageStatus = hasActiveEntry ? 'present' : 'pullout'
+    } else {
+      coverageStatus = 'present'
+    }
+
+    let location = 'In class'
+    if (coverageStatus === 'absent') {
+      location = 'Absent'
+    } else if (coverageStatus === 'late') {
+      location = 'Late arrival'
+    } else if (coverageStatus === 'unknown') {
+      location = 'Location unknown'
+    } else if (coverageStatus === 'pullout') {
+      location = student?.withStaff ? `Pullout · ${student.withStaff}` : 'Pullout'
+    } else if (latestRelevant?.note) {
+      location = latestRelevant.note
+    } else if (student?.withStaff) {
+      location = `With ${student.withStaff}`
+    }
+
+    return {
+      studentId: student?.id,
+      studentName: student?.name || 'Student',
+      status: coverageStatus,
+      attendanceStatus,
+      location,
+      note: latestRelevant?.note || '',
+      currentStatus: status,
+    }
+  })
+
+  const metrics = entries.reduce((acc, entry) => {
+    if (entry.status === 'present') acc.present += 1
+    else if (entry.status === 'absent') acc.absent += 1
+    else if (entry.status === 'late') acc.late += 1
+    else if (entry.status === 'pullout') acc.pullout += 1
+    else if (entry.status === 'unknown') acc.unknown += 1
+    return acc
+  }, { present: 0, absent: 0, late: 0, pullout: 0, unknown: 0 })
+
+  return {
+    classId,
+    period,
+    expectedCount: roster.length,
+    metrics,
+    students: entries,
+  }
 }
 
 export const SCHEDULE_PERIODS = [
