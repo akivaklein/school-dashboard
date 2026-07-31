@@ -787,10 +787,14 @@ export const ACADEMIC_AREAS = {
   'Rabbi Abowitz': {
     Math: ['Algebra', 'Geometry', 'Statistics', 'Arithmetic'],
     Science: ['Biology', 'Chemistry', 'Physics'],
+    Reading: ['Reading Comprehension', 'Fluency', 'Decoding'],
+    Writing: ['Essay', 'Grammar', 'Vocabulary'],
   },
   'Rabbi Altshull': {
     English: ['Reading', 'Writing', 'Grammar'],
     Math: ['Arithmetic', 'Word Problems'],
+    Reading: ['Fluency', 'Comprehension'],
+    Writing: ['Sentences', 'Paragraphs', 'Stories'],
   },
   'Rabbi Schults': {
     Chumash: ['Bereishis', 'Shemos'],
