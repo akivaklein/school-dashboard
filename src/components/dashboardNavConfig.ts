@@ -21,7 +21,7 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
     { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students', 'academics'] },
     { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'store', 'calls', 'intake', 'teaching-mode'] },
     { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior', 'alerts'] },
-    { id: 'reports', label: 'Reports', defaultPage: 'todo', pages: ['todo'] },
+    { id: 'reports', label: 'Reports', defaultPage: 'todo', pages: ['todo', 'grade-reports', 'attendance-reports'] },
     { id: 'messages', label: 'Messages', defaultPage: 'messages', pages: ['messages'] },
     { id: 'setup', label: 'Setup', defaultPage: 'setup', pages: ['setup', 'staff-directory', 'therapists'] },
   ],
@@ -44,7 +44,7 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
       { id: 'behavior', label: 'Behavior' },
       { id: 'alerts', label: 'Alerts' },
     ],
-    reports: [{ id: 'todo', label: 'To-Do Queue' }],
+    reports: [{ id: 'todo', label: 'To-Do Queue' }, { id: 'grade-reports', label: 'Grade & Test Reports' }, { id: 'attendance-reports', label: 'Attendance Reports' }],
     messages: [{ id: 'messages', label: 'Messages' }],
     setup: [
       { id: 'setup', label: 'Setup Center' },
