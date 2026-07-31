@@ -56,7 +56,7 @@ const TEACHER_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
     { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
     { id: 'students', label: 'Students', defaultPage: 'academics', pages: ['academics'] },
-    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'teaching-mode', 'store'] },
+    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'teaching-mode'] },
     { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
   ],
   submenuByArea: {
@@ -66,7 +66,6 @@ const TEACHER_NAV_CONFIG: RoleNavConfig = {
       { id: 'attendance', label: 'Attendance' },
       { id: 'schedule', label: 'Schedule' },
       { id: 'teaching-mode', label: 'Teaching Mode' },
-      { id: 'store', label: 'Token Store' },
     ],
     support: [{ id: 'support', label: 'Support Overview' }],
   },
@@ -74,12 +73,11 @@ const TEACHER_NAV_CONFIG: RoleNavConfig = {
 
 const STORE_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
-    { id: 'school-day', label: 'School Day', defaultPage: 'store', pages: ['store', 'teaching-mode'] },
+    { id: 'school-day', label: 'School Day', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
     'school-day': [
       { id: 'store', label: 'Token Store' },
-      { id: 'teaching-mode', label: 'Teaching Mode' },
     ],
   },
 }

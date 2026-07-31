@@ -105,6 +105,7 @@ import StaffManagementModal from './StaffManagementModal'
 import LoginActivityView from './LoginActivityView'
 import { getLookupValue } from './dashboardUtils'
 import { getRoleNavConfig } from './dashboardNavConfig'
+import { canAccessDashboardPage, canAccessStudentForRole } from './dashboardData'
 
 import {
   STORE_ITEMS,
@@ -2246,32 +2247,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   // Open a student profile with optional tab
   const openStudent = (student: StudentLike, tab = 'overview') => {
-    const isTeacherPortalRole = role === 'teacher' || role === 'rebbe'
-
-    if (isTeacherPortalRole) {
-      const targetStudentId = Number(student?.id)
-      const directAssignedIds = getTeacherAssignedStudentIds(userName, setupAssignments)
-
-      if (directAssignedIds.length > 0) {
-        if (!directAssignedIds.includes(targetStudentId)) {
-          alert('You can only open student profiles assigned to your roster.')
-          return
-        }
-      } else {
-        const assignedClassIds = getTeacherAssignedClassIds(userName, setupAssignments, students)
-        const fallbackClassId = teacherClass || TEACHER_CLASS_MAP[userName as keyof typeof TEACHER_CLASS_MAP] || null
-        const allowedClassIds = assignedClassIds.length > 0
-          ? assignedClassIds
-          : (fallbackClassId ? [fallbackClassId] : [])
-
-        if (allowedClassIds.length > 0) {
-          const studentClassId = resolveStudentClassId(student)
-          if (!studentClassId || !allowedClassIds.includes(studentClassId)) {
-            alert('You can only open student profiles assigned to your class roster.')
-            return
-          }
-        }
-      }
+    if (!canAccessStudentForRole(student, {
+      role,
+      userName,
+      setupAssignments,
+      students,
+    })) {
+      alert('You can only access students in your assigned scope.')
+      return
     }
 
     setSelectedStudent(student)
@@ -3992,6 +3975,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const roleNavConfig = getRoleNavConfig(role)
 
   const topAreas = roleNavConfig.topAreas
+  const allowedPagesForRole = useMemo(() => new Set(topAreas.flatMap(area => area.pages)), [topAreas])
   const submenuByArea = roleNavConfig.submenuByArea
   const useTwoLevelNav = true
   const activeTopArea = topAreas.find(area => area.pages.includes(page))?.id || topAreas[0]?.id || 'dashboard'
@@ -4007,6 +3991,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const defaultSchoolDayPage = schoolDayArea?.defaultPage || 'attendance'
 
   function navigateToPage(nextPage: string) {
+    if (!allowedPagesForRole.has(nextPage)) {
+      return
+    }
+
+    if (!canAccessDashboardPage(role, nextPage)) {
+      alert('This area is not available for your role.')
+      return
+    }
+
     if (nextPage !== 'teaching-mode') {
       setTeachingMode(false)
     }
@@ -4044,7 +4037,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     if (shouldRestoreNavRef.current) {
       const stored = readDashboardNavState()
-      const allowedPages = new Set(topAreas.flatMap(area => area.pages))
+      const allowedPages = new Set(
+        topAreas
+          .flatMap(area => area.pages)
+          .filter(pageId => canAccessDashboardPage(role, pageId))
+      )
 
       if (stored.currentPage && allowedPages.has(stored.currentPage)) {
         setPage(stored.currentPage)
@@ -4109,12 +4106,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const userAccessForMode = getUserAccess(userName, role)
   const allowedDivisionSetForMode = new Set(userAccessForMode.divisions)
+  const isStoreRoleForMode = role === 'store'
   const divisionScopedStudentsForMode = students.filter(
     s =>
       allowedDivisionSetForMode.has(studentDivision(s)) &&
       (divisionView === 'all' || studentDivision(s) === divisionView)
   )
   const isTeacherRoleForMode = role === 'teacher' || role === 'rebbe'
+  const isTherapistRoleForMode = role === 'therapist'
   const assignedTeacherClassIdsForMode = isTeacherRoleForMode
     ? (
         teacherClassIds.length > 0
@@ -4131,21 +4130,25 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const assignedStaffStudentSetForMode = new Set(assignedStaffStudentIdsForMode)
   const isLeadershipRoleForMode = role === 'admin'
   const assignedTeacherStudentSetForMode = new Set(assignedTeacherStudentIdsForMode)
-  const studentsForCurrentRole = isTeacherRoleForMode
-    ? (
-        assignedTeacherStudentSetForMode.size > 0
-          ? students.filter(s => assignedTeacherStudentSetForMode.has(Number(s.id)))
-          : divisionScopedStudentsForMode.filter(
-              s => assignedTeacherClassIdsForMode.includes(resolveStudentClassId(s))
-            )
-      )
-    : isLeadershipRoleForMode
-      ? students
-      : (
-          assignedStaffStudentSetForMode.size > 0
-            ? divisionScopedStudentsForMode.filter(s => assignedStaffStudentSetForMode.has(Number(s.id)))
-            : divisionScopedStudentsForMode
+  const studentsForCurrentRole = isStoreRoleForMode
+    ? []
+    : isTeacherRoleForMode
+      ? (
+          assignedTeacherStudentSetForMode.size > 0
+            ? students.filter(s => assignedTeacherStudentSetForMode.has(Number(s.id)))
+            : divisionScopedStudentsForMode.filter(
+                s => assignedTeacherClassIdsForMode.includes(resolveStudentClassId(s))
+              )
         )
+      : isLeadershipRoleForMode
+        ? students
+        : isTherapistRoleForMode
+          ? divisionScopedStudentsForMode.filter(s => assignedStaffStudentSetForMode.has(Number(s.id)) || Boolean(s.services?.length))
+          : (
+              assignedStaffStudentSetForMode.size > 0
+                ? divisionScopedStudentsForMode.filter(s => assignedStaffStudentSetForMode.has(Number(s.id)))
+                : divisionScopedStudentsForMode
+            )
   
   if (teachingMode) return (
     <TeachingMode
@@ -4178,6 +4181,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const userAccess = getUserAccess(userName, role)
   const isTeacherRole = role === 'teacher' || role === 'rebbe'
+  const isStoreRole = role === 'store'
   const isOfficeUser = ['Eli Bloom', 'Zev Reisman', 'Eli Stern'].includes(userName)
   const allowedDivisionSet = new Set(userAccess.divisions)
   const divisionScopedStudents = students.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
@@ -4194,13 +4198,19 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ? getTeacherAssignedStudentIds(userName, setupAssignments)
     : []
   const assignedTeacherStudentSet = new Set(assignedTeacherStudentIds)
-  const visibleStudents = isTeacherRole
-    ? (
-        assignedTeacherStudentSet.size > 0
-          ? students.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
-          : divisionScopedStudents.filter(s => assignedTeacherClassIds.includes(resolveStudentClassId(s)))
-      )
-    : divisionScopedStudents
+  const assignedStaffStudentIds = getTeacherAssignedStudentIds(userName, setupAssignments)
+  const assignedStaffStudentSet = new Set(assignedStaffStudentIds)
+  const visibleStudents = isStoreRole
+    ? []
+    : isTeacherRole
+      ? (
+          assignedTeacherStudentSet.size > 0
+            ? students.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
+            : divisionScopedStudents.filter(s => assignedTeacherClassIds.includes(resolveStudentClassId(s)))
+        )
+      : role === 'therapist'
+        ? divisionScopedStudents.filter(s => assignedStaffStudentSet.has(Number(s.id)) || Boolean(s.services?.length))
+        : divisionScopedStudents
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
   const present = visibleStudents.filter(s => isInSchool(s)).length
   const absent = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'absent').length

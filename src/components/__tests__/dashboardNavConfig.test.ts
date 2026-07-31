@@ -27,10 +27,10 @@ describe('getRoleNavConfig', () => {
         id: 'school-day',
         label: 'School Day',
         defaultPage: 'store',
-        pages: ['store', 'teaching-mode'],
+        pages: ['store'],
       },
     ])
-    expect(config.submenuByArea['school-day'].map(item => item.id)).toEqual(['store', 'teaching-mode'])
+    expect(config.submenuByArea['school-day'].map(item => item.id)).toEqual(['store'])
   })
 
   it('falls back to staff navigation for non-admin non-teacher roles', () => {

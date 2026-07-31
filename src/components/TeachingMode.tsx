@@ -92,6 +92,8 @@ export default function TeachingMode({
   const actingStaffName = resolveActorName(userName, isAdmin ? 'admin' : 'teacher')
 
   const isTeacherRole = role === 'teacher' || role === 'rebbe'
+  const isStoreRole = role === 'store'
+  const isTherapistRole = role === 'therapist'
 
   const roleStudents = useMemo(() => {
     const base = Array.isArray(students) ? students : []
@@ -117,7 +119,7 @@ export default function TeachingMode({
     })
   }, [allStudents, roleStudents])
 
-  const scopeBaseStudents = canViewEntireSchool ? schoolStudents : roleStudents
+  const scopeBaseStudents = canViewEntireSchool ? schoolStudents : isStoreRole ? [] : roleStudents
   const scopeBaseIdSet = useMemo(
     () => new Set(scopeBaseStudents.map(student => Number(student.id))),
     [scopeBaseStudents],
@@ -187,8 +189,8 @@ export default function TeachingMode({
     const values = ['teacher', 'class', 'grade', 'period']
     if (canViewEntireSchool) values.unshift('entire')
     if (hasAssignedStudents) values.push('assigned')
-    return values
-  }, [canViewEntireSchool, hasAssignedStudents])
+    return values.filter(value => !(isStoreRole && value === 'assigned'))
+  }, [canViewEntireSchool, hasAssignedStudents, isStoreRole])
 
   useEffect(() => {
     const defaultClass = initialClass && classOptions.some(cls => cls.id === initialClass)
@@ -267,13 +269,13 @@ export default function TeachingMode({
       return
     }
 
-    if (hasAssignedStudents) {
+    if (hasAssignedStudents && !isStoreRole) {
       setScopeType('assigned')
       return
     }
 
     setScopeType('class')
-  }, [scopeType, allowedScopeValues, canViewEntireSchool, hasAssignedStudents])
+  }, [scopeType, allowedScopeValues, canViewEntireSchool, hasAssignedStudents, isStoreRole])
 
   useEffect(() => {
     const selectedScopeValue =

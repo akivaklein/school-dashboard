@@ -1009,6 +1009,13 @@ export function getUserAccess(name, role) {
     }
   }
 
+  if (role === 'therapist') {
+    return {
+      divisions: ['yeshiva_ketana', 'mesivta'],
+      canManageStore: false
+    }
+  }
+
   const bothDivisions = [
     'Rabbi Baum',
     'Rabbi Fried',
@@ -1052,6 +1059,61 @@ export function defaultDivisionView(access) {
 
 export function divisionLabel(key) {
   return key === 'all' ? 'Both Divisions' : DIVISIONS[key]?.label || key
+}
+
+export function canAccessDashboardPage(role, page) {
+  if (role === 'store') {
+    return page === 'store'
+  }
+
+  if (role === 'teacher' || role === 'rebbe') {
+    return ['dashboard', 'attendance', 'schedule', 'teaching-mode', 'support', 'academics', 'behavior'].includes(page)
+  }
+
+  if (role === 'therapist') {
+    return ['dashboard', 'attendance', 'schedule', 'support', 'behavior', 'students'].includes(page)
+  }
+
+  return true
+}
+
+export function canAccessStudentForRole(student, context = {}) {
+  const { role, userName = '', setupAssignments = {}, students = [] } = context || {}
+
+  if (!student) return false
+
+  if (role === 'teacher' || role === 'rebbe') {
+    const targetStudentId = Number(student.id)
+    const directAssignedIds = getTeacherAssignedStudentIds(userName, setupAssignments)
+
+    if (directAssignedIds.length > 0) {
+      return directAssignedIds.includes(targetStudentId)
+    }
+
+    const assignedClassIds = getTeacherAssignedClassIds(userName, setupAssignments, students)
+    const fallbackClassId = TEACHER_CLASS_MAP[userName] || null
+    const allowedClassIds = assignedClassIds.length > 0
+      ? assignedClassIds
+      : (fallbackClassId ? [fallbackClassId] : [])
+
+    if (allowedClassIds.length > 0) {
+      const studentClassId = resolveStudentClassId(student)
+      return Boolean(studentClassId && allowedClassIds.includes(studentClassId))
+    }
+  }
+
+  if (role === 'therapist') {
+    const targetStudentId = Number(student.id)
+    const assignedIds = getTeacherAssignedStudentIds(userName, setupAssignments)
+
+    if (assignedIds.length > 0) {
+      return assignedIds.includes(targetStudentId)
+    }
+
+    return Boolean(Array.isArray(student.services) && student.services.length > 0)
+  }
+
+  return true
 }
 
 export const SCHEDULE_PERIODS = [
