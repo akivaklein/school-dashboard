@@ -177,7 +177,7 @@ export default function AcademicsPage({
   const [classFilter, setClassFilter] = useState(role === 'teacher' && teacherClass ? teacherClass : 'all')
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [skillFilter, setSkillFilter] = useState('all')
-  const [teacherFilter, setTeacherFilter] = useState(role === 'teacher' ? userName : 'all')
+  const [teacherFilter, setTeacherFilter] = useState(role === 'teacher' || role === 'rebbe' ? (userName || 'all') : 'all')
   const [enteredByFilter, setEnteredByFilter] = useState('all')
   const [gradeSearch, setGradeSearch] = useState('')
   const [addStudentId, setAddStudentId] = useState(null)
@@ -205,7 +205,11 @@ export default function AcademicsPage({
     ? (
         teacherAssignedStudentIds?.length
           ? students.filter(s => teacherAssignedStudentIds.includes(Number(s.id)))
-          : []
+          : teacherAssignedClassIds?.length
+            ? students.filter(s => teacherAssignedClassIds.includes(STUDENT_CLASSES[s.id]))
+            : teacherClass
+              ? students.filter(s => STUDENT_CLASSES[s.id] === teacherClass)
+              : []
       )
     : students
   const visibleStudents = scopedStudents.filter(s => classFilter === 'all' || STUDENT_CLASSES[s.id] === classFilter)

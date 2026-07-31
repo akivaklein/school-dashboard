@@ -29,7 +29,7 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
     dashboard: [{ id: 'dashboard', label: 'Dashboard' }],
     students: [
       { id: 'students', label: 'Students List' },
-      { id: 'academics', label: 'Academics' },
+      { id: 'academics', label: 'Grades & Test Scores' },
     ],
     'school-day': [
       { id: 'attendance', label: 'Attendance' },
@@ -63,7 +63,7 @@ const TEACHER_NAV_CONFIG: RoleNavConfig = {
   ],
   submenuByArea: {
     dashboard: [{ id: 'dashboard', label: 'My Class' }],
-    students: [{ id: 'academics', label: 'Academics' }],
+    students: [{ id: 'academics', label: 'Grades & Test Scores' }],
     'school-day': [
       { id: 'attendance', label: 'Attendance' },
       { id: 'schedule', label: 'Schedule' },
