@@ -72,6 +72,7 @@ export default function SetupCenterPage({
   currentAssignment,
   setPage,
   SETUP_PEOPLE,
+  onPreviewAs,
 }) {
   const safeSetupNavItems = Array.isArray(setupNavItems) ? setupNavItems : []
   const safeDivisions = DIVISIONS || {}
@@ -316,6 +317,7 @@ export default function SetupCenterPage({
               DIVISIONS={safeDivisions}
               actorName={userName}
               actorRole={role}
+              onPreviewAs={onPreviewAs}
             />
           )}
       </div>

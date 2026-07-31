@@ -1265,6 +1265,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('')
+  const [previewAs, setPreviewAs] = useState<{ name: string; role: string } | null>(null)
   const [loggedInStaff, setLoggedInStaff] = useState<StaffMemberLike[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
   const [activeSessionIds, setActiveSessionIds] = useState<Record<number, number>>({})
@@ -4130,29 +4131,31 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const userAccessForMode = getUserAccess(userName, role)
   const allowedDivisionSetForMode = new Set(userAccessForMode.divisions)
-  const isStoreRoleForMode = role === 'store'
+  const effectiveRole = previewAs?.role || role
+  const effectiveUserName = previewAs?.name || userName
+  const isStoreRoleForMode = effectiveRole === 'store'
   const divisionScopedStudentsForMode = students.filter(
     s =>
       allowedDivisionSetForMode.has(studentDivision(s)) &&
       (divisionView === 'all' || studentDivision(s) === divisionView)
   )
-  const isTeacherRoleForMode = role === 'teacher' || role === 'rebbe'
-  const isTherapistRoleForMode = role === 'therapist'
+  const isTeacherRoleForMode = effectiveRole === 'teacher' || effectiveRole === 'rebbe'
+  const isTherapistRoleForMode = effectiveRole === 'therapist'
   const assignedTeacherClassIdsForMode = isTeacherRoleForMode
     ? (
         teacherClassIds.length > 0
           ? teacherClassIds
-          : (teacherClass || getLookupValue(TEACHER_CLASS_MAP, userName))
-            ? [teacherClass || getLookupValue(TEACHER_CLASS_MAP, userName)]
+          : (teacherClass || getLookupValue(TEACHER_CLASS_MAP, effectiveUserName))
+            ? [teacherClass || getLookupValue(TEACHER_CLASS_MAP, effectiveUserName)]
             : []
       )
     : []
   const assignedTeacherStudentIdsForMode = isTeacherRoleForMode
-    ? getTeacherAssignedStudentIds(userName, setupAssignments)
+    ? getTeacherAssignedStudentIds(effectiveUserName, setupAssignments)
     : []
-  const assignedStaffStudentIdsForMode = getTeacherAssignedStudentIds(userName, setupAssignments)
+  const assignedStaffStudentIdsForMode = getTeacherAssignedStudentIds(effectiveUserName, setupAssignments)
   const assignedStaffStudentSetForMode = new Set(assignedStaffStudentIdsForMode)
-  const isLeadershipRoleForMode = role === 'admin'
+  const isLeadershipRoleForMode = effectiveRole === 'admin'
   const assignedTeacherStudentSetForMode = new Set(assignedTeacherStudentIdsForMode)
   const studentsForCurrentRole = isStoreRoleForMode
     ? []
@@ -4338,6 +4341,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   return (
     <div style={S.app}>
+      {previewAs && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 2000, background: '#1d4ed8', color: '#fff', padding: '8px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, boxShadow: '0 2px 8px rgba(29,78,216,0.4)' }}>
+          <span>👁 Previewing as <strong>{previewAs.name}</strong> · {previewAs.role.charAt(0).toUpperCase() + previewAs.role.slice(1)}</span>
+          <button onClick={() => setPreviewAs(null)} style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.35)', color: '#fff', borderRadius: 6, padding: '4px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Return to Leadership View</button>
+        </div>
+      )}
       <style>{`
         @keyframes dashboardPageFade {
           0% { opacity: 0.78; }
@@ -4699,6 +4708,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             currentAssignment={currentAssignment}
             setPage={setPage}
             SETUP_PEOPLE={SETUP_PEOPLE}
+            onPreviewAs={(name: string, previewRole: string) => setPreviewAs({ name, role: previewRole })}
           />
         )}
 

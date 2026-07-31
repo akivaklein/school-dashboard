@@ -16,6 +16,7 @@ export default function SetupAccountsSection({
   DIVISIONS,
   actorName,
   actorRole,
+  onPreviewAs,
 }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -287,6 +288,14 @@ export default function SetupAccountsSection({
                                       >
                                         {inviteSent[person.name] ? 'Invite sent ✓' : accountStatus === 'pending-invitation' ? 'Resend Invite' : 'Send Invite'}
                                       </button>
+                                      {typeof onPreviewAs === 'function' && (
+                                        <button
+                                          onClick={e => { e.stopPropagation(); onPreviewAs(person.name, person.role || 'teacher') }}
+                                          style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #c7d2fe', background: '#eef2ff', color: '#3730a3', fontSize: 11, cursor: 'pointer' }}
+                                        >
+                                          👁 Preview Access
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
