@@ -318,7 +318,7 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
           </button>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
         {metricCards.map(card => (
           <button
             key={card.label}
@@ -329,15 +329,15 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
               border: `1px solid ${card.color}22`,
               borderTop: `3px solid ${card.color}`,
               boxShadow: '0 6px 18px rgba(15, 23, 42, 0.06)',
-              borderRadius: 14,
-              padding: '12px 14px',
+              borderRadius: 12,
+              padding: '8px 10px',
               textAlign: 'center',
               cursor: card.drillId ? 'pointer' : 'default',
             }}
           >
-            <div style={{ fontSize: 28, lineHeight: 1.05, fontWeight: 800, color: card.color }}>{card.value}</div>
-            <div style={{ fontSize: 14, color: '#334155', marginTop: 4 }}>{card.label}</div>
-            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8 }}>{card.caption}</div>
+            <div style={{ fontSize: 18, lineHeight: 1.1, fontWeight: 800, color: card.color }}>{card.value}</div>
+            <div style={{ fontSize: 11, color: '#334155', marginTop: 3 }}>{card.label}</div>
+            <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 4 }}>{card.caption}</div>
           </button>
         ))}
       </div>
@@ -353,36 +353,36 @@ export default function TrackingTab({ s, students, staffMembers, S, HISTORICAL_D
               x
             </button>
           </div>
-          <div style={{ padding: 14, display: 'grid', gap: 14 }}>
-            <div style={{ textAlign: 'center', fontSize: 18, color: '#365444', fontWeight: 700 }}>
+          <div style={{ padding: 10, display: 'grid', gap: 8 }}>
+            <div style={{ textAlign: 'center', fontSize: 12, color: '#365444', fontWeight: 700 }}>
               Total: {totalLabel} across {Math.max(1, data.length)} {data.length === 1 ? 'day' : 'days'}
             </div>
-            <div style={{ fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 13, letterSpacing: '0.03em' }}>{timelineTitle}</div>
+            <div style={{ fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 11, letterSpacing: '0.03em' }}>{timelineTitle}</div>
             <div style={{ display: 'grid', gap: 4 }}>
               {selectedSegmentRows.length === 0 ? (
                 <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>No timeline rows available for this selection.</div>
               ) : selectedSegmentRows.map((segment, index) => {
                 const tone = statusTone(segment.status)
                 return (
-                <div key={`${segment.time}-${segment.status}-${index}`} style={{ display: 'grid', gridTemplateColumns: '72px minmax(0, 1fr) auto', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: tone.bg }}>
-                  <div style={{ color: '#64748b', fontWeight: 700, fontSize: 14 }}>{segment.time}</div>
+                <div key={`${segment.time}-${segment.status}-${index}`} style={{ display: 'grid', gridTemplateColumns: '56px minmax(0, 1fr) auto', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 8, background: tone.bg }}>
+                  <div style={{ color: '#64748b', fontWeight: 700, fontSize: 11 }}>{segment.time}</div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: tone.title }}>{segment.note || statusLabel[segment.status]}</div>
-                    <div style={{ fontSize: 12, color: tone.sub, marginTop: 1 }}>{segment.location}{segment.staffName ? ` - ${segment.staffName}` : ''}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: tone.title }}>{segment.note || statusLabel[segment.status]}</div>
+                    <div style={{ fontSize: 10, color: tone.sub, marginTop: 1 }}>{segment.location}{segment.staffName ? ` - ${segment.staffName}` : ''}</div>
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: tone.minutes }}>{segment.estimatedDuration} min</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: tone.minutes }}>{segment.estimatedDuration} min</div>
                 </div>
               )})}
             </div>
-            <div style={{ fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 13, letterSpacing: '0.03em' }}>BY DAY</div>
+            <div style={{ fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 11, letterSpacing: '0.03em' }}>BY DAY</div>
             <div style={{ display: 'grid', gap: 6 }}>
               {byDayRows.map(row => (
-                <div key={`${row.date}-${row.value}`} style={{ display: 'grid', gridTemplateColumns: '120px 1fr auto', alignItems: 'center', gap: 8 }}>
-                  <div style={{ color: '#94a3b8', fontSize: 12 }}>{row.date}</div>
-                  <div style={{ height: 10, borderRadius: 999, background: '#f1f5f9', overflow: 'hidden' }}>
+                <div key={`${row.date}-${row.value}`} style={{ display: 'grid', gridTemplateColumns: '92px 1fr auto', alignItems: 'center', gap: 8 }}>
+                  <div style={{ color: '#94a3b8', fontSize: 10 }}>{row.date}</div>
+                  <div style={{ height: 8, borderRadius: 999, background: '#f1f5f9', overflow: 'hidden' }}>
                     <div style={{ width: `${row.fillPct}%`, height: '100%', borderRadius: 999, background: row.barColor }} />
                   </div>
-                  <div style={{ color: '#334155', fontWeight: 700, fontSize: 14 }}>{drillType === 'late' ? `${row.pct}%` : formatStatMinutes(row.value)}</div>
+                  <div style={{ color: '#334155', fontWeight: 700, fontSize: 11 }}>{drillType === 'late' ? `${row.pct}%` : formatStatMinutes(row.value)}</div>
                 </div>
               ))}
             </div>
