@@ -144,7 +144,6 @@ import {
   getStaffNameOptions,
   getDashboardContextInfo,
   DAYS,
-  TEACHER_CLASS_MAP,
   CLASSES,
   STUDENT_CLASSES,
   DIVISIONS,
@@ -152,7 +151,6 @@ import {
   studentDivision,
   resolveLiveStudentPoints,
   resolveStudentClassId,
-  getTeacherAssignedClassIds,
   getTeacherAssignedStudentIds,
   getUserAccess,
   defaultDivisionView,
@@ -285,15 +283,12 @@ function asStringMap(value: unknown): Record<string, string> {
   }, {})
 }
 
+function normalizeStaffName(name: string) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 function isTeacherAssignmentActive(assignment: TeacherRebbeAssignment, now = new Date()) {
   if (!assignment || assignment.status !== 'active') return false
-
-  const todayName = now.toLocaleDateString('en-US', { weekday: 'long' })
-  const weekdays = Array.isArray(assignment.weekdays) ? assignment.weekdays : []
-
-  if (weekdays.length > 0 && !weekdays.includes(todayName)) {
-    return false
-  }
 
   if (assignment.start_date) {
     const startDate = new Date(`${assignment.start_date}T00:00:00`)
@@ -320,7 +315,7 @@ function buildTeacherPeriodBuckets(assignments: TeacherRebbeAssignment[]) {
 
   assignments.forEach(assignment => {
     if (!isTeacherAssignmentActive(assignment)) return
-    const teacherName = String(assignment.teacher_name || '').trim()
+    const teacherName = normalizeStaffName(assignment.teacher_name)
     if (!teacherName) return
 
     if (!result[teacherName]) {
@@ -3086,7 +3081,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     teacherRebbeAssignments.forEach(assignment => {
       if (!isTeacherAssignmentActive(assignment)) return
-      const teacherName = String(assignment.teacher_name || '').trim()
+      const teacherName = normalizeStaffName(assignment.teacher_name)
       const studentId = Number(assignment.student_id)
       if (!teacherName || !Number.isFinite(studentId)) return
 
@@ -3104,14 +3099,32 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     [teacherRebbeAssignments],
   )
 
+  const teacherAssignedClassIdsByName = useMemo(() => {
+    const map = new Map<string, string[]>()
+
+    activeTeacherAssignmentIdsByName.forEach((studentIds, teacherName) => {
+      const classIds = Array.from(studentIds)
+        .map(studentId => {
+          const student = students.find(item => Number(item.id) === Number(studentId))
+          return student ? resolveStudentClassId(student) : null
+        })
+        .filter(Boolean) as string[]
+
+      map.set(teacherName, Array.from(new Set(classIds)))
+    })
+
+    return map
+  }, [activeTeacherAssignmentIdsByName, students])
+
   useEffect(() => {
     if (role !== 'teacher' && role !== 'rebbe') return
     if (!userName) return
 
-    const classIds = getTeacherAssignedClassIds(userName, setupAssignments, students)
+    const normalizedName = normalizeStaffName(userName)
+    const classIds = teacherAssignedClassIdsByName.get(normalizedName) || []
     setTeacherClassIds(classIds)
-    setTeacherClass(classIds[0] || TEACHER_CLASS_MAP[userName] || null)
-  }, [role, userName, setupAssignments, students])
+    setTeacherClass(classIds[0] || null)
+  }, [role, userName, teacherAssignedClassIdsByName])
 
   // Persist setup assignment changes (teachers/support caseloads) to Supabase.
   useEffect(() => {
@@ -3638,10 +3651,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     setDivisionView(defaultDivisionView(access))
     setLoggedIn(true)
     setPage(r === 'store' ? 'store' : 'dashboard')
-    if (r === 'teacher') {
-      const classIds = getTeacherAssignedClassIds(name, setupAssignments, students)
+    if (r === 'teacher' || r === 'rebbe') {
+      const classIds = teacherAssignedClassIdsByName.get(normalizeStaffName(name)) || []
       setTeacherClassIds(classIds)
-      setTeacherClass(classIds[0] || TEACHER_CLASS_MAP[name] || null)
+      setTeacherClass(classIds[0] || null)
     } else {
       setTeacherClass(null)
       setTeacherClassIds([])
@@ -4555,6 +4568,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const userAccessForMode = getUserAccess(effectiveUserName, effectiveRole)
   const allowedDivisionSetForMode = new Set(userAccessForMode.divisions)
   const isStoreRoleForMode = effectiveRole === 'store'
+  const normalizedEffectiveUserName = normalizeStaffName(effectiveUserName)
   const divisionScopedStudentsForMode = students.filter(
     s =>
       allowedDivisionSetForMode.has(studentDivision(s)) &&
@@ -4563,21 +4577,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const isTeacherRoleForMode = effectiveRole === 'teacher' || effectiveRole === 'rebbe'
   const isTherapistRoleForMode = effectiveRole === 'therapist'
   const teacherAssignmentStudentIdsForMode = Array.from(
-    activeTeacherAssignmentIdsByName.get(effectiveUserName) || new Set<number>(),
+    activeTeacherAssignmentIdsByName.get(normalizedEffectiveUserName) || new Set<number>(),
   )
   const assignedTeacherClassIdsForMode = isTeacherRoleForMode
-    ? (
-        teacherClassIds.length > 0
-          ? teacherClassIds
-          : (teacherClass || getLookupValue(TEACHER_CLASS_MAP, effectiveUserName))
-            ? [teacherClass || getLookupValue(TEACHER_CLASS_MAP, effectiveUserName)]
-            : []
-      )
+    ? (teacherAssignedClassIdsByName.get(normalizedEffectiveUserName) || teacherClassIds)
     : []
   const assignedTeacherStudentIdsForMode = isTeacherRoleForMode
     ? teacherAssignmentStudentIdsForMode
     : []
-  const assignedStaffStudentIdsForMode = getTeacherAssignedStudentIds(effectiveUserName, setupAssignments)
+  const assignedStaffStudentIdsForMode = isTeacherRoleForMode
+    ? assignedTeacherStudentIdsForMode
+    : getTeacherAssignedStudentIds(effectiveUserName, setupAssignments)
   const assignedStaffStudentSetForMode = new Set(assignedStaffStudentIdsForMode)
   const isLeadershipRoleForMode = effectiveRole === 'admin'
   const assignedTeacherStudentSetForMode = new Set(assignedTeacherStudentIdsForMode)
@@ -4619,7 +4629,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       recordStudentPointsAction={recordStudentPointsAction}
       canViewEntireSchool={effectiveRole === 'admin'}
       assignedStudentIds={assignedStaffStudentIdsForMode}
-      assignmentPeriods={teacherAssignmentPeriodBuckets?.[effectiveUserName]?.periods || setupAssignments?.[effectiveUserName]?.periods || {}}
+      assignmentPeriods={teacherAssignmentPeriodBuckets?.[normalizedEffectiveUserName]?.periods || {}}
       teachingAssignments={teacherAssignmentPeriodBuckets}
     />
   )
@@ -4630,17 +4640,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const isOfficeUser = ['Eli Bloom', 'Zev Reisman', 'Eli Stern'].includes(effectiveUserName)
   const allowedDivisionSet = new Set(userAccess.divisions)
   const divisionScopedStudents = students.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
+  const normalizedUserName = normalizeStaffName(effectiveUserName)
   const assignedTeacherClassIds = isTeacherRole
-    ? (
-        teacherClassIds.length > 0
-          ? teacherClassIds
-          : (teacherClass || getLookupValue(TEACHER_CLASS_MAP, userName))
-            ? [teacherClass || getLookupValue(TEACHER_CLASS_MAP, userName)]
-            : []
-      )
+    ? (teacherAssignedClassIdsByName.get(normalizedUserName) || teacherClassIds)
     : []
   const assignedTeacherStudentIds = isTeacherRole
-    ? Array.from(activeTeacherAssignmentIdsByName.get(effectiveUserName) || new Set<number>())
+    ? Array.from(activeTeacherAssignmentIdsByName.get(normalizedUserName) || new Set<number>())
     : []
   const assignedTeacherStudentSet = new Set(assignedTeacherStudentIds)
   const assignedStaffStudentIds = isTeacherRole
