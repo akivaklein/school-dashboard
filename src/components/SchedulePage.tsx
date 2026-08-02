@@ -31,6 +31,8 @@ export default function SchedulePage({
 }: Props) {
   const [horizonDays, setHorizonDays] = useState(3)
   const [selectedCoverageClassId, setSelectedCoverageClassId] = useState<string | null>(CLASSES[0]?.id || null)
+  const [showConflicts, setShowConflicts] = useState(false)
+  const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({})
 
   const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const jsDayToName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -49,6 +51,44 @@ export default function SchedulePage({
     () => (THERAPY_SCHEDULE || []).filter(item => visibleDaySet.has(String(item.day || ''))),
     [THERAPY_SCHEDULE, visibleDaySet],
   )
+
+  const therapyProviders = useMemo(() => {
+    const toMinutes = (timeValue: string) => {
+      const match = String(timeValue || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+      if (!match) return Number.MAX_SAFE_INTEGER
+      let hour = Number(match[1])
+      const minute = Number(match[2])
+      const meridiem = String(match[3]).toUpperCase()
+      if (meridiem === 'PM' && hour !== 12) hour += 12
+      if (meridiem === 'AM' && hour === 12) hour = 0
+      return hour * 60 + minute
+    }
+
+    const groups = new Map<string, any[]>()
+    therapyRows.forEach(row => {
+      const provider = String(row.therapistName || row.staffName || row.staffId || 'Unassigned Provider')
+      const existing = groups.get(provider) || []
+      groups.set(provider, [...existing, row])
+    })
+
+    return Array.from(groups.entries())
+      .map(([provider, rows]) => {
+        const sortedRows = [...rows].sort((a, b) => {
+          const dayA = visibleDays.indexOf(String(a.day || ''))
+          const dayB = visibleDays.indexOf(String(b.day || ''))
+          if (dayA !== dayB) return dayA - dayB
+          return toMinutes(String(a.time || '')) - toMinutes(String(b.time || ''))
+        })
+
+        return {
+          provider,
+          rows: sortedRows,
+          appointmentCount: sortedRows.length,
+          nextSession: sortedRows[0] || null,
+        }
+      })
+      .sort((a, b) => a.provider.localeCompare(b.provider))
+  }, [therapyRows, visibleDays])
 
   const scheduleConflicts = useMemo(() => {
     const warnings: string[] = []
@@ -151,13 +191,20 @@ export default function SchedulePage({
         </div>
 
         {scheduleConflicts.length > 0 && (
-          <div style={{ marginTop: 12, border: '1px solid #fecaca', borderRadius: 10, background: '#fff7f7', padding: '10px 12px' }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: '#9f1239', marginBottom: 6 }}>Conflict Warnings</div>
-            {scheduleConflicts.slice(0, 5).map((warning, index) => (
-              <div key={`${warning}-${index}`} style={{ fontSize: 12, color: '#7f1d1d', padding: '2px 0' }}>
-                ⚠ {warning}
+          <div style={{ marginTop: 10, border: '1px solid #fecaca', borderRadius: 10, background: '#fff7f7', overflow: 'hidden' }}>
+            <button
+              onClick={() => setShowConflicts(prev => !prev)}
+              style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'left', padding: '9px 11px', fontSize: 12, fontWeight: 800, color: '#9f1239', cursor: 'pointer' }}
+            >
+              Schedule Conflicts ({scheduleConflicts.length}) {showConflicts ? '▲' : '▼'}
+            </button>
+            {showConflicts && (
+              <div style={{ borderTop: '1px solid #fecaca', padding: '8px 11px' }}>
+                {scheduleConflicts.map((warning, index) => (
+                  <div key={`${warning}-${index}`} style={{ fontSize: 11.5, color: '#7f1d1d', padding: '1px 0' }}>⚠ {warning}</div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -233,18 +280,43 @@ export default function SchedulePage({
 
         <div>
           <div style={{ ...S.card, marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>🧠 Therapy Pullouts ({visibleDays.join(', ')})</div>
-            {therapyRows.map((item, index) => {
-              const staffMember = STAFF.find(staff => staff.id === item.staffId)
-              return (
-                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: '#ffffff', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 8 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 6, background: '#5b5f7a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{item.day}</div>
-                  <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13 }}>{item.student}</div><div style={{ fontSize: 11, color: '#64748b' }}>{staffMember?.name} · {item.type}</div></div>
-                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: 12, fontWeight: 700 }}>{item.time}</div><div style={{ fontSize: 11, color: '#94a3b8' }}>{item.duration}</div></div>
-                </div>
-              )
-            })}
-            {therapyRows.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>No therapy sessions in this planning window.</div>}
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>🧠 Therapy & BCBA ({visibleDays.join(', ')})</div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              {therapyProviders.map(provider => {
+                const isExpanded = Boolean(expandedProviders[provider.provider])
+                const previewRows = provider.rows.slice(0, 3)
+                const shownRows = isExpanded ? provider.rows : previewRows
+                return (
+                  <div key={provider.provider} style={{ border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', padding: '7px 8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) auto auto', gap: 10, alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{provider.provider}</div>
+                        <div style={{ fontSize: 11, color: '#64748b' }}>
+                          {provider.nextSession ? `${provider.nextSession.day} ${provider.nextSession.time} • ${provider.nextSession.type || 'Service'}` : 'No upcoming session'}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#334155' }}>{provider.appointmentCount} appt</div>
+                      <button onClick={() => setExpandedProviders(prev => ({ ...prev, [provider.provider]: !isExpanded }))} style={{ ...S.btn('ghost'), padding: '4px 8px', fontSize: 11 }}>
+                        {isExpanded ? 'Collapse' : `Show all (${provider.appointmentCount})`}
+                      </button>
+                    </div>
+                    <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
+                      {shownRows.map((item, index) => (
+                        <div key={`${provider.provider}-${index}`} style={{ display: 'grid', gridTemplateColumns: '90px minmax(120px, 1fr) minmax(80px, 0.8fr) minmax(90px, 0.9fr) auto auto', gap: 8, alignItems: 'center', border: '1px solid #eef2f7', borderRadius: 7, padding: '5px 7px', fontSize: 11.5 }}>
+                          <div style={{ fontWeight: 700, color: '#1e293b' }}>{item.day} {item.time}</div>
+                          <div style={{ color: '#0f172a', fontWeight: 600 }}>{item.student || 'Unknown student'}</div>
+                          <div style={{ color: '#475569' }}>{item.type || item.service || 'Service'}</div>
+                          <div style={{ color: '#64748b' }}>{item.className || item.classId || item.location || 'Class/Location'}</div>
+                          <div style={{ color: '#475569' }}>{item.duration || '30 min'}</div>
+                          <button style={{ ...S.btn('ghost'), padding: '3px 7px', fontSize: 10.5 }}>Edit</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+              {therapyProviders.length === 0 && <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '6px 0' }}>No therapy sessions in this planning window.</div>}
+            </div>
           </div>
 
           <div style={S.card}>

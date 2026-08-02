@@ -101,6 +101,11 @@ function TimePicker({ value, disabled, onChange }: { value: string; disabled: bo
 
 export default function TherapistAssignmentsPage({ S, students, setStudents, THERAPIST_OPTIONS, SCHEDULE_PERIODS, persistStudentFields }: any) {
   const [editingByAssignmentId, setEditingByAssignmentId] = useState<Record<string, boolean>>({})
+  const [expandedStudents, setExpandedStudents] = useState<Record<string, boolean>>({})
+  const [providerFilter, setProviderFilter] = useState('all')
+  const [classFilter, setClassFilter] = useState('all')
+  const [divisionFilter, setDivisionFilter] = useState('all')
+  const [assignedFilter, setAssignedFilter] = useState<'all' | 'assigned' | 'unassigned'>('all')
 
   const byStudent = useMemo(() => getAssignmentsByStudent(students), [students])
   const allAssignments = useMemo(() => {
@@ -130,6 +135,45 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
       return acc
     }, {})
   }, [students, SCHEDULE_PERIODS])
+
+  const providerOptions = useMemo(
+    () => Array.from(new Set(allAssignments.map(item => String(item.assignment.provider || '')).filter(Boolean))).sort(),
+    [allAssignments],
+  )
+
+  const classOptions = useMemo(
+    () => Array.from(new Set(students.map((student: any) => String(student.className || '').trim()).filter(Boolean))).sort(),
+    [students],
+  )
+
+  const divisionOptions = useMemo(
+    () => Array.from(new Set(allAssignments.map(item => String(item.assignment.division || '').trim()).filter(Boolean))).sort(),
+    [allAssignments],
+  )
+
+  const visibleStudents = useMemo(() => {
+    return students.filter((student: any) => {
+      const assignments = byStudent[String(student.id)] || []
+      const hasAssignments = assignments.length > 0
+
+      if (assignedFilter === 'assigned' && !hasAssignments) return false
+      if (assignedFilter === 'unassigned' && hasAssignments) return false
+
+      if (providerFilter !== 'all' && !assignments.some((assignment: AssignmentRow) => String(assignment.provider || '') === providerFilter)) {
+        return false
+      }
+
+      if (classFilter !== 'all' && String(student.className || '') !== classFilter) {
+        return false
+      }
+
+      if (divisionFilter !== 'all' && !assignments.some((assignment: AssignmentRow) => String(assignment.division || '') === divisionFilter)) {
+        return false
+      }
+
+      return true
+    })
+  }, [students, byStudent, assignedFilter, providerFilter, classFilter, divisionFilter])
 
   function patchStudent(studentId: number | string, updater: (assignments: AssignmentRow[]) => AssignmentRow[]) {
     const sourceStudent = students.find((student: any) => String(student.id) === String(studentId))
@@ -188,31 +232,66 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
       </div>
 
       <div style={S.card}>
+        <div style={{ marginBottom: 10, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(130px, 1fr))', gap: 8 }}>
+          <select value={providerFilter} onChange={event => setProviderFilter(event.target.value)} style={{ padding: '6px 8px', borderRadius: 7, border: '1px solid #dbe5f0', fontSize: 12 }}>
+            <option value="all">All providers</option>
+            {providerOptions.map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+          <select value={classFilter} onChange={event => setClassFilter(event.target.value)} style={{ padding: '6px 8px', borderRadius: 7, border: '1px solid #dbe5f0', fontSize: 12 }}>
+            <option value="all">All classes</option>
+            {classOptions.map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+          <select value={divisionFilter} onChange={event => setDivisionFilter(event.target.value)} style={{ padding: '6px 8px', borderRadius: 7, border: '1px solid #dbe5f0', fontSize: 12 }}>
+            <option value="all">All divisions</option>
+            {divisionOptions.map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+          <select value={assignedFilter} onChange={event => setAssignedFilter((event.target.value as 'all' | 'assigned' | 'unassigned'))} style={{ padding: '6px 8px', borderRadius: 7, border: '1px solid #dbe5f0', fontSize: 12 }}>
+            <option value="all">Assigned + unassigned</option>
+            <option value="assigned">Assigned only</option>
+            <option value="unassigned">Unassigned only</option>
+          </select>
+        </div>
         <div style={{ display: 'grid', gap: 12 }}>
-          {students.map((student: any) => {
+          {visibleStudents.map((student: any) => {
             const assignments = byStudent[String(student.id)] || []
             const studentWarnings = conflicts.studentWarningsByStudentId[String(student.id)] || []
+            const providerSummary = Array.from(new Set(assignments.map((assignment: AssignmentRow) => assignment.provider).filter(Boolean))).join(', ') || 'Unassigned'
+            const serviceSummary = Array.from(new Set(assignments.map((assignment: AssignmentRow) => assignment.serviceType).filter(Boolean))).join(', ') || '—'
+            const nextSession = assignments[0]
+            const expanded = Boolean(expandedStudents[String(student.id)])
 
             return (
-              <div key={student.id} style={{ border: '1px solid #dbe5f0', borderRadius: 12, background: '#fff', padding: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div key={student.id} style={{ border: '1px solid #dbe5f0', borderRadius: 10, background: '#fff', padding: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(130px, 1fr) minmax(120px, 1fr) minmax(140px, 1fr) minmax(120px, 0.8fr) auto', gap: 8, alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontWeight: 900, fontSize: 13 }}>{student.name}</div>
-                    <div style={{ fontSize: 11, color: '#64748b' }}>{student.className || 'Unassigned class'}</div>
+                    <div style={{ fontWeight: 800, fontSize: 12.5 }}>{student.name}</div>
+                    <div style={{ fontSize: 10.5, color: '#64748b' }}>{student.className || 'Unassigned class'} · {student.division || 'Division n/a'}</div>
                   </div>
-                  <button
-                    onClick={() => {
-                      const next = createEmptyAssignment(student)
-                      patchStudent(student.id, prev => [...prev, toRow(next as AssignmentRow)])
-                      setEditing(String(next.id), true)
-                    }}
-                    style={S.btn('ghost')}
-                  >
-                    + Add another provider/service
-                  </button>
+                  <div style={{ fontSize: 11, color: '#334155' }}>{providerSummary}</div>
+                  <div style={{ fontSize: 11, color: '#475569' }}>{serviceSummary}</div>
+                  <div style={{ fontSize: 11, color: '#475569' }}>{nextSession?.day ? `${nextSession.day} ${nextSession.startTime || ''}` : 'No session'}</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => {
+                        const next = createEmptyAssignment(student)
+                        patchStudent(student.id, prev => [...prev, toRow(next as AssignmentRow)])
+                        setEditing(String(next.id), true)
+                        setExpandedStudents(prev => ({ ...prev, [String(student.id)]: true }))
+                      }}
+                      style={{ ...S.btn('ghost'), padding: '5px 8px', fontSize: 11 }}
+                    >
+                      Add/Edit
+                    </button>
+                    <button
+                      onClick={() => setExpandedStudents(prev => ({ ...prev, [String(student.id)]: !expanded }))}
+                      style={{ ...S.btn('ghost'), padding: '5px 8px', fontSize: 11 }}
+                    >
+                      {expanded ? 'Hide' : 'Details'}
+                    </button>
+                  </div>
                 </div>
 
-                {studentWarnings.length > 0 && (
+                {expanded && studentWarnings.length > 0 && (
                   <div style={{ border: '1px solid #f59e0b', background: '#fffbeb', color: '#92400e', borderRadius: 8, padding: '8px 10px', fontSize: 11.5, marginBottom: 10 }}>
                     {studentWarnings.map((warning: string, index: number) => (
                       <div key={`${student.id}-warning-${index}`}>Student conflict: {warning}</div>
@@ -220,7 +299,8 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gap: 8 }}>
+                {expanded && (
+                <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
                   {assignments.length === 0 && (
                     <div style={{ border: '1px dashed #dbe5f0', borderRadius: 8, padding: '10px 12px', color: '#64748b', fontSize: 12 }}>
                       No assignments yet.
@@ -405,6 +485,7 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
                     )
                   })}
                 </div>
+                )}
               </div>
             )
           })}

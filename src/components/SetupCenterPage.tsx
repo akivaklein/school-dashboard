@@ -73,7 +73,10 @@ export default function SetupCenterPage({
   currentAssignment,
   setPage,
   SETUP_PEOPLE,
+  teacherRebbeAssignments = [],
   onPreviewAs,
+  onSaveTeacherRebbeAssignment,
+  onSetTeacherRebbeAssignmentStatus,
   studentClassOverrides = {},
   onSaveStudentClassAssignment,
   onSaveStudentClassAssignmentBatch,
@@ -226,6 +229,9 @@ export default function SetupCenterPage({
               filteredSetupStudents={filteredSetupStudents}
               togglePeriodStudent={togglePeriodStudent}
               toggleCaseloadStudent={toggleCaseloadStudent}
+              teacherRebbeAssignments={teacherRebbeAssignments}
+              onSaveTeacherRebbeAssignment={onSaveTeacherRebbeAssignment}
+              onSetTeacherRebbeAssignmentStatus={onSetTeacherRebbeAssignmentStatus}
             />
           )}
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 export default function SetupAssignmentsSection({
   overlapWarnings,
@@ -17,9 +17,65 @@ export default function SetupAssignmentsSection({
   filteredSetupStudents,
   togglePeriodStudent,
   toggleCaseloadStudent,
+  teacherRebbeAssignments = [],
+  onSaveTeacherRebbeAssignment,
+  onSetTeacherRebbeAssignmentStatus,
 }) {
   const [pendingAssignmentChange, setPendingAssignmentChange] = useState(null)
   const [assignmentView, setAssignmentView] = useState<'staff' | 'students'>('staff')
+  const [teacherDraft, setTeacherDraft] = useState({
+    studentId: '',
+    subject: '',
+    classOrGroup: '',
+    period: 'Period 1',
+    weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+    startDate: '',
+    endDate: '',
+    assignmentType: 'additional',
+    status: 'active',
+  })
+
+  const currentTeacherAssignments = useMemo(() => {
+    if (!currentPerson?.name) return []
+    return (teacherRebbeAssignments || []).filter(assignment => assignment.teacher_name === currentPerson.name)
+  }, [teacherRebbeAssignments, currentPerson?.name])
+
+  function toggleDraftWeekday(day) {
+    setTeacherDraft(prev => ({
+      ...prev,
+      weekdays: prev.weekdays.includes(day)
+        ? prev.weekdays.filter(value => value !== day)
+        : [...prev.weekdays, day],
+    }))
+  }
+
+  async function saveTeacherDraftAssignment() {
+    if (typeof onSaveTeacherRebbeAssignment !== 'function') return
+    const studentId = Number(teacherDraft.studentId)
+    if (!Number.isFinite(studentId) || !currentPerson?.name) return
+
+    await onSaveTeacherRebbeAssignment({
+      student_id: studentId,
+      teacher_name: currentPerson.name,
+      subject: teacherDraft.subject || 'General',
+      class_or_group: teacherDraft.classOrGroup || 'General Group',
+      period: teacherDraft.period,
+      weekdays: teacherDraft.weekdays,
+      start_date: teacherDraft.startDate || null,
+      end_date: teacherDraft.endDate || null,
+      assignment_type: teacherDraft.assignmentType,
+      status: teacherDraft.status,
+    })
+
+    setTeacherDraft(prev => ({
+      ...prev,
+      studentId: '',
+      subject: '',
+      classOrGroup: '',
+      startDate: '',
+      endDate: '',
+    }))
+  }
 
   function getCurrentAssignmentOwner(studentId, type) {
     if (!studentId) return null
@@ -433,6 +489,93 @@ export default function SetupAssignmentsSection({
                                   </div>
                                 )
                               })}
+
+                              <div style={{ border: '1px solid #dbe5f0', borderRadius: 12, background: '#ffffff', padding: 12 }}>
+                                <div style={{ fontSize: 13, fontWeight: 900, color: '#2a3c53', marginBottom: 4 }}>Teacher/Rebbe Assignment Records</div>
+                                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>
+                                  These records drive teacher access scope and allow multiple assignments per student.
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(140px, 1fr))', gap: 8, marginBottom: 8 }}>
+                                  <select value={teacherDraft.studentId} onChange={event => setTeacherDraft(prev => ({ ...prev, studentId: event.target.value }))} style={{ padding: '8px 9px', borderRadius: 8, border: '1px solid #dbe5f0', fontSize: 11 }}>
+                                    <option value="">Student</option>
+                                    {filteredSetupStudents.map(student => <option key={`teacher-draft-student-${student.id}`} value={student.id}>{student.name}</option>)}
+                                  </select>
+                                  <input value={teacherDraft.subject} onChange={event => setTeacherDraft(prev => ({ ...prev, subject: event.target.value }))} placeholder="Subject" style={{ padding: '8px 9px', borderRadius: 8, border: '1px solid #dbe5f0', fontSize: 11 }} />
+                                  <input value={teacherDraft.classOrGroup} onChange={event => setTeacherDraft(prev => ({ ...prev, classOrGroup: event.target.value }))} placeholder="Class or group" style={{ padding: '8px 9px', borderRadius: 8, border: '1px solid #dbe5f0', fontSize: 11 }} />
+                                  <select value={teacherDraft.period} onChange={event => setTeacherDraft(prev => ({ ...prev, period: event.target.value }))} style={{ padding: '8px 9px', borderRadius: 8, border: '1px solid #dbe5f0', fontSize: 11 }}>
+                                    <option value="Period 1">Period 1</option>
+                                    <option value="Period 2">Period 2</option>
+                                    <option value="Period 3">Period 3</option>
+                                    <option value="Advisory">Advisory</option>
+                                    <option value="Pullout">Pullout</option>
+                                  </select>
+                                  <select value={teacherDraft.assignmentType} onChange={event => setTeacherDraft(prev => ({ ...prev, assignmentType: event.target.value }))} style={{ padding: '8px 9px', borderRadius: 8, border: '1px solid #dbe5f0', fontSize: 11 }}>
+                                    <option value="primary">Primary</option>
+                                    <option value="additional">Additional</option>
+                                  </select>
+                                  <select value={teacherDraft.status} onChange={event => setTeacherDraft(prev => ({ ...prev, status: event.target.value }))} style={{ padding: '8px 9px', borderRadius: 8, border: '1px solid #dbe5f0', fontSize: 11 }}>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                  </select>
+                                  <input type="date" value={teacherDraft.startDate} onChange={event => setTeacherDraft(prev => ({ ...prev, startDate: event.target.value }))} style={{ padding: '8px 9px', borderRadius: 8, border: '1px solid #dbe5f0', fontSize: 11 }} />
+                                  <input type="date" value={teacherDraft.endDate} onChange={event => setTeacherDraft(prev => ({ ...prev, endDate: event.target.value }))} style={{ padding: '8px 9px', borderRadius: 8, border: '1px solid #dbe5f0', fontSize: 11 }} />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => {
+                                    const selected = teacherDraft.weekdays.includes(day)
+                                    return (
+                                      <button
+                                        key={`weekday-${day}`}
+                                        onClick={() => toggleDraftWeekday(day)}
+                                        style={{
+                                          ...S.btn('ghost'),
+                                          padding: '4px 8px',
+                                          fontSize: 10.5,
+                                          border: selected ? '1px solid #7c9d84' : '1px solid #dbe5f0',
+                                          background: selected ? '#edf6ef' : '#ffffff',
+                                        }}
+                                      >
+                                        {day.slice(0, 3)}
+                                      </button>
+                                    )
+                                  })}
+                                  <button onClick={saveTeacherDraftAssignment} style={{ ...S.btn('primary'), marginLeft: 'auto' }}>Save Assignment</button>
+                                </div>
+
+                                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) minmax(95px, 0.7fr) minmax(95px, 0.8fr) minmax(90px, 0.8fr) minmax(90px, 0.8fr) auto', gap: 8, padding: '7px 9px', background: '#f8fafc', fontSize: 10.5, fontWeight: 800, color: '#475569' }}>
+                                    <div>Student / Subject</div>
+                                    <div>Class/Group</div>
+                                    <div>Period</div>
+                                    <div>Type</div>
+                                    <div>Status</div>
+                                    <div>Action</div>
+                                  </div>
+                                  {currentTeacherAssignments.length === 0 && (
+                                    <div style={{ padding: '10px 9px', fontSize: 11, color: '#64748b' }}>No teacher/rebbe assignments saved yet.</div>
+                                  )}
+                                  {currentTeacherAssignments.map(assignment => {
+                                    const studentName = filteredSetupStudents.find(student => Number(student.id) === Number(assignment.student_id))?.name || `Student ${assignment.student_id}`
+                                    return (
+                                      <div key={assignment.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) minmax(95px, 0.7fr) minmax(95px, 0.8fr) minmax(90px, 0.8fr) minmax(90px, 0.8fr) auto', gap: 8, padding: '8px 9px', borderTop: '1px solid #edf2f7', fontSize: 11, alignItems: 'center' }}>
+                                        <div><div style={{ fontWeight: 700 }}>{studentName}</div><div style={{ color: '#64748b' }}>{assignment.subject || 'General'}</div></div>
+                                        <div>{assignment.class_or_group || '—'}</div>
+                                        <div>{assignment.period || '—'}</div>
+                                        <div style={{ textTransform: 'capitalize' }}>{assignment.assignment_type || 'additional'}</div>
+                                        <div style={{ textTransform: 'capitalize' }}>{assignment.status || 'active'}</div>
+                                        <button
+                                          onClick={() => onSetTeacherRebbeAssignmentStatus?.(assignment.id, assignment.status === 'active' ? 'inactive' : 'active')}
+                                          style={{ ...S.btn('ghost'), padding: '4px 7px', fontSize: 10.5 }}
+                                        >
+                                          {assignment.status === 'active' ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
                             </div>
                           ) : (
                             <div>

@@ -90,10 +90,8 @@ export default function SetupSchoolStructureSection({
 
   const defaultDivisionKey = Object.keys(schoolDivisions)[0] || 'mesivta'
 
-  // Student assignment state — merges localStorage fallback with Supabase overrides
-  const [studentClassMap, setStudentClassMap] = useState<Record<number, string>>(() =>
-    loadStoredConfig('school-dashboard-student-classes', { ...STUDENT_CLASSES_MAP })
-  )
+  // Student assignment state — sourced from in-memory map + Supabase overrides.
+  const [studentClassMap, setStudentClassMap] = useState<Record<number, string>>(() => ({ ...STUDENT_CLASSES_MAP }))
   const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set())
   const [moveToClass, setMoveToClass] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
@@ -112,9 +110,6 @@ export default function SetupSchoolStructureSection({
   }, [studentClassOverrides])
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('school-dashboard-student-classes', JSON.stringify(studentClassMap))
-    }
     // Sync back to the live STUDENT_CLASSES_MAP object so the rest of the app picks it up
     Object.keys(studentClassMap).forEach(id => {
       STUDENT_CLASSES_MAP[Number(id)] = studentClassMap[Number(id)]

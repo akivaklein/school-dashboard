@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { buildStaffAccountData, getStaffAccountStatus } from '../services/staffService'
 
+const EMAIL_INVITES_ENABLED = false
+
 const STATUS_CONFIG = {
   'active-account':      { label: 'Active',   dot: '#16a34a', text: '#14532d', bg: '#f0fdf4' },
   'pending-invitation':  { label: 'Pending',  dot: '#d97706', text: '#78350f', bg: '#fffbeb' },
@@ -23,14 +25,21 @@ export default function SetupAccountsSection({
   const [divisionFilter, setDivisionFilter] = useState('all')
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({})
-  const [inviteSent, setInviteSent] = useState<Record<string, boolean>>({})
+  const [inviteBanner, setInviteBanner] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
 
   const people = Array.isArray(SETUP_PEOPLE) ? SETUP_PEOPLE : []
   const totalUsers = people.length
-  const activeCount = people.filter(person => getStaffAccountStatus(setupAccounts[person.name]) === 'active-account').length
-  const pendingCount = people.filter(person => getStaffAccountStatus(setupAccounts[person.name]) === 'pending-invitation').length
+  const normalizeStatus = (status: string) => {
+    if (!EMAIL_INVITES_ENABLED && status === 'pending-invitation') return 'inactive-account'
+    return status
+  }
+
+  const activeCount = people.filter(person => normalizeStatus(getStaffAccountStatus(setupAccounts[person.name])) === 'active-account').length
+  const pendingCount = EMAIL_INVITES_ENABLED
+    ? people.filter(person => normalizeStatus(getStaffAccountStatus(setupAccounts[person.name])) === 'pending-invitation').length
+    : 0
   const disabledCount = people.filter(person => {
-    const s = getStaffAccountStatus(setupAccounts[person.name])
+    const s = normalizeStatus(getStaffAccountStatus(setupAccounts[person.name]))
     return s === 'inactive-account' || s === 'missing'
   }).length
 
@@ -38,7 +47,7 @@ export default function SetupAccountsSection({
     const normalized = search.trim().toLowerCase()
     return people.filter(person => {
       const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })
-      const state = getStaffAccountStatus(account)
+      const state = normalizeStatus(getStaffAccountStatus(account))
       const active = state === 'active-account'
       const divisions = account.divisions || 'both'
 
@@ -71,7 +80,20 @@ export default function SetupAccountsSection({
   }
 
   function sendInvite(person) {
+    if (!EMAIL_INVITES_ENABLED) {
+      setInviteBanner({
+        tone: 'error',
+        text: 'Email invites are not connected yet. Enable Supabase Auth invite flow before sending invitations.',
+      })
+      return
+    }
+
     const email = (inviteEmail[person.name] || '').trim()
+    if (!email) {
+      setInviteBanner({ tone: 'error', text: 'Enter an email address before sending an invite.' })
+      return
+    }
+
     setSetupAccounts(previous => ({
       ...previous,
       [person.name]: {
@@ -86,8 +108,7 @@ export default function SetupAccountsSection({
         }),
       }
     }))
-    setInviteSent(prev => ({ ...prev, [person.name]: true }))
-    setTimeout(() => setInviteSent(prev => ({ ...prev, [person.name]: false })), 3000)
+    setInviteBanner({ tone: 'success', text: `Invite queued for ${person.name}.` })
   }
 
   function formatDate(iso?: string) {
@@ -106,6 +127,12 @@ export default function SetupAccountsSection({
                       <div style={{ fontSize: 12, color: '#52667e', marginBottom: 14 }}>
                         Manage account status, invitations, division scope, and access controls.
                       </div>
+
+                        {inviteBanner && (
+                          <div style={{ marginBottom: 12, borderRadius: 8, padding: '8px 10px', border: inviteBanner.tone === 'success' ? '1px solid #86efac' : '1px solid #fecaca', background: inviteBanner.tone === 'success' ? '#f0fdf4' : '#fef2f2', color: inviteBanner.tone === 'success' ? '#166534' : '#991b1b', fontSize: 12, fontWeight: 700 }}>
+                            {inviteBanner.text}
+                          </div>
+                        )}
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) repeat(3, minmax(120px, 160px))', gap: 8, marginBottom: 12 }}>
                         <input
@@ -153,7 +180,7 @@ export default function SetupAccountsSection({
                         )}
                         {filteredPeople.map(person => {
                           const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })
-                          const accountStatus = getStaffAccountStatus(account)
+                          const accountStatus = normalizeStatus(getStaffAccountStatus(account))
                           const statusCfg = STATUS_CONFIG[accountStatus] || STATUS_CONFIG['missing']
                           const isExpanded = expandedRow === person.name
                           const isInactive = accountStatus === 'inactive-account' || accountStatus === 'missing'
@@ -188,17 +215,19 @@ export default function SetupAccountsSection({
                                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                                   {isInactive ? (
                                     <button
-                                      onClick={e => { e.stopPropagation(); setSetupAccounts(prev => ({ ...prev, [person.name]: { ...withAttribution(account, { active: true, accountState: 'pending', invitedAt: new Date().toISOString(), invitedBy: actorName || 'System', invitedByRole: actorRole || 'admin' }) } })) }}
-                                      style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1d4ed8', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                      onClick={e => { e.stopPropagation(); sendInvite(person) }}
+                                      style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b', fontSize: 11, fontWeight: 700, cursor: EMAIL_INVITES_ENABLED ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+                                      title={EMAIL_INVITES_ENABLED ? 'Send Invite' : 'Invite flow not connected'}
+                                      disabled={!EMAIL_INVITES_ENABLED}
                                     >
-                                      Send Invite
+                                      {EMAIL_INVITES_ENABLED ? 'Send Invite' : 'Invite Unavailable'}
                                     </button>
                                   ) : accountStatus === 'pending-invitation' ? (
                                     <button
                                       onClick={e => { e.stopPropagation(); sendInvite(person) }}
                                       style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
                                     >
-                                      {inviteSent[person.name] ? 'Sent ✓' : 'Resend Invite'}
+                                      Resend Invite
                                     </button>
                                   ) : (
                                     <button
@@ -256,7 +285,7 @@ export default function SetupAccountsSection({
                                     <div>
                                       <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 3 }}>Invited</div>
                                       <div style={{ fontSize: 12, color: '#334155' }}>
-                                        {account.invitedAt ? `${formatDate(account.invitedAt)} by ${account.invitedBy || '—'}` : '—'}
+                                        {EMAIL_INVITES_ENABLED && account.invitedAt ? `${formatDate(account.invitedAt)} by ${account.invitedBy || '—'}` : '—'}
                                       </div>
                                     </div>
                                     <div>
@@ -284,9 +313,13 @@ export default function SetupAccountsSection({
                                       )}
                                       <button
                                         onClick={e => { e.stopPropagation(); sendInvite(person) }}
-                                        style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', fontSize: 11, cursor: 'pointer', fontWeight: inviteSent[person.name] ? 700 : 400 }}
+                                        style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: EMAIL_INVITES_ENABLED ? 'pointer' : 'not-allowed', fontWeight: 700 }}
+                                        disabled={!EMAIL_INVITES_ENABLED}
+                                        title={EMAIL_INVITES_ENABLED ? 'Send invitation email' : 'Email invitations are not connected yet'}
                                       >
-                                        {inviteSent[person.name] ? 'Invite sent ✓' : accountStatus === 'pending-invitation' ? 'Resend Invite' : 'Send Invite'}
+                                        {EMAIL_INVITES_ENABLED
+                                          ? (accountStatus === 'pending-invitation' ? 'Resend Invite' : 'Send Invite')
+                                          : 'Invite Unavailable'}
                                       </button>
                                       {typeof onPreviewAs === 'function' && (
                                         <button

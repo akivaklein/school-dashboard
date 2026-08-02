@@ -314,6 +314,156 @@ export async function saveSetupAssignment(staffName: string, assignmentData: any
   return true
 }
 
+// Teacher/Rebbe assignments (separate from primary class/division)
+export type TeacherRebbeAssignment = {
+  id: string
+  student_id: number
+  teacher_name: string
+  subject: string
+  class_or_group: string
+  period: string
+  weekdays: string[]
+  start_date: string | null
+  end_date: string | null
+  assignment_type: 'primary' | 'additional'
+  status: 'active' | 'inactive'
+  updated_by: string
+  created_at?: string
+  updated_at?: string
+}
+
+function normalizeAssignmentWeekdays(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map(day => String(day || '').trim()).filter(Boolean)
+}
+
+function mapTeacherRebbeAssignment(row: any): TeacherRebbeAssignment {
+  return {
+    id: String(row.id),
+    student_id: Number(row.student_id),
+    teacher_name: String(row.teacher_name || ''),
+    subject: String(row.subject || ''),
+    class_or_group: String(row.class_or_group || ''),
+    period: String(row.period || ''),
+    weekdays: normalizeAssignmentWeekdays(row.weekdays),
+    start_date: row.start_date ? String(row.start_date) : null,
+    end_date: row.end_date ? String(row.end_date) : null,
+    assignment_type: row.assignment_type === 'primary' ? 'primary' : 'additional',
+    status: row.status === 'inactive' ? 'inactive' : 'active',
+    updated_by: String(row.updated_by || 'System'),
+    created_at: row.created_at ? String(row.created_at) : undefined,
+    updated_at: row.updated_at ? String(row.updated_at) : undefined,
+  }
+}
+
+export function buildTeacherRebbeAssignmentId(input: {
+  studentId: number
+  teacherName: string
+  subject: string
+  classOrGroup: string
+  period: string
+  assignmentType: 'primary' | 'additional'
+}) {
+  const normalize = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  return [
+    'tra',
+    String(input.studentId),
+    normalize(input.teacherName),
+    normalize(input.subject || 'general'),
+    normalize(input.classOrGroup || 'class'),
+    normalize(input.period || 'period'),
+    input.assignmentType,
+  ].join('-')
+}
+
+export async function loadTeacherRebbeAssignments(): Promise<TeacherRebbeAssignment[]> {
+  const { data, error } = await supabase
+    .from('teacher_rebbe_assignments')
+    .select('*')
+    .order('updated_at', { ascending: false })
+
+  if (error) {
+    console.error('Error loading teacher/rebbe assignments:', error)
+    return []
+  }
+
+  return (data || []).map(mapTeacherRebbeAssignment)
+}
+
+export async function upsertTeacherRebbeAssignment(input: {
+  id?: string
+  student_id: number
+  teacher_name: string
+  subject: string
+  class_or_group: string
+  period: string
+  weekdays?: string[]
+  start_date?: string | null
+  end_date?: string | null
+  assignment_type?: 'primary' | 'additional'
+  status?: 'active' | 'inactive'
+  updated_by: string
+}): Promise<TeacherRebbeAssignment | null> {
+  const assignmentType = input.assignment_type || 'additional'
+  const id = input.id || buildTeacherRebbeAssignmentId({
+    studentId: input.student_id,
+    teacherName: input.teacher_name,
+    subject: input.subject,
+    classOrGroup: input.class_or_group,
+    period: input.period,
+    assignmentType,
+  })
+
+  const { data, error } = await supabase
+    .from('teacher_rebbe_assignments')
+    .upsert({
+      id,
+      student_id: input.student_id,
+      teacher_name: input.teacher_name,
+      subject: input.subject,
+      class_or_group: input.class_or_group,
+      period: input.period,
+      weekdays: input.weekdays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      start_date: input.start_date || null,
+      end_date: input.end_date || null,
+      assignment_type: assignmentType,
+      status: input.status || 'active',
+      updated_by: input.updated_by,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error('Error upserting teacher/rebbe assignment:', error)
+    return null
+  }
+
+  return mapTeacherRebbeAssignment(data)
+}
+
+export async function setTeacherRebbeAssignmentStatus(
+  id: string,
+  status: 'active' | 'inactive',
+  updatedBy: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('teacher_rebbe_assignments')
+    .update({
+      status,
+      updated_by: updatedBy,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error updating teacher/rebbe assignment status:', error)
+    return false
+  }
+
+  return true
+}
+
 // Therapy Schedule
 export async function loadTherapySchedule() {
   const { data, error } = await supabase
