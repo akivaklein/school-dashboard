@@ -23,6 +23,8 @@ $$;
 WITH class_teacher_map AS (
   SELECT * FROM (VALUES
     ('a'::TEXT, 'Dargei Alef'::TEXT, 'Rabbi Klein'::TEXT),
+    ('a'::TEXT, 'Dargei Alef'::TEXT, 'Rabbi Lefkowitz'::TEXT),
+    ('a'::TEXT, 'Dargei Alef'::TEXT, 'Rabbi Abowitz'::TEXT),
     ('b'::TEXT, 'Dargei Beis'::TEXT, 'Rabbi Goldstein'::TEXT),
     ('c'::TEXT, 'Dargei Gimmel'::TEXT, 'Rabbi Ehrnreich'::TEXT),
     ('d'::TEXT, 'Dargei Daled'::TEXT, 'Rabbi Ambush'::TEXT),
