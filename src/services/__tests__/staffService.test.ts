@@ -10,7 +10,7 @@ vi.mock('../../supabaseClient', () => ({
   },
 }))
 
-import { FALLBACK_STAFF_MEMBERS, loadStaffMembers } from '../staffService'
+import { FALLBACK_STAFF_MEMBERS, getStaffAccountStatus, loadStaffMembers } from '../staffService'
 
 describe('loadStaffMembers', () => {
   beforeEach(() => {
@@ -41,5 +41,11 @@ describe('loadStaffMembers', () => {
     const members = await loadStaffMembers()
 
     expect(members).toEqual(FALLBACK_STAFF_MEMBERS)
+  })
+
+  it('classifies pending and disabled accounts clearly for invite state', () => {
+    expect(getStaffAccountStatus({ accountState: 'pending', active: true })).toBe('pending-invitation')
+    expect(getStaffAccountStatus({ accountState: 'inactive', active: true })).toBe('inactive-account')
+    expect(getStaffAccountStatus({ accountState: 'missing', active: true })).toBe('no-account')
   })
 })

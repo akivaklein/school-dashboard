@@ -366,6 +366,8 @@ export function getStaffAccountStatus(account: Partial<StaffAccountRecord> | nul
   if (!account) return 'no-account'
   if (account.accountState === 'pending') return 'pending-invitation'
   if (account.accountState === 'inactive' || account.active === false) return 'inactive-account'
-  if (account.accountState === 'active' || account.active === true) return 'active-account'
+  if (account.accountState === 'active') return 'active-account'
+  if (account.accountState === 'missing') return 'no-account'
+  if (account.active === true) return 'active-account'
   return 'no-account'
 }
