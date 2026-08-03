@@ -36,6 +36,8 @@ export function resolveClassroomStatusAfterAttendanceUpdate(
   if (nextDailyStatus === 'absent') return 'not-arrived'
   if (nextDailyStatus === 'left-early') return 'left-early'
 
+  if (nextDailyStatus === 'present') return 'present'
+
   if (currentStatus === 'not-arrived' || currentStatus === 'left-early' || currentStatus === 'absent') {
     return 'present'
   }
