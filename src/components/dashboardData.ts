@@ -1164,7 +1164,7 @@ export function canAccessDashboardPage(role, page) {
   }
 
   if (role === 'teacher' || role === 'rebbe') {
-    return ['dashboard', 'attendance', 'schedule', 'teaching-mode', 'support', 'academics', 'behavior'].includes(page)
+    return ['dashboard', 'attendance', 'schedule', 'teaching-mode', 'support', 'academics', 'behavior', 'messages'].includes(page)
   }
 
   if (role === 'therapist') {
@@ -1175,12 +1175,20 @@ export function canAccessDashboardPage(role, page) {
 }
 
 export function canAccessStudentForRole(student, context = {}) {
-  const { role, userName = '', setupAssignments = {}, students = [] } = context || {}
+  const { role, userName = '', setupAssignments = {}, students = [], assignedStudentIds = [] } = context || {}
 
   if (!student) return false
 
   if (role === 'teacher' || role === 'rebbe') {
     const targetStudentId = Number(student.id)
+    const providedAssignedIds = Array.isArray(assignedStudentIds)
+      ? assignedStudentIds.map(id => Number(id)).filter(id => !Number.isNaN(id))
+      : []
+
+    if (providedAssignedIds.length > 0) {
+      return providedAssignedIds.includes(targetStudentId)
+    }
+
     const directAssignedIds = getTeacherAssignedStudentIds(userName, setupAssignments)
 
     if (directAssignedIds.length > 0) {
@@ -1201,6 +1209,14 @@ export function canAccessStudentForRole(student, context = {}) {
 
   if (role === 'therapist') {
     const targetStudentId = Number(student.id)
+    const providedAssignedIds = Array.isArray(assignedStudentIds)
+      ? assignedStudentIds.map(id => Number(id)).filter(id => !Number.isNaN(id))
+      : []
+
+    if (providedAssignedIds.length > 0) {
+      return providedAssignedIds.includes(targetStudentId)
+    }
+
     const assignedIds = getTeacherAssignedStudentIds(userName, setupAssignments)
 
     if (assignedIds.length > 0) {

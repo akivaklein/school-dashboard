@@ -86,6 +86,27 @@ const STORE_NAV_CONFIG: RoleNavConfig = {
   },
 }
 
+const THERAPIST_NAV_CONFIG: RoleNavConfig = {
+  topAreas: [
+    { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
+    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule'] },
+    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior'] },
+  ],
+  submenuByArea: {
+    dashboard: [{ id: 'dashboard', label: 'My Students' }],
+    'school-day': [
+      { id: 'attendance', label: 'Attendance' },
+      { id: 'schedule', label: 'Schedule' },
+    ],
+    students: [{ id: 'students', label: 'Students List' }],
+    support: [
+      { id: 'support', label: 'Support Overview' },
+      { id: 'behavior', label: 'Behavior' },
+    ],
+  },
+}
+
 const DEFAULT_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
     { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
@@ -106,5 +127,6 @@ export function getRoleNavConfig(role: string): RoleNavConfig {
   if (role === 'admin') return ADMIN_NAV_CONFIG
   if (role === 'teacher' || role === 'rebbe') return TEACHER_NAV_CONFIG
   if (role === 'store') return STORE_NAV_CONFIG
+  if (role === 'therapist') return THERAPIST_NAV_CONFIG
   return DEFAULT_NAV_CONFIG
 }

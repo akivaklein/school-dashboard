@@ -582,19 +582,19 @@ export default function TeachingMode({
     })
   }
 
-  function applyToSelected(amount, label) {
+  async function applyToSelected(amount, label, options: { reminderDelta?: number; eventType?: 'award' | 'deduction' | 'reminder' } = {}) {
     if (selected.length === 0) return
 
     playSound(amount > 0 ? 'positive' : 'negative')
 
-    Promise.all(
+    const results = await Promise.all(
       selected.map(studentId =>
         recordStudentPointsAction({
           studentId,
           pointsDelta: amount,
-          reminderDelta: amount < 0 ? 1 : 0,
+          reminderDelta: options.reminderDelta ?? (amount < 0 ? 1 : 0),
           reason: label,
-          eventType: amount > 0 ? 'award' : 'deduction',
+          eventType: options.eventType || (amount > 0 ? 'award' : 'deduction'),
           category: 'teaching',
           sourceContext: 'teaching-mode-bulk-action',
           metadata: {
@@ -603,6 +603,10 @@ export default function TeachingMode({
         })
       )
     )
+
+    if (!results.every(Boolean)) {
+      alert('Some selected student actions could not be saved to Supabase.')
+    }
 
     // Keep the popup and current students selected so several
     // behaviors can be recorded in one classroom interaction.
@@ -714,7 +718,7 @@ export default function TeachingMode({
     const statusMap = {
       therapy: 'therapy',
       'with-bt': 'with-bt',
-      menahel: 'present',
+      menahel: 'unknown',
       unknown: 'unknown',
       other: 'unknown'
     }
@@ -732,43 +736,40 @@ export default function TeachingMode({
             ? 'Left for therapy'
             : 'Left class'
 
-    setStudents(prev => {
-      const updated = prev.map(x =>
-        Number(x.id) === Number(studentId)
-          ? {
-              ...x,
-              status: newStatus,
-              withStaff: leaveStaffId || null,
-              unknownSince,
-              classLog: [
-                ...(x.classLog || []),
-                buildClassLogEntry(
-                  'out',
-                  `${note} (recorded by ${actingStaffName})`,
-                  { staffId: leaveStaffId || null }
-                )
-              ]
-            }
-          : x
+    const updatedClassLog = [
+      ...(original?.classLog || []),
+      buildClassLogEntry(
+        'out',
+        `${note} (recorded by ${actingStaffName})`,
+        { staffId: leaveStaffId || null }
       )
-      setLeavePopup(null)
-      
-      // Get the updated student to get the new classLog
-      const updatedStudent = updated.find(x => Number(x.id) === Number(studentId))
-      if (updatedStudent) {
-        persistStudentFields(studentId, {
-          status: newStatus,
-          withStaff: leaveStaffId || null,
-          unknownSince,
-          classLog: updatedStudent.classLog
-        }).catch(error => {
-          console.error('Unable to save student status to Supabase:', error)
-          alert('Unable to save student status to Supabase.')
-        })
-      }
-      
-      return updated
+    ]
+
+    setStudents(prev => prev.map(x =>
+      Number(x.id) === Number(studentId)
+        ? {
+            ...x,
+            status: newStatus,
+            withStaff: leaveStaffId || null,
+            unknownSince,
+            classLog: updatedClassLog,
+          }
+        : x
+    ))
+
+    setLeavePopup(null)
+
+    const success = await persistStudentFields(studentId, {
+      status: newStatus,
+      withStaff: leaveStaffId || null,
+      unknownSince,
+      classLog: updatedClassLog,
     })
+
+    if (!success && original) {
+      setStudents(prev => prev.map(x => Number(x.id) === Number(studentId) ? original : x))
+      alert('Unable to save student status to Supabase.')
+    }
   }
 
   const mins = Math.floor(intervalSeconds / 60)
@@ -1172,13 +1173,11 @@ export default function TeachingMode({
                   {[1, 2, 3, 5].map(amount => (
                     <button
                       key={amount}
-                      onClick={() => {
-                        playSound('positive')
-                        setStudents(prev => prev.map(x => selected.includes(x.id) ? {
-                          ...x,
-                          points: x.points + amount,
-                          behaviorLog: [{ label: `Bulk +${amount}`, points: amount, date: new Date().toISOString().slice(0,10) }, ...(x.behaviorLog || [])].slice(0, 30)
-                        } : x))
+                      onClick={async () => {
+                        await applyToSelected(amount, `Bulk +${amount}`, {
+                          reminderDelta: 0,
+                          eventType: 'award',
+                        })
                         setShowBulkActionPanel(false)
                       }}
                       style={{
@@ -1210,14 +1209,11 @@ export default function TeachingMode({
                   ].map(action => (
                     <button
                       key={action.label}
-                      onClick={() => {
-                        playSound('negative')
-                        setStudents(prev => prev.map(x => selected.includes(x.id) ? {
-                          ...x,
-                          points: Math.max(0, x.points + action.amount),
-                          reminders: action.reminder ? x.reminders + 1 : x.reminders,
-                          behaviorLog: [{ label: `Bulk ${action.label}`, points: action.amount, date: new Date().toISOString().slice(0,10) }, ...(x.behaviorLog || [])].slice(0, 30)
-                        } : x))
+                      onClick={async () => {
+                        await applyToSelected(action.amount, `Bulk ${action.label}`, {
+                          reminderDelta: action.reminder ? 1 : 0,
+                          eventType: action.reminder ? 'reminder' : 'deduction',
+                        })
                         setShowBulkActionPanel(false)
                       }}
                       style={{

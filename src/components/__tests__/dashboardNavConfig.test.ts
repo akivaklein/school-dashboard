@@ -33,11 +33,12 @@ describe('getRoleNavConfig', () => {
     expect(config.submenuByArea['school-day'].map(item => item.id)).toEqual(['store'])
   })
 
-  it('falls back to staff navigation for non-admin non-teacher roles', () => {
+  it('returns therapist-specific navigation for therapist role', () => {
     const config = getRoleNavConfig('therapist')
 
     const areaIds = config.topAreas.map(area => area.id)
-    expect(areaIds).toEqual(['dashboard', 'school-day', 'support'])
+    expect(areaIds).toEqual(['dashboard', 'school-day', 'students', 'support'])
     expect(config.submenuByArea.dashboard?.[0]?.label).toBe('My Students')
+    expect(config.submenuByArea['school-day'].map(item => item.id)).toEqual(['attendance', 'schedule'])
   })
 })

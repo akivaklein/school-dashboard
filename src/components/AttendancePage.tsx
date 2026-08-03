@@ -251,6 +251,10 @@ export default function AttendancePage({
     : STAFF
 
   async function handleToggle(s) {
+    if (role === 'therapist' && isStudentInClass(s)) {
+      return
+    }
+
     if (s.status === 'present') {
       setLeavePopup(s.id)
       setLeaveReason('therapy')
@@ -336,7 +340,7 @@ export default function AttendancePage({
     const studentId = leavePopup
     if (!studentId) return
     const original = students.find(x => x.id === studentId)
-    const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'present', hallway: 'unknown', other: 'unknown' }
+    const statusMap = { therapy: 'therapy', 'with-bt': 'with-bt', menahel: 'unknown', hallway: 'unknown', other: 'unknown' }
     const newStatus = statusMap[leaveReason] || 'unknown'
     const unknownSince = newStatus === 'unknown' ? new Date().toISOString() : null
     const classLogEntry = buildClassLogEntry(
@@ -731,7 +735,7 @@ export default function AttendancePage({
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 11, color: inClass ? '#4b6854' : '#9f1239', fontWeight: 600 }}>{inClass ? 'In Class' : 'Left Class'}</span>
-                    <div onClick={() => role !== 'therapist' && handleToggle(s)} style={{ width: 44, height: 24, borderRadius: 12, background: inClass ? '#56765f' : '#e5e7eb', position: 'relative', cursor: role !== 'therapist' ? 'pointer' : 'default', transition: 'background 0.2s' }}>
+                    <div onClick={() => (role !== 'therapist' || !inClass) && handleToggle(s)} style={{ width: 44, height: 24, borderRadius: 12, background: inClass ? '#56765f' : '#e5e7eb', position: 'relative', cursor: role !== 'therapist' || !inClass ? 'pointer' : 'default', transition: 'background 0.2s' }}>
                       <div style={{ position: 'absolute', top: 2, left: inClass ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                     </div>
                   </div>

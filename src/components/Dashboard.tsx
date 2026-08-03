@@ -2363,11 +2363,19 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   // Open a student profile with optional tab
   const openStudent = (student: StudentLike, tab = 'overview') => {
+    const activeRole = previewAs?.role || role
+    const activeUserName = previewAs?.name || userName
+    const normalizedActiveName = normalizeStaffName(activeUserName)
+    const assignedIdsForAccess = activeRole === 'teacher' || activeRole === 'rebbe'
+      ? Array.from(activeTeacherAssignmentIdsByName.get(normalizedActiveName) || new Set<number>())
+      : getTeacherAssignedStudentIds(activeUserName, setupAssignments)
+
     if (!canAccessStudentForRole(student, {
-      role,
-      userName,
+      role: activeRole,
+      userName: activeUserName,
       setupAssignments,
       students,
+      assignedStudentIds: assignedIdsForAccess,
     })) {
       alert('You can only access students in your assigned scope.')
       return
