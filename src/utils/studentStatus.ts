@@ -8,7 +8,11 @@ export function supportStatusFor(staff: StaffMember, serviceType: string) {
 
 export function endSessionStudentFields(returnLocation: string) {
   if (returnLocation === 'back-in-class') {
-    return { status: 'present', withStaff: null }
+    return {
+      status: 'present',
+      dailyStatus: 'present',
+      withStaff: null,
+    }
   }
 
   if (returnLocation === 'dismissed') {
