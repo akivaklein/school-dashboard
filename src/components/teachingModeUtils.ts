@@ -1,5 +1,20 @@
 import { isInSchool } from '../utils/attendancePresence'
 
+export function deduplicateStudentIds(values: Array<number | string | null | undefined>): number[] {
+  const seen = new Set<number>()
+  const result: number[] = []
+
+  values.forEach(value => {
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric)) return
+    if (seen.has(numeric)) return
+    seen.add(numeric)
+    result.push(numeric)
+  })
+
+  return result
+}
+
 export function buildLateToClassFields(student: Record<string, any>, options: { timeStr: string; actingStaffName: string; note: string; staffId?: number | string | null; approval?: 'approved' | 'unapproved'; lateMinutes?: number | null }) {
   const returnApproval = options.approval || 'approved'
   const lateMinutes = Number.isFinite(Number(options.lateMinutes))

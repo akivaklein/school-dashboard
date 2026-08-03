@@ -7,6 +7,7 @@ import {
   redeemStorePurchaseTx,
   reverseStorePurchaseTx,
   shouldUseDemoStoreActivity,
+  findStoreItemByIdentifier,
 } from '../storeService'
 import { supabase } from '../../supabaseClient'
 
@@ -120,6 +121,18 @@ describe('normalizeStoreItemInput', () => {
       emoji: '▪️',
       vip: false,
     })
+  })
+})
+
+describe('findStoreItemByIdentifier', () => {
+  it('finds an item by exact barcode or sku lookup', () => {
+    const items = [
+      { id: 1, name: 'Water Bottle', sku: 'WB-1', barcode: '123456', cost: 8, stock: 2, lowStockAt: 1, category: 'drinks', vip: false, emoji: '💧', imageUrl: '', active: true },
+      { id: 2, name: 'Pretzel Bag', sku: 'PB-2', barcode: '654321', cost: 12, stock: 4, lowStockAt: 2, category: 'snacks', vip: false, emoji: '🥨', imageUrl: '', active: true },
+    ] as never[]
+
+    expect(findStoreItemByIdentifier(items, '654321')).toMatchObject({ id: 2 })
+    expect(findStoreItemByIdentifier(items, 'WB-1')).toMatchObject({ id: 1 })
   })
 })
 

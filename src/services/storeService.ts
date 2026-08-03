@@ -283,6 +283,20 @@ export function normalizeStoreRedemptionInput(input: Partial<CreateStoreRedempti
   }
 }
 
+export function findStoreItemByIdentifier<T extends { sku?: string; barcode?: string; name?: string; id?: number }>(items: T[], identifier: string): T | null {
+  const normalized = String(identifier || '').trim().toLowerCase()
+  if (!normalized) return null
+
+  return (
+    items.find(item => {
+      const sku = String(item?.sku || '').trim().toLowerCase()
+      const barcode = String(item?.barcode || '').trim().toLowerCase()
+      const name = String(item?.name || '').trim().toLowerCase()
+      return sku === normalized || barcode === normalized || name === normalized
+    }) || null
+  )
+}
+
 function toStoreItem(row: StoreItemRow): StoreItem {
   return {
     id: Number(row.id),

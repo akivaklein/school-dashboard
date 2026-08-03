@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { deduplicateStudentIds } from '../teachingModeUtils'
 
 function buildScopedRoster(scopeType: string, selectedClass: string | null, selectedTeacher: string, selectedGrade: string, selectedPeriod: string, students: Array<{ id: number; name: string }>, studentClasses: Record<string, string>, classes: Array<{ id: string; teacher: string; grade: string }>, assignmentPeriods: Record<string, number[]>) {
   const byClass = (student: { id: number }, classId: string | null) => !classId ? true : studentClasses[student.id] === classId
@@ -34,6 +35,10 @@ function buildScopedRoster(scopeType: string, selectedClass: string | null, sele
 }
 
 describe('teaching mode roster scoping', () => {
+  it('deduplicates student ids across period buckets', () => {
+    expect(deduplicateStudentIds([1, 2, 2, 3, 1, 4])).toEqual([1, 2, 3, 4])
+  })
+
   it('filters a teacher roster by class and preserves a clear classroom view', () => {
     const students = [
       { id: 1, name: 'Avi' },
