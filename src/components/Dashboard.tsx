@@ -2350,7 +2350,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [storeSyncState, setStoreSyncState] = useState('loading')
   const [storeLastLoadError, setStoreLastLoadError] = useState('')
   const [showStoreManager, setShowStoreManager] = useState(false)
-  const [newStoreItem, setNewStoreItem] = useState({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', category: 'nosh', vip: false })
+  const [newStoreItem, setNewStoreItem] = useState({ name: '', sku: '', barcode: '', cost: '', stock: '', lowStockAt: '5', emoji: '', category: 'nosh', vip: false })
   const [attFilter, setAttFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [teachingMode, setTeachingMode] = useState(false)
@@ -4303,6 +4303,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
       const createPayload = normalizeStoreItemInput({
         name: newStoreItem.name,
+        sku: newStoreItem.sku,
+        barcode: newStoreItem.barcode,
         category: newStoreItem.category,
         cost: newStoreItem.cost,
         emoji: newStoreItem.emoji,
@@ -4315,7 +4317,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
       setStoreSyncState('ready')
       setStoreItems(prev => [...prev, item])
-      setNewStoreItem({ name: '', cost: '', stock: '', lowStockAt: '5', emoji: '', category: 'nosh', vip: false })
+      setNewStoreItem({ name: '', sku: '', barcode: '', cost: '', stock: '', lowStockAt: '5', emoji: '', category: 'nosh', vip: false })
     } catch (error) {
       setStoreSyncState('error')
       console.error('Unable to add store item in Supabase:', {
@@ -4323,6 +4325,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         formattedError: formatSupabaseError(error),
         attemptedPayload: normalizeStoreItemInput({
           name: newStoreItem.name,
+          sku: newStoreItem.sku,
+          barcode: newStoreItem.barcode,
           category: newStoreItem.category,
           cost: newStoreItem.cost,
           emoji: newStoreItem.emoji,

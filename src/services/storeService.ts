@@ -3,6 +3,8 @@ import { supabase } from '../supabaseClient'
 export type StoreItem = {
   id: number
   name: string
+  sku: string
+  barcode: string
   category: string
   cost: number
   emoji: string
@@ -36,6 +38,8 @@ export type StoreRedemption = {
 type StoreItemRow = {
   id: number
   name: string
+  sku: string | null
+  barcode: string | null
   category: string
   cost: number
   emoji: string
@@ -194,6 +198,8 @@ function toRequiredStringField(
 
 export type CreateStoreItemInput = {
   name: string
+  sku?: string
+  barcode?: string
   category?: string
   cost?: number
   emoji?: string
@@ -217,6 +223,8 @@ export type CreateStoreRedemptionInput = {
 
 export function normalizeStoreItemInput(input: Partial<CreateStoreItemInput> & Partial<StoreItem>): {
   name: string
+  sku: string
+  barcode: string
   category: string
   cost: number
   emoji: string
@@ -227,6 +235,8 @@ export function normalizeStoreItemInput(input: Partial<CreateStoreItemInput> & P
   updatedBy: string | null
 } {
   const name = String(input.name || '').trim()
+  const sku = String(input.sku || '').trim()
+  const barcode = String(input.barcode || '').trim()
   const category = String(input.category || 'nosh').trim() || 'nosh'
   const cost = Math.max(0, getFiniteNumber(input.cost, 0))
   const emoji = String(input.emoji || '').trim() || '▪️'
@@ -238,6 +248,8 @@ export function normalizeStoreItemInput(input: Partial<CreateStoreItemInput> & P
 
   return {
     name,
+    sku,
+    barcode,
     category,
     cost,
     emoji,
@@ -275,6 +287,8 @@ function toStoreItem(row: StoreItemRow): StoreItem {
   return {
     id: Number(row.id),
     name: row.name,
+    sku: row.sku || '',
+    barcode: row.barcode || '',
     category: row.category,
     cost: Number(row.cost || 0),
     emoji: row.emoji || '',
@@ -334,6 +348,8 @@ export async function seedStoreItems(items: Array<Partial<StoreItem>>): Promise<
     return {
       id: item.id,
       name: normalized.name,
+      sku: normalized.sku,
+      barcode: normalized.barcode,
       category: normalized.category,
       cost: normalized.cost,
       emoji: normalized.emoji,
@@ -360,6 +376,8 @@ export async function updateStoreItem(item: StoreItem, updatedBy?: string): Prom
   const payload = {
     id: Number(item.id),
     name: normalized.name,
+    sku: normalized.sku,
+    barcode: normalized.barcode,
     category: normalized.category,
     cost: normalized.cost,
     emoji: normalized.emoji,
@@ -386,6 +404,8 @@ export async function createStoreItem(input: CreateStoreItemInput, updatedBy?: s
   const normalized = normalizeStoreItemInput({ ...input, updatedBy })
   const payload = {
     name: normalized.name,
+    sku: normalized.sku,
+    barcode: normalized.barcode,
     category: normalized.category,
     cost: normalized.cost,
     emoji: normalized.emoji,

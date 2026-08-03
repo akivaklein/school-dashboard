@@ -22,6 +22,7 @@ export function StudentScoresTab({
   const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS || {})].filter(Boolean)))
   const initialTeacher = userName && teacherOptions.includes(userName) ? userName : teacherOptions[0] || DEFAULT_ACADEMIC_TEACHER
   const [showAdd, setShowAdd] = useState(false)
+  const [selectedScore, setSelectedScore] = useState(null)
   const [form, setForm] = useState({ teacher: initialTeacher, subject: 'Math', skill: '2-digit', assessmentName: '', date: new Date().toISOString().slice(0,10), scoreType: 'points', score: '', maxScore: '100', rating: 'Good', notes: '' })
   const s = students.find(x => x.id === student.id) || student
   const scores = s.testScores || []
@@ -56,7 +57,7 @@ export function StudentScoresTab({
     })
   }
 
-  function addScore() {
+  async function addScore() {
     if (!form.assessmentName.trim()) return alert('Add an assessment name')
     if (form.scoreType === 'points' && (!form.score || !form.maxScore)) return alert('Add score and max score')
     const entry = {
@@ -75,19 +76,32 @@ export function StudentScoresTab({
       enteredAt: new Date().toISOString(),
       sourceContext: 'student-profile-single-entry',
     }
+    const previousScores = s.testScores || []
     const updatedScores = [entry, ...(s.testScores || [])]
     setStudents(prev => prev.map(x => x.id === s.id ? { ...x, testScores: updatedScores } : x))
 
     // Use grade_entries path when available (syncs in realtime to other sessions)
+    let saveOk = true
     if (onSaveGradeEntry) {
-      onSaveGradeEntry(s.id, entry)
+      saveOk = await onSaveGradeEntry(s.id, entry)
     } else if (persistStudentFields) {
-      persistStudentFields(s.id, { testScores: updatedScores })
+      saveOk = await persistStudentFields(s.id, { testScores: updatedScores })
+    }
+
+    if (!saveOk) {
+      setStudents(prev => prev.map(x => x.id === s.id ? { ...x, testScores: previousScores } : x))
+      alert('Unable to save this score. Please try again.')
+      return
     }
 
     setShowAdd(false)
     setForm(prev => ({ ...prev, assessmentName: '', score: '', notes: '' }))
   }
+
+  const sortedScores = useMemo(
+    () => [...scores].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))),
+    [scores],
+  )
 
   const bySubject = ['Math','Reading','Writing'].map(subject => {
     const items = scores.filter(x => x.subject === subject)
@@ -114,17 +128,57 @@ export function StudentScoresTab({
       <div style={S.card}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Test Scores & Skill Ratings</div>
         {scores.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13 }}>No academic scores yet.</div>}
-        {scores.map(score => {
+        {sortedScores.map(score => {
           const status = scoreStatusValue(score)
-          return <div key={score.id} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 0.8fr 0.7fr', gap: 12, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #f0f1f6' }}>
+          return <button key={score.id} onClick={() => setSelectedScore(score)} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 0.8fr 0.7fr auto', gap: 12, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #f0f1f6', borderLeft: 'none', borderRight: 'none', borderBottom: 'none', width: '100%', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
             <div><div style={{ fontWeight: 700, fontSize: 13 }}>{score.assessmentName}</div><div style={{ fontSize: 11, color: '#64748b' }}>{score.date} · {score.teacher}</div></div>
             <div><div style={{ fontSize: 13, fontWeight: 700 }}>{score.subject}</div><div style={{ fontSize: 11, color: '#64748b' }}>{score.skill}</div></div>
             <div style={{ fontWeight: 700, color: '#263241' }}>{scoreDisplayValue(score)}</div>
             <div><span style={S.badge(academicStatusColor(status), academicStatusColor(status)+'15')}>{status}</span></div>
+            <div style={{ color: '#94a3b8', fontWeight: 700, fontSize: 15 }}>›</div>
             {score.notes && <div style={{ gridColumn: '1 / -1', fontSize: 12, color: '#64748b', background: '#ffffff', borderRadius: 8, padding: '8px 10px' }}>{score.notes}</div>}
-          </div>
+          </button>
         })}
       </div>
+
+      {selectedScore && (
+        <>
+          <div onClick={() => setSelectedScore(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1190 }} />
+          <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 380, background: '#fff', boxShadow: '-6px 0 30px rgba(15,23,42,0.2)', zIndex: 1200, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ background: '#0f172a', color: '#fff', padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15 }}>{selectedScore.assessmentName || 'Score Details'}</div>
+                <div style={{ fontSize: 11, opacity: 0.82, marginTop: 2 }}>{selectedScore.subject} · {selectedScore.skill}</div>
+              </div>
+              <button onClick={() => setSelectedScore(null)} style={{ border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.14)', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>×</button>
+            </div>
+            <div style={{ padding: 18, overflowY: 'auto', display: 'grid', gap: 10 }}>
+              {[
+                { label: 'Teacher', value: selectedScore.teacher || '—' },
+                { label: 'Subject', value: selectedScore.subject || '—' },
+                { label: 'Skill', value: selectedScore.skill || '—' },
+                { label: 'Date', value: selectedScore.date || '—' },
+                { label: 'Score Type', value: selectedScore.scoreType || '—' },
+                { label: 'Result', value: scoreDisplayValue(selectedScore) },
+                { label: 'Status', value: scoreStatusValue(selectedScore) },
+                { label: 'Entered By', value: selectedScore.enteredBy || '—' },
+                { label: 'Entry Source', value: selectedScore.sourceContext || 'manual' },
+              ].map(row => (
+                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid #eef2f7', paddingBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{row.label}</span>
+                  <span style={{ fontSize: 12.5, color: '#0f172a', fontWeight: 700, textAlign: 'right' }}>{row.value}</span>
+                </div>
+              ))}
+              {selectedScore.notes && (
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc', padding: '10px 12px', marginTop: 4 }}>
+                  <div style={{ fontSize: 10.5, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Teacher Note</div>
+                  <div style={{ fontSize: 12.5, color: '#334155' }}>{selectedScore.notes}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {showAdd && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>

@@ -11,6 +11,8 @@ type StudentLike = {
 type StoreItemLike = {
   id: number
   name: string
+  sku?: string
+  barcode?: string
   cost: number
   stock: number
   lowStockAt: number
@@ -32,6 +34,8 @@ type StorePurchaseLog = {
 type NewStoreItemState = {
   emoji: string
   name: string
+  sku: string
+  barcode: string
   cost: number | string
   stock: number | string
   lowStockAt: number | string
@@ -108,7 +112,7 @@ export default function TokenStorePage({
   storeLastLoadError,
   refreshStoreData,
 }: Props) {
-  const managerGridTemplate = 'minmax(220px, 1.4fr) 80px 120px 90px 110px 70px 96px'
+  const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 96px'
   const syncUi = getStoreSyncUiState({
     persistenceReady: storePersistenceReady,
     pendingSync: storeSyncState === 'pending-sync',
@@ -153,6 +157,9 @@ export default function TokenStorePage({
                 <span style={{ fontSize: 11, color: '#475569' }}>
                   Last load error: {lastErrorText}
                 </span>
+                <span style={{ fontSize: 11, color: '#334155', fontWeight: 600 }}>
+                  Scanner-ready: search by SKU or barcode
+                </span>
                 {!storePersistenceReady && storeSyncState !== 'loading' && (
                   <>
                     <span style={{ fontSize: 11, color: '#9f1239', fontWeight: 600 }}>
@@ -181,12 +188,14 @@ export default function TokenStorePage({
                 <div style={{ overflowX: 'auto' }}>
                   <div style={{ minWidth: 790 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: managerGridTemplate, gap: 8, padding: '0 4px 8px', fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <div>Item</div><div>Cost</div><div>Stock</div><div>Low At</div><div>Category</div><div>VIP</div><div></div>
+                      <div>Item</div><div>SKU</div><div>Barcode</div><div>Cost</div><div>Stock</div><div>Low At</div><div>Category</div><div>VIP</div><div></div>
                     </div>
 
                     {storeItems.map(item => (
                       <div key={item.id} style={{ display: 'grid', gridTemplateColumns: managerGridTemplate, gap: 8, alignItems: 'center', padding: '8px 4px', borderTop: '1px solid #eef2f7' }}>
                     <input value={item.name} onChange={e => updateStoreItem(item.id, 'name', e.target.value)} spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={item.sku || ''} onChange={e => updateStoreItem(item.id, 'sku', e.target.value)} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
+                    <input value={item.barcode || ''} onChange={e => updateStoreItem(item.id, 'barcode', e.target.value)} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
                     <input type="number" value={item.cost} onChange={e => updateStoreItem(item.id, 'cost', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => adjustStoreStock(item.id, -1)} style={{ ...S.btn('ghost'), padding: '6px 8px' }}>−</button>
@@ -208,9 +217,11 @@ export default function TokenStorePage({
 
                 <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 14, paddingTop: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Add Store Item</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 90px) minmax(180px, 1.4fr) repeat(4, minmax(90px, 120px)) minmax(90px, 100px) minmax(110px, 130px)', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 90px) minmax(160px, 1.3fr) minmax(110px, 130px) minmax(130px, 150px) repeat(4, minmax(90px, 120px)) minmax(90px, 100px) minmax(110px, 130px)', gap: 8, alignItems: 'center' }}>
                     <input value={newStoreItem.emoji} onChange={e => setNewStoreItem(prev => ({ ...prev, emoji: e.target.value }))} placeholder="Icon" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input value={newStoreItem.name} onChange={e => setNewStoreItem(prev => ({ ...prev, name: e.target.value }))} placeholder="Item name" spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.sku} onChange={e => setNewStoreItem(prev => ({ ...prev, sku: e.target.value }))} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.barcode} onChange={e => setNewStoreItem(prev => ({ ...prev, barcode: e.target.value }))} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.cost} onChange={e => setNewStoreItem(prev => ({ ...prev, cost: e.target.value }))} placeholder="Cost" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.stock} onChange={e => setNewStoreItem(prev => ({ ...prev, stock: e.target.value }))} placeholder="Stock" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.lowStockAt} onChange={e => setNewStoreItem(prev => ({ ...prev, lowStockAt: e.target.value }))} placeholder="Low at" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
@@ -300,7 +311,11 @@ export default function TokenStorePage({
         const visibleStoreItems = storeItems.filter(item => {
           const matchesCategory = storeCategoryFilter === 'all' || (item.category || 'nosh') === storeCategoryFilter
           const q = storeItemSearch.trim().toLowerCase()
-          const matchesSearch = !q || item.name.toLowerCase().includes(q) || (item.category || '').toLowerCase().includes(q)
+          const matchesSearch = !q
+            || item.name.toLowerCase().includes(q)
+            || String(item.sku || '').toLowerCase().includes(q)
+            || String(item.barcode || '').toLowerCase().includes(q)
+            || (item.category || '').toLowerCase().includes(q)
           return matchesCategory && matchesSearch
         })
         return (
@@ -320,7 +335,7 @@ export default function TokenStorePage({
                 <input
                   value={storeItemSearch}
                   onChange={e => setStoreItemSearch(e.target.value)}
-                  placeholder="Search item..."
+                  placeholder="Search name, SKU, or barcode..."
                   spellCheck
                   lang="en"
                   style={{ padding: '9px 11px', borderRadius: 10, border: '1px solid #d8dee9', fontSize: 13, outline: 'none' }}
@@ -376,6 +391,12 @@ export default function TokenStorePage({
                       )}
                     </div>
                     <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{item.name}</div>
+                    {(item.sku || item.barcode) && (
+                      <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>
+                        {item.sku ? `SKU ${item.sku}` : 'No SKU'}
+                        {item.barcode ? ` · BAR ${item.barcode}` : ''}
+                      </div>
+                    )}
                     <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{STORE_CATEGORY_OPTIONS.find(c => c.key === (item.category || 'nosh'))?.label || 'Nosh'}</div>
                     <div style={{ color: dimUnavailable ? '#64748b' : '#9a6a2a', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{item.cost} pts</div>
                     <div style={{ fontSize: 11, color: dimUnavailable ? '#64748b' : item.stock <= item.lowStockAt ? '#9a6a2a' : '#64748b', marginBottom: 10 }}>

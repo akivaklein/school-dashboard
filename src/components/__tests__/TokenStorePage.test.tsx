@@ -19,6 +19,8 @@ const baseProps = {
   newStoreItem: {
     emoji: '',
     name: '',
+    sku: '',
+    barcode: '',
     cost: '',
     stock: '',
     lowStockAt: '5',

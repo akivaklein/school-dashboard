@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { buildStaffAccountData, getStaffAccountStatus } from '../services/staffService'
 
 const EMAIL_INVITES_ENABLED = false
+const INVITES_DISABLED_MESSAGE = 'Email invites are disabled in this environment. Connect Supabase Auth invite flow to enable invitations.'
 
 const STATUS_CONFIG = {
   'active-account':      { label: 'Active',   dot: '#16a34a', text: '#14532d', bg: '#f0fdf4' },
@@ -83,7 +84,7 @@ export default function SetupAccountsSection({
     if (!EMAIL_INVITES_ENABLED) {
       setInviteBanner({
         tone: 'error',
-        text: 'Email invites are not connected yet. Enable Supabase Auth invite flow before sending invitations.',
+        text: INVITES_DISABLED_MESSAGE,
       })
       return
     }
@@ -128,6 +129,12 @@ export default function SetupAccountsSection({
                         Manage account status, invitations, division scope, and access controls.
                       </div>
 
+                      {!EMAIL_INVITES_ENABLED && (
+                        <div style={{ marginBottom: 12, borderRadius: 8, padding: '8px 10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontSize: 12, fontWeight: 700 }}>
+                          {INVITES_DISABLED_MESSAGE}
+                        </div>
+                      )}
+
                         {inviteBanner && (
                           <div style={{ marginBottom: 12, borderRadius: 8, padding: '8px 10px', border: inviteBanner.tone === 'success' ? '1px solid #86efac' : '1px solid #fecaca', background: inviteBanner.tone === 'success' ? '#f0fdf4' : '#fef2f2', color: inviteBanner.tone === 'success' ? '#166534' : '#991b1b', fontSize: 12, fontWeight: 700 }}>
                             {inviteBanner.text}
@@ -145,7 +152,7 @@ export default function SetupAccountsSection({
                         <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}>
                           <option value="all">All status</option>
                           <option value="active">Active</option>
-                          <option value="pending">Pending invite</option>
+                          <option value="pending" disabled={!EMAIL_INVITES_ENABLED}>{EMAIL_INVITES_ENABLED ? 'Pending invite' : 'Pending invite (disabled)'}</option>
                           <option value="disabled">Inactive / No account</option>
                         </select>
                         <select value={divisionFilter} onChange={event => setDivisionFilter(event.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}>
@@ -315,7 +322,7 @@ export default function SetupAccountsSection({
                                         onClick={e => { e.stopPropagation(); sendInvite(person) }}
                                         style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: EMAIL_INVITES_ENABLED ? 'pointer' : 'not-allowed', fontWeight: 700 }}
                                         disabled={!EMAIL_INVITES_ENABLED}
-                                        title={EMAIL_INVITES_ENABLED ? 'Send invitation email' : 'Email invitations are not connected yet'}
+                                        title={EMAIL_INVITES_ENABLED ? 'Send invitation email' : INVITES_DISABLED_MESSAGE}
                                       >
                                         {EMAIL_INVITES_ENABLED
                                           ? (accountStatus === 'pending-invitation' ? 'Resend Invite' : 'Send Invite')
