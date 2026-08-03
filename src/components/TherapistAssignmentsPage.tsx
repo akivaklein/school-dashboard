@@ -106,6 +106,7 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
   const [classFilter, setClassFilter] = useState('all')
   const [divisionFilter, setDivisionFilter] = useState('all')
   const [assignedFilter, setAssignedFilter] = useState<'all' | 'assigned' | 'unassigned'>('all')
+  const [compactMode, setCompactMode] = useState(true)
 
   const byStudent = useMemo(() => getAssignmentsByStudent(students), [students])
   const allAssignments = useMemo(() => {
@@ -232,7 +233,7 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
       </div>
 
       <div style={S.card}>
-        <div style={{ marginBottom: 10, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(130px, 1fr))', gap: 8 }}>
+        <div style={{ marginBottom: 10, display: 'grid', gridTemplateColumns: 'repeat(6, minmax(120px, 1fr))', gap: 8 }}>
           <select value={providerFilter} onChange={event => setProviderFilter(event.target.value)} style={{ padding: '6px 8px', borderRadius: 7, border: '1px solid #dbe5f0', fontSize: 12 }}>
             <option value="all">All providers</option>
             {providerOptions.map(value => <option key={value} value={value}>{value}</option>)}
@@ -250,6 +251,9 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
             <option value="assigned">Assigned only</option>
             <option value="unassigned">Unassigned only</option>
           </select>
+          <button onClick={() => setCompactMode(prev => !prev)} style={{ ...S.btn('ghost'), padding: '6px 8px', fontSize: 12 }}>
+            {compactMode ? 'Expanded Layout' : 'Compact Layout'}
+          </button>
         </div>
         <div style={{ display: 'grid', gap: 12 }}>
           {visibleStudents.map((student: any) => {
@@ -261,15 +265,15 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
             const expanded = Boolean(expandedStudents[String(student.id)])
 
             return (
-              <div key={student.id} style={{ border: '1px solid #dbe5f0', borderRadius: 10, background: '#fff', padding: 8 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(130px, 1fr) minmax(120px, 1fr) minmax(140px, 1fr) minmax(120px, 0.8fr) auto', gap: 8, alignItems: 'center' }}>
+              <div key={student.id} style={{ border: '1px solid #dbe5f0', borderRadius: 10, background: '#fff', padding: compactMode ? 7 : 9 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: compactMode ? 'minmax(120px, 1fr) minmax(110px, 1fr) minmax(125px, 1fr) minmax(100px, 0.8fr) auto' : 'minmax(130px, 1fr) minmax(120px, 1fr) minmax(140px, 1fr) minmax(120px, 0.8fr) auto', gap: 8, alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 12.5 }}>{student.name}</div>
-                    <div style={{ fontSize: 10.5, color: '#64748b' }}>{student.className || 'Unassigned class'} · {student.division || 'Division n/a'}</div>
+                    <div style={{ fontWeight: 800, fontSize: compactMode ? 12 : 12.5 }}>{student.name}</div>
+                    <div style={{ fontSize: compactMode ? 10 : 10.5, color: '#64748b' }}>{student.className || 'Unassigned class'} · {student.division || 'Division n/a'}</div>
                   </div>
-                  <div style={{ fontSize: 11, color: '#334155' }}>{providerSummary}</div>
-                  <div style={{ fontSize: 11, color: '#475569' }}>{serviceSummary}</div>
-                  <div style={{ fontSize: 11, color: '#475569' }}>{nextSession?.day ? `${nextSession.day} ${nextSession.startTime || ''}` : 'No session'}</div>
+                  <div style={{ fontSize: compactMode ? 10.5 : 11, color: '#334155' }}>{providerSummary}</div>
+                  <div style={{ fontSize: compactMode ? 10.5 : 11, color: '#475569' }}>{serviceSummary}</div>
+                  <div style={{ fontSize: compactMode ? 10.5 : 11, color: '#475569' }}>{nextSession?.day ? `${nextSession.day} ${nextSession.startTime || ''}` : 'No session'}</div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button
                       onClick={() => {
@@ -361,7 +365,7 @@ export default function TherapistAssignmentsPage({ S, students, setStudents, THE
                           </div>
                         )}
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))', gap: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: compactMode ? 'repeat(4, minmax(130px, 1fr))' : 'repeat(4, minmax(160px, 1fr))', gap: 8 }}>
                           <select disabled={!isEditing} value={assignment.provider} onChange={event => {
                             const nextProvider = event.target.value
                             patchAssignment(student.id, assignment.id, row => {

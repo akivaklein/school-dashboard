@@ -23,6 +23,7 @@ export default function SetupAssignmentsSection({
 }) {
   const [pendingAssignmentChange, setPendingAssignmentChange] = useState(null)
   const [assignmentView, setAssignmentView] = useState<'staff' | 'students'>('staff')
+  const [bulkPeriodBusy, setBulkPeriodBusy] = useState<number | null>(null)
   const [teacherDraft, setTeacherDraft] = useState({
     studentId: '',
     subject: '',
@@ -129,6 +130,36 @@ export default function SetupAssignmentsSection({
     }
 
     setPendingAssignmentChange(null)
+  }
+
+  async function applyBulkPeriodChange(period, action: 'assign' | 'clear') {
+    if (bulkPeriodBusy !== null) return
+
+    const selectedIds = new Set(
+      (currentAssignment.periods?.[period] || []).map((id: number | string) => Number(id))
+    )
+
+    const targetStudents = filteredSetupStudents.filter(student => {
+      const numericId = Number(student.id)
+      if (!Number.isFinite(numericId)) return false
+
+      if (action === 'assign') {
+        return !selectedIds.has(numericId)
+      }
+
+      return selectedIds.has(numericId)
+    })
+
+    if (targetStudents.length === 0) return
+
+    setBulkPeriodBusy(period)
+    try {
+      for (const student of targetStudents) {
+        await togglePeriodStudent(period, student.id)
+      }
+    } finally {
+      setBulkPeriodBusy(null)
+    }
   }
 
   return (
@@ -430,6 +461,23 @@ export default function SetupAssignmentsSection({
                                           Copy Period 1
                                         </button>
                                       )}
+
+                                      <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                                        <button
+                                          onClick={() => applyBulkPeriodChange(period, 'assign')}
+                                          disabled={bulkPeriodBusy !== null}
+                                          style={{ ...S.btn('ghost'), padding: '5px 8px', fontSize: 10.5 }}
+                                        >
+                                          {bulkPeriodBusy === period ? 'Applying...' : 'Assign Filtered'}
+                                        </button>
+                                        <button
+                                          onClick={() => applyBulkPeriodChange(period, 'clear')}
+                                          disabled={bulkPeriodBusy !== null}
+                                          style={{ ...S.btn('ghost'), padding: '5px 8px', fontSize: 10.5 }}
+                                        >
+                                          Clear Filtered
+                                        </button>
+                                      </div>
                                     </div>
 
                                     <div style={{

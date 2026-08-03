@@ -33,6 +33,7 @@ export default function SchedulePage({
   const [selectedCoverageClassId, setSelectedCoverageClassId] = useState<string | null>(CLASSES[0]?.id || null)
   const [showConflicts, setShowConflicts] = useState(false)
   const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({})
+  const [compactTherapyRows, setCompactTherapyRows] = useState(true)
 
   const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const jsDayToName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -280,7 +281,15 @@ export default function SchedulePage({
 
         <div>
           <div style={{ ...S.card, marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>🧠 Therapy & BCBA ({visibleDays.join(', ')})</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>🧠 Therapy & BCBA ({visibleDays.join(', ')})</div>
+              <button
+                onClick={() => setCompactTherapyRows(prev => !prev)}
+                style={{ ...S.btn('ghost'), padding: '4px 9px', fontSize: 11 }}
+              >
+                {compactTherapyRows ? 'Expanded Rows' : 'Compact Rows'}
+              </button>
+            </div>
             <div style={{ display: 'grid', gap: 6 }}>
               {therapyProviders.map(provider => {
                 const isExpanded = Boolean(expandedProviders[provider.provider])
@@ -302,13 +311,12 @@ export default function SchedulePage({
                     </div>
                     <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
                       {shownRows.map((item, index) => (
-                        <div key={`${provider.provider}-${index}`} style={{ display: 'grid', gridTemplateColumns: '90px minmax(120px, 1fr) minmax(80px, 0.8fr) minmax(90px, 0.9fr) auto auto', gap: 8, alignItems: 'center', border: '1px solid #eef2f7', borderRadius: 7, padding: '5px 7px', fontSize: 11.5 }}>
+                        <div key={`${provider.provider}-${index}`} style={{ display: 'grid', gridTemplateColumns: compactTherapyRows ? '80px minmax(105px, 1fr) minmax(70px, 0.8fr) minmax(80px, 0.9fr) auto' : '95px minmax(130px, 1fr) minmax(90px, 0.8fr) minmax(100px, 0.9fr) auto', gap: 8, alignItems: 'center', border: '1px solid #eef2f7', borderRadius: 7, padding: compactTherapyRows ? '4px 6px' : '6px 8px', fontSize: compactTherapyRows ? 10.8 : 11.5 }}>
                           <div style={{ fontWeight: 700, color: '#1e293b' }}>{item.day} {item.time}</div>
                           <div style={{ color: '#0f172a', fontWeight: 600 }}>{item.student || 'Unknown student'}</div>
                           <div style={{ color: '#475569' }}>{item.type || item.service || 'Service'}</div>
                           <div style={{ color: '#64748b' }}>{item.className || item.classId || item.location || 'Class/Location'}</div>
                           <div style={{ color: '#475569' }}>{item.duration || '30 min'}</div>
-                          <button style={{ ...S.btn('ghost'), padding: '3px 7px', fontSize: 10.5 }}>Edit</button>
                         </div>
                       ))}
                     </div>
