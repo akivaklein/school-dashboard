@@ -2,6 +2,13 @@
 
 This branch keeps both dashboard navigation options available before any merge decision.
 
+## Current Branch Status
+
+- Two-Level Navigation remains the default for new sessions.
+- Legacy Sidebar remains available through the header toggle.
+- The choice is navigation-only; it does not affect persisted student, staff, or store data.
+- Role-based access and View As preview continue to use the same page-gating rules in both layouts.
+
 ## Layout Choices Preserved
 
 1. Two-Level Navigation (default)
