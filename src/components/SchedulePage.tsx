@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { isInClassroom } from '../utils/attendancePresence'
-import { buildClassroomCoverageForecast } from './scheduleCoverageForecast'
+import { buildClassroomCoverageForecast, debugCoverageForecastMatching } from './scheduleCoverageForecast'
 
 type Props = {
   S: any
@@ -147,6 +147,33 @@ export default function SchedulePage({
     })
   }, [students, CLASSES, SCHEDULE_PERIODS, THERAPY_SCHEDULE, horizonDays])
 
+  const forecastDiagnostics = useMemo(() => {
+    if (!import.meta.env.DEV) return null
+    return debugCoverageForecastMatching({
+      students,
+      classes: CLASSES || [],
+      therapySchedule: THERAPY_SCHEDULE || [],
+      horizonDays,
+    })
+  }, [students, CLASSES, THERAPY_SCHEDULE, horizonDays])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !forecastDiagnostics) return
+
+    console.groupCollapsed('Schedule Forecast Diagnostics')
+    console.log('Rows received:', forecastDiagnostics.sourceRowsReceived)
+    console.log('Rows from therapy_schedule:', forecastDiagnostics.sourceRowsFromTherapySchedule)
+    console.log('Rows from student therapyAssignments:', forecastDiagnostics.sourceRowsFromStudentAssignments)
+    console.log('Rows inside window:', forecastDiagnostics.insideWindow)
+    console.log('Rows matched to students:', forecastDiagnostics.matchedToStudent)
+    console.log('Rows accepted for coverage:', forecastDiagnostics.acceptedForCoverage)
+    console.log('Rejected rows:', forecastDiagnostics.rejected)
+    if (forecastDiagnostics.sampleRuntimeFields.length > 0) {
+      console.table(forecastDiagnostics.sampleRuntimeFields)
+    }
+    console.groupEnd()
+  }, [forecastDiagnostics])
+
   return (
     <div>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 18 }}>🗓️ Schedule</h1>
@@ -221,6 +248,27 @@ export default function SchedulePage({
       <div style={{ ...S.card, marginBottom: 16, padding: '14px 16px' }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>📈 Classroom Coverage Forecast</div>
         <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>Compact timeline by class. Click a time point to inspect expected students, missing students, and pull-out destinations.</div>
+
+        {import.meta.env.DEV && forecastDiagnostics && (
+          <details style={{ border: '1px solid #e2e8f0', borderRadius: 9, background: '#f8fafc', marginBottom: 10, padding: '7px 9px' }}>
+            <summary style={{ cursor: 'pointer', fontSize: 11, fontWeight: 800, color: '#334155' }}>
+              Forecast Diagnostics (dev-only)
+            </summary>
+            <div style={{ marginTop: 7, fontSize: 10.5, color: '#475569', lineHeight: 1.45 }}>
+              <div>Rows received: {forecastDiagnostics.sourceRowsReceived}</div>
+              <div>From therapy_schedule: {forecastDiagnostics.sourceRowsFromTherapySchedule}</div>
+              <div>From student therapyAssignments: {forecastDiagnostics.sourceRowsFromStudentAssignments}</div>
+              <div>Inside selected date window: {forecastDiagnostics.insideWindow}</div>
+              <div>Matched to students: {forecastDiagnostics.matchedToStudent}</div>
+              <div>Accepted for coverage: {forecastDiagnostics.acceptedForCoverage}</div>
+              <div>Rejected outside window: {forecastDiagnostics.rejected.outsideWindow}</div>
+              <div>Rejected missing student match: {forecastDiagnostics.rejected.missingStudentMatch}</div>
+              <div>Rejected invalid time window: {forecastDiagnostics.rejected.invalidTimeWindow}</div>
+              <div>Rejected class mismatch: {forecastDiagnostics.rejected.classHintMismatch}</div>
+            </div>
+          </details>
+        )}
+
         <div style={{ display: 'grid', gap: 10 }}>
           {classroomForecast.map(classForecast => (
             <div key={classForecast.classId} style={{ border: '1px solid #dbe3ee', borderRadius: 10, background: '#ffffff', padding: '9px 10px' }}>

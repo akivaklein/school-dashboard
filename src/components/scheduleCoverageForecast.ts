@@ -64,6 +64,58 @@ type BuildForecastArgs = {
   now?: Date
 }
 
+type NormalizedScheduleRow = {
+  raw: TherapyRowLike
+  source: 'therapy_schedule' | 'student_therapy_assignments'
+  studentId?: number | string
+  studentName?: string
+  providerName?: string
+  serviceType?: string
+  day?: string
+  customWeekdays?: string[]
+  date?: string
+  startTime?: string
+  endTime?: string
+  duration?: unknown
+  recurrence?: string
+  classIdHint?: string
+  classNameHint?: string
+  periodHint?: unknown
+  subjectHint?: string
+  location?: string
+}
+
+export type ForecastDiagnostics = {
+  sourceRowsReceived: number
+  sourceRowsFromTherapySchedule: number
+  sourceRowsFromStudentAssignments: number
+  insideWindow: number
+  matchedToStudent: number
+  acceptedForCoverage: number
+  rejected: {
+    outsideWindow: number
+    missingStudentMatch: number
+    invalidTimeWindow: number
+    classHintMismatch: number
+  }
+  sampleRuntimeFields: Array<{
+    studentId: number | string | null
+    studentName: string
+    provider: string
+    serviceType: string
+    weekday: string
+    customWeekdays: string[]
+    date: string
+    startTime: string
+    endTime: string
+    duration: string
+    recurrence: string
+    classHint: string
+    periodHint: string
+    source: string
+  }>
+}
+
 const SCHOOL_DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 
 function toIsoDate(value: Date) {
@@ -83,6 +135,13 @@ function normalizedDayName(value: string) {
   if (day.startsWith('thu')) return 'Thursday'
   if (day.startsWith('fri')) return 'Friday'
   return ''
+}
+
+function normalizeWeekdayList(values: unknown) {
+  if (!Array.isArray(values)) return []
+  return values
+    .map(value => normalizedDayName(String(value || '')))
+    .filter(Boolean)
 }
 
 function parseTimeToMinutes(rawTime: string) {
@@ -155,6 +214,20 @@ function parsePeriodId(value: unknown) {
   return Number(digits[1])
 }
 
+function parseAffectedPeriodToHint(value: unknown): { periodHint: number | null; subjectHint: string } {
+  const raw = String(value || '').trim()
+  if (!raw) return { periodHint: null, subjectHint: '' }
+
+  const periodMatch = raw.match(/period\s*(\d+)/i)
+  if (periodMatch) {
+    const periodId = Number(periodMatch[1])
+    const subjectText = raw.includes(':') ? raw.split(':').slice(1).join(':').trim() : ''
+    return { periodHint: Number.isFinite(periodId) ? periodId : null, subjectHint: subjectText }
+  }
+
+  return { periodHint: null, subjectHint: raw }
+}
+
 function buildPlanningDays(horizonDays: number, now: Date) {
   const maxDays = Math.max(1, Math.min(5, horizonDays))
   const days: PlanningDay[] = []
@@ -200,12 +273,27 @@ function findClassBlockAtMinute(blocks: ClassBlock[], minute: number) {
 }
 
 function therapyDateMatches(row: TherapyRowLike, day: PlanningDay) {
-  const rowDay = normalizedDayName(String(row.day || ''))
-  const rowDate = String(row.date || row.sessionDate || '').trim()
+  const rowDay = normalizedDayName(String(row.day || row.weekday || ''))
+  const customDays = normalizeWeekdayList(row.customWeekdays || row.weekdays)
+  const rowDate = String(row.date || row.sessionDate || row.startDate || '').trim()
+  const endDate = String(row.endDate || '').trim()
+  const recurrence = String(row.recurrence || '').trim().toLowerCase()
 
   if (rowDate) {
     const normalizedDate = rowDate.includes('T') ? rowDate.slice(0, 10) : rowDate
-    return normalizedDate === day.dateIso
+    if (recurrence === 'one-time' || !rowDay) {
+      return normalizedDate === day.dateIso
+    }
+    if (normalizedDate > day.dateIso) return false
+  }
+
+  if (endDate) {
+    const normalizedEndDate = endDate.includes('T') ? endDate.slice(0, 10) : endDate
+    if (day.dateIso > normalizedEndDate) return false
+  }
+
+  if (customDays.length > 0) {
+    return customDays.includes(day.dayName)
   }
 
   if (rowDay) {
@@ -216,10 +304,10 @@ function therapyDateMatches(row: TherapyRowLike, day: PlanningDay) {
 }
 
 function resolveAppointmentWindow(row: TherapyRowLike) {
-  const startMinutes = parseTimeToMinutes(String(row.time || row.startTime || ''))
+  const startMinutes = parseTimeToMinutes(String(row.time || row.startTime || row.start || ''))
   if (!Number.isFinite(startMinutes)) return null
 
-  const explicitEnd = parseTimeToMinutes(String(row.endTime || row.end || ''))
+  const explicitEnd = parseTimeToMinutes(String(row.endTime || row.end || row.returnTime || ''))
   const duration = parseDurationMinutes(row.duration)
   const endMinutes = Number.isFinite(explicitEnd) ? explicitEnd : startMinutes + duration
 
@@ -243,7 +331,7 @@ function resolveStudentIdentity(row: TherapyRowLike, rosterMap: Map<number, Stud
     }
   }
 
-  const studentName = normalizeName(String(row.student || row.studentName || ''))
+  const studentName = normalizeName(String(row.student || row.studentName || row.student_name || row.name || ''))
   if (studentName && nameMap.has(studentName)) {
     const student = nameMap.get(studentName)!
     return {
@@ -269,7 +357,10 @@ function resolveAppointmentPeriodHint(row: TherapyRowLike) {
   const directHint = parsePeriodId(row.periodId ?? row.period_id ?? row.period)
   if (directHint) return directHint
 
-  const subjectText = String(row.missedSubject || row.subject || '')
+  const affected = parseAffectedPeriodToHint(row.affectedPeriod)
+  if (affected.periodHint) return affected.periodHint
+
+  const subjectText = String(row.missedSubject || row.subject || affected.subjectHint || '')
   const subjectHint = subjectText.match(/period\s*(\d+)/i)
   if (!subjectHint) return null
   return Number(subjectHint[1])
@@ -279,7 +370,8 @@ function appointmentMatchesBlock(row: TherapyRowLike, block: ClassBlock) {
   const hintedPeriodId = resolveAppointmentPeriodHint(row)
   if (hintedPeriodId) return hintedPeriodId === block.id
 
-  const hintedSubject = normalizeName(String(row.missedSubject || row.subject || ''))
+  const affected = parseAffectedPeriodToHint(row.affectedPeriod)
+  const hintedSubject = normalizeName(String(row.missedSubject || row.subject || affected.subjectHint || ''))
   if (!hintedSubject) return true
 
   if (hintedSubject.includes('period')) {
@@ -292,6 +384,186 @@ function appointmentMatchesBlock(row: TherapyRowLike, block: ClassBlock) {
 
 function currentMinutes(now: Date) {
   return now.getHours() * 60 + now.getMinutes()
+}
+
+function deriveAssignmentRowsFromStudents(students: StudentLike[]) {
+  const rows: NormalizedScheduleRow[] = []
+
+  ;(students || []).forEach(student => {
+    const assignments = Array.isArray(student?.therapyAssignments) ? student.therapyAssignments : []
+    assignments.forEach((assignment: Record<string, unknown>, index: number) => {
+      const affected = parseAffectedPeriodToHint(assignment.affectedPeriod)
+      rows.push({
+        raw: assignment,
+        source: 'student_therapy_assignments',
+        studentId: student.id,
+        studentName: String(student.name || ''),
+        providerName: String(assignment.provider || ''),
+        serviceType: String(assignment.serviceType || ''),
+        day: String(assignment.day || ''),
+        customWeekdays: normalizeWeekdayList(assignment.customDays),
+        date: String(assignment.date || ''),
+        startTime: String(assignment.startTime || ''),
+        endTime: String(assignment.endTime || ''),
+        recurrence: String(assignment.recurrence || ''),
+        classIdHint: String(student.classId || student.class_id || ''),
+        classNameHint: String(student.className || ''),
+        periodHint: affected.periodHint,
+        subjectHint: affected.subjectHint,
+        location: String(assignment.location || assignment.notes || ''),
+        duration: null,
+        rawAssignmentIndex: index,
+      } as unknown as NormalizedScheduleRow)
+    })
+  })
+
+  return rows
+}
+
+function normalizeTherapyScheduleRows(therapySchedule: TherapyRowLike[]) {
+  return (therapySchedule || []).map(row => {
+    const affected = parseAffectedPeriodToHint(row.affectedPeriod)
+    return {
+      raw: row,
+      source: 'therapy_schedule' as const,
+      studentId: row.studentId ?? row.student_id,
+      studentName: String(row.student || row.studentName || row.student_name || ''),
+      providerName: String(row.therapistName || row.staffName || row.providerName || row.provider || ''),
+      serviceType: String(row.service || row.type || row.serviceType || row.staffType || ''),
+      day: String(row.day || row.weekday || ''),
+      customWeekdays: normalizeWeekdayList(row.customWeekdays || row.weekdays),
+      date: String(row.date || row.sessionDate || row.startDate || ''),
+      startTime: String(row.time || row.startTime || row.start || ''),
+      endTime: String(row.endTime || row.end || row.returnTime || ''),
+      recurrence: String(row.recurrence || row.frequency || ''),
+      classIdHint: String(row.classId || row.class_id || ''),
+      classNameHint: String(row.className || row.class || ''),
+      periodHint: row.periodId ?? row.period_id ?? row.period ?? affected.periodHint,
+      subjectHint: String(row.missedSubject || row.subject || affected.subjectHint || ''),
+      location: String(row.location || row.destination || ''),
+      duration: row.duration,
+    }
+  })
+}
+
+function buildCombinedScheduleRows(students: StudentLike[], therapySchedule: TherapyRowLike[]) {
+  const therapyRows = normalizeTherapyScheduleRows(therapySchedule)
+  const studentRows = deriveAssignmentRowsFromStudents(students)
+  return [...therapyRows, ...studentRows]
+}
+
+export function debugCoverageForecastMatching({
+  students,
+  classes,
+  therapySchedule,
+  horizonDays,
+  now = new Date(),
+}: {
+  students: StudentLike[]
+  classes: ClassLike[]
+  therapySchedule: TherapyRowLike[]
+  horizonDays: number
+  now?: Date
+}): ForecastDiagnostics {
+  const planningDays = buildPlanningDays(horizonDays, now)
+  const planningDaySet = new Set(planningDays.map(day => `${day.dayName}|${day.dateIso}`))
+  const combinedRows = buildCombinedScheduleRows(students, therapySchedule)
+
+  const sourceRowsFromTherapySchedule = combinedRows.filter(row => row.source === 'therapy_schedule').length
+  const sourceRowsFromStudentAssignments = combinedRows.filter(row => row.source === 'student_therapy_assignments').length
+
+  const diagnostics: ForecastDiagnostics = {
+    sourceRowsReceived: combinedRows.length,
+    sourceRowsFromTherapySchedule,
+    sourceRowsFromStudentAssignments,
+    insideWindow: 0,
+    matchedToStudent: 0,
+    acceptedForCoverage: 0,
+    rejected: {
+      outsideWindow: 0,
+      missingStudentMatch: 0,
+      invalidTimeWindow: 0,
+      classHintMismatch: 0,
+    },
+    sampleRuntimeFields: combinedRows.slice(0, 8).map(row => ({
+      studentId: (row.studentId as number | string | null) ?? null,
+      studentName: String(row.studentName || ''),
+      provider: String(row.providerName || ''),
+      serviceType: String(row.serviceType || ''),
+      weekday: String(row.day || ''),
+      customWeekdays: Array.isArray(row.customWeekdays) ? row.customWeekdays : [],
+      date: String(row.date || ''),
+      startTime: String(row.startTime || ''),
+      endTime: String(row.endTime || ''),
+      duration: String(row.duration ?? ''),
+      recurrence: String(row.recurrence || ''),
+      classHint: String(row.classIdHint || row.classNameHint || ''),
+      periodHint: String(row.periodHint || row.subjectHint || ''),
+      source: row.source,
+    })),
+  }
+
+  const studentsById = new Map<string, StudentLike>()
+  const studentsByName = new Map<string, StudentLike>()
+  ;(students || []).forEach(student => {
+    studentsById.set(String(student.id), student)
+    studentsByName.set(normalizeName(String(student.name || '')), student)
+  })
+
+  combinedRows.forEach(row => {
+    const inWindow = planningDays.some(day => {
+      if (!planningDaySet.has(`${day.dayName}|${day.dateIso}`)) return false
+      return therapyDateMatches({
+        day: row.day,
+        date: row.date,
+        sessionDate: row.date,
+        customWeekdays: row.customWeekdays,
+        weekdays: row.customWeekdays,
+        recurrence: row.recurrence,
+        startDate: row.date,
+      }, day)
+    })
+
+    if (!inWindow) {
+      diagnostics.rejected.outsideWindow += 1
+      return
+    }
+
+    diagnostics.insideWindow += 1
+
+    const byId = row.studentId !== undefined ? studentsById.get(String(row.studentId)) : null
+    const byName = row.studentName ? studentsByName.get(normalizeName(row.studentName)) : null
+    const matchedStudent = byId || byName || null
+
+    if (!matchedStudent) {
+      diagnostics.rejected.missingStudentMatch += 1
+      return
+    }
+
+    diagnostics.matchedToStudent += 1
+
+    const window = resolveAppointmentWindow({
+      time: row.startTime,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      duration: row.duration,
+    })
+
+    if (!window) {
+      diagnostics.rejected.invalidTimeWindow += 1
+      return
+    }
+
+    const classId = resolveForecastStudentClassId(matchedStudent, classes)
+    if (!classId) {
+      diagnostics.rejected.classHintMismatch += 1
+      return
+    }
+
+    diagnostics.acceptedForCoverage += 1
+  })
+
+  return diagnostics
 }
 
 export function buildClassroomCoverageForecast({
@@ -310,6 +582,7 @@ export function buildClassroomCoverageForecast({
 
   const todayIso = toIsoDate(now)
   const nowMinutes = currentMinutes(now)
+  const combinedScheduleRows = buildCombinedScheduleRows(students, therapySchedule)
 
   return (classes || []).map(classInfo => {
     const roster = (students || []).filter(student => resolveForecastStudentClassId(student, classes || []) === classInfo.id)
@@ -325,14 +598,32 @@ export function buildClassroomCoverageForecast({
     })
 
     const dayRows = planningDays.map(day => {
-      const relevantRows = (therapySchedule || []).filter(row => therapyDateMatches(row, day))
+      const relevantRows = combinedScheduleRows.filter(row => therapyDateMatches({
+        day: row.day,
+        date: row.date,
+        sessionDate: row.date,
+        customWeekdays: row.customWeekdays,
+        weekdays: row.customWeekdays,
+        recurrence: row.recurrence,
+        startDate: row.date,
+      }, day))
 
       const normalizedRows = relevantRows
         .map(row => {
-          const identity = resolveStudentIdentity(row, rosterMap, rosterNameMap)
+          const identity = resolveStudentIdentity({
+            studentId: row.studentId,
+            student_id: row.studentId,
+            student: row.studentName,
+            studentName: row.studentName,
+          }, rosterMap, rosterNameMap)
           if (!identity) return null
-          if (!rowClassHintMatches(row, classInfo)) return null
-          const window = resolveAppointmentWindow(row)
+          if (!rowClassHintMatches({ classId: row.classIdHint, className: row.classNameHint }, classInfo)) return null
+          const window = resolveAppointmentWindow({
+            time: row.startTime,
+            startTime: row.startTime,
+            endTime: row.endTime,
+            duration: row.duration,
+          })
           if (!window) return null
 
           return {
@@ -343,13 +634,13 @@ export function buildClassroomCoverageForecast({
             endMinutes: window.endMinutes,
             departureTime: window.departureTime,
             expectedReturnTime: window.expectedReturnTime,
-            providerName: String(row.therapistName || row.staffName || row.providerName || 'Unassigned Provider'),
-            serviceType: String(row.service || row.type || row.staffType || 'Pullout Service'),
-            whereGoing: String(row.location || row.destination || row.service || row.type || 'Support Session'),
+            providerName: String(row.providerName || 'Unassigned Provider'),
+            serviceType: String(row.serviceType || 'Pullout Service'),
+            whereGoing: String(row.location || row.serviceType || 'Support Session'),
           }
         })
         .filter(Boolean) as Array<{
-        row: TherapyRowLike
+        row: NormalizedScheduleRow
         studentId: number | string
         studentName: string
         startMinutes: number
@@ -385,7 +676,13 @@ export function buildClassroomCoverageForecast({
             const overlapsBlock = item.startMinutes < activeBlock.endMinutes && item.endMinutes > activeBlock.startMinutes
             if (!overlapsBlock) return false
 
-            return appointmentMatchesBlock(item.row, activeBlock)
+            return appointmentMatchesBlock({
+              periodId: item.row.periodHint,
+              period: item.row.periodHint,
+              affectedPeriod: item.row.periodHint,
+              missedSubject: item.row.subjectHint,
+              subject: item.row.subjectHint,
+            }, activeBlock)
           })
 
           const missingByStudent = new Map<string, ActivePullout>()
