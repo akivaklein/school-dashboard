@@ -1,5 +1,25 @@
 import { isInSchool } from '../utils/attendancePresence'
 
+export function didTeachingModeWriteSucceed(result: unknown): boolean {
+  return result !== false
+}
+
+export function summarizeTeachingModeWriteResults(results: unknown[]): { total: number; failedCount: number; allSucceeded: boolean } {
+  const total = results.length
+  const failedCount = results.filter(result => !didTeachingModeWriteSucceed(result)).length
+  return {
+    total,
+    failedCount,
+    allSucceeded: failedCount === 0,
+  }
+}
+
+export function buildTeachingModeWriteFailureMessage(summary: { total: number; failedCount: number }): string {
+  if (summary.failedCount <= 0) return ''
+  const savedCount = Math.max(0, summary.total - summary.failedCount)
+  return `Saved ${savedCount} of ${summary.total}. ${summary.failedCount} action${summary.failedCount === 1 ? '' : 's'} failed to persist.`
+}
+
 export function deduplicateStudentIds(values: Array<number | string | null | undefined>): number[] {
   const seen = new Set<number>()
   const result: number[] = []

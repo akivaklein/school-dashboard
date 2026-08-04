@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import playSound from '../utils/playSound'
 import { resolveActorName } from './dashboardData'
-import { buildLateToClassFields } from './teachingModeUtils'
+import {
+  buildLateToClassFields,
+  buildTeachingModeWriteFailureMessage,
+  didTeachingModeWriteSucceed,
+  summarizeTeachingModeWriteResults,
+} from './teachingModeUtils'
 import { getDailyAttendanceStatus, isInClassroom, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
 
 const TEACHING_MODE_SCOPE_STATE_STORAGE_KEY = 'schoolDashboardTeachingModeScopeV1'
@@ -75,6 +80,7 @@ export default function TeachingMode({
   const [actionStudentSearch, setActionStudentSearch] = useState('')
   const [quickActionStudent, setQuickActionStudent] = useState(null)
   const [showBulkActionPanel, setShowBulkActionPanel] = useState(false)
+  const [saveErrorMessage, setSaveErrorMessage] = useState('')
   const [leavePopup, setLeavePopup] = useState(null)
   const [leaveReason, setLeaveReason] = useState('therapy')
   const [leaveStaffSearch, setLeaveStaffSearch] = useState('')
@@ -583,33 +589,67 @@ export default function TeachingMode({
   }
 
   async function applyToSelected(amount, label, options: { reminderDelta?: number; eventType?: 'award' | 'deduction' | 'reminder' } = {}) {
-    if (selected.length === 0) return
+    if (selected.length === 0) return false
+
+    setSaveErrorMessage('')
 
     playSound(amount > 0 ? 'positive' : 'negative')
 
     const results = await Promise.all(
-      selected.map(studentId =>
-        recordStudentPointsAction({
-          studentId,
-          pointsDelta: amount,
-          reminderDelta: options.reminderDelta ?? (amount < 0 ? 1 : 0),
-          reason: label,
-          eventType: options.eventType || (amount > 0 ? 'award' : 'deduction'),
-          category: 'teaching',
-          sourceContext: 'teaching-mode-bulk-action',
-          metadata: {
-            bulkSelectionSize: selected.length,
-          },
-        })
-      )
+      selected.map(async studentId => {
+        try {
+          const result = await recordStudentPointsAction({
+            studentId,
+            pointsDelta: amount,
+            reminderDelta: options.reminderDelta ?? (amount < 0 ? 1 : 0),
+            reason: label,
+            eventType: options.eventType || (amount > 0 ? 'award' : 'deduction'),
+            category: 'teaching',
+            sourceContext: 'teaching-mode-bulk-action',
+            metadata: {
+              bulkSelectionSize: selected.length,
+            },
+          })
+          return didTeachingModeWriteSucceed(result)
+        } catch (error) {
+          console.error('Failed to save teaching-mode bulk action:', error)
+          return false
+        }
+      }),
     )
 
-    if (!results.every(Boolean)) {
-      alert('Some selected student actions could not be saved to Supabase.')
+    const summary = summarizeTeachingModeWriteResults(results)
+    if (!summary.allSucceeded) {
+      const message = buildTeachingModeWriteFailureMessage(summary)
+      setSaveErrorMessage(message)
+      alert(message)
+      return false
     }
+
+    setSaveErrorMessage('')
 
     // Keep the popup and current students selected so several
     // behaviors can be recorded in one classroom interaction.
+    return true
+  }
+
+  async function runQuickAction(payload: Record<string, unknown>, soundType: 'positive' | 'negative') {
+    setSaveErrorMessage('')
+    playSound(soundType)
+
+    try {
+      const result = await recordStudentPointsAction(payload)
+      const saved = didTeachingModeWriteSucceed(result)
+      if (!saved) {
+        const message = 'Unable to save this classroom action to Supabase. Please try again.'
+        setSaveErrorMessage(message)
+        return
+      }
+      setQuickActionStudent(null)
+    } catch (error) {
+      console.error('Failed to save teaching-mode quick action:', error)
+      setSaveErrorMessage('Unable to save this classroom action to Supabase. Please try again.')
+    }
   }
 
   async function handleToggle(s) {
@@ -1174,11 +1214,13 @@ export default function TeachingMode({
                     <button
                       key={amount}
                       onClick={async () => {
-                        await applyToSelected(amount, `Bulk +${amount}`, {
+                        const success = await applyToSelected(amount, `Bulk +${amount}`, {
                           reminderDelta: 0,
                           eventType: 'award',
                         })
-                        setShowBulkActionPanel(false)
+                        if (success) {
+                          setShowBulkActionPanel(false)
+                        }
                       }}
                       style={{
                         padding: '22px 12px',
@@ -1210,11 +1252,13 @@ export default function TeachingMode({
                     <button
                       key={action.label}
                       onClick={async () => {
-                        await applyToSelected(action.amount, `Bulk ${action.label}`, {
+                        const success = await applyToSelected(action.amount, `Bulk ${action.label}`, {
                           reminderDelta: action.reminder ? 1 : 0,
                           eventType: action.reminder ? 'reminder' : 'deduction',
                         })
-                        setShowBulkActionPanel(false)
+                        if (success) {
+                          setShowBulkActionPanel(false)
+                        }
                       }}
                       style={{
                         padding: '20px 12px',
@@ -1327,16 +1371,14 @@ export default function TeachingMode({
                     <button
                       key={amount}
                       onClick={async () => {
-                        playSound('positive')
-                        await recordStudentPointsAction({
+                        await runQuickAction({
                           studentId: quickActionStudent.id,
                           pointsDelta: amount,
                           reason: `Quick +${amount}`,
                           eventType: 'award',
                           category: 'teaching',
                           sourceContext: 'teaching-mode-quick-action',
-                        })
-                        setQuickActionStudent(null)
+                        }, 'positive')
                       }}
                       style={{
                         padding: '22px 12px',
@@ -1368,8 +1410,7 @@ export default function TeachingMode({
                     <button
                       key={action.label}
                       onClick={async () => {
-                        playSound('negative')
-                        await recordStudentPointsAction({
+                        await runQuickAction({
                           studentId: quickActionStudent.id,
                           pointsDelta: action.amount,
                           reminderDelta: action.reminder ? 1 : 0,
@@ -1377,8 +1418,7 @@ export default function TeachingMode({
                           eventType: action.reminder ? 'reminder' : 'deduction',
                           category: 'teaching',
                           sourceContext: 'teaching-mode-quick-action',
-                        })
-                        setQuickActionStudent(null)
+                        }, 'negative')
                       }}
                       style={{
                         padding: '20px 12px',
@@ -1824,6 +1864,47 @@ export default function TeachingMode({
           </div>
         </div>
       </div>
+
+      {saveErrorMessage && (
+        <div style={{
+          maxWidth: 1660,
+          margin: '10px auto 0',
+          padding: '0 24px',
+          boxSizing: 'border-box',
+          width: '100%',
+        }}>
+          <div style={{
+            borderRadius: 10,
+            border: '1px solid #f3c1ce',
+            background: '#fff5f8',
+            color: '#8f1d3f',
+            fontSize: 12,
+            fontWeight: 700,
+            padding: '9px 11px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 10,
+          }}>
+            <span>{saveErrorMessage}</span>
+            <button
+              onClick={() => setSaveErrorMessage('')}
+              style={{
+                border: '1px solid #e8aebc',
+                background: '#ffffff',
+                color: '#8f1d3f',
+                borderRadius: 7,
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '4px 8px',
+                cursor: 'pointer',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {selected.length > 0 && (
         <div style={{
