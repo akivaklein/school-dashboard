@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { isInClassroom } from '../utils/attendancePresence'
-import { buildClassroomCoverageSnapshot } from './dashboardData'
+import { buildClassroomCoverageForecast } from './scheduleCoverageForecast'
 
 type Props = {
   S: any
@@ -30,11 +30,10 @@ export default function SchedulePage({
   CLASSES = [],
 }: Props) {
   const [horizonDays, setHorizonDays] = useState(3)
-  const [selectedCoverageClassId, setSelectedCoverageClassId] = useState<string | null>(CLASSES[0]?.id || null)
+  const [selectedForecastPointKey, setSelectedForecastPointKey] = useState<string | null>(null)
   const [showConflicts, setShowConflicts] = useState(false)
   const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({})
   const [compactTherapyRows, setCompactTherapyRows] = useState(true)
-  const [compactCoverageRows, setCompactCoverageRows] = useState(true)
 
   const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const jsDayToName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -66,31 +65,6 @@ export default function SchedulePage({
     if (meridiem === 'AM' && hour === 12) hour = 0
     return hour * 60 + minute
   }
-
-  const nextSessionByStudentName = useMemo(() => {
-    const rows = Array.isArray(THERAPY_SCHEDULE) ? THERAPY_SCHEDULE : []
-    const sorted = [...rows].sort((a, b) => {
-      const dayA = orderedSchoolDays.indexOf(String(a.day || ''))
-      const dayB = orderedSchoolDays.indexOf(String(b.day || ''))
-      const safeDayA = dayA === -1 ? Number.MAX_SAFE_INTEGER : dayA
-      const safeDayB = dayB === -1 ? Number.MAX_SAFE_INTEGER : dayB
-      if (safeDayA !== safeDayB) return safeDayA - safeDayB
-      return toMinutes(String(a.time || '')) - toMinutes(String(b.time || ''))
-    })
-
-    const map = new Map<string, { day: string; time: string; type: string }>()
-    sorted.forEach(row => {
-      const studentName = String(row.student || '').trim().toLowerCase()
-      if (!studentName || map.has(studentName)) return
-      map.set(studentName, {
-        day: String(row.day || '').trim(),
-        time: String(row.time || '').trim(),
-        type: String(row.type || row.service || 'Service').trim(),
-      })
-    })
-
-    return map
-  }, [THERAPY_SCHEDULE, orderedSchoolDays])
 
   const therapyProviders = useMemo(() => {
     const toMinutes = (timeValue: string) => {
@@ -163,21 +137,15 @@ export default function SchedulePage({
 
   const studentsNotInClass = students.filter(student => !isInClassroom(student))
 
-  const classroomCoverage = useMemo(() => {
-    const selectedPeriod = SCHEDULE_PERIODS[0] || null
-    return (CLASSES || []).map(cls => ({
-      classInfo: cls,
-      snapshot: buildClassroomCoverageSnapshot(students, cls.id, selectedPeriod),
-    }))
-  }, [CLASSES, SCHEDULE_PERIODS, students])
-
-  useEffect(() => {
-    if (!selectedCoverageClassId && classroomCoverage.length > 0) {
-      setSelectedCoverageClassId(classroomCoverage[0].classInfo.id)
-    }
-  }, [classroomCoverage, selectedCoverageClassId])
-
-  const selectedCoverage = classroomCoverage.find(item => item.classInfo.id === selectedCoverageClassId) || classroomCoverage[0] || null
+  const classroomForecast = useMemo(() => {
+    return buildClassroomCoverageForecast({
+      students,
+      classes: CLASSES || [],
+      schedulePeriods: SCHEDULE_PERIODS || [],
+      therapySchedule: THERAPY_SCHEDULE || [],
+      horizonDays,
+    })
+  }, [students, CLASSES, SCHEDULE_PERIODS, THERAPY_SCHEDULE, horizonDays])
 
   return (
     <div>
@@ -251,85 +219,122 @@ export default function SchedulePage({
       </div>
 
       <div style={{ ...S.card, marginBottom: 16, padding: '14px 16px' }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>🏫 Live Classroom Coverage Now</div>
-        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>Live class counts are current-now and do not change when you switch planning window filters.</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-          {classroomCoverage.map(({ classInfo, snapshot }) => (
-            <button
-              key={classInfo.id}
-              onClick={() => setSelectedCoverageClassId(classInfo.id)}
-              style={{
-                textAlign: 'left',
-                border: `1px solid ${selectedCoverageClassId === classInfo.id ? '#5f83aa' : '#e2e8f0'}`,
-                borderRadius: 10,
-                padding: '10px 12px',
-                background: selectedCoverageClassId === classInfo.id ? '#dbe8f5' : '#ffffff',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 12 }}>{classInfo.name}</div>
-              <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{snapshot.metrics.present} of {snapshot.expectedCount} in class</div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{snapshot.metrics.absent} absent · {snapshot.metrics.late} late · {snapshot.metrics.pullout} pullout</div>
-            </button>
-          ))}
-        </div>
-        {selectedCoverage && (
-          <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', background: '#f8fafc' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ fontWeight: 700, fontSize: 12 }}>{selectedCoverage.classInfo.name} · {selectedCoverage.snapshot.expectedCount} expected</div>
-              <button
-                onClick={() => setCompactCoverageRows(prev => !prev)}
-                style={{ ...S.btn('ghost'), padding: '4px 9px', fontSize: 11 }}
-              >
-                {compactCoverageRows ? 'Expanded Rows' : 'Compact Rows'}
-              </button>
-            </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              {selectedCoverage.snapshot.students.map(entry => {
-                const student = students.find(item => String(item.id) === String(entry.studentId))
-                const nextSession = nextSessionByStudentName.get(String(entry.studentName || '').trim().toLowerCase()) || null
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>📈 Classroom Coverage Forecast</div>
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>Compact timeline by class. Click a time point to inspect expected students, missing students, and pull-out destinations.</div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {classroomForecast.map(classForecast => (
+            <div key={classForecast.classId} style={{ border: '1px solid #dbe3ee', borderRadius: 10, background: '#ffffff', padding: '9px 10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{classForecast.className}</div>
+                <div style={{ fontSize: 10.5, color: '#64748b', fontWeight: 700 }}>{classForecast.rosterCount} students</div>
+              </div>
+
+              {classForecast.points.length > 0 ? (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {classForecast.points.map(point => {
+                    const isSelected = selectedForecastPointKey === point.key
+                    return (
+                      <button
+                        key={point.key}
+                        onClick={() => setSelectedForecastPointKey(prev => prev === point.key ? null : point.key)}
+                        style={{
+                          border: `1px solid ${isSelected ? '#456a93' : '#d9e4f0'}`,
+                          background: isSelected ? '#e3edf8' : '#f8fbff',
+                          borderRadius: 999,
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <span style={{ fontSize: 10.5, color: '#334155', fontWeight: 700 }}>{point.label}</span>
+                        <span style={{ fontSize: 11, color: '#0f172a', fontWeight: 900 }}>{point.expectedCount}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>No class-time pull-out changes in this planning window.</div>
+              )}
+
+              {classForecast.points.map(point => {
+                if (selectedForecastPointKey !== point.key) return null
+
                 return (
-                  <button
-                    key={entry.studentId}
-                    onClick={() => student && openStudent(student, 'tracking')}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: compactCoverageRows ? 'center' : 'flex-start', gap: 8, borderRadius: 8, padding: compactCoverageRows ? '7px 9px' : '8px 10px', background: '#ffffff', border: '1px solid #e2e8f0', textAlign: 'left', cursor: student ? 'pointer' : 'default' }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {compactCoverageRows ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 1fr) minmax(76px, auto) minmax(160px, 1.2fr)', gap: 8, alignItems: 'center' }}>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 12 }}>{entry.studentName}</div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.3 }}>{entry.expectedLocation} → {entry.actualCurrentLocation}</div>
-                          </div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>{entry.status}</div>
-                          <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.35 }}>
-                            <div><strong>Assigned provider:</strong> {entry.provider} · {entry.serviceType}</div>
-                            <div><strong>Next session:</strong> {nextSession ? `${nextSession.day} ${nextSession.time}` : 'None in schedule'}</div>
-                            <div>{entry.scheduledDeparture} / {entry.actualDeparture} · {entry.expectedReturn} / {entry.actualReturn}</div>
-                            <div>{entry.scheduledVersusUnexpected} · {entry.approvedVersusUnexplained} · {entry.statusCode}</div>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ fontWeight: 600, fontSize: 12 }}>{entry.studentName}</div>
-                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>
-                            <div><strong>Expected:</strong> {entry.expectedLocation}</div>
-                            <div><strong>Actual:</strong> {entry.actualCurrentLocation}</div>
-                            <div><strong>Assigned provider:</strong> {entry.provider} · {entry.serviceType}</div>
-                            <div><strong>Next session:</strong> {nextSession ? `${nextSession.day} ${nextSession.time}` : 'None in schedule'}</div>
-                            <div><strong>Departure:</strong> {entry.scheduledDeparture} / {entry.actualDeparture} · <strong>Return:</strong> {entry.expectedReturn} / {entry.actualReturn}</div>
-                            <div><strong>Flow:</strong> {entry.scheduledVersusUnexpected} · {entry.approvedVersusUnexplained} · {entry.statusCode}</div>
-                          </div>
-                        </>
-                      )}
+                  <div key={`${point.key}-details`} style={{ marginTop: 9, border: '1px solid #e2e8f0', borderRadius: 9, background: '#f8fafc', padding: '9px 10px' }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, color: '#1e293b' }}>
+                      {point.label} · {point.dayName} · {point.classBlock.timeLabel}
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>{entry.status}</div>
-                  </button>
+                    <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2 }}>
+                      {classForecast.className} · Period {point.classBlock.periodId} · {point.classBlock.subject}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
+                      <div style={{ border: '1px solid #d9e2ec', borderRadius: 8, background: '#ffffff', padding: '7px 8px' }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 800, color: '#0f172a' }}>Students Expected In Class ({point.expectedStudents.length})</div>
+                        <div style={{ marginTop: 5, display: 'grid', gap: 4 }}>
+                          {point.expectedStudents.length > 0 ? point.expectedStudents.map(expected => {
+                            const student = students.find(item => String(item.id) === String(expected.id))
+                            return (
+                              <button
+                                key={`${point.key}-expected-${expected.id}`}
+                                onClick={() => student && openStudent(student, 'tracking')}
+                                style={{
+                                  border: '1px solid #e2e8f0',
+                                  background: '#f8fbff',
+                                  borderRadius: 7,
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                  color: '#334155',
+                                  textAlign: 'left',
+                                  padding: '4px 6px',
+                                  cursor: student ? 'pointer' : 'default',
+                                }}
+                              >
+                                {expected.name}
+                              </button>
+                            )
+                          }) : <div style={{ fontSize: 10.5, color: '#94a3b8' }}>No students expected in class.</div>}
+                        </div>
+                      </div>
+
+                      <div style={{ border: '1px solid #d9e2ec', borderRadius: 8, background: '#ffffff', padding: '7px 8px' }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 800, color: '#7c2d12' }}>Students Missing From Class ({point.missingStudents.length})</div>
+                        <div style={{ marginTop: 5, display: 'grid', gap: 6 }}>
+                          {point.missingStudents.length > 0 ? point.missingStudents.map(missing => {
+                            const student = students.find(item => String(item.id) === String(missing.studentId))
+                            return (
+                              <button
+                                key={`${point.key}-missing-${missing.studentId}`}
+                                onClick={() => student && openStudent(student, 'tracking')}
+                                style={{
+                                  border: '1px solid #f1d5c8',
+                                  background: '#fffaf7',
+                                  borderRadius: 7,
+                                  textAlign: 'left',
+                                  padding: '5px 6px',
+                                  cursor: student ? 'pointer' : 'default',
+                                }}
+                              >
+                                <div style={{ fontSize: 10.8, fontWeight: 800, color: '#7c2d12' }}>{missing.studentName}</div>
+                                <div style={{ fontSize: 10.2, color: '#9a3412', marginTop: 2 }}>{missing.whereGoing}</div>
+                                <div style={{ fontSize: 10, color: '#7b4b2a', marginTop: 2 }}>Provider: {missing.providerName}</div>
+                                <div style={{ fontSize: 10, color: '#7b4b2a' }}>Service: {missing.serviceType}</div>
+                                <div style={{ fontSize: 10, color: '#7b4b2a' }}>Departure: {missing.departureTime}</div>
+                                <div style={{ fontSize: 10, color: '#7b4b2a' }}>Expected return: {missing.expectedReturnTime}</div>
+                              </button>
+                            )
+                          }) : <div style={{ fontSize: 10.5, color: '#94a3b8' }}>No students missing from class.</div>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )
               })}
             </div>
-          </div>
-        )}
+          ))}
+          {classroomForecast.length === 0 && <div style={{ fontSize: 12, color: '#94a3b8' }}>No forecastable classroom blocks found.</div>}
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
