@@ -28,6 +28,17 @@ describe('therapistAssignmentsUtils', () => {
     expect(assignments[0].notes).toBe('Legacy note')
   })
 
+  it('ignores blank legacy therapy fields instead of synthesizing a placeholder assignment', () => {
+    const assignments = deriveStudentAssignments({
+      id: 6,
+      assignedTherapist: '   ',
+      therapyFrequency: '',
+      therapyNotes: '  ',
+    })
+
+    expect(assignments).toEqual([])
+  })
+
   it('maps first active provider back to legacy fields', () => {
     const legacy = toLegacyTherapyFields([
       {

@@ -44,6 +44,10 @@ const PROVIDER_SERVICE_DEFAULTS: Record<string, string> = {
   dovid: 'BT Support',
 }
 
+function cleanText(value: unknown): string {
+  return String(value || '').trim()
+}
+
 function normalizeDay(value: string): string {
   const lowered = String(value || '').trim().toLowerCase()
   const map: Record<string, string> = {
@@ -263,23 +267,27 @@ export function deriveStudentAssignments(student: any): AssignmentRow[] {
     }))
   }
 
-  if (!student?.assignedTherapist && !student?.therapyFrequency && !student?.therapyNotes) {
+  const assignedTherapist = cleanText(student?.assignedTherapist)
+  const therapyFrequency = cleanText(student?.therapyFrequency)
+  const therapyNotes = cleanText(student?.therapyNotes)
+
+  if (!assignedTherapist && !therapyFrequency && !therapyNotes) {
     return []
   }
 
   return [
     {
       id: `legacy-${String(student.id || 'student')}`,
-      provider: String(student.assignedTherapist || ''),
+      provider: assignedTherapist,
       serviceType: 'Therapy',
       day: '',
       date: '',
       startTime: '',
       endTime: '',
-      recurrence: String(student.therapyFrequency || ''),
+      recurrence: therapyFrequency,
       affectedPeriod: '',
       customDays: [],
-      notes: String(student.therapyNotes || ''),
+      notes: therapyNotes,
       active: true,
     },
   ]
