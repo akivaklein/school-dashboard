@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  buildSupportSessionsStudentFilter,
   endSupportSessionRecord,
   listSupportSessions,
   startSupportSessionRecord,
@@ -61,20 +62,49 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
   const [saving, setSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
+  const scopedStudentIds = useMemo(
+    () => Array.from(
+      new Set(
+        students
+          .map(student => Number(student.id))
+          .filter(id => Number.isFinite(id) && id > 0),
+      ),
+    ),
+    [students],
+  )
+  const scopedStudentIdSet = useMemo(() => new Set(scopedStudentIds), [scopedStudentIds])
+  const scopedStudentFilter = useMemo(
+    () => buildSupportSessionsStudentFilter(scopedStudentIds),
+    [scopedStudentIds],
+  )
+  const scopedChannelName = useMemo(
+    () => `support-sessions-${scopedStudentIds.join('-') || 'none'}`,
+    [scopedStudentIds],
+  )
+
   useEffect(() => {
+    if (!scopedStudentFilter) return
+
     const sessionsChannel = supabase
-      .channel('support-sessions-shared')
+      .channel(scopedChannelName)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'support_sessions',
+          filter: scopedStudentFilter,
         },
         payload => {
           const nextRow = payload.new as Record<string, unknown> | null
           const oldRow = payload.old as Record<string, unknown> | null
           const eventType = payload.eventType || 'INSERT'
+          const rowForScope = eventType === 'DELETE' ? oldRow : nextRow
+          const rowStudentId = Number(rowForScope?.student_id)
+
+          if (!Number.isFinite(rowStudentId) || !scopedStudentIdSet.has(rowStudentId)) {
+            return
+          }
 
           if (eventType === 'DELETE') {
             setSessions(prev => mergeSupportSessionEntries(prev as SupportSessionEntry[], oldRow as SupportSessionEntry, 'DELETE'))
@@ -87,14 +117,14 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
       )
       .subscribe(status => {
         if (status === 'CHANNEL_ERROR') {
-          console.error('Supabase realtime channel error: support-sessions-shared')
+          console.error(`Supabase realtime channel error: ${scopedChannelName}`)
         }
       })
 
     return () => {
       supabase.removeChannel(sessionsChannel)
     }
-  }, [])
+  }, [scopedStudentFilter, scopedStudentIdSet, scopedChannelName])
 
   const [studentId, setStudentId] = useState<StudentLike['id']>(students[0]?.id || '')
   const [staffId, setStaffId] = useState('')
@@ -115,8 +145,14 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
       try {
         setLoading(true)
         setErrorMessage('')
+        if (!scopedStudentIds.length) {
+          if (active) setSessions([])
+          return
+        }
         const rows = await listSupportSessions()
-        if (active) setSessions(rows)
+        if (active) {
+          setSessions(rows.filter(session => scopedStudentIdSet.has(Number(session.student_id))))
+        }
       } catch (error) {
         console.error('Error loading support sessions:', error)
         if (active) setErrorMessage('Unable to load support sessions.')
@@ -127,7 +163,7 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
 
     load()
     return () => { active = false }
-  }, [])
+  }, [scopedStudentIds, scopedStudentIdSet])
 
   const activeSessions = useMemo(
     () => sessions.filter(session => !session.ended_at),

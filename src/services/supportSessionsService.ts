@@ -7,6 +7,19 @@ import type {
 } from '../types/supportSession'
 import { endSessionStudentFields, supportStatusFor } from '../utils/studentStatus'
 
+export function buildSupportSessionsStudentFilter(studentIds: Array<number | string | null | undefined>): string | null {
+  const ids = Array.from(
+    new Set(
+      studentIds
+        .map(value => Number(value))
+        .filter(value => Number.isFinite(value) && value > 0),
+    ),
+  )
+
+  if (!ids.length) return null
+  return `student_id=in.(${ids.join(',')})`
+}
+
 export async function listSupportSessions(): Promise<SupportSession[]> {
   const { data, error } = await supabase
     .from('support_sessions')
