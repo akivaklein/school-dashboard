@@ -34,6 +34,7 @@ export default function SchedulePage({
   const [showConflicts, setShowConflicts] = useState(false)
   const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({})
   const [compactTherapyRows, setCompactTherapyRows] = useState(true)
+  const [compactCoverageRows, setCompactCoverageRows] = useState(true)
 
   const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const jsDayToName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -234,7 +235,15 @@ export default function SchedulePage({
         </div>
         {selectedCoverage && (
           <div style={{ marginTop: 12, border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', background: '#f8fafc' }}>
-            <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8 }}>{selectedCoverage.classInfo.name} · {selectedCoverage.snapshot.expectedCount} expected</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 12 }}>{selectedCoverage.classInfo.name} · {selectedCoverage.snapshot.expectedCount} expected</div>
+              <button
+                onClick={() => setCompactCoverageRows(prev => !prev)}
+                style={{ ...S.btn('ghost'), padding: '4px 9px', fontSize: 11 }}
+              >
+                {compactCoverageRows ? 'Expanded Rows' : 'Compact Rows'}
+              </button>
+            </div>
             <div style={{ display: 'grid', gap: 6 }}>
               {selectedCoverage.snapshot.students.map(entry => {
                 const student = students.find(item => String(item.id) === String(entry.studentId))
@@ -242,17 +251,34 @@ export default function SchedulePage({
                   <button
                     key={entry.studentId}
                     onClick={() => student && openStudent(student, 'tracking')}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderRadius: 8, padding: '8px 10px', background: '#ffffff', border: '1px solid #e2e8f0', textAlign: 'left', cursor: student ? 'pointer' : 'default' }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: compactCoverageRows ? 'center' : 'flex-start', gap: 8, borderRadius: 8, padding: compactCoverageRows ? '7px 9px' : '8px 10px', background: '#ffffff', border: '1px solid #e2e8f0', textAlign: 'left', cursor: student ? 'pointer' : 'default' }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 12 }}>{entry.studentName}</div>
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>
-                        <div><strong>Expected:</strong> {entry.expectedLocation}</div>
-                        <div><strong>Actual:</strong> {entry.actualCurrentLocation}</div>
-                        <div><strong>Provider:</strong> {entry.provider} · {entry.serviceType}</div>
-                        <div><strong>Departure:</strong> {entry.scheduledDeparture} / {entry.actualDeparture} · <strong>Return:</strong> {entry.expectedReturn} / {entry.actualReturn}</div>
-                        <div><strong>Flow:</strong> {entry.scheduledVersusUnexpected} · {entry.approvedVersusUnexplained} · {entry.statusCode}</div>
-                      </div>
+                      {compactCoverageRows ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 1fr) minmax(76px, auto) minmax(160px, 1.2fr)', gap: 8, alignItems: 'center' }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 12 }}>{entry.studentName}</div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.3 }}>{entry.expectedLocation} → {entry.actualCurrentLocation}</div>
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>{entry.status}</div>
+                          <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.35 }}>
+                            <div>{entry.provider} · {entry.serviceType}</div>
+                            <div>{entry.scheduledDeparture} / {entry.actualDeparture} · {entry.expectedReturn} / {entry.actualReturn}</div>
+                            <div>{entry.scheduledVersusUnexpected} · {entry.approvedVersusUnexplained} · {entry.statusCode}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontWeight: 600, fontSize: 12 }}>{entry.studentName}</div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>
+                            <div><strong>Expected:</strong> {entry.expectedLocation}</div>
+                            <div><strong>Actual:</strong> {entry.actualCurrentLocation}</div>
+                            <div><strong>Provider:</strong> {entry.provider} · {entry.serviceType}</div>
+                            <div><strong>Departure:</strong> {entry.scheduledDeparture} / {entry.actualDeparture} · <strong>Return:</strong> {entry.expectedReturn} / {entry.actualReturn}</div>
+                            <div><strong>Flow:</strong> {entry.scheduledVersusUnexpected} · {entry.approvedVersusUnexplained} · {entry.statusCode}</div>
+                          </div>
+                        </>
+                      )}
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>{entry.status}</div>
                   </button>
