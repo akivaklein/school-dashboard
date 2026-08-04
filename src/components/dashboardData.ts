@@ -1233,8 +1233,8 @@ export function buildClassroomCoverageSnapshot(students, classId, period = null)
   const roster = (students || []).filter(student => resolveStudentClassId(student) === classId)
 
   const entries = roster.map(student => {
-    const attendanceStatus = String(getDailyAttendanceStatus(student) || 'present')
-    const status = String(student?.status || 'present')
+    const attendanceStatus = String(getDailyAttendanceStatus(student))
+    const status = String(student?.status || '').trim().toLowerCase() || 'unconfirmed'
     const classLog = Array.isArray(student?.classLog) ? student.classLog : []
     const reverseLog = [...classLog].reverse()
     const latestRelevant = reverseLog.find(entry => entry?.type && entry.type !== 'end') || null
@@ -1242,17 +1242,21 @@ export function buildClassroomCoverageSnapshot(students, classId, period = null)
     const hasActiveEntry = latestType === 'in' || latestType === 'return'
     const coverageDemo = (student as StudentRecord | undefined)?.coverageDemo
 
-    let coverageStatus = 'present'
+    let coverageStatus = 'unknown'
     if (attendanceStatus === 'absent' || status === 'absent') {
       coverageStatus = 'absent'
     } else if (attendanceStatus === 'late' || status === 'late' || status === 'left-early') {
       coverageStatus = 'late'
-    } else if (status === 'unknown' || status === 'not-arrived') {
+    } else if (attendanceStatus === 'unconfirmed' || attendanceStatus === 'not-arrived' || status === 'unknown' || status === 'not-arrived') {
       coverageStatus = 'unknown'
     } else if (['therapy', 'with-bt'].includes(String(status))) {
       coverageStatus = hasActiveEntry ? 'present' : 'pullout'
-    } else {
+    } else if (attendanceStatus === 'present' && status === 'present') {
       coverageStatus = 'present'
+    } else if (attendanceStatus === 'present' || attendanceStatus === 'late') {
+      coverageStatus = 'present'
+    } else {
+      coverageStatus = 'unknown'
     }
 
     const serviceType = String(

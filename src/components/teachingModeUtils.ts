@@ -1,4 +1,4 @@
-import { isInSchool } from '../utils/attendancePresence'
+import { getDailyAttendanceStatus, isInSchool } from '../utils/attendancePresence'
 
 export function didTeachingModeWriteSucceed(result: unknown): boolean {
   return result !== false
@@ -67,7 +67,7 @@ export function buildLateToClassFields(student: Record<string, any>, options: { 
 
   return {
     status: 'present',
-    dailyStatus: wasNotInSchool ? 'late' : student.dailyStatus || 'present',
+    dailyStatus: wasNotInSchool ? 'late' : getDailyAttendanceStatus(student),
     withStaff: null,
     lateDetails: wasNotInSchool
       ? {

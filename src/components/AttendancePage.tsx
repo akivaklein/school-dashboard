@@ -86,7 +86,7 @@ export default function AttendancePage({
       {
         type: 'single',
         id,
-        dailyStatus: original.dailyStatus || 'present',
+        dailyStatus: getDailyAttendanceStatus(original),
         status: original.status || 'present',
         lateDetails: original.lateDetails || null,
         withStaff: original.withStaff || null,
@@ -393,7 +393,7 @@ export default function AttendancePage({
       )
 
       const nextDailyStatus =
-        student.dailyStatus === 'absent' ? 'late' : (student.dailyStatus || 'present')
+        getDailyAttendanceStatus(student) === 'absent' ? 'late' : 'present'
 
       updatesById[student.id] = {
         status: 'present',
@@ -548,12 +548,13 @@ export default function AttendancePage({
         <div style={S.card}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
             {[
-              ['Present', students.filter(s => (s.dailyStatus || 'present') === 'present').length, '#56765f', 'present'],
-              ['Absent', students.filter(s => s.dailyStatus === 'absent').length, '#9f1239', 'absent'],
-              ['Late', students.filter(s => s.dailyStatus === 'late').length, '#9a6a2a', 'late'],
-              ['Left Early', students.filter(s => s.dailyStatus === 'left-early').length, '#6d28d9', 'left-early'],
+              ['Present', students.filter(s => getDailyAttendanceStatus(s) === 'present').length, '#56765f', 'present'],
+              ['Absent', students.filter(s => getDailyAttendanceStatus(s) === 'absent').length, '#9f1239', 'absent'],
+              ['Late', students.filter(s => getDailyAttendanceStatus(s) === 'late').length, '#9a6a2a', 'late'],
+              ['Left Early', students.filter(s => getDailyAttendanceStatus(s) === 'left-early').length, '#6d28d9', 'left-early'],
+              ['Not Arrived / Unconfirmed', students.filter(s => ['not-arrived', 'unconfirmed'].includes(getDailyAttendanceStatus(s))).length, '#64748b', 'unconfirmed'],
             ].map(([label, val, color, status]) => (
-              <div key={label} onClick={() => { const filtered = students.filter(s => (s.dailyStatus || 'present') === status); if (filtered.length > 0) { } }} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px', cursor: 'pointer', border: '2px solid transparent' }}
+              <div key={label} onClick={() => { const filtered = students.filter(s => getDailyAttendanceStatus(s) === status || (status === 'unconfirmed' && ['not-arrived', 'unconfirmed'].includes(getDailyAttendanceStatus(s)))); if (filtered.length > 0) { } }} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px', cursor: 'pointer', border: '2px solid transparent' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.border = `2px solid ${color}` }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.border = '2px solid transparent' }}>
                 <div style={{ fontSize: 28, fontWeight: 700, color }}>{val}</div>
@@ -575,7 +576,7 @@ export default function AttendancePage({
                   .filter(s => targetIds.has(Number(s.id)))
                   .map(s => ({
                     id: s.id,
-                    dailyStatus: s.dailyStatus || 'present',
+                    dailyStatus: getDailyAttendanceStatus(s),
                     lateDetails: s.lateDetails || null,
                     status: s.status || 'present',
                     withStaff: s.withStaff || null,
@@ -621,16 +622,16 @@ export default function AttendancePage({
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: collapsed ? 'repeat(auto-fit, minmax(180px, 1fr))' : 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
             {students.map((s, i) => {
-              const daily = s.dailyStatus || 'present'
-              const colors = { present: '#56765f', absent: '#9f1239', late: '#9a6a2a', 'left-early': '#6d28d9' }
-              const labels = { present: 'Present', absent: 'Absent', late: 'Late', 'left-early': 'Left Early' }
+              const daily = getDailyAttendanceStatus(s)
+              const colors = { present: '#56765f', absent: '#9f1239', late: '#9a6a2a', 'left-early': '#6d28d9', 'not-arrived': '#64748b', unconfirmed: '#94a3b8' }
+              const labels = { present: 'Present', absent: 'Absent', late: 'Late', 'left-early': 'Left Early', 'not-arrived': 'Not Arrived', unconfirmed: 'Unconfirmed' }
               return (
-                <div key={s.id} style={{ background: '#ffffff', border: `1px solid ${daily !== 'present' ? colors[daily] + '40' : '#e2e8f0'}`, borderLeft: `4px solid ${colors[daily]}`, borderRadius: 10, padding: collapsed ? '10px 12px' : '12px 14px' }}>
+                <div key={s.id} style={{ background: '#ffffff', border: `1px solid ${daily !== 'present' ? `${colors[daily] || '#94a3b8'}40` : '#e2e8f0'}`, borderLeft: `4px solid ${colors[daily] || '#94a3b8'}`, borderRadius: 10, padding: collapsed ? '10px 12px' : '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: collapsed ? 0 : 8 }}>
                     <div style={S.avatar(i, 30)}>{initials(s.name)}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}</div>
-                      <div style={{ fontSize: 11, color: colors[daily], fontWeight: 600 }}>{labels[daily]}</div>
+                      <div style={{ fontSize: 11, color: colors[daily] || '#94a3b8', fontWeight: 600 }}>{labels[daily] || 'Unconfirmed'}</div>
                       {daily === 'late' && s.lateDetails?.timeArrived && (
                         <div style={{ fontSize: 10, color: '#64748b' }}>⏰ {s.lateDetails.timeArrived}{s.lateDetails.note ? ` · ${s.lateDetails.note}` : ''}</div>
                       )}

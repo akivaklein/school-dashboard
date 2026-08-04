@@ -5637,7 +5637,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               }
 
               if (drillDown.title.includes('Present')) {
-                return student.status === 'present'
+                return isInClassroom(student)
               }
 
               return true

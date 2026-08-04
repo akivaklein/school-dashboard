@@ -7,10 +7,10 @@ describe('classroom coverage snapshots', () => {
     const firstEntry = snapshot.students[0]
 
     expect(snapshot.expectedCount).toBe(7)
-    expect(snapshot.metrics.present).toBe(4)
+    expect(snapshot.metrics.present).toBe(0)
     expect(snapshot.metrics.absent).toBe(1)
     expect(snapshot.metrics.late).toBe(0)
-    expect(snapshot.metrics.pullout).toBe(1)
+    expect(snapshot.metrics.pullout).toBe(0)
     expect(snapshot.students.some(entry => entry.location && entry.location.length > 0)).toBe(true)
     expect(firstEntry.expectedLocation).toBeTruthy()
     expect(firstEntry.actualCurrentLocation).toBeTruthy()
@@ -30,9 +30,9 @@ describe('classroom coverage snapshots', () => {
     const periodThree = buildClassroomCoverageSnapshot(initialStudents, 'yk-a', { id: 3, subject: 'Social Skills / SEL' })
 
     expect(periodTwo.expectedCount).toBe(7)
-    expect(periodTwo.metrics.present).toBe(2)
+    expect(periodTwo.metrics.present).toBe(0)
     expect(periodThree.expectedCount).toBe(8)
-    expect(periodThree.metrics.present).toBe(1)
+    expect(periodThree.metrics.present).toBe(0)
     expect(periodThree.metrics.late).toBe(3)
   })
 })
