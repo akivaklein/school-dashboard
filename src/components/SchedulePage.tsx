@@ -40,6 +40,8 @@ export default function SchedulePage({
   const jsDayToName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   const todayName = jsDayToName[new Date().getDay()]
 
+  const planningWindowLabel = horizonDays === 1 ? 'Today' : horizonDays === 3 ? 'Next 3 Days' : 'Next 5 Days'
+
   const orderedSchoolDays = useMemo(() => {
     const startIndex = dayOrder.indexOf(todayName)
     if (startIndex === -1) return dayOrder
@@ -53,6 +55,42 @@ export default function SchedulePage({
     () => (THERAPY_SCHEDULE || []).filter(item => visibleDaySet.has(String(item.day || ''))),
     [THERAPY_SCHEDULE, visibleDaySet],
   )
+
+  const toMinutes = (timeValue: string) => {
+    const match = String(timeValue || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+    if (!match) return Number.MAX_SAFE_INTEGER
+    let hour = Number(match[1])
+    const minute = Number(match[2])
+    const meridiem = String(match[3]).toUpperCase()
+    if (meridiem === 'PM' && hour !== 12) hour += 12
+    if (meridiem === 'AM' && hour === 12) hour = 0
+    return hour * 60 + minute
+  }
+
+  const nextSessionByStudentName = useMemo(() => {
+    const rows = Array.isArray(THERAPY_SCHEDULE) ? THERAPY_SCHEDULE : []
+    const sorted = [...rows].sort((a, b) => {
+      const dayA = orderedSchoolDays.indexOf(String(a.day || ''))
+      const dayB = orderedSchoolDays.indexOf(String(b.day || ''))
+      const safeDayA = dayA === -1 ? Number.MAX_SAFE_INTEGER : dayA
+      const safeDayB = dayB === -1 ? Number.MAX_SAFE_INTEGER : dayB
+      if (safeDayA !== safeDayB) return safeDayA - safeDayB
+      return toMinutes(String(a.time || '')) - toMinutes(String(b.time || ''))
+    })
+
+    const map = new Map<string, { day: string; time: string; type: string }>()
+    sorted.forEach(row => {
+      const studentName = String(row.student || '').trim().toLowerCase()
+      if (!studentName || map.has(studentName)) return
+      map.set(studentName, {
+        day: String(row.day || '').trim(),
+        time: String(row.time || '').trim(),
+        type: String(row.type || row.service || 'Service').trim(),
+      })
+    })
+
+    return map
+  }, [THERAPY_SCHEDULE, orderedSchoolDays])
 
   const therapyProviders = useMemo(() => {
     const toMinutes = (timeValue: string) => {
@@ -148,8 +186,9 @@ export default function SchedulePage({
       <div style={{ ...S.card, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Leadership Planning Window</div>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Planning Window: {planningWindowLabel}</div>
             <div style={{ fontSize: 12, color: '#64748b' }}>Forward view for upcoming pull-outs and coverage conflicts.</div>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>Today / Next 3 Days / Next 5 Days affects upcoming sessions and conflict planning only.</div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             {[
@@ -212,7 +251,8 @@ export default function SchedulePage({
       </div>
 
       <div style={{ ...S.card, marginBottom: 16, padding: '14px 16px' }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>🏫 Classroom coverage snapshot</div>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>🏫 Live Classroom Coverage Now</div>
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>Live class counts are current-now and do not change when you switch planning window filters.</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
           {classroomCoverage.map(({ classInfo, snapshot }) => (
             <button
@@ -247,6 +287,7 @@ export default function SchedulePage({
             <div style={{ display: 'grid', gap: 6 }}>
               {selectedCoverage.snapshot.students.map(entry => {
                 const student = students.find(item => String(item.id) === String(entry.studentId))
+                const nextSession = nextSessionByStudentName.get(String(entry.studentName || '').trim().toLowerCase()) || null
                 return (
                   <button
                     key={entry.studentId}
@@ -262,7 +303,8 @@ export default function SchedulePage({
                           </div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>{entry.status}</div>
                           <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.35 }}>
-                            <div>{entry.provider} · {entry.serviceType}</div>
+                            <div><strong>Assigned provider:</strong> {entry.provider} · {entry.serviceType}</div>
+                            <div><strong>Next session:</strong> {nextSession ? `${nextSession.day} ${nextSession.time}` : 'None in schedule'}</div>
                             <div>{entry.scheduledDeparture} / {entry.actualDeparture} · {entry.expectedReturn} / {entry.actualReturn}</div>
                             <div>{entry.scheduledVersusUnexpected} · {entry.approvedVersusUnexplained} · {entry.statusCode}</div>
                           </div>
@@ -273,7 +315,8 @@ export default function SchedulePage({
                           <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>
                             <div><strong>Expected:</strong> {entry.expectedLocation}</div>
                             <div><strong>Actual:</strong> {entry.actualCurrentLocation}</div>
-                            <div><strong>Provider:</strong> {entry.provider} · {entry.serviceType}</div>
+                            <div><strong>Assigned provider:</strong> {entry.provider} · {entry.serviceType}</div>
+                            <div><strong>Next session:</strong> {nextSession ? `${nextSession.day} ${nextSession.time}` : 'None in schedule'}</div>
                             <div><strong>Departure:</strong> {entry.scheduledDeparture} / {entry.actualDeparture} · <strong>Return:</strong> {entry.expectedReturn} / {entry.actualReturn}</div>
                             <div><strong>Flow:</strong> {entry.scheduledVersusUnexpected} · {entry.approvedVersusUnexplained} · {entry.statusCode}</div>
                           </div>
