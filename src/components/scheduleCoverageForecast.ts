@@ -205,22 +205,12 @@ function therapyDateMatches(row: TherapyRowLike, day: PlanningDay) {
 
   if (rowDate) {
     const normalizedDate = rowDate.includes('T') ? rowDate.slice(0, 10) : rowDate
-    if (normalizedDate !== day.dateIso) return false
+    return normalizedDate === day.dateIso
   }
 
   if (rowDay) {
     return rowDay === day.dayName
   }
-
-  return Boolean(rowDate)
-}
-
-function therapyClassMatches(row: TherapyRowLike, classInfo: ClassLike) {
-  const classId = String(row.classId || row.class_id || '').trim()
-  if (classId) return classId === classInfo.id
-
-  const className = normalizeName(String(row.className || row.class || ''))
-  if (className) return className === normalizeName(classInfo.name)
 
   return false
 }
@@ -263,6 +253,16 @@ function resolveStudentIdentity(row: TherapyRowLike, rosterMap: Map<number, Stud
   }
 
   return null
+}
+
+function rowClassHintMatches(row: TherapyRowLike, classInfo: ClassLike) {
+  const classId = String(row.classId || row.class_id || '').trim()
+  if (classId) return classId === classInfo.id
+
+  const className = normalizeName(String(row.className || row.class || ''))
+  if (className) return className === normalizeName(classInfo.name)
+
+  return true
 }
 
 function resolveAppointmentPeriodHint(row: TherapyRowLike) {
@@ -325,12 +325,13 @@ export function buildClassroomCoverageForecast({
     })
 
     const dayRows = planningDays.map(day => {
-      const relevantRows = (therapySchedule || []).filter(row => therapyDateMatches(row, day) && therapyClassMatches(row, classInfo))
+      const relevantRows = (therapySchedule || []).filter(row => therapyDateMatches(row, day))
 
       const normalizedRows = relevantRows
         .map(row => {
           const identity = resolveStudentIdentity(row, rosterMap, rosterNameMap)
           if (!identity) return null
+          if (!rowClassHintMatches(row, classInfo)) return null
           const window = resolveAppointmentWindow(row)
           if (!window) return null
 
@@ -421,7 +422,7 @@ export function buildClassroomCoverageForecast({
 
           const label = day.dateIso === todayIso && minute === nowMinutes
             ? 'Now'
-            : `${day.dayName.slice(0, 3)} ${formatMinutes(minute)}`
+            : `${day.dayName.slice(0, 3)} ${day.dateIso.slice(5)} ${formatMinutes(minute)}`
 
           return {
             key: `${classInfo.id}|${day.dateIso}|${minute}`,

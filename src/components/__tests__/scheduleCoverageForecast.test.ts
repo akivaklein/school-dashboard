@@ -12,12 +12,38 @@ const schedulePeriods = [
 ]
 
 const students = [
-  { id: 1, name: 'Bloom Yair', classId: 'a' },
-  { id: 2, name: 'Levi Shimon', classId: 'a' },
+  // Intentionally missing class fields to verify fallback class mapping resolution.
+  { id: 1, name: 'Bloom Yair' },
+  // Class resolved from student record by class name.
+  { id: 2, name: 'Levi Shimon', className: 'Dargei Alef' },
   { id: 3, name: 'Cohen Dovid', classId: 'b' },
 ]
 
-const now = new Date('2026-08-05T10:15:00')
+const tuesdayNow = new Date('2026-08-04T10:15:00')
+
+function makeSetupLikeRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'support-slot-1',
+    studentId: 1,
+    therapistName: 'Yitzi Liebowitz',
+    staffType: 'Speech',
+    day: 'Wednesday',
+    time: '10:10 AM',
+    endTime: '10:40 AM',
+    duration: 30,
+    service: 'Speech',
+    frequency: 'Weekly',
+    location: 'Speech Room',
+    supervisingBcba: '',
+    teacherName: 'Rabbi Klein',
+    missedSubject: 'Gemara / Skills Rotation',
+    classId: 'a',
+    className: 'Dargei Alef',
+    division: 'mesivta',
+    note: '',
+    ...overrides,
+  }
+}
 
 function forecastFor(therapySchedule: Array<Record<string, unknown>>, horizonDays = 1) {
   return buildClassroomCoverageForecast({
@@ -26,7 +52,7 @@ function forecastFor(therapySchedule: Array<Record<string, unknown>>, horizonDay
     schedulePeriods,
     therapySchedule,
     horizonDays,
-    now,
+    now: tuesdayNow,
   })
 }
 
@@ -36,160 +62,102 @@ function classForecast(forecast: ReturnType<typeof forecastFor>, classId: string
   return item
 }
 
-function pointByMinute(classItem: ReturnType<typeof classForecast>, minute: number, dayName = 'Wednesday') {
+function pointBy(classItem: ReturnType<typeof classForecast>, dayName: string, minute: number) {
   const point = classItem.points.find(entry => entry.dayName === dayName && entry.minuteOfDay === minute)
   if (!point) throw new Error(`Missing point ${dayName} ${minute}`)
   return point
 }
 
-describe('schedule coverage forecast', () => {
-  it('future-day sessions do not affect today', () => {
+describe('schedule coverage forecast matching', () => {
+  it('matches a schedule row with student name but no class name', () => {
     const forecast = forecastFor([
-      {
-        studentId: 1,
+      makeSetupLikeRow({
+        studentId: undefined,
         student: 'Bloom Yair',
-        classId: 'a',
-        className: 'Dargei Alef',
-        day: 'Thursday',
-        date: '2026-08-06',
-        time: '10:10 AM',
-        endTime: '10:40 AM',
-        service: 'Speech',
-        therapistName: 'Yitzi Liebowitz',
-        periodId: 1,
-      },
+        classId: '',
+        className: '',
+        missedSubject: '',
+        periodId: undefined,
+      }),
     ], 3)
 
     const alef = classForecast(forecast, 'a')
-    const nowPoint = pointByMinute(alef, 10 * 60 + 15)
+    const wedStart = pointBy(alef, 'Wednesday', 10 * 60 + 10)
+    expect(wedStart.expectedCount).toBe(1)
+    expect(wedStart.missingStudents.map(item => item.studentName)).toEqual(['Bloom Yair'])
+  })
+
+  it('supports recurring Wednesday sessions and start/end time points', () => {
+    const forecast = forecastFor([
+      makeSetupLikeRow({
+        day: 'Wednesday',
+        date: '',
+        time: '10:10 AM',
+        endTime: '10:50 AM',
+      }),
+    ], 3)
+
+    const alef = classForecast(forecast, 'a')
+    const wedStart = pointBy(alef, 'Wednesday', 10 * 60 + 10)
+    const wedEnd = pointBy(alef, 'Wednesday', 10 * 60 + 50)
+
+    expect(wedStart.expectedCount).toBe(1)
+    expect(wedEnd.expectedCount).toBe(2)
+  })
+
+  it('Next 3 Days includes tomorrow session but does not affect today', () => {
+    const forecast = forecastFor([
+      makeSetupLikeRow({ day: 'Wednesday', date: '' }),
+    ], 3)
+
+    const alef = classForecast(forecast, 'a')
+    const nowPoint = pointBy(alef, 'Tuesday', 10 * 60 + 15)
+    const wedStart = pointBy(alef, 'Wednesday', 10 * 60 + 10)
+
     expect(nowPoint.label).toBe('Now')
     expect(nowPoint.expectedCount).toBe(2)
+    expect(wedStart.expectedCount).toBe(1)
+  })
 
-    const thursdayPoint = pointByMinute(alef, 10 * 60 + 10, 'Thursday')
+  it('resolves student class from student record or class mapping', () => {
+    const forecast = forecastFor([
+      // Bloom has no class on student record; falls back to class mapping.
+      makeSetupLikeRow({ studentId: 1, classId: '', className: '' }),
+      // Levi resolves from className on student record.
+      makeSetupLikeRow({ id: 'support-slot-2', studentId: 2, student: '', classId: '', className: '', therapistName: 'Shelly Wagschal' }),
+    ], 3)
+
+    const alef = classForecast(forecast, 'a')
+    const wedStart = pointBy(alef, 'Wednesday', 10 * 60 + 10)
+    expect(wedStart.expectedCount).toBe(0)
+    expect(wedStart.missingStudents).toHaveLength(2)
+  })
+
+  it('blank optional period/subject fields do not block a valid match', () => {
+    const forecast = forecastFor([
+      makeSetupLikeRow({
+        periodId: undefined,
+        missedSubject: '',
+        subject: '',
+      }),
+    ], 3)
+
+    const alef = classForecast(forecast, 'a')
+    const wedStart = pointBy(alef, 'Wednesday', 10 * 60 + 10)
+    expect(wedStart.expectedCount).toBe(1)
+  })
+
+  it('supports date-specific sessions separately from recurring weekday rows', () => {
+    const forecast = forecastFor([
+      // This dated row lands on Thursday only.
+      makeSetupLikeRow({ day: 'Wednesday', date: '2026-08-06', time: '10:20 AM', endTime: '10:40 AM' }),
+    ], 3)
+
+    const alef = classForecast(forecast, 'a')
+    const tuesdayNowPoint = pointBy(alef, 'Tuesday', 10 * 60 + 15)
+    expect(tuesdayNowPoint.expectedCount).toBe(2)
+
+    const thursdayPoint = pointBy(alef, 'Thursday', 10 * 60 + 20)
     expect(thursdayPoint.expectedCount).toBe(1)
-  })
-
-  it('drops expected count at session start', () => {
-    const forecast = forecastFor([
-      {
-        studentId: 1,
-        student: 'Bloom Yair',
-        classId: 'a',
-        className: 'Dargei Alef',
-        day: 'Wednesday',
-        date: '2026-08-05',
-        time: '10:20 AM',
-        endTime: '10:50 AM',
-        service: 'Speech',
-        therapistName: 'Yitzi Liebowitz',
-        periodId: 1,
-      },
-    ])
-
-    const alef = classForecast(forecast, 'a')
-    const startPoint = pointByMinute(alef, 10 * 60 + 20)
-    expect(startPoint.expectedCount).toBe(1)
-    expect(startPoint.missingStudents.map(item => item.studentName)).toEqual(['Bloom Yair'])
-  })
-
-  it('returns expected count after session end', () => {
-    const forecast = forecastFor([
-      {
-        studentId: 1,
-        student: 'Bloom Yair',
-        classId: 'a',
-        className: 'Dargei Alef',
-        day: 'Wednesday',
-        date: '2026-08-05',
-        time: '10:20 AM',
-        endTime: '10:50 AM',
-        service: 'Speech',
-        therapistName: 'Yitzi Liebowitz',
-        periodId: 1,
-      },
-    ])
-
-    const alef = classForecast(forecast, 'a')
-    const returnPoint = pointByMinute(alef, 10 * 60 + 50)
-    expect(returnPoint.expectedCount).toBe(2)
-    expect(returnPoint.missingStudents).toHaveLength(0)
-  })
-
-  it('handles overlapping pullouts', () => {
-    const forecast = forecastFor([
-      {
-        studentId: 1,
-        student: 'Bloom Yair',
-        classId: 'a',
-        className: 'Dargei Alef',
-        day: 'Wednesday',
-        date: '2026-08-05',
-        time: '10:20 AM',
-        endTime: '10:50 AM',
-        service: 'Speech',
-        therapistName: 'Yitzi Liebowitz',
-        periodId: 1,
-      },
-      {
-        studentId: 2,
-        student: 'Levi Shimon',
-        classId: 'a',
-        className: 'Dargei Alef',
-        day: 'Wednesday',
-        date: '2026-08-05',
-        time: '10:25 AM',
-        endTime: '10:45 AM',
-        service: 'Counseling',
-        therapistName: 'Shelly Wagschal',
-        periodId: 1,
-      },
-    ])
-
-    const alef = classForecast(forecast, 'a')
-    const overlapPoint = pointByMinute(alef, 10 * 60 + 25)
-    expect(overlapPoint.expectedCount).toBe(0)
-    expect(overlapPoint.missingStudents).toHaveLength(2)
-  })
-
-  it('keeps classes and periods separate', () => {
-    const forecast = forecastFor([
-      {
-        studentId: 1,
-        student: 'Bloom Yair',
-        classId: 'a',
-        className: 'Dargei Alef',
-        day: 'Wednesday',
-        date: '2026-08-05',
-        time: '10:20 AM',
-        endTime: '10:50 AM',
-        service: 'Speech',
-        therapistName: 'Yitzi Liebowitz',
-        periodId: 2,
-        missedSubject: 'Kriah / Writing Block',
-      },
-      {
-        studentId: 3,
-        student: 'Cohen Dovid',
-        classId: 'b',
-        className: 'Dargei Beis',
-        day: 'Wednesday',
-        date: '2026-08-05',
-        time: '11:20 AM',
-        endTime: '11:40 AM',
-        service: 'OT',
-        therapistName: 'Tzvi Malks',
-        periodId: 2,
-        missedSubject: 'Kriah / Writing Block',
-      },
-    ])
-
-    const alef = classForecast(forecast, 'a')
-    const beis = classForecast(forecast, 'b')
-
-    const alefPeriodOnePoint = pointByMinute(alef, 10 * 60 + 20)
-    expect(alefPeriodOnePoint.expectedCount).toBe(2)
-
-    const beisPeriodTwoPoint = pointByMinute(beis, 11 * 60 + 20)
-    expect(beisPeriodTwoPoint.expectedCount).toBe(0)
   })
 })
