@@ -63,4 +63,34 @@ describe('TokenStorePage', () => {
     expect(markup).toContain('Pending sync')
     expect(markup).toContain('Local changes pending')
   })
+
+  it('finds store items by barcode in the redemption search box', () => {
+    const markup = renderToStaticMarkup(
+      <TokenStorePage
+        {...baseProps}
+        storeStudent={1}
+        students={[{ id: 1, name: 'Avi', points: 100 }]}
+        visibleStudents={[{ id: 1, name: 'Avi', points: 100 }]}
+        storeItems={[
+          {
+            id: 1,
+            name: 'Water Bottle',
+            sku: 'WB-1',
+            barcode: '1234567890',
+            cost: 8,
+            stock: 3,
+            lowStockAt: 1,
+            category: 'drinks',
+            vip: false,
+            emoji: '💧',
+            imageUrl: '',
+          },
+        ]}
+        storeItemSearch="1234567890"
+      />,
+    )
+
+    expect(markup).toContain('Water Bottle')
+    expect(markup).toContain('BAR 1234567890')
+  })
 })
