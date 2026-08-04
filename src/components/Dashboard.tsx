@@ -117,7 +117,7 @@ import {
 } from '../utils/attendancePresence'
 import DrillDown from './dashboard/DrillDown'
 import LoginPage from './dashboard/LoginPage'
-import { buildLoginAccountRoleLabel } from './dashboard/loginUserSearch'
+import { buildLoginAccountRoleLabel, getLoginRoleKey } from './dashboard/loginUserSearch'
 import TrackingTabView from './dashboard/TrackingTab'
 import StaffLoginPanel from './StaffLoginPanel'
 import StaffManagementModal from './StaffManagementModal'
@@ -5211,9 +5211,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             SETUP_PEOPLE={SETUP_PEOPLE}
             teacherRebbeAssignments={teacherRebbeAssignments}
             onPreviewAs={(name: string, previewRole: string) => {
+              const normalizedPreviewRole = getLoginRoleKey(previewRole)
               setPreviewReturnPage(page)
-              setPreviewAs({ name, role: previewRole })
-              const previewDefaultPage = getRoleNavConfig(previewRole).topAreas[0]?.defaultPage || 'dashboard'
+              setPreviewAs({ name, role: normalizedPreviewRole })
+              const previewDefaultPage = getRoleNavConfig(normalizedPreviewRole).topAreas[0]?.defaultPage || 'dashboard'
               setPage(previewDefaultPage)
               setTeachingMode(false)
             }}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createLoginAccounts, getLastName, getMatchingLoginAccounts } from '../dashboard/loginUserSearch'
+import { buildLoginAccountRoleLabel, createLoginAccounts, getLastName, getLoginRoleKey, getMatchingLoginAccounts } from '../dashboard/loginUserSearch'
 
 describe('login user search', () => {
   it('pulls the last name from titles like Rabbi and Mrs.', () => {
@@ -27,5 +27,10 @@ describe('login user search', () => {
 
     expect(getMatchingLoginAccounts(accounts, 'rabbi klein', 'teacher')).toHaveLength(1)
     expect(getMatchingLoginAccounts(accounts, 'zebra', 'teacher')).toHaveLength(0)
+  })
+
+  it('normalizes canteen preview roles to the store role key', () => {
+    expect(getLoginRoleKey('canteen')).toBe('store')
+    expect(buildLoginAccountRoleLabel('canteen')).toBe('Canteen')
   })
 })
