@@ -694,9 +694,12 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
         </div>
       </div>
 
-      <div style={S.card}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 {selectedClass ? CLASSES.find(c=>c.id===selectedClass)?.name : 'Class roster'} · Quick actions</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+      <div style={{ ...S.card, border: '1px solid #dbe3ec', borderRadius: 14, boxShadow: '0 10px 28px rgba(15, 23, 42, 0.06)' }}>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, color: '#1e2f44' }}>{selectedClass ? CLASSES.find(c=>c.id===selectedClass)?.name : 'Class roster'} · Quick actions</div>
+          <div style={{ marginTop: 3, fontSize: 11, color: '#6b7c90', fontWeight: 600 }}>Classroom point and reminder controls</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
           {classStudents.map((s: StudentLike, i: number) => {
             const withStaffObj = s.withStaff ? staffMembers.find((st: StaffMemberLike) => String(st.id) === String(s.withStaff)) : null
             const vip = isVIP ? isVIP(s) : false
@@ -704,28 +707,31 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
             const studentStatus = typeof s.status === 'string' ? s.status : 'present'
             const attendanceStatus = getDailyAttendanceStatus(s)
             const shouldShowPullout = ['therapy', 'with-bt', 'unknown'].includes(String(studentStatus))
+            const isUnknownStatus = studentStatus === 'unknown'
+            const cardBackground = vip ? '#fffbeb' : isUnknownStatus ? '#fff8f8' : '#ffffff'
+            const cardBorder = vip ? '#e6d28b' : isUnknownStatus ? '#f2caca' : '#d9e1ea'
             return (
-              <div key={s.id} style={{ background: vip ? '#fefce8' : studentStatus === 'unknown' ? '#fef2f2' : '#ffffff', border: `1px solid ${vip ? '#ca8a04' : studentStatus === 'unknown' ? '#fecaca' : '#e2e8f0'}`, borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: 'pointer' }} onClick={() => setSelectedStudent(s)}>
+              <div key={s.id} style={{ background: cardBackground, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: '12px 12px 10px', boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, cursor: 'pointer' }} onClick={() => setSelectedStudent(s)}>
                   <div style={S.avatar(i, 34)}>{initials(studentName)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12 }}>{studentName}{vip && ' ⭐'}</div>
-                    <div style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
-                      <span style={{ ...S.tag(statusColor[studentStatus as keyof typeof statusColor]), fontSize: 10 }}>{statusEmoji[studentStatus as keyof typeof statusEmoji]}</span>
-                      <span style={{ ...S.tag('#64748b', '#f8fafc'), fontSize: 10 }}>{attendanceStatus}</span>
-                      {shouldShowPullout && <span style={{ ...S.tag('#7c3aed', '#f5f3ff'), fontSize: 10 }}>Pullout</span>}
-                      {withStaffObj && <span style={{ fontSize: 10, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</span>}
+                    <div style={{ fontWeight: 800, fontSize: 12, color: '#203245' }}>{studentName}{vip && ' ★'}</div>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 3, flexWrap: 'wrap' }}>
+                      <span style={{ ...S.tag(statusColor[studentStatus as keyof typeof statusColor]), fontSize: 10, fontWeight: 700 }}>{statusEmoji[studentStatus as keyof typeof statusEmoji]}</span>
+                      <span style={{ ...S.tag('#55657a', '#f3f6f9'), fontSize: 10, fontWeight: 700 }}>{attendanceStatus}</span>
+                      {shouldShowPullout && <span style={{ ...S.tag('#5b21b6', '#f2edff'), fontSize: 10, fontWeight: 700 }}>Pullout</span>}
+                      {withStaffObj && <span style={{ fontSize: 10, color: '#4b5f78', fontWeight: 700 }}>{withStaffObj.name}</span>}
                     </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={S.badge('#92400e', '#fef3c7')}>{s.points ?? 0} pts</span>
-                  {(typeof s.reminders === 'number' ? s.reminders : 0) > 0 && <span style={S.badge('#9f1239', '#fee2e2')}>⚠️ {typeof s.reminders === 'number' ? s.reminders : 0}</span>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ ...S.badge('#805321', '#f8ebce'), fontWeight: 800 }}>{s.points ?? 0} pts</span>
+                  {(typeof s.reminders === 'number' ? s.reminders : 0) > 0 && <span style={{ ...S.badge('#8f1d3f', '#fde8ef'), fontWeight: 800 }}>Alerts {typeof s.reminders === 'number' ? s.reminders : 0}</span>}
                 </div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button onClick={() => quickPoints(s.id, 2)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+2</button>
-                  <button onClick={() => quickPoints(s.id, 5)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #86efac', background: '#f0fdf4', color: '#4b6854', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+5</button>
-                  <button onClick={() => quickReminder(s.id)} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', color: '#9f1239', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠️</button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                  <button onClick={() => quickPoints(s.id, 2)} style={{ padding: '6px', borderRadius: 7, border: '1px solid #9fd6b1', background: '#f5fcf7', color: '#2f5f45', fontSize: 11, fontWeight: 800, letterSpacing: '0.01em', cursor: 'pointer' }}>+2</button>
+                  <button onClick={() => quickPoints(s.id, 5)} style={{ padding: '6px', borderRadius: 7, border: '1px solid #9fd6b1', background: '#f5fcf7', color: '#2f5f45', fontSize: 11, fontWeight: 800, letterSpacing: '0.01em', cursor: 'pointer' }}>+5</button>
+                  <button onClick={() => quickReminder(s.id)} style={{ padding: '6px', borderRadius: 7, border: '1px solid #e7b6c4', background: '#fff7fa', color: '#8b1f42', fontSize: 11, fontWeight: 800, letterSpacing: '0.01em', cursor: 'pointer' }}>Flag</button>
                 </div>
               </div>
             )
