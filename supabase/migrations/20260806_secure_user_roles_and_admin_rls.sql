@@ -173,8 +173,7 @@ do $$
 declare
   tbl text;
   pol record;
-begin
-  foreach tbl in array[
+  tables text[] := ARRAY[
     'students',
     'points_events',
     'support_sessions',
@@ -195,7 +194,9 @@ begin
     'grade_entries',
     'student_class_assignments',
     'teacher_rebbe_assignments'
-  ]
+  ];
+begin
+  foreach tbl in array tables
   loop
     if to_regclass('public.' || tbl) is null then
       continue;

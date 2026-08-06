@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { canAccessDashboardPage, canAccessStudentForRole } from '../dashboardData'
 
 describe('role access helpers', () => {
+  it('blocks removed intake page for all roles', () => {
+    expect(canAccessDashboardPage('admin', 'intake')).toBe(false)
+    expect(canAccessDashboardPage('teacher', 'intake')).toBe(false)
+    expect(canAccessDashboardPage('therapist', 'intake')).toBe(false)
+    expect(canAccessDashboardPage('store', 'intake')).toBe(false)
+  })
+
   it('blocks teachers from setup and leadership pages', () => {
     expect(canAccessDashboardPage('teacher', 'setup')).toBe(false)
     expect(canAccessDashboardPage('teacher', 'calls')).toBe(false)

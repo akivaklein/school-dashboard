@@ -972,6 +972,10 @@ export function divisionLabel(key) {
 }
 
 export function canAccessDashboardPage(role, page) {
+  if (page === 'intake') {
+    return false
+  }
+
   if (role === 'store') {
     return page === 'store'
   }
