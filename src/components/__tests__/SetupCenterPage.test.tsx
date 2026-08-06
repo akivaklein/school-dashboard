@@ -85,6 +85,6 @@ describe('SetupCenterPage', () => {
   it('renders the dashboard login view without crashing', () => {
     const markup = renderToStaticMarkup(<Dashboard />)
 
-    expect(markup).toContain('Teacher Login')
+    expect(markup).toContain('Secure authentication required.')
   })
 })

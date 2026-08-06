@@ -19,7 +19,7 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
     { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
     { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students', 'academics'] },
-    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'store', 'calls', 'intake', 'teaching-mode'] },
+    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'store', 'calls', 'teaching-mode'] },
     { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior', 'alerts'] },
     { id: 'reports', label: 'Reports', defaultPage: 'todo', pages: ['todo', 'grade-reports', 'attendance-reports'] },
     { id: 'messages', label: 'Messages', defaultPage: 'messages', pages: ['messages'] },
@@ -37,7 +37,6 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
       { id: 'teaching-mode', label: 'Teaching Mode' },
       { id: 'store', label: 'Token Store' },
       { id: 'calls', label: 'Parent Calls' },
-      { id: 'intake', label: 'Intake' },
     ],
     support: [
       { id: 'support', label: 'Support Overview' },

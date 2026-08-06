@@ -73,8 +73,7 @@ export default function AttendanceReportsPanel({
 
           <select value={attendanceReportDivision} onChange={e => setAttendanceReportDivision(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 13 }}>
             <option value="all">All divisions</option>
-            <option value="mesivta">Mesivta</option>
-            <option value="yeshiva-ketana">Yeshiva Ketana</option>
+            <option value="yeshiva_ketana">Yeshiva Ketana</option>
           </select>
 
           <select value={attendanceReportClass} onChange={e => setAttendanceReportClass(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 13 }}>
@@ -155,7 +154,7 @@ export default function AttendanceReportsPanel({
                 {filteredRows.map(stu => (
                   <tr key={stu.id} style={{ borderTop: '1px solid #e2e8f0' }}>
                     <td style={{ padding: 10, fontWeight: 800 }}>{stu.name}</td>
-                    <td style={{ padding: 10 }}>{stu.division === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Mesivta'}</td>
+                    <td style={{ padding: 10 }}>Yeshiva Ketana</td>
                     <td style={{ padding: 10 }}>{stu.className}</td>
                     <td style={{ padding: 10, fontWeight: 800 }}>{stu.lastStatus}</td>
                     <td style={{ padding: 10 }}>{stu.cameToYeshivaDays}/7</td>

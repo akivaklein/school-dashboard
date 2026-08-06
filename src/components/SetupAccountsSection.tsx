@@ -159,7 +159,6 @@ export default function SetupAccountsSection({
                         </select>
                         <select value={divisionFilter} onChange={event => setDivisionFilter(event.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}>
                           <option value="all">All divisions</option>
-                          <option value="mesivta">Mesivta</option>
                           <option value="yeshiva-ketana">Yeshiva Ketana</option>
                         </select>
                       </div>
@@ -218,7 +217,7 @@ export default function SetupAccountsSection({
                                 </div>
 
                                 <div style={{ fontSize: 11, color: '#748297' }}>
-                                  {account.divisions === 'mesivta' ? 'Mesivta' : account.divisions === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Both divisions'}
+                                  Yeshiva Ketana
                                 </div>
 
                                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -278,13 +277,13 @@ export default function SetupAccountsSection({
                                     <div>
                                       <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 3 }}>Division Scope</div>
                                       <select
-                                        value={account.divisions || 'both'}
+                                        value={'yeshiva-ketana'}
                                         onClick={e => e.stopPropagation()}
-                                        onChange={event => setSetupAccounts(prev => ({ ...prev, [person.name]: { ...withAttribution(account, { divisions: event.target.value, active: account.active !== false, accountState: account.accountState === 'missing' ? 'active' : account.accountState }) } }))}
+                                        onChange={() => {
+                                          setSetupAccounts(prev => ({ ...prev, [person.name]: { ...withAttribution(account, { divisions: 'yeshiva-ketana', active: account.active !== false, accountState: account.accountState === 'missing' ? 'active' : account.accountState }) } }))
+                                        }}
                                         style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #dce4ed', fontSize: 11 }}
                                       >
-                                        <option value="both">Both divisions</option>
-                                        <option value="mesivta">Mesivta only</option>
                                         <option value="yeshiva-ketana">Yeshiva Ketana only</option>
                                       </select>
                                     </div>

@@ -174,16 +174,16 @@ export const STORE_CATEGORY_OPTIONS = [
 ]
 
 export const DEMO_STORE_ACTIVITY = [
-  { id: 9001, time: '10:18 AM', studentId: 6, studentName: 'Levitz Avrohom', itemName: 'Water Bottle', cost: 8, staff: 'Eli Bloom', division: 'mesivta' },
-  { id: 9002, time: '10:42 AM', studentId: 12, studentName: 'Ettlinger Moshe', itemName: 'Pretzel Bag', cost: 15, staff: 'Zev Reisman', division: 'mesivta' },
+  { id: 9001, time: '10:18 AM', studentId: 6, studentName: 'Levitz Avrohom', itemName: 'Water Bottle', cost: 8, staff: 'Eli Bloom', division: 'yeshiva_ketana' },
+  { id: 9002, time: '10:42 AM', studentId: 12, studentName: 'Ettlinger Moshe', itemName: 'Pretzel Bag', cost: 15, staff: 'Zev Reisman', division: 'yeshiva_ketana' },
   { id: 9003, time: '11:25 AM', studentId: 103, studentName: 'Barber Chaim', itemName: 'Apple Juice Box', cost: 18, staff: 'Eli Stern', division: 'yeshiva_ketana' },
-  { id: 9004, time: '12:12 PM', studentId: 14, studentName: 'Feltman Daniel', itemName: 'Chocolate Chip Cookie', cost: 20, staff: 'Eli Bloom', division: 'mesivta' },
-  { id: 9005, time: '12:46 PM', studentId: 21, studentName: 'Moskowitz Meir Shulem', itemName: 'Icy Cup', cost: 12, staff: 'Zev Reisman', division: 'mesivta' },
+  { id: 9004, time: '12:12 PM', studentId: 14, studentName: 'Feltman Daniel', itemName: 'Chocolate Chip Cookie', cost: 20, staff: 'Eli Bloom', division: 'yeshiva_ketana' },
+  { id: 9005, time: '12:46 PM', studentId: 21, studentName: 'Moskowitz Meir Shulem', itemName: 'Icy Cup', cost: 12, staff: 'Zev Reisman', division: 'yeshiva_ketana' },
   { id: 9006, time: '01:18 PM', studentId: 108, studentName: 'Klein Yitzchok', itemName: 'Granola Bar', cost: 16, staff: 'Eli Stern', division: 'yeshiva_ketana' },
-  { id: 9007, time: '01:38 PM', studentId: 3, studentName: 'Haddad Moshe Chaim', itemName: 'Bagel with Cream Cheese', cost: 35, staff: 'Miri Shapiro', division: 'mesivta' },
-  { id: 9008, time: '02:04 PM', studentId: 8, studentName: 'Schwartz Moishe Michael', itemName: 'Hot Pretzel', cost: 28, staff: 'Eli Bloom', division: 'mesivta' },
+  { id: 9007, time: '01:38 PM', studentId: 3, studentName: 'Haddad Moshe Chaim', itemName: 'Bagel with Cream Cheese', cost: 35, staff: 'Miri Shapiro', division: 'yeshiva_ketana' },
+  { id: 9008, time: '02:04 PM', studentId: 8, studentName: 'Schwartz Moishe Michael', itemName: 'Hot Pretzel', cost: 28, staff: 'Eli Bloom', division: 'yeshiva_ketana' },
   { id: 9009, time: '02:21 PM', studentId: 18, studentName: 'Reich Nathan', itemName: 'Slush Cup', cost: 15, staff: 'Zev Reisman', division: 'yeshiva_ketana' },
-  { id: 9010, time: '02:43 PM', studentId: 1, studentName: 'Bloom Yair', itemName: 'Gatorade Berry', cost: 30, staff: 'Eli Stern', division: 'mesivta' },
+  { id: 9010, time: '02:43 PM', studentId: 1, studentName: 'Bloom Yair', itemName: 'Gatorade Berry', cost: 30, staff: 'Eli Stern', division: 'yeshiva_ketana' },
 ]
 
 export const DEMO_STUDENT_FLAGS = [
@@ -364,7 +364,7 @@ export function openAttendanceReportWindow({ rows, view, selectedStudent, filter
         ${rows.map(stu => `
           <tr>
             <td><b>${escapeHtml(stu.name)}</b></td>
-            <td>${escapeHtml(stu.division === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Mesivta')}</td>
+            <td>${escapeHtml(stu.division === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Yeshiva Ketana')}</td>
             <td>${escapeHtml(stu.className)}</td>
             <td>${escapeHtml(statusLabel(stu.lastStatus))}</td>
             <td>${escapeHtml(stu.cameToYeshivaDays)}/7</td>
@@ -575,192 +575,6 @@ export function buildAttendanceReportRows(students) {
   })
 }
 
-export function getAdmissionsReport(list) {
-  const docKeys = ['applicationForm','birthCertificate','immunization','iepEvaluation','reportCard','schoolRecords','parentQuestionnaire','tuitionPaperwork','emergencyContacts','medicalAllergies']
-
-  const normalized = list.map(x => {
-    const decision = x.decision || 'No decision yet'
-    const division = x.recommendedDivision || (x.program === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Mesivta')
-    const missingDocs = docKeys.filter(k => !x.requiredDocsComplete?.[k]).length
-    const openFollowUps = (x.followUps || []).filter(t => !t.done).length
-    return { ...x, decision, division, missingDocs, openFollowUps }
-  })
-
-  const accepted = normalized.filter(x => x.decision === 'Accepted' || x.decision === 'Accepted with supports')
-  const acceptedMesivta = accepted.filter(x => x.division === 'Mesivta')
-  const acceptedYK = accepted.filter(x => x.division === 'Yeshiva Ketana')
-  const waitlist = normalized.filter(x => x.decision === 'Waitlist')
-  const needsInfo = normalized.filter(x => x.decision === 'Needs more information')
-  const notFit = normalized.filter(x => x.decision === 'Not a fit')
-  const noDecision = normalized.filter(x => x.decision === 'No decision yet')
-
-  return {
-    accepted,
-    acceptedMesivta,
-    acceptedYK,
-    waitlist,
-    needsInfo,
-    notFit,
-    noDecision,
-    missingDocsTotal: normalized.reduce((sum, x) => sum + x.missingDocs, 0),
-    openFollowUpsTotal: normalized.reduce((sum, x) => sum + x.openFollowUps, 0)
-  }
-}
-
-export function enrichIntakeDemoData(list) {
-  const demoByIndex = [
-    {
-      requiredDocsComplete: {
-        applicationForm: true,
-        birthCertificate: true,
-        immunization: true,
-        iepEvaluation: false,
-        reportCard: true,
-        schoolRecords: false,
-        parentQuestionnaire: true,
-        tuitionPaperwork: false,
-        emergencyContacts: true,
-        medicalAllergies: true
-      },
-      followUps: [
-        { id: 9101, text: 'Call mother to request IEP/evaluation', due: '2026-06-17', assigned: 'Rabbi Baum', done: false },
-        { id: 9102, text: 'Send tuition paperwork reminder', due: '2026-06-20', assigned: 'Office', done: false },
-        { id: 9103, text: 'Confirm tour time with father', due: '2026-06-13', assigned: 'Rabbi Fried', done: true }
-      ],
-      contactLogs: [
-        { id: 9201, date: '2026-06-10', method: 'phone', staff: 'Rabbi Baum', summary: 'Spoke with mother. Family is looking for smaller class setting and stronger daily structure. Requested IEP and latest report card.' },
-        { id: 9202, date: '2026-06-11', method: 'email', staff: 'Office', summary: 'Sent intake packet and document checklist. Parent said they will send school records after Shabbos.' }
-      ],
-      decision: 'Needs more information',
-      recommendedDivision: 'Yeshiva Ketana',
-      recommendedClass: 'Yeshiva Ketana Alef',
-      approvedBy: 'Admissions Committee',
-      decisionDate: '2026-06-14',
-      servicesNeeded: ['Reading support', 'Small group'],
-      placementNotes: 'Warm boy. Needs kriah support and a smaller group. Waiting for evaluation before final placement.'
-    },
-    {
-      requiredDocsComplete: {
-        applicationForm: true,
-        birthCertificate: true,
-        immunization: true,
-        iepEvaluation: true,
-        reportCard: true,
-        schoolRecords: true,
-        parentQuestionnaire: true,
-        tuitionPaperwork: true,
-        emergencyContacts: true,
-        medicalAllergies: true
-      },
-      followUps: [
-        { id: 9301, text: 'Prepare acceptance packet', due: '2026-06-15', assigned: 'Office', done: true },
-        { id: 9302, text: 'Confirm first-day transportation details', due: '2026-06-21', assigned: 'Rabbi Klein', done: false }
-      ],
-      contactLogs: [
-        { id: 9401, date: '2026-06-07', method: 'in person', staff: 'Rabbi Klein', summary: 'Tour completed. Parents were positive and asked about morning rebbe placement.' },
-        { id: 9402, date: '2026-06-09', method: 'phone', staff: 'Rabbi Hillel', summary: 'Reviewed assessment. Student appears ready for structured placement with light support.' }
-      ],
-      decision: 'Accepted with supports',
-      recommendedDivision: 'Yeshiva Ketana',
-      recommendedClass: 'Yeshiva Ketana Beis',
-      approvedBy: 'Rabbi Klein',
-      decisionDate: '2026-06-10',
-      servicesNeeded: ['Small group', 'Reading support'],
-      placementNotes: 'Accepted. Strong middos. Needs calm transition plan and reading check-ins twice weekly.'
-    },
-    {
-      requiredDocsComplete: {
-        applicationForm: true,
-        birthCertificate: false,
-        immunization: false,
-        iepEvaluation: false,
-        reportCard: true,
-        schoolRecords: false,
-        parentQuestionnaire: false,
-        tuitionPaperwork: false,
-        emergencyContacts: true,
-        medicalAllergies: false
-      },
-      followUps: [
-        { id: 9501, text: 'Call family after initial inquiry', due: '2026-06-16', assigned: 'Office', done: false },
-        { id: 9502, text: 'Ask for immunization and birth certificate', due: '2026-06-18', assigned: 'Office', done: false }
-      ],
-      contactLogs: [
-        { id: 9601, date: '2026-06-12', method: 'phone', staff: 'Office', summary: 'Father called asking about openings. Sent basic information and scheduled callback.' }
-      ],
-      decision: 'No decision yet',
-      recommendedDivision: 'Needs review',
-      recommendedClass: 'Needs assessment',
-      approvedBy: '',
-      decisionDate: '',
-      servicesNeeded: ['Transportation review'],
-      placementNotes: 'Very early inquiry. Need school history and parent questionnaire before interview.'
-    },
-    {
-      requiredDocsComplete: {
-        applicationForm: true,
-        birthCertificate: true,
-        immunization: true,
-        iepEvaluation: true,
-        reportCard: true,
-        schoolRecords: true,
-        parentQuestionnaire: true,
-        tuitionPaperwork: false,
-        emergencyContacts: true,
-        medicalAllergies: true
-      },
-      followUps: [
-        { id: 9701, text: 'Admissions committee review', due: '2026-06-14', assigned: 'Rabbi Baum', done: false },
-        { id: 9702, text: 'Send tuition paperwork if accepted', due: '2026-06-17', assigned: 'Office', done: false }
-      ],
-      contactLogs: [
-        { id: 9801, date: '2026-06-04', method: 'email', staff: 'Office', summary: 'Received evaluation, report card, and parent questionnaire.' },
-        { id: 9802, date: '2026-06-08', method: 'in person', staff: 'Rabbi Baum', summary: 'Interview completed. Student was respectful but needs review for behavior support plan.' }
-      ],
-      decision: 'Waitlist',
-      recommendedDivision: 'Mesivta',
-      recommendedClass: 'Mesivta Shiur Alef',
-      approvedBy: 'Admissions Committee',
-      decisionDate: '2026-06-12',
-      servicesNeeded: ['Behavior plan', 'Counseling', 'Small group'],
-      placementNotes: 'Good potential. Placement depends on supports available and final class size.'
-    },
-    {
-      requiredDocsComplete: {
-        applicationForm: true,
-        birthCertificate: true,
-        immunization: true,
-        iepEvaluation: false,
-        reportCard: true,
-        schoolRecords: true,
-        parentQuestionnaire: true,
-        tuitionPaperwork: true,
-        emergencyContacts: true,
-        medicalAllergies: true
-      },
-      followUps: [
-        { id: 9901, text: 'Schedule final placement call', due: '2026-06-19', assigned: 'Rabbi Hillel', done: false }
-      ],
-      contactLogs: [
-        { id: 9911, date: '2026-06-06', method: 'phone', staff: 'Rabbi Hillel', summary: 'Mother said current school feels too large. Looking for more individualized rebbe attention.' },
-        { id: 9912, date: '2026-06-13', method: 'email', staff: 'Office', summary: 'Received updated report card and tuition paperwork.' }
-      ],
-      decision: 'Accepted',
-      recommendedDivision: 'Mesivta',
-      recommendedClass: 'Mesivta Shiur Beis',
-      approvedBy: 'Rabbi Hillel',
-      decisionDate: '2026-06-13',
-      servicesNeeded: ['Small group'],
-      placementNotes: 'Accepted for Mesivta. Recommend close monitoring during first month.'
-    }
-  ]
-
-  return list.map((item, index) => ({
-    ...item,
-    ...(demoByIndex[index % demoByIndex.length] || {})
-  }))
-}
-
 export const SKILL_RATINGS = ['Weak', 'Developing', 'Good', 'Great']
 export const RATING_SCORE = { Weak: 1, Developing: 2, Good: 3, Great: 4 }
 export const ACADEMIC_AREAS = {
@@ -848,8 +662,8 @@ export function resolveActorName(actorName, role = 'admin') {
 
 export function getDashboardContextInfo(page, role, divisionView) {
   const roleLabel = role === 'teacher' ? 'Teacher' : role === 'therapist' ? 'Therapist' : role === 'store' ? 'Store' : 'Admin'
-  const pageLabel = page === 'dashboard' ? 'Dashboard' : page === 'attendance' ? 'Attendance' : page === 'behavior' ? 'Behavior' : page === 'academics' ? 'Academics' : page === 'schedule' ? 'Schedule' : page === 'store' ? 'Token Store' : page === 'setup' ? 'Setup Center' : page === 'support' ? 'Student Support' : page === 'staff-directory' ? 'Staff Directory' : page === 'intake' ? 'Intake' : page === 'calls' ? 'Calls' : page === 'alerts' ? 'Alerts' : page === 'todos' ? 'Todos' : 'Dashboard'
-  const divisionLabel = divisionView === 'all' ? 'All Students' : divisionView === 'yeshiva-ketana' ? 'Yeshiva Ketana' : divisionView === 'mesivta' ? 'Mesivta' : String(divisionView || 'All Students')
+  const pageLabel = page === 'dashboard' ? 'Dashboard' : page === 'attendance' ? 'Attendance' : page === 'behavior' ? 'Behavior' : page === 'academics' ? 'Academics' : page === 'schedule' ? 'Schedule' : page === 'store' ? 'Token Store' : page === 'setup' ? 'Setup Center' : page === 'support' ? 'Student Support' : page === 'staff-directory' ? 'Staff Directory' : page === 'calls' ? 'Calls' : page === 'alerts' ? 'Alerts' : page === 'todos' ? 'Todos' : 'Dashboard'
+  const divisionLabel = 'Yeshiva Ketana'
   const contextSummary = `${pageLabel} · ${roleLabel} · ${divisionLabel}`
 
   return { roleLabel, pageLabel, divisionLabel, contextSummary }
@@ -896,7 +710,6 @@ export function getStaffNameOptions(staffList, roleMatcher) {
 }
 
 export const TEACHING_STAFF_OPTIONS = getStaffNameOptions(STAFF, role => /teacher|rebbe/i.test(role))
-export const TOUR_STAFF_OPTIONS = getStaffNameOptions(STAFF, role => /admin|menahel|teacher|rebbe/i.test(role))
 
 export const THERAPIST_OPTIONS = [
   { name: 'Shelly Wagschal', email: 'swagschal@hadranacademy.org', specialty: 'Therapist' },

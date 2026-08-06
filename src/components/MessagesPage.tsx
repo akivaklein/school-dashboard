@@ -59,7 +59,6 @@ const AUDIENCE_OPTIONS = [
   'Therapists',
   'BT Team',
   'Head Staff',
-  'Mesivta Staff',
   'Yeshiva Ketana Staff',
   'Office Staff',
 ]

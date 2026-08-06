@@ -1,11 +1,7 @@
 import { supabase } from '../supabaseClient'
-import {
-  clearStudentFallbackPatch,
-  mergeStudentFallbackPatch,
-} from '../utils/studentFallbackCache'
 
 export async function persistStudentFields(id, fields, options = {}) {
-  const allowFallback = options.allowFallback !== false
+  void options
 
   // Map React field names to database column names
   const mappedFields = { ...fields }
@@ -65,7 +61,6 @@ export async function persistStudentFields(id, fields, options = {}) {
     const attemptPayload = { ...payload }
     const { error } = await supabase.from('students').update(attemptPayload).eq('id', id)
     if (!error) {
-      clearStudentFallbackPatch(id)
       return true
     }
 
@@ -95,12 +90,6 @@ export async function persistStudentFields(id, fields, options = {}) {
     }
 
     console.error(`Supabase student update failed for ${id}:`, error, 'Payload keys:', Object.keys(payload))
-
-    if (allowFallback) {
-      mergeStudentFallbackPatch(id, fields)
-      console.warn(`Saved student ${id} changes to local fallback cache due to Supabase write failure.`)
-      return true
-    }
 
     return false
   }

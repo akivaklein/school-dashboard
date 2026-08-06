@@ -38,7 +38,7 @@ export default function SetupSchoolStructureSection({
   const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>(() =>
     loadStoredConfig('school-dashboard-classes', CLASSES.map(cls => ({
       ...cls,
-      divisionKey: CLASS_DIVISION[cls.id] || Object.keys(DIVISIONS)[0] || 'mesivta',
+      divisionKey: CLASS_DIVISION[cls.id] || Object.keys(DIVISIONS)[0] || 'yeshiva_ketana',
     })))
   )
   const [schoolDivisions, setSchoolDivisions] = useState<Record<string, SchoolDivision>>(() =>
@@ -52,7 +52,7 @@ export default function SetupSchoolStructureSection({
     name: '',
     grade: '',
     teacher: '',
-    divisionKey: Object.keys(DIVISIONS)[0] || 'mesivta',
+    divisionKey: Object.keys(DIVISIONS)[0] || 'yeshiva_ketana',
   })
   const [divisionForm, setDivisionForm] = useState({
     key: '',
@@ -83,12 +83,12 @@ export default function SetupSchoolStructureSection({
 
     Object.keys(CLASS_DIVISION).forEach(key => delete CLASS_DIVISION[key])
     schoolClasses.forEach(cls => {
-      const divisionKey = cls.divisionKey || Object.keys(schoolDivisions)[0] || 'mesivta'
+      const divisionKey = cls.divisionKey || Object.keys(schoolDivisions)[0] || 'yeshiva_ketana'
       CLASS_DIVISION[cls.id] = divisionKey
     })
   }, [schoolClasses, schoolDivisions])
 
-  const defaultDivisionKey = Object.keys(schoolDivisions)[0] || 'mesivta'
+  const defaultDivisionKey = Object.keys(schoolDivisions)[0] || 'yeshiva_ketana'
 
   // Student assignment state — sourced from in-memory map + Supabase overrides.
   const [studentClassMap, setStudentClassMap] = useState<Record<number, string>>(() => ({ ...STUDENT_CLASSES_MAP }))

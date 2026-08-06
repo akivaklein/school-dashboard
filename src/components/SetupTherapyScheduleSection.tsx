@@ -331,7 +331,7 @@ export default function SetupTherapyScheduleSection({
                               division:
                                 CLASS_DIVISION[
                                   STUDENT_CLASSES[firstStudent.id]
-                                ] || 'mesivta',
+                                ] || 'yeshiva-ketana',
                               note: ''
                             }
                           ])
@@ -421,7 +421,7 @@ export default function SetupTherapyScheduleSection({
 
                           if (field === 'division') {
                             return [
-                              ['mesivta', 'Mesivta'],
+                              ['yeshiva-ketana', 'Yeshiva Ketana'],
                               ['yeshiva_ketana', 'Yeshiva Ketana']
                             ]
                           }

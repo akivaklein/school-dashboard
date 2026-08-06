@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { DEMO_STORE_ACTIVITY, DEMO_STUDENT_FLAGS, HISTORICAL_DATA, THERAPY_SCHEDULE } from '../dashboardData'
 
 describe('demo fixture realism', () => {
-  it('contains rich fallback store activity records', () => {
+  it('contains rich fallback store activity records for Yeshiva Ketana only', () => {
     expect(DEMO_STORE_ACTIVITY.length).toBeGreaterThanOrEqual(5)
-    expect(DEMO_STORE_ACTIVITY.some(entry => entry.division === 'mesivta')).toBe(true)
     expect(DEMO_STORE_ACTIVITY.some(entry => entry.division === 'yeshiva_ketana')).toBe(true)
+    expect(DEMO_STORE_ACTIVITY.some(entry => entry.division === 'mesivta')).toBe(false)
   })
 
   it('contains multiple active student flags for demo workflows', () => {

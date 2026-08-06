@@ -1,4 +1,4 @@
-export function buildReportsOverview({ attendanceRows, intakeList }) {
+export function buildReportsOverview({ attendanceRows }) {
   const attendanceSummary = attendanceRows.reduce(
     (summary, row) => {
       const status = row?.lastStatus
@@ -13,20 +13,7 @@ export function buildReportsOverview({ attendanceRows, intakeList }) {
 
   attendanceSummary.total = attendanceRows.length
 
-  const admissionsSummary = intakeList.reduce(
-    (summary, applicant) => {
-      const decision = applicant?.decision || 'No decision yet'
-      if (decision === 'Accepted' || decision === 'Accepted with supports') summary.accepted += 1
-      else if (decision === 'Needs more information') summary.needsInfo += 1
-      return summary
-    },
-    { accepted: 0, needsInfo: 0, total: 0 },
-  )
-
-  admissionsSummary.total = intakeList.length
-
   return {
     attendanceSummary,
-    admissionsSummary,
   }
 }

@@ -3,7 +3,7 @@
 ## Status Overview
 - [x] Setup Center blank-page regression resolved
 - [x] Setup Center navigation regrouping and sectioned layout
-- [x] Intake navigation restored
+- [x] Intake and Admissions removed from secure branch
 - [x] Staff directory populated with fallback roster
 - [x] Daily attendance reset regression check
 - [x] Newly-assigned students appear for teacher

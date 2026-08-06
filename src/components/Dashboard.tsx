@@ -22,7 +22,6 @@ import StaffDirectoryPage from './StaffDirectoryPage'
 import AttendanceReportsPanel from './AttendanceReportsPanel'
 import AdminMainDashboard from './AdminMainDashboard'
 import TherapistAssignmentsPage from './TherapistAssignmentsPage'
-import IntakePage from './IntakePage'
 import { buildReportsOverview } from './reportsUtils'
 import {
   applyPointsEventTx,
@@ -55,9 +54,7 @@ import {
   normalizeStoreItemInput,
   redeemStorePurchaseTx,
   reverseStorePurchaseTx,
-  seedStoreItems,
   setStoreItemActive,
-  shouldUseDemoStoreActivity,
   updateStoreItem as saveStoreItem,
 } from '../services/storeService'
 import {
@@ -105,18 +102,12 @@ import {
 } from '../services/studentPersistenceService'
 import { recordLoginSession, recordLogoutSession } from '../services/loginSessionService'
 import {
-  clearStudentFallbackPatch,
-  getStudentFallbackPatchCount,
-  readStudentFallbackPatches,
-} from '../utils/studentFallbackCache'
-import {
   cameToSchoolToday,
   getDailyAttendanceStatus,
   isInClassroom,
   isInSchool,
 } from '../utils/attendancePresence'
 import DrillDown from './dashboard/DrillDown'
-import LoginPage from './dashboard/LoginPage'
 import { buildLoginAccountRoleLabel, getLoginRoleKey } from './dashboard/loginUserSearch'
 import TrackingTabView from './dashboard/TrackingTab'
 import StaffLoginPanel from './StaffLoginPanel'
@@ -127,12 +118,9 @@ import { getRoleNavConfig } from './dashboardNavConfig'
 import { canAccessDashboardPage, canAccessStudentForRole } from './dashboardData'
 
 import {
-  STORE_ITEMS,
   STORE_CATEGORY_OPTIONS,
   openAttendanceReportWindow,
   buildAttendanceReportRows,
-  getAdmissionsReport,
-  enrichIntakeDemoData,
   SKILL_RATINGS,
   RATING_SCORE,
   ACADEMIC_AREAS,
@@ -159,7 +147,6 @@ import {
   THERAPY_SCHEDULE,
   buildClassroomCoverageSnapshot,
   HISTORICAL_DATA,
-  DEMO_STORE_ACTIVITY,
   DEMO_STUDENT_FLAGS,
   initialStudents,
   STAFF,
@@ -167,41 +154,6 @@ import {
   statusLabel,
   statusEmoji,
 } from './dashboardData'
-
-const INTAKE_ASSESSMENT_AREAS = [
-  {
-    section: 'Limudei Kodesh',
-    helper: 'Core yeshiva readiness and classroom learning skills',
-    items: [
-      { label: 'Tefillah Participation', key: 'tefillah', icon: '🕍', detail: 'Follows along, participates, and stays focused during davening' },
-      { label: 'Kriah Accuracy', key: 'kriah', icon: '📖', detail: 'Reads Hebrew with nekudos accurately, including siddur, Tehillim, and Chumash words' },
-      { label: 'Gemara Text Reading', key: 'gemaraReading', icon: '📜', detail: 'Reads Gemara words clearly and fluently' },
-      { label: 'Gemara Translation', key: 'gemaraTranslation', icon: '🔤', detail: 'Translates Gemara words, phrases, and common terms' },
-      { label: 'Gemara Comprehension', key: 'gemaraComprehension', icon: '🧠', detail: 'Understands the flow of the sugya, questions, answers, and main ideas' },
-      { label: 'Rashi Script', key: 'rashiScript', icon: '✒️', detail: 'Recognizes and reads Rashi letters' },
-    ],
-  },
-  {
-    section: 'General Studies',
-    helper: 'Specific academic skills tested during the admissions review',
-    items: [
-      { label: 'Math: Addition', key: 'mathAddition', icon: '➕', detail: 'Single-digit, multi-digit, and regrouping skills' },
-      { label: 'Math: Subtraction', key: 'mathSubtraction', icon: '➖', detail: 'Borrowing, regrouping, and multi-step accuracy' },
-      { label: 'Math: Multiplication', key: 'mathMultiplication', icon: '✖️', detail: 'Facts, 2-digit multiplication, and computation fluency' },
-      { label: 'Math: Division', key: 'mathDivision', icon: '➗', detail: 'Basic division, remainders, and long division readiness' },
-      { label: 'English Reading Fluency', key: 'englishReading', icon: '📚', detail: 'Decoding, pacing, accuracy, and confidence while reading' },
-      { label: 'Reading Comprehension', key: 'readingComprehension', icon: '🔎', detail: 'Understands passages, details, sequence, and main idea' },
-      { label: 'Writing Skills', key: 'writingSkills', icon: '✍️', detail: 'Sentence structure, grammar, written response, and organization' },
-      { label: 'Spelling / Vocabulary', key: 'spellingVocabulary', icon: '🔠', detail: 'Word recognition, spelling patterns, and vocabulary knowledge' },
-    ],
-  },
-]
-
-const INTAKE_PLACEMENT_LEVELS = [
-  { key: 'foundational', label: 'Foundational', color: '#9a6a2a', bg: '#f7f1e8' },
-  { key: 'developing', label: 'Developing', color: '#5b6f95', bg: '#edf2f7' },
-  { key: 'independent', label: 'Independent', color: '#56765f', bg: '#eef4f0' },
-]
 
 type StudentLike = {
   id?: number | string
@@ -255,9 +207,6 @@ type StudentFlagLike = {
   }>
   [key: string]: unknown
 }
-
-const intakeScoreLabel = (val: number) => val === 0 ? '—' : val === 1 ? 'Needs Support' : val === 2 ? 'Emerging' : val === 3 ? 'Developing' : val === 4 ? 'Proficient' : 'Strong'
-const intakeScoreColor = (val: number) => val >= 4 ? '#56765f' : val >= 3 ? '#5b6f95' : val > 0 ? '#9a6a2a' : '#94a3b8'
 
 function daysSince(dateStr: string) { return Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 86400000) }
 function initials(name: string) { return name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() }
@@ -1313,15 +1262,9 @@ interface DashboardProps {
   onTeacherSessionLogout?: () => void
 }
 
-const AUTH_USER_STORAGE_KEY = 'schoolDashboardAuthUser'
-const ATTENDANCE_RESET_STORAGE_KEY = 'schoolDashboardLastAttendanceResetDate'
 const DASHBOARD_NAV_STATE_STORAGE_KEY = 'schoolDashboardNavStateV1'
 const STUDENT_PROFILE_TAB_STORAGE_KEY = 'schoolDashboardStudentProfileTab'
 const DASHBOARD_LAYOUT_MODE_STORAGE_KEY = 'schoolDashboardLayoutModeV1'
-
-function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10)
-}
 
 function readDashboardNavState(): {
   majorSection?: string
@@ -1371,14 +1314,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [dashboardLayoutMode, setDashboardLayoutMode] = useState<'two-level' | 'legacy'>(() => readDashboardLayoutMode())
   const [page, setPage] = useState('dashboard')
   const [pageTransition, setPageTransition] = useState<'idle' | 'enter'>('idle')
-  const [students, setStudents] = useState<StudentLike[]>(() => initialStudents.slice() as StudentLike[])
+  const [students, setStudents] = useState<StudentLike[]>([])
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState<string | null>(null)
-  const [studentFallbackPatchCount, setStudentFallbackPatchCount] = useState(() => getStudentFallbackPatchCount())
-  const [studentFallbackSyncState, setStudentFallbackSyncState] = useState('idle')
+  const [studentFallbackPatchCount] = useState(0)
+  const [studentFallbackSyncState] = useState('idle')
   const [staffMembers, setStaffMembers] = useState<StaffMemberLike[]>(FALLBACK_STAFF_MEMBERS as StaffMemberLike[])
   const [staffLoadError, setStaffLoadError] = useState<string | null>(null)
-  const fallbackSyncInFlightRef = useRef(false)
   const storePurchaseAttemptKeysRef = useRef<Record<string, string>>({})
   const navRestoreAppliedRef = useRef(false)
   const shouldRestoreNavRef = useRef(false)
@@ -1521,81 +1463,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     refreshStaffMembers()
   }, [refreshStaffMembers])
 
-  useEffect(() => {
-    const refreshFallbackCount = () => {
-      setStudentFallbackPatchCount(getStudentFallbackPatchCount())
-    }
-
-    refreshFallbackCount()
-
-    const intervalId = window.setInterval(refreshFallbackCount, 3000)
-    window.addEventListener('storage', refreshFallbackCount)
-
-    return () => {
-      window.clearInterval(intervalId)
-      window.removeEventListener('storage', refreshFallbackCount)
-    }
-  }, [])
-
   const flushStudentFallbackPatches = useCallback(async () => {
-    if (fallbackSyncInFlightRef.current) return
-
-    const patches = readStudentFallbackPatches()
-    const patchEntries = Object.entries(patches)
-
-    if (patchEntries.length === 0) {
-      setStudentFallbackPatchCount(0)
-      setStudentFallbackSyncState('idle')
-      return
-    }
-
-    fallbackSyncInFlightRef.current = true
-    setStudentFallbackSyncState('syncing')
-
-    let hadFailure = false
-
-    try {
-      for (const [studentId, patch] of patchEntries) {
-        const { _savedAt, ...fields } = patch || {}
-
-        if (Object.keys(fields).length === 0) {
-          clearStudentFallbackPatch(studentId)
-          continue
-        }
-
-        const saved = await persistStudentFields(studentId, fields, { allowFallback: false })
-        if (!saved) {
-          hadFailure = true
-        }
-      }
-    } finally {
-      fallbackSyncInFlightRef.current = false
-      const remaining = getStudentFallbackPatchCount()
-      setStudentFallbackPatchCount(remaining)
-      setStudentFallbackSyncState(remaining === 0 ? 'idle' : hadFailure ? 'error' : 'idle')
-    }
+    return
   }, [])
-
-  useEffect(() => {
-    if (studentFallbackPatchCount === 0) return
-
-    flushStudentFallbackPatches()
-
-    const intervalId = window.setInterval(() => {
-      flushStudentFallbackPatches()
-    }, 15000)
-
-    const handleOnline = () => {
-      flushStudentFallbackPatches()
-    }
-
-    window.addEventListener('online', handleOnline)
-
-    return () => {
-      window.clearInterval(intervalId)
-      window.removeEventListener('online', handleOnline)
-    }
-  }, [studentFallbackPatchCount, flushStudentFallbackPatches])
 
   const STAFF = useMemo(
     () =>
@@ -1615,11 +1485,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const TEACHING_STAFF_OPTIONS = useMemo(
     () => getStaffNameOptions(STAFF, role => /teacher|rebbe/i.test(role)),
-    [STAFF],
-  )
-
-  const TOUR_STAFF_OPTIONS = useMemo(
-    () => getStaffNameOptions(STAFF, role => /admin|menahel|teacher|rebbe/i.test(role)),
     [STAFF],
   )
 
@@ -1718,64 +1583,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     async function loadStudents() {
       setStudentLoadError(null)
 
-      console.log('Loading students from Supabase...')
-
-      const { data: existingRows, error: loadError } = await supabase
-        .from('students')
-        .select('*')
-
-      if (loadError) {
-        console.error('Supabase load students error:', loadError)
-        setStudentLoadError(
-          loadError.message || 'Unable to load student data.'
-        )
-        return
-      }
-
-      const currentRows = existingRows || []
-
-      console.log('Current Supabase student count:', currentRows.length)
-
-      const existingIds = new Set(
-        currentRows.map(student => Number(student.id))
-      )
-
-      const missingStudents = initialStudents.filter(
-        student => !existingIds.has(Number(student.id))
-      )
-
-      console.log('Missing student count:', missingStudents.length)
-
-      if (missingStudents.length > 0) {
-        /*
-         * Insert only the basic columns first.
-         * The full rich demo objects remain in initialStudents and are
-         * merged back into the loaded rows below.
-         */
-        const seedRows = missingStudents.map(student => ({
-          id: student.id,
-          name: student.name,
-          status: student.status
-        }))
-
-        const { error: insertError } = await supabase
-          .from('students')
-          .upsert(seedRows, {
-            onConflict: 'id',
-            ignoreDuplicates: true
-          })
-
-        if (insertError) {
-          console.error('Supabase insert missing students error:', insertError)
-          setStudentLoadError(
-            insertError.message || 'Unable to add missing students.'
-          )
-          return
-        }
-
-        console.log('Inserted student count:', seedRows.length)
-      }
-
       const { data: finalRows, error: finalLoadError } = await supabase
         .from('students')
         .select('*')
@@ -1789,196 +1596,67 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         setStudentLoadError(
           finalLoadError.message || 'Unable to reload student data.'
         )
-        return
-      }
-
-      const databaseRows = finalRows || []
-      if (databaseRows.length === 0) {
-        const resetDate = todayIsoDate()
-        const lastResetDate = localStorage.getItem(
-          ATTENDANCE_RESET_STORAGE_KEY
-        )
-
-        if (lastResetDate !== resetDate) {
-          const resetStudents = applyDailyAttendanceReset(
-            initialStudents,
-            resetDate
-          )
-          setStudents(resetStudents)
-          localStorage.setItem(
-            ATTENDANCE_RESET_STORAGE_KEY,
-            resetDate
-          )
-        }
-
+        setStudents([])
         setStudentsLoaded(true)
         return
       }
 
-      /*
-       * Keep all existing rich fields from initialStudents, while allowing
-       * saved Supabase values such as status to override them.
-       */
-      const initialById = new Map(
-        initialStudents.map(student => [Number(student.id), student])
-      )
-
-      const mergedStudents = databaseRows.map(databaseStudent => {
-        const initialStudent = initialById.get(
-          Number(databaseStudent.id)
-        )
-
-        const merged = initialStudent
-          ? { ...initialStudent, ...databaseStudent }
-          : {
-              points: 0,
-              reminders: 0,
-              status: 'present',
-              dailyStatus:
-                databaseStudent.dailyStatus ||
-                databaseStudent.status ||
-                'present',
-              withStaff: null,
-              att: [],
-              breakfast: [],
-              services: [],
-              parentCalls: [],
-              notes: [],
-              behaviorLog: [],
-              testScores: [],
-              classLog: [],
-              therapyAssignments: [],
-              assignedTherapist: '',
-              therapyFrequency: '',
-              therapyNotes: '',
-              lateDetails: null,
-              family: {},
-              medical: {},
-              ...databaseStudent
-            }
-
-        merged.dailyStatus =
+      const databaseRows = finalRows || []
+      const studentsFromDb = databaseRows.map(databaseStudent => ({
+        ...databaseStudent,
+        dailyStatus:
           databaseStudent.daily_status ||
           databaseStudent.dailyStatus ||
           databaseStudent.status ||
-          merged.dailyStatus ||
-          merged.status ||
-          'present'
-
-        merged.withStaff =
+          'present',
+        withStaff:
           databaseStudent.with_staff ??
           databaseStudent.withStaff ??
-          merged.withStaff ??
-          null
-
-        merged.lateDetails =
+          null,
+        lateDetails:
           databaseStudent.late_details ??
           databaseStudent.lateDetails ??
-          merged.lateDetails ??
-          null
-
-        merged.points = resolveLiveStudentPoints(databaseStudent.token_balance)
-
-        // Load persisted JSONB fields from database, fallback to demo data if empty
-        if (databaseStudent.attendance && Array.isArray(databaseStudent.attendance) && databaseStudent.attendance.length > 0) {
-          merged.att = databaseStudent.attendance
-        }
-        if (databaseStudent.notes && Array.isArray(databaseStudent.notes) && databaseStudent.notes.length > 0) {
-          merged.notes = databaseStudent.notes
-        }
-        if (databaseStudent.behavior_log && Array.isArray(databaseStudent.behavior_log) && databaseStudent.behavior_log.length > 0) {
-          merged.behaviorLog = databaseStudent.behavior_log
-        }
-        if (databaseStudent.medical && typeof databaseStudent.medical === 'object' && Object.keys(databaseStudent.medical).length > 0) {
-          merged.medical = databaseStudent.medical
-        }
-        if (databaseStudent.family && typeof databaseStudent.family === 'object' && Object.keys(databaseStudent.family).length > 0) {
-          merged.family = databaseStudent.family
-        }
-        if (databaseStudent.parent_calls && Array.isArray(databaseStudent.parent_calls) && databaseStudent.parent_calls.length > 0) {
-          merged.parentCalls = databaseStudent.parent_calls
-        }
-        if (typeof databaseStudent.reminders === 'number') {
-          merged.reminders = databaseStudent.reminders
-        }
-        if (databaseStudent.test_scores && Array.isArray(databaseStudent.test_scores) && databaseStudent.test_scores.length > 0) {
-          merged.testScores = databaseStudent.test_scores
-        }
-        if (databaseStudent.class_log && Array.isArray(databaseStudent.class_log) && databaseStudent.class_log.length > 0) {
-          merged.classLog = databaseStudent.class_log
-        }
-
-        if (Object.prototype.hasOwnProperty.call(databaseStudent, 'therapy_assignments')) {
-          if (Array.isArray(databaseStudent.therapy_assignments)) {
-            merged.therapyAssignments = databaseStudent.therapy_assignments
-          }
-        } else if (Array.isArray(databaseStudent.therapyAssignments)) {
-          merged.therapyAssignments = databaseStudent.therapyAssignments
-        }
-
-        merged.assignedTherapist =
+          null,
+        points: resolveLiveStudentPoints(databaseStudent.token_balance),
+        att: Array.isArray(databaseStudent.attendance)
+          ? databaseStudent.attendance
+          : (Array.isArray(databaseStudent.att) ? databaseStudent.att : []),
+        notes: Array.isArray(databaseStudent.notes) ? databaseStudent.notes : [],
+        behaviorLog: Array.isArray(databaseStudent.behavior_log)
+          ? databaseStudent.behavior_log
+          : (Array.isArray(databaseStudent.behaviorLog) ? databaseStudent.behaviorLog : []),
+        parentCalls: Array.isArray(databaseStudent.parent_calls)
+          ? databaseStudent.parent_calls
+          : (Array.isArray(databaseStudent.parentCalls) ? databaseStudent.parentCalls : []),
+        testScores: Array.isArray(databaseStudent.test_scores)
+          ? databaseStudent.test_scores
+          : (Array.isArray(databaseStudent.testScores) ? databaseStudent.testScores : []),
+        classLog: Array.isArray(databaseStudent.class_log)
+          ? databaseStudent.class_log
+          : (Array.isArray(databaseStudent.classLog) ? databaseStudent.classLog : []),
+        therapyAssignments: Array.isArray(databaseStudent.therapy_assignments)
+          ? databaseStudent.therapy_assignments
+          : (Array.isArray(databaseStudent.therapyAssignments) ? databaseStudent.therapyAssignments : []),
+        assignedTherapist:
           databaseStudent.assigned_therapist ??
           databaseStudent.assignedTherapist ??
-          merged.assignedTherapist ??
-          ''
-
-        merged.therapyFrequency =
+          '',
+        therapyFrequency:
           databaseStudent.therapy_frequency ??
           databaseStudent.therapyFrequency ??
-          merged.therapyFrequency ??
-          ''
-
-        merged.therapyNotes =
+          '',
+        therapyNotes:
           databaseStudent.therapy_notes ??
           databaseStudent.therapyNotes ??
-          merged.therapyNotes ??
-          ''
+          '',
+        family: databaseStudent.family && typeof databaseStudent.family === 'object' ? databaseStudent.family : {},
+        medical: databaseStudent.medical && typeof databaseStudent.medical === 'object' ? databaseStudent.medical : {},
+        services: Array.isArray(databaseStudent.services) ? databaseStudent.services : [],
+        breakfast: Array.isArray(databaseStudent.breakfast) ? databaseStudent.breakfast : [],
+        reminders: Number(databaseStudent.reminders || 0),
+      }))
 
-        return merged
-      })
-
-      const fallbackPatches = readStudentFallbackPatches()
-      const mergedWithFallback = mergedStudents.map(student => {
-        const patch = fallbackPatches[String(student.id)]
-        return patch ? { ...student, ...patch } : student
-      })
-
-      const resetDate = todayIsoDate()
-      const lastResetDate = localStorage.getItem(
-        ATTENDANCE_RESET_STORAGE_KEY
-      )
-      const shouldResetAttendance = lastResetDate !== resetDate
-
-      const studentsAfterDailyReset = shouldResetAttendance
-        ? applyDailyAttendanceReset(mergedWithFallback, resetDate)
-        : mergedWithFallback
-
-      if (shouldResetAttendance) {
-        const resetSaveResults = await Promise.all(
-          studentsAfterDailyReset.map(student =>
-            persistStudentFields(student.id, {
-              dailyStatus: student.dailyStatus,
-              status: student.status,
-              withStaff: student.withStaff,
-              lateDetails: student.lateDetails,
-              classLog: student.classLog,
-            })
-          )
-        )
-
-        if (resetSaveResults.every(Boolean)) {
-          localStorage.setItem(
-            ATTENDANCE_RESET_STORAGE_KEY,
-            resetDate
-          )
-        } else {
-          console.error('Daily attendance reset failed for one or more students.')
-        }
-      }
-
-      console.log('Final student count:', studentsAfterDailyReset.length)
-
-      setStudents(studentsAfterDailyReset)
+      setStudents(studentsFromDb as StudentLike[])
       setStudentsLoaded(true)
     }
 
@@ -2350,7 +2028,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [storeStudent, setStoreStudent] = useState<StudentLike | null>(null)
   const [storeCategoryFilter, setStoreCategoryFilter] = useState('all')
   const [storeItemSearch, setStoreItemSearch] = useState('')
-  const [storeItems, setStoreItems] = useState<StoreItemLike[]>(() => STORE_ITEMS.slice() as StoreItemLike[])
+  const [storeItems, setStoreItems] = useState<StoreItemLike[]>([])
   const [purchaseLog, setPurchaseLog] = useState<Array<{ id: number | string; time: string; studentId: number | null; studentName: string; itemName: string; cost: number; staff: string; division: string }>>([])
   const [storePersistenceReady, setStorePersistenceReady] = useState(false)
   const [storeSyncState, setStoreSyncState] = useState('loading')
@@ -2362,7 +2040,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [teachingMode, setTeachingMode] = useState(false)
   const [teacherClass, setTeacherClass] = useState<string | number | null>(null)
   const [teacherClassIds, setTeacherClassIds] = useState<Array<string | number>>([])
-  const [divisionView, setDivisionView] = useState('all')
+  const [divisionView, setDivisionView] = useState('yeshiva_ketana')
   const [drillDown, setDrillDown] = useState<{ title: string; students: StudentLike[] } | null>(null)
   const [showUnknownPopup, setShowUnknownPopup] = useState(false)
   const [unknownNotes, setUnknownNotes] = useState<Record<string, string>>({})
@@ -2396,36 +2074,23 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStoreSyncState('loading')
       setStoreLastLoadError('')
 
-      let loadedItems = await listStoreItems()
-
-      if (loadedItems.length === 0) {
-        await seedStoreItems(STORE_ITEMS)
-        loadedItems = await listStoreItems()
-      }
-
+      const loadedItems = await listStoreItems()
       const loadedRedemptions = await listStoreRedemptions(25)
-      const useDemoActivity = shouldUseDemoStoreActivity({
-        hasPersistedItems: loadedItems.length > 0,
-        hasPersistedRedemptions: loadedRedemptions.length > 0,
-      })
-
-      setStoreItems(loadedItems.length > 0 ? loadedItems : STORE_ITEMS.slice())
+      setStoreItems(loadedItems)
       setPurchaseLog(
-        useDemoActivity
-          ? DEMO_STORE_ACTIVITY.slice()
-          : loadedRedemptions.map(redemption => ({
-            id: redemption.id,
-            time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            studentId: redemption.studentId,
-            studentName: redemption.studentName,
-            itemName: redemption.itemName,
-            cost: redemption.cost,
-            staff: redemption.staffName,
-            division: String(redemption.metadata?.division || ''),
-          })),
+        loadedRedemptions.map(redemption => ({
+          id: redemption.id,
+          time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          studentId: redemption.studentId,
+          studentName: redemption.studentName,
+          itemName: redemption.itemName,
+          cost: redemption.cost,
+          staff: redemption.staffName,
+          division: String(redemption.metadata?.division || ''),
+        })),
       )
       setStorePersistenceReady(true)
       setStoreSyncState('ready')
@@ -3408,7 +3073,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         missedSubject: missed.subject,
         classId: classId || '',
         className: classInfo?.name || 'Unassigned Class',
-        division: CLASS_DIVISION[classId] || 'mesivta',
+        division: CLASS_DIVISION[classId] || 'yeshiva-ketana',
         note
       })
     }
@@ -3581,41 +3246,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }, [setupTherapySchedule])
 
-  const [intakeList, setIntakeList] = useState(() => enrichIntakeDemoData([
-    { id: 1, name: 'Moshe Friedman', dob: '2012-03-15', currentSchool: 'Yeshiva Ohr Torah', shul: 'Khal Avreichim', heardAbout: 'Rabbi Klein', fatherName: 'Avraham Friedman', fatherPhone: '718-555-1234', motherName: 'Rivka', motherMaiden: 'Schwartz', motherPhone: '718-555-1235', address: '1234 56th St Brooklyn NY', program: 'mesivta', status: 'interviewed', tourDate: '2026-05-28', tourBy: 'Rabbi Baum', interviewDate: '2026-06-04', nextStep: 'Admissions team decision', diagnoses: ['ADHD', 'Anxiety'], issues: 'Difficulty focusing in large groups. Responds well 1-on-1.', interviewNotes: 'Very bright boy. Strong in Gemara. Needs structured environment.', scores: { tefillah: 4, kriah: 3, gemaraReading: 4, gemaraTranslation: 3, gemaraComprehension: 3, rashiScript: 3, mathAddition: 4, mathSubtraction: 3, mathMultiplication: 2, mathDivision: 2, englishReading: 4, readingComprehension: 3, writingSkills: 3, spellingVocabulary: 3 }, placements: { tefillah: 'independent', kriah: 'developing', gemaraReading: 'independent', gemaraTranslation: 'developing', gemaraComprehension: 'developing', rashiScript: 'developing', mathAddition: 'independent', mathSubtraction: 'developing', mathMultiplication: 'foundational', mathDivision: 'foundational', englishReading: 'independent', readingComprehension: 'developing', writingSkills: 'developing', spellingVocabulary: 'developing' }, documents: [{ name: 'Assessment_Friedman.pdf', date: '2025-11-10' }] },
-    { id: 2, name: 'Yosef Stern', dob: '2011-07-22', currentSchool: 'Mesivta Beis Shraga', shul: 'Young Israel', heardAbout: 'Parent referral', fatherName: 'Shmuel Stern', fatherPhone: '718-555-5678', motherName: 'Chana', motherMaiden: 'Goldberg', motherPhone: '718-555-5679', address: '567 Ave J Brooklyn NY', program: 'mesivta', status: 'applicant', tourDate: '', tourBy: '', interviewDate: '', nextStep: 'Schedule tour', diagnoses: [], issues: '', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-    { id: 3, name: 'Dovid Katz', dob: '2012-11-05', currentSchool: 'Talmud Torah Ohel Moshe', shul: 'Bobov', heardAbout: 'Website', fatherName: 'Pinchas Katz', fatherPhone: '718-555-9012', motherName: 'Sara', motherMaiden: 'Weiss', motherPhone: '718-555-9013', address: '890 48th St Brooklyn NY', program: 'mesivta', status: 'accepted', tourDate: '2026-05-22', tourBy: 'Rabbi Fried', interviewDate: '2026-05-30', nextStep: 'Collect enrollment forms', diagnoses: ['Dyslexia'], issues: 'Reading difficulties. Math strong.', interviewNotes: 'Warm personality. Will fit well socially.', scores: { tefillah: 4, kriah: 2, gemaraReading: 3, gemaraTranslation: 2, gemaraComprehension: 2, rashiScript: 2, mathAddition: 4, mathSubtraction: 4, mathMultiplication: 4, mathDivision: 3, englishReading: 2, readingComprehension: 2, writingSkills: 3, spellingVocabulary: 2 }, placements: { tefillah: 'independent', kriah: 'foundational', gemaraReading: 'developing', gemaraTranslation: 'foundational', gemaraComprehension: 'foundational', rashiScript: 'foundational', mathAddition: 'independent', mathSubtraction: 'independent', mathMultiplication: 'independent', mathDivision: 'developing', englishReading: 'foundational', readingComprehension: 'foundational', writingSkills: 'developing', spellingVocabulary: 'foundational' }, documents: [{ name: 'Psych_Eval_Katz.pdf', date: '2025-10-15' }, { name: 'IEP_Katz.pdf', date: '2025-10-15' }] },
-    { id: 4, name: 'Ari Goldstein', dob: '2012-05-11', currentSchool: 'Yeshiva Darchei Torah', shul: 'Agudas Yisroel', heardAbout: 'Parent referral', fatherName: 'Yehuda Goldstein', fatherPhone: '718-555-2201', motherName: 'Miriam', motherMaiden: 'Klein', motherPhone: '718-555-2202', address: 'Brooklyn NY', program: 'mesivta', status: 'tour-completed', tourDate: '2026-06-06', tourBy: 'Rabbi Baum', interviewDate: '', nextStep: 'Schedule interview', diagnoses: ['ADHD'], issues: 'Needs smaller class setting and clear structure.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-    { id: 5, name: 'Shimon Adler', dob: '2011-12-02', currentSchool: 'Torah Vodaath', shul: 'Bnei Torah', heardAbout: 'Current parent', fatherName: 'Mordechai Adler', fatherPhone: '718-555-2211', motherName: 'Esther', motherMaiden: 'Landau', motherPhone: '718-555-2212', address: 'Brooklyn NY', program: 'mesivta', status: 'interview-scheduled', tourDate: '2026-06-02', tourBy: 'Rabbi Fried', interviewDate: '2026-06-13', nextStep: 'Prepare interview packet', diagnoses: [], issues: 'Family looking for a calmer class environment.', interviewNotes: '', scores: {}, placements: {}, documents: [{ name: 'Report_Card_Adler.pdf', date: '2026-06-01' }] },
-    { id: 6, name: 'Mendy Rosen', dob: '2012-01-19', currentSchool: 'Yeshiva Ohr Yitzchok', shul: 'Satmar', heardAbout: 'Website', fatherName: 'Eliyahu Rosen', fatherPhone: '718-555-2221', motherName: 'Baila', motherMaiden: 'Fried', motherPhone: '718-555-2222', address: 'Brooklyn NY', program: 'mesivta', status: 'tour-scheduled', tourDate: '2026-06-17', tourBy: 'Rabbi Baum', interviewDate: '', nextStep: 'Tour scheduled', diagnoses: ['Language delay'], issues: 'Parent reports expressive language difficulty.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-    { id: 7, name: 'Yehuda Mandel', dob: '2012-09-07', currentSchool: 'Talmud Torah Imrei Chaim', shul: 'Viznitz', heardAbout: 'Therapist referral', fatherName: 'Chaim Mandel', fatherPhone: '718-555-2231', motherName: 'Gitty', motherMaiden: 'Weinberger', motherPhone: '718-555-2232', address: 'Brooklyn NY', program: 'mesivta', status: 'applicant', tourDate: '', tourBy: '', interviewDate: '', nextStep: 'Call family to schedule tour', diagnoses: ['Anxiety'], issues: 'May need gradual transition and predictable schedule.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-    { id: 8, name: 'Chaim Weber', dob: '2011-10-23', currentSchool: 'Mesivta Ohr Naftali', shul: 'Belz', heardAbout: 'Rabbi Fried', fatherName: 'Noach Weber', fatherPhone: '718-555-2241', motherName: 'Devorah', motherMaiden: 'Stern', motherPhone: '718-555-2242', address: 'Brooklyn NY', program: 'mesivta', status: 'enrolled', tourDate: '2026-05-12', tourBy: 'Rabbi Fried', interviewDate: '2026-05-19', nextStep: 'Add to September roster', diagnoses: [], issues: 'Strong candidate. Parents completed enrollment packet.', interviewNotes: 'Good fit socially and academically.', scores: {}, placements: {}, documents: [{ name: 'Enrollment_Weber.pdf', date: '2026-05-25' }] },
-    { id: 9, name: 'Bentzion Levy', dob: '2013-02-14', currentSchool: 'Yeshiva Ketana Ohr Moshe', shul: 'Bobov', heardAbout: 'Parent referral', fatherName: 'Aharon Levy', fatherPhone: '718-555-2251', motherName: 'Malka', motherMaiden: 'Berger', motherPhone: '718-555-2252', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'tour-completed', tourDate: '2026-06-05', tourBy: 'Rabbi Baum', interviewDate: '', nextStep: 'Schedule assessment', diagnoses: [], issues: 'Needs 8th grade placement review.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-    { id: 10, name: 'Moshe Braver', dob: '2013-06-30', currentSchool: 'Talmud Torah Nachlas Yakov', shul: 'Skver', heardAbout: 'Phone inquiry', fatherName: 'Yitzchok Braver', fatherPhone: '718-555-2261', motherName: 'Suri', motherMaiden: 'Katz', motherPhone: '718-555-2262', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'interviewed', tourDate: '2026-06-03', tourBy: 'Rabbi Fried', interviewDate: '2026-06-10', nextStep: 'Review assessment scores', diagnoses: ['Dyslexia'], issues: 'Reading support needed. Very motivated.', interviewNotes: 'Pleasant, cooperative, needs kriah support.', scores: { kriah: 2, englishReading: 3, mathAddition: 4 }, placements: { kriah: 'foundational', englishReading: 'developing', mathAddition: 'independent' }, documents: [{ name: 'Reading_Report_Braver.pdf', date: '2026-06-10' }] },
-    { id: 11, name: 'Yitzi Kleinman', dob: '2013-08-03', currentSchool: 'Yeshiva Tiferes Shmuel', shul: 'Pupa', heardAbout: 'Rabbi Schults', fatherName: 'Shloime Kleinman', fatherPhone: '718-555-2271', motherName: 'Chaya', motherMaiden: 'Heller', motherPhone: '718-555-2272', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'accepted', tourDate: '2026-05-29', tourBy: 'Rabbi Baum', interviewDate: '2026-06-06', nextStep: 'Confirm transportation', diagnoses: [], issues: 'Good fit for YK Alef.', interviewNotes: 'Quiet but engaged.', scores: {}, placements: {}, documents: [{ name: 'Acceptance_Kleinman.pdf', date: '2026-06-08' }] },
-    { id: 12, name: 'Noach Halpern', dob: '2013-11-17', currentSchool: 'Cheder Toras Emes', shul: 'Ger', heardAbout: 'Website', fatherName: 'Meir Halpern', fatherPhone: '718-555-2281', motherName: 'Rochel', motherMaiden: 'Feld', motherPhone: '718-555-2282', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'applicant', tourDate: '', tourBy: '', interviewDate: '', nextStep: 'Send application checklist', diagnoses: ['Speech delay'], issues: 'Speech services requested by parent.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-    { id: 13, name: 'Dovid Neustadt', dob: '2012-04-22', currentSchool: 'Mesivta Bais Dovid', shul: 'Stolin', heardAbout: 'Rabbi Weiss', fatherName: 'Hershel Neustadt', fatherPhone: '718-555-2291', motherName: 'Frady', motherMaiden: 'Pollak', motherPhone: '718-555-2292', address: 'Brooklyn NY', program: 'mesivta', status: 'interview-scheduled', tourDate: '2026-06-04', tourBy: 'Rabbi Fried', interviewDate: '2026-06-18', nextStep: 'Collect teacher report', diagnoses: ['ADHD'], issues: 'Needs executive-function support.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-    { id: 14, name: 'Eliezer Gross', dob: '2011-05-27', currentSchool: 'Yeshiva Beis Aharon', shul: 'Karlin', heardAbout: 'Current parent', fatherName: 'Yakov Gross', fatherPhone: '718-555-2301', motherName: 'Hindy', motherMaiden: 'Fischer', motherPhone: '718-555-2302', address: 'Brooklyn NY', program: 'mesivta', status: 'tour-scheduled', tourDate: '2026-06-20', tourBy: 'Rabbi Baum', interviewDate: '', nextStep: 'Tour scheduled', diagnoses: [], issues: 'Parents want smaller setting.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-    { id: 15, name: 'Shmuel Meisels', dob: '2013-03-08', currentSchool: 'Yeshiva Ketana Chasdei Torah', shul: 'Toldos Aharon', heardAbout: 'Parent referral', fatherName: 'Yoel Meisels', fatherPhone: '718-555-2311', motherName: 'Ruchy', motherMaiden: 'Deutsch', motherPhone: '718-555-2312', address: 'Brooklyn NY', program: 'yeshiva-ketana', status: 'tour-completed', tourDate: '2026-06-07', tourBy: 'Rabbi Fried', interviewDate: '', nextStep: 'Schedule assessment', diagnoses: [], issues: 'Could be a fit for Rabbi Schimborski group.', interviewNotes: '', scores: {}, placements: {}, documents: [] },
-  ]))
-  const [selectedIntake, setSelectedIntake] = useState(null)
-  const [openIntakeDoc, setOpenIntakeDoc] = useState(null)
-  const [intakeTab, setIntakeTab] = useState('info')
-  const [intakeSection, setIntakeSection] = useState('pre') // 'pre' or 'applicants'
-  const [intakeApplicantFilter, setIntakeApplicantFilter] = useState('all')
-  const [preIntakeList, setPreIntakeList] = useState([
-    { id: 1, name: 'Menachem Goldstein', phone: '718-555-1001', program: 'mesivta', status: 'call-back', callNotes: 'Mother called, very interested. Son is currently in Oholei Torah.', tourDate: '', tourTime: '', tourBy: 'Rabbi Baum', interviewDate: '', interviewTime: '', followUpNotes: '' },
-    { id: 2, name: 'Yaakov Rosenberg', phone: '718-555-1002', program: 'mesivta', status: 'call-back', callNotes: 'Father left message, needs callback.', tourDate: '', tourTime: '', tourBy: 'Rabbi Baum', interviewDate: '', interviewTime: '', followUpNotes: '' },
-    { id: 3, name: 'Avrohom Stein', phone: '718-555-1003', program: 'mesivta', status: 'tour-scheduled', callNotes: 'Very motivated family. Boy has ADHD, doing well with support.', tourDate: '2026-06-10', tourTime: '10:00', interviewDate: '', interviewTime: '', followUpNotes: 'Remind day before' },
-    { id: 4, name: 'Boruch Friedman', phone: '718-555-1004', program: 'mesivta', status: 'tour-scheduled', callNotes: 'Rabbi Klein referred them.', tourDate: '2026-06-10', tourTime: '11:30', interviewDate: '', interviewTime: '', followUpNotes: '' },
-    { id: 5, name: 'Shmuel Weiss', phone: '718-555-1005', program: 'mesivta', status: 'interview-scheduled', callNotes: 'Came for tour last week, very impressed.', tourDate: '2026-06-03', tourTime: '10:00', interviewDate: '2026-06-12', interviewTime: '09:00', followUpNotes: 'Send reminders' },
-    { id: 6, name: 'Pinchas Kohn', phone: '718-555-1006', program: 'mesivta', status: 'interview-scheduled', callNotes: 'Family from Monsey, willing to relocate.', tourDate: '2026-06-04', tourTime: '14:00', interviewDate: '2026-06-13', interviewTime: '10:00', followUpNotes: '' },
-    { id: 7, name: 'Dovid Levi', phone: '718-555-1007', program: 'mesivta', status: 'needs-interview-time', callNotes: 'Tour done. Ready to schedule interview.', tourDate: '2026-06-05', tourTime: '10:00', interviewDate: '', interviewTime: '', followUpNotes: 'Call to set interview time' },
-    { id: 8, name: 'Nochum Klein', phone: '718-555-1008', program: 'yeshiva-ketana', status: 'call-back', callNotes: 'Parent called about 7th grade placement.', tourDate: '', tourTime: '', tourBy: 'Rabbi Baum', interviewDate: '', interviewTime: '', followUpNotes: '' },
-    { id: 9, name: 'Yitzchok Blum', phone: '718-555-1009', program: 'yeshiva-ketana', status: 'call-back', callNotes: 'Inquiry from website.', tourDate: '', tourTime: '', tourBy: 'Rabbi Baum', interviewDate: '', interviewTime: '', followUpNotes: '' },
-    { id: 10, name: 'Moshe Berger', phone: '718-555-1010', program: 'yeshiva-ketana', status: 'tour-scheduled', callNotes: 'Looking for 8th grade.', tourDate: '2026-06-11', tourTime: '09:30', interviewDate: '', interviewTime: '', followUpNotes: '' },
-  ])
-  const [selectedPreIntake, setSelectedPreIntake] = useState(null)
   const [todos, setTodos] = useState<Todo[]>([])
   const [todosLoaded, setTodosLoaded] = useState(false)
   const [todoLoadError, setTodoLoadError] = useState<string | null>(null)
@@ -3624,22 +3254,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [newTodoTime, setNewTodoTime] = useState('')
 
   function setStoredAuthUser(roleValue: string, nameValue: string) {
-    try {
-      sessionStorage.setItem(
-        AUTH_USER_STORAGE_KEY,
-        JSON.stringify({ role: roleValue, name: nameValue })
-      )
-    } catch (error) {
-      console.error('Failed to persist auth user:', error)
-    }
+    void roleValue
+    void nameValue
   }
 
   function clearStoredAuthUser() {
-    try {
-      sessionStorage.removeItem(AUTH_USER_STORAGE_KEY)
-    } catch (error) {
-      console.error('Failed to clear auth user:', error)
-    }
+    return
   }
 
   async function handleLogin(
@@ -4572,12 +4192,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   if (!loggedIn) {
     return (
-      <div>
-        <LoginPage onLogin={handleLogin} />
-        <div style={{ position: 'fixed', bottom: 20, right: 20, fontSize: 12, color: '#64748b' }}>
-          <a href="/teacher" style={{ background: '#f8fafc', border: '1px solid #d8dee9', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, color: '#334155', textDecoration: 'none', display: 'inline-block' }}>
-            👨‍🏫 Teacher Login →
-          </a>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', fontWeight: 700, fontSize: 14 }}>
+        <div style={{ background: '#fff', border: '1px solid #d8dee9', borderRadius: 12, padding: '16px 20px' }}>
+          Secure authentication required.
         </div>
       </div>
     )
@@ -4756,7 +4373,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
   const reportsOverview = buildReportsOverview({
     attendanceRows: buildAttendanceReportRows(filteredStudents),
-    intakeList,
   })
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening'
@@ -5113,11 +4729,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             userName={effectiveUserName}
             LiveClock={LiveClock}
             setPage={setPage}
-            setIntakeSection={setIntakeSection}
             storeItems={storeItems}
             openStudent={openStudent}
-            intakeList={intakeList}
-            preIntakeList={preIntakeList}
             callsDueStudents={callsDueStudents}
             alerts={alerts}
             students={students}
@@ -5513,31 +5126,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           />
         )}
 
-        {page === 'intake' && effectiveRole === 'admin' && (
-          <IntakePage
-            S={S}
-            intakeSection={intakeSection}
-            setIntakeSection={setIntakeSection}
-            intakeList={intakeList}
-            setIntakeList={setIntakeList}
-            selectedIntake={selectedIntake}
-            setSelectedIntake={setSelectedIntake}
-            intakeTab={intakeTab}
-            setIntakeTab={setIntakeTab}
-            selectedPreIntake={selectedPreIntake}
-            setSelectedPreIntake={setSelectedPreIntake}
-            preIntakeList={preIntakeList}
-            setPreIntakeList={setPreIntakeList}
-            getAdmissionsReport={getAdmissionsReport}
-            initials={initials}
-            divisionView={divisionView}
-            TOUR_STAFF_OPTIONS={TOUR_STAFF_OPTIONS}
-            setPage={setPage}
-          />
-        )}
-        {/* Intake UI moved to IntakePage component. */}
-
-
         {page === 'todo' && effectiveRole === 'admin' && (
           <div style={{ display: 'grid', gap: 16 }}>
             <div style={{ ...S.card, padding: '16px 18px', border: '1px solid #dbe8f5', borderRadius: 12 }}>
@@ -5547,11 +5135,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                   <div style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Attendance</div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: '#0f2942', marginTop: 4 }}>{reportsOverview.attendanceSummary.total}</div>
                   <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>Present {reportsOverview.attendanceSummary.present} · Absent {reportsOverview.attendanceSummary.absent}</div>
-                </div>
-                <div style={{ padding: 12, borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Admissions</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0f2942', marginTop: 4 }}>{reportsOverview.admissionsSummary.total}</div>
-                  <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>Accepted {reportsOverview.admissionsSummary.accepted} · Needs info {reportsOverview.admissionsSummary.needsInfo}</div>
                 </div>
               </div>
             </div>

@@ -6,8 +6,8 @@ describe('getDashboardContextInfo', () => {
     expect(getDashboardContextInfo('attendance', 'teacher', 'mesivta')).toEqual({
       roleLabel: 'Teacher',
       pageLabel: 'Attendance',
-      divisionLabel: 'Mesivta',
-      contextSummary: 'Attendance · Teacher · Mesivta',
+      divisionLabel: 'Yeshiva Ketana',
+      contextSummary: 'Attendance · Teacher · Yeshiva Ketana',
     })
   })
 })
