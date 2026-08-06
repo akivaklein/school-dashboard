@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canAccessDashboardPage, canAccessStudentForRole } from '../dashboardData'
+import { canAccessDashboardPage, canAccessStudentForRole, getTeacherAssignedStudentIds } from '../dashboardData'
 
 describe('role access helpers', () => {
   it('blocks teachers from setup and leadership pages', () => {
@@ -45,6 +45,50 @@ describe('role access helpers', () => {
   it('keeps canteen scoped to store workflows only', () => {
     expect(canAccessDashboardPage('store', 'store')).toBe(true)
     expect(canAccessDashboardPage('store', 'teaching-mode')).toBe(false)
+  })
+
+  it('falls back to the class-map roster for Rabbi Klein when database assignments are empty', () => {
+    const students = [
+      { id: 201, name: 'Avi', className: 'Dargei Alef', classId: 'a' },
+      { id: 202, name: 'Beni', className: 'Dargei Beis', classId: 'b' },
+      { id: 203, name: 'Chaim', className: 'Dargei Alef', classId: 'a' },
+    ]
+
+    expect(getTeacherAssignedStudentIds('Rabbi Klein', {}, [], students)).toEqual([201, 203])
+    expect(canAccessStudentForRole(students[0], {
+      role: 'teacher',
+      userName: 'Rabbi Klein',
+      setupAssignments: {},
+      students,
+    })).toBe(true)
+    expect(canAccessStudentForRole(students[1], {
+      role: 'teacher',
+      userName: 'Rabbi Klein',
+      setupAssignments: {},
+      students,
+    })).toBe(false)
+  })
+
+  it('falls back to the class-map roster for another teacher when database assignments are empty', () => {
+    const students = [
+      { id: 301, name: 'Dovy', className: 'Dargei Beis', classId: 'b' },
+      { id: 302, name: 'Eli', className: 'Dargei Gimmel', classId: 'c' },
+      { id: 303, name: 'Fredi', className: 'Dargei Beis', classId: 'b' },
+    ]
+
+    expect(getTeacherAssignedStudentIds('Rabbi Goldstein', {}, [], students)).toEqual([301, 303])
+    expect(canAccessStudentForRole(students[0], {
+      role: 'teacher',
+      userName: 'Rabbi Goldstein',
+      setupAssignments: {},
+      students,
+    })).toBe(true)
+    expect(canAccessStudentForRole(students[1], {
+      role: 'teacher',
+      userName: 'Rabbi Goldstein',
+      setupAssignments: {},
+      students,
+    })).toBe(false)
   })
 
   it('supports explicit assignedStudentIds overrides for live role scoping checks', () => {

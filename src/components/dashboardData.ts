@@ -1060,11 +1060,41 @@ function collectAssignmentStudentIds(assignment) {
   return Array.from(studentIds)
 }
 
-export function getTeacherAssignedClassIds(name, setupAssignments, students) {
-  const assignment = setupAssignments?.[name]
-  const classIds = new Set()
+function normalizeTeacherName(name) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
 
-  collectAssignmentStudentIds(assignment).forEach(studentId => {
+function resolveTeacherAssignmentStudentIds(name, setupAssignments, students = []) {
+  const normalizedName = normalizeTeacherName(name)
+  const fallbackClassId = TEACHER_CLASS_MAP[name] || null
+
+  if (!normalizedName) {
+    return []
+  }
+
+  const assignmentFromSetup = setupAssignments?.[name]
+  const setupStudentIds = collectAssignmentStudentIds(assignmentFromSetup)
+  if (setupStudentIds.length > 0) {
+    return setupStudentIds
+  }
+
+  if (!fallbackClassId) {
+    return []
+  }
+
+  const classStudentIds = (students || [])
+    .filter(student => resolveStudentClassId(student) === fallbackClassId)
+    .map(student => Number(student.id))
+    .filter(id => !Number.isNaN(id))
+
+  return classStudentIds
+}
+
+export function getTeacherAssignedClassIds(name, setupAssignments, students, teacherAssignments = []) {
+  const classIds = new Set<string>()
+  const assignedStudentIds = resolveTeacherAssignmentStudentIds(name, setupAssignments, students)
+
+  assignedStudentIds.forEach(studentId => {
     const student = students.find(item => Number(item.id) === Number(studentId))
     if (!student) return
 
@@ -1080,9 +1110,31 @@ export function getTeacherAssignedClassIds(name, setupAssignments, students) {
   return Array.from(classIds)
 }
 
-export function getTeacherAssignedStudentIds(name, setupAssignments) {
+export function getTeacherAssignedStudentIds(name, setupAssignments, teacherAssignments = [], students = []) {
   const assignment = setupAssignments?.[name]
-  return collectAssignmentStudentIds(assignment)
+  const directAssignmentIds = collectAssignmentStudentIds(assignment)
+  if (directAssignmentIds.length > 0) {
+    return directAssignmentIds
+  }
+
+  const normalizedName = normalizeTeacherName(name)
+  if (!normalizedName) {
+    return []
+  }
+
+  const activeDatabaseAssignmentIds = (teacherAssignments || [])
+    .filter(assignmentItem => {
+      const teacherName = normalizeTeacherName(assignmentItem?.teacher_name)
+      return teacherName === normalizedName && String(assignmentItem?.status || '').toLowerCase() === 'active'
+    })
+    .map(assignmentItem => Number(assignmentItem?.student_id))
+    .filter(id => !Number.isNaN(id))
+
+  if (activeDatabaseAssignmentIds.length > 0) {
+    return activeDatabaseAssignmentIds
+  }
+
+  return resolveTeacherAssignmentStudentIds(name, setupAssignments, students)
 }
 
 export function teacherDivisionForName(name) {
@@ -1175,7 +1227,7 @@ export function canAccessDashboardPage(role, page) {
 }
 
 export function canAccessStudentForRole(student, context = {}) {
-  const { role, userName = '', setupAssignments = {}, students = [], assignedStudentIds = [] } = context || {}
+  const { role, userName = '', setupAssignments = {}, students = [], assignedStudentIds = [], teacherAssignments = [] } = context || {}
 
   if (!student) return false
 
@@ -1189,13 +1241,13 @@ export function canAccessStudentForRole(student, context = {}) {
       return providedAssignedIds.includes(targetStudentId)
     }
 
-    const directAssignedIds = getTeacherAssignedStudentIds(userName, setupAssignments)
+    const directAssignedIds = getTeacherAssignedStudentIds(userName, setupAssignments, teacherAssignments, students)
 
     if (directAssignedIds.length > 0) {
       return directAssignedIds.includes(targetStudentId)
     }
 
-    const assignedClassIds = getTeacherAssignedClassIds(userName, setupAssignments, students)
+    const assignedClassIds = getTeacherAssignedClassIds(userName, setupAssignments, students, teacherAssignments)
     const fallbackClassId = TEACHER_CLASS_MAP[userName] || null
     const allowedClassIds = assignedClassIds.length > 0
       ? assignedClassIds
@@ -1217,7 +1269,7 @@ export function canAccessStudentForRole(student, context = {}) {
       return providedAssignedIds.includes(targetStudentId)
     }
 
-    const assignedIds = getTeacherAssignedStudentIds(userName, setupAssignments)
+    const assignedIds = getTeacherAssignedStudentIds(userName, setupAssignments, teacherAssignments, students)
 
     if (assignedIds.length > 0) {
       return assignedIds.includes(targetStudentId)
