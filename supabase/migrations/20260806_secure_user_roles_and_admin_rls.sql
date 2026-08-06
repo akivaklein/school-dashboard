@@ -73,19 +73,46 @@ before update on public.user_roles
 for each row
 execute function public.user_roles_set_updated_at();
 
-insert into public.user_roles (user_id, role, display_name, is_active)
-values (
-  '7ac63643-948e-438b-bc2c-dd3cae19b8b0',
-  'admin',
-  'Yeshiva Ketana Admin',
-  true
-)
-on conflict (user_id) do update
-set
-  role = excluded.role,
-  display_name = excluded.display_name,
-  is_active = true,
-  updated_at = timezone('utc', now());
+do $$
+declare
+  admin_user_id uuid := '7ac63643-948e-438b-bc2c-dd3cae19b8b0';
+  auth_schema_exists boolean;
+  auth_users_exists boolean;
+begin
+  select to_regnamespace('auth') is not null into auth_schema_exists;
+  if not auth_schema_exists then
+    raise notice 'Skipping admin user_role bootstrap because the auth schema is not available in this database.';
+    return;
+  end if;
+
+  select to_regclass('auth.users') is not null into auth_users_exists;
+  if not auth_users_exists then
+    raise notice 'Skipping admin user_role bootstrap because auth.users is not available in this database.';
+    return;
+  end if;
+
+  if exists (
+    select 1
+    from auth.users
+    where id = admin_user_id
+  ) then
+    insert into public.user_roles (user_id, role, display_name, is_active)
+    values (
+      admin_user_id,
+      'admin',
+      'Yeshiva Ketana Admin',
+      true
+    )
+    on conflict (user_id) do update
+    set
+      role = excluded.role,
+      display_name = excluded.display_name,
+      is_active = true,
+      updated_at = timezone('utc', now());
+  else
+    raise notice 'Skipping admin user_role bootstrap because auth user % was not found. Create the user through Supabase Auth first.', admin_user_id;
+  end if;
+end $$;
 
 ------------------------------------------------------------
 -- 2) Auth helper functions based on user_roles

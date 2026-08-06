@@ -1,5 +1,7 @@
 begin;
 
+create schema if not exists public;
+
 -- Base schema for secure Yeshiva Ketana deployment.
 -- No Intake/Admissions tables.
 -- No anonymous-access policies.
