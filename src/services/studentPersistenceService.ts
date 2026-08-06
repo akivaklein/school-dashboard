@@ -1,8 +1,4 @@
 import { supabase } from '../supabaseClient'
-import {
-  clearStudentFallbackPatch,
-  mergeStudentFallbackPatch,
-} from '../utils/studentFallbackCache'
 
 export async function persistStudentFields(id, fields, options = {}) {
   void options
@@ -65,7 +61,6 @@ export async function persistStudentFields(id, fields, options = {}) {
     const attemptPayload = { ...payload }
     const { error } = await supabase.from('students').update(attemptPayload).eq('id', id)
     if (!error) {
-      clearStudentFallbackPatch(id)
       return true
     }
 
@@ -84,7 +79,9 @@ export async function persistStudentFields(id, fields, options = {}) {
           'Last error:',
           error
         )
-        mergeStudentFallbackPatch(id, fields)
+        if (typeof globalThis.alert === 'function') {
+          globalThis.alert('Unable to save student changes. Please try again.')
+        }
         return false
       }
 
@@ -96,8 +93,9 @@ export async function persistStudentFields(id, fields, options = {}) {
     }
 
     console.error(`Supabase student update failed for ${id}:`, error, 'Payload keys:', Object.keys(payload))
-
-    mergeStudentFallbackPatch(id, fields)
+    if (typeof globalThis.alert === 'function') {
+      globalThis.alert('Unable to save student changes. Please try again.')
+    }
 
     return false
   }
