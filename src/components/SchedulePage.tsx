@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isInClassroom } from '../utils/attendancePresence'
-import { buildClassroomCoverageForecast, debugCoverageForecastMatching } from './scheduleCoverageForecast'
+import { buildClassroomCoverageForecast } from './scheduleCoverageForecast'
 
 type Props = {
   S: any
@@ -146,33 +146,6 @@ export default function SchedulePage({
       horizonDays,
     })
   }, [students, CLASSES, SCHEDULE_PERIODS, THERAPY_SCHEDULE, horizonDays])
-
-  const forecastDiagnostics = useMemo(() => {
-    if (!import.meta.env.DEV) return null
-    return debugCoverageForecastMatching({
-      students,
-      classes: CLASSES || [],
-      therapySchedule: THERAPY_SCHEDULE || [],
-      horizonDays,
-    })
-  }, [students, CLASSES, THERAPY_SCHEDULE, horizonDays])
-
-  useEffect(() => {
-    if (!import.meta.env.DEV || !forecastDiagnostics) return
-
-    console.groupCollapsed('Schedule Forecast Diagnostics')
-    console.log('Rows received:', forecastDiagnostics.sourceRowsReceived)
-    console.log('Rows from therapy_schedule:', forecastDiagnostics.sourceRowsFromTherapySchedule)
-    console.log('Rows from student therapyAssignments:', forecastDiagnostics.sourceRowsFromStudentAssignments)
-    console.log('Rows inside window:', forecastDiagnostics.insideWindow)
-    console.log('Rows matched to students:', forecastDiagnostics.matchedToStudent)
-    console.log('Rows accepted for coverage:', forecastDiagnostics.acceptedForCoverage)
-    console.log('Rejected rows:', forecastDiagnostics.rejected)
-    if (forecastDiagnostics.sampleRuntimeFields.length > 0) {
-      console.table(forecastDiagnostics.sampleRuntimeFields)
-    }
-    console.groupEnd()
-  }, [forecastDiagnostics])
 
   return (
     <div>

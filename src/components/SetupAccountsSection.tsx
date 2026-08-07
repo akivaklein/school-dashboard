@@ -3,7 +3,7 @@ import { buildStaffAccountData, getStaffAccountStatus } from '../services/staffS
 
 const EMAIL_INVITES_ENABLED = false
 const INVITES_DISABLED_MESSAGE = 'Email invites are disabled in this environment. Connect Supabase Auth invite flow to enable invitations.'
-const INVITE_STATE_HELP = 'Invites are currently unavailable in this demo environment. Existing staff accounts remain unchanged until invite flow is configured.'
+const INVITE_STATE_HELP = 'Invites are currently unavailable in this environment. Existing staff accounts remain unchanged until invite flow is configured.'
 
 const STATUS_CONFIG = {
   'active-account':      { label: 'Active',   dot: '#16a34a', text: '#14532d', bg: '#f0fdf4' },

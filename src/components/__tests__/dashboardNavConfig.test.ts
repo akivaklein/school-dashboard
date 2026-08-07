@@ -2,21 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { getRoleNavConfig } from '../dashboardNavConfig'
 
 describe('getRoleNavConfig', () => {
-  it('returns reports and setup areas for admin users', () => {
+  it('returns secure admin areas only', () => {
     const config = getRoleNavConfig('admin')
 
     const areaIds = config.topAreas.map(area => area.id)
-    expect(areaIds).toContain('reports')
-    expect(areaIds).toContain('setup')
-    expect(config.submenuByArea.reports?.[0]?.id).toBe('todo')
+    expect(areaIds).toEqual(['dashboard', 'students', 'classes', 'points', 'store', 'staff', 'settings'])
+    expect(config.submenuByArea.points?.[0]?.id).toBe('behavior')
+    expect(config.submenuByArea.settings?.[0]?.id).toBe('setup')
   })
 
-  it('returns teacher-focused sections for teacher roles', () => {
+  it('returns focused teacher sections', () => {
     const config = getRoleNavConfig('teacher')
 
     const studentsArea = config.topAreas.find(area => area.id === 'students')
-    expect(studentsArea?.defaultPage).toBe('academics')
-    expect(config.submenuByArea.students?.[0]?.id).toBe('academics')
+    expect(studentsArea?.defaultPage).toBe('students')
+    expect(config.submenuByArea.students?.[0]?.id).toBe('students')
+    expect(config.submenuByArea.points?.[0]?.id).toBe('behavior')
   })
 
   it('returns store-only school-day navigation for store role', () => {
@@ -33,12 +34,12 @@ describe('getRoleNavConfig', () => {
     expect(config.submenuByArea['school-day'].map(item => item.id)).toEqual(['store'])
   })
 
-  it('returns therapist-specific navigation for therapist role', () => {
+  it('returns focused therapist navigation for therapist role', () => {
     const config = getRoleNavConfig('therapist')
 
     const areaIds = config.topAreas.map(area => area.id)
-    expect(areaIds).toEqual(['dashboard', 'school-day', 'students', 'support'])
-    expect(config.submenuByArea.dashboard?.[0]?.label).toBe('My Students')
-    expect(config.submenuByArea['school-day'].map(item => item.id)).toEqual(['attendance', 'schedule'])
+    expect(areaIds).toEqual(['students', 'store'])
+    expect(config.submenuByArea.students?.[0]?.label).toBe('My Students')
+    expect(config.submenuByArea.store.map(item => item.id)).toEqual(['store'])
   })
 })

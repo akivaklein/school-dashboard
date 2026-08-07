@@ -339,7 +339,7 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
             <select value={returnLocation} onChange={event => setReturnLocation(event.target.value)} style={fieldStyle}>
               <option value="back-in-class">Back in class</option>
               <option value="lunch">Lunch</option><option value="recess">Recess</option>
-              <option value="office">Office</option><option value="dismissed">Dismissed / left early</option>
+              <option value="dismissed">Dismissed / left early</option>
               <option value="unknown">Other / location unknown</option>
             </select>
             <input value={goalWorkedOn} onChange={event => setGoalWorkedOn(event.target.value)} placeholder="Goal worked on" style={fieldStyle} spellCheck lang="en" />

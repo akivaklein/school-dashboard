@@ -48,9 +48,10 @@ describe('role access helpers', () => {
     ).toBe(false)
   })
 
-  it('scopes support staff to support pages', () => {
-    expect(canAccessDashboardPage('support_staff', 'support')).toBe(true)
-    expect(canAccessDashboardPage('support_staff', 'store')).toBe(false)
+  it('scopes support staff to focused points/store pages', () => {
+    expect(canAccessDashboardPage('support_staff', 'support')).toBe(false)
+    expect(canAccessDashboardPage('support_staff', 'behavior')).toBe(true)
+    expect(canAccessDashboardPage('support_staff', 'store')).toBe(true)
   })
 
   it('supports explicit assignedStudentIds overrides for live role scoping checks', () => {

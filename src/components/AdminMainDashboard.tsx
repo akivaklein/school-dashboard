@@ -84,7 +84,7 @@ export default function AdminMainDashboard({
         <div style={{ position: 'absolute', right: 70, bottom: -90, width: 180, height: 180, borderRadius: '50%', background: 'rgba(148,163,184,0.08)' }} />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 10 }}>Hadran Academy Command Center</div>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#64748b', marginBottom: 10 }}>Yeshiva Ketana Command Center</div>
             <h1 style={{ fontSize: 31, fontWeight: 700, margin: 0, letterSpacing: '-0.045em', color: '#111827' }}>{getGreeting(new Date().getHours())}, {userName}</h1>
             <p style={{ color: '#64748b', margin: '9px 0 0', fontSize: 13 }}><LiveClock /> · {total} students shown · {divisionLabel(divisionView)}</p>
           </div>

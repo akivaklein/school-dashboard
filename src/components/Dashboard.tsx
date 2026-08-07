@@ -8,21 +8,12 @@ import StudentProfile from './StudentProfile'
 import StudentNotes from './StudentNotes'
 import StudentSupport from './StudentSupport'
 import SchedulePage from './SchedulePage'
-import TodoPage from './TodoPage'
-import MessagesPage from './MessagesPage'
-import GradeReportsPage from './GradeReportsPage'
 import TokenStorePage from './TokenStorePage'
 import AcademicsPage, { StudentScoresTab } from './AcademicsPage'
 import SetupCenterPage from './SetupCenterPage'
-import AdminOfficeDashboardPage from './AdminOfficeDashboardPage'
-import AlertsPage from './AlertsPage'
-import CallsPage from './CallsPage'
 import StudentsListPage from './StudentsListPage'
 import StaffDirectoryPage from './StaffDirectoryPage'
-import AttendanceReportsPanel from './AttendanceReportsPanel'
 import AdminMainDashboard from './AdminMainDashboard'
-import TherapistAssignmentsPage from './TherapistAssignmentsPage'
-import { buildReportsOverview } from './reportsUtils'
 import {
   applyPointsEventTx,
   listPointsEventsForStudent,
@@ -155,7 +146,6 @@ import {
   THERAPY_SCHEDULE,
   buildClassroomCoverageSnapshot,
   HISTORICAL_DATA,
-  DEMO_STUDENT_FLAGS,
   initialStudents,
   STAFF,
   statusColor,
@@ -1325,8 +1315,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [students, setStudents] = useState<StudentLike[]>([])
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState<string | null>(null)
-  const [studentFallbackPatchCount] = useState(0)
-  const [studentFallbackSyncState] = useState('idle')
   const [staffMembers, setStaffMembers] = useState<StaffMemberLike[]>(FALLBACK_STAFF_MEMBERS as StaffMemberLike[])
   const [staffLoadError, setStaffLoadError] = useState<string | null>(null)
   const storePurchaseAttemptKeysRef = useRef<Record<string, string>>({})
@@ -1470,10 +1458,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   useEffect(() => {
     refreshStaffMembers()
   }, [refreshStaffMembers])
-
-  const flushStudentFallbackPatches = useCallback(async () => {
-    return
-  }, [])
 
   const STAFF = useMemo(
     () =>
@@ -1681,7 +1665,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }, [])
 
   const [studentFlags, setStudentFlags] = useState<StudentFlagLike[]>(() =>
-    DEMO_STUDENT_FLAGS.map(flag => ({ ...flag, observations: Array.isArray(flag.observations) ? [...flag.observations] : [] } as StudentFlagLike)),
+    [],
   )
   const [studentFlagsLoaded, setStudentFlagsLoaded] = useState(false)
   const [studentFlagsPersistenceReady, setStudentFlagsPersistenceReady] = useState(false)
@@ -1975,13 +1959,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     loadStudentNotes()
   }, [studentsLoaded])
 
-  const [attendanceReportOpen, setAttendanceReportOpen] = useState(false)
-  const [attendanceReportView, setAttendanceReportView] = useState('today')
-  const [attendanceReportDivision, setAttendanceReportDivision] = useState('all')
-  const [attendanceReportClass, setAttendanceReportClass] = useState('all')
-  const [attendanceReportStatus, setAttendanceReportStatus] = useState('all')
-  const [attendanceReportStudentId, setAttendanceReportStudentId] = useState('all')
-  const [attendanceReportSearch, setAttendanceReportSearch] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<StudentLike | null>(null)
   const [selectedStudentTab, setSelectedStudentTab] = useState(() => readStoredStudentProfileTab())
   const [selectedStudentPointsEvents, setSelectedStudentPointsEvents] = useState<PointsEventRecord[]>([])
@@ -2501,7 +2478,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         return prev.map(student => {
           const entries = byStudentId.get(student.id)
           if (!entries?.length) return student
-          // Merge: DB entries take precedence over demo/local entries for same id
+          // Merge: DB entries take precedence over in-memory entries for same id
           const dbIds = new Set(entries.map(e => e.id))
           const existing = (student.testScores || []).filter((s: any) => !dbIds.has(s.id))
           return { ...student, testScores: [...entries.map(gradeEntryToTestScore), ...existing] }
@@ -2551,79 +2528,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         },
         caseload: []
       }
-    })
-
-    // Pre-fill teacher rosters from each student's current class.
-    initialStudents.forEach(student => {
-      const classId = getLookupValue(STUDENT_CLASSES, student.id)
-      const classInfo = CLASSES.find(cls => cls.id === classId)
-
-      if (classInfo?.teacher && assignments[classInfo.teacher]) {
-        assignments[classInfo.teacher].periods = {
-          1: [
-            ...assignments[classInfo.teacher].periods[1],
-            student.id
-          ],
-          2: [
-            ...assignments[classInfo.teacher].periods[2],
-            student.id
-          ],
-          3: [
-            ...assignments[classInfo.teacher].periods[3],
-            student.id
-          ]
-        }
-      }
-    })
-
-    const btNames = [
-      'Ezriel',
-      'Tuli',
-      'Avrumi',
-      'Eliyahu',
-      'Yaakov',
-      'Elan',
-      'Nussi'
-    ]
-
-    const btBcbaMap = {
-      Ezriel: 'Mrs. Bloom',
-      Tuli: 'Mrs. Bloom',
-      Avrumi: 'Mrs. Bloom',
-      Eliyahu: 'Mrs. Lev',
-      Yaakov: 'Mrs. Lev',
-      Elan: 'Mr. Moshe Gross',
-      Nussi: 'Mr. Moshe Gross'
-    }
-
-    const socialNames = [
-      'Shelly Wagschal',
-      'Yechiel Feyershtien'
-    ]
-
-    initialStudents.forEach((student, index) => {
-      const btName = btNames[index % btNames.length]
-      const bcbaName = btBcbaMap[btName]
-      const socialName = socialNames[index % socialNames.length]
-
-      const assignSupportStudent = staffName => {
-        if (!assignments[staffName]) return
-
-        assignments[staffName].caseload = [
-          ...assignments[staffName].caseload,
-          student.id
-        ]
-      }
-
-      // Daily BT and supervising BCBA.
-      assignSupportStudent(btName)
-      assignSupportStudent(bcbaName)
-
-      // Weekly support services.
-      assignSupportStudent(socialName)
-      assignSupportStudent('Tzvi Malks')
-      assignSupportStudent('Yitzi Liebowitz')
-      assignSupportStudent('Aryeh Schechter')
     })
 
     return assignments
@@ -3270,7 +3174,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
 
     /*
-     * Permanent demo caseloads:
+     * Deterministic caseload generation:
      * each student keeps the same primary BT and supervising BCBA.
      */
     initialStudents.forEach((student, studentIndex) => {
@@ -3300,7 +3204,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         })
       })
 
-      // Weekly Social Counseling for every demo student.
+      // Weekly Social Counseling for each student.
       addRow({
         student,
         staffName:
@@ -3475,7 +3379,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     setStoredAuthUser(r, name)
     setDivisionView(defaultDivisionView(access))
     setLoggedIn(true)
-    setPage('dashboard')
+    setPage(getRoleNavConfig(r).topAreas[0]?.defaultPage || 'dashboard')
     if (r === 'teacher' || r === 'rebbe') {
       const classIds = teacherAssignedClassIdsByName.get(normalizeStaffName(name)) || []
       setTeacherClassIds(classIds)
@@ -4166,7 +4070,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }
 
   async function removeStoreItem(id: number | string) {
-    if (!confirm('Remove this store item from the demo?')) return
+    if (!confirm('Remove this store item?')) return
     if (!storePersistenceReady) {
       alert('Token Store is not synced to Supabase yet.')
       return
@@ -4269,8 +4173,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     [submenuByArea],
   )
 
+  useEffect(() => {
+    if (!allowedPagesForRole.has(page)) {
+      setPage(topAreas[0]?.defaultPage || 'dashboard')
+    }
+  }, [allowedPagesForRole, page, topAreas])
+
   const schoolDayArea = topAreas.find(area => area.id === 'school-day') || null
-  const defaultSchoolDayPage = schoolDayArea?.defaultPage || 'attendance'
+  const defaultSchoolDayPage = schoolDayArea?.defaultPage || topAreas[0]?.defaultPage || 'dashboard'
 
   function navigateToPage(nextPage: string) {
     if (!allowedPagesForRole.has(nextPage)) {
@@ -4465,7 +4375,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const userAccess = getUserAccess(effectiveUserName, effectiveRole)
   const isTeacherRole = effectiveRole === 'teacher' || effectiveRole === 'rebbe'
   const isStoreRole = false
-  const isOfficeUser = false
   const allowedDivisionSet = new Set(userAccess.divisions)
   const divisionScopedStudents = activeStudents.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
   const normalizedUserName = normalizeStaffName(effectiveUserName)
@@ -4545,18 +4454,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   })
 
   const isSetupCenterPage = page === 'setup' && effectiveRole === 'admin'
-  const showGlobalTopControls = studentFallbackPatchCount > 0 || (effectiveRole === 'admin' && !showStaffPanel)
+  const showGlobalTopControls = effectiveRole === 'admin' && !showStaffPanel
   const mainStyle = { ...S.main, background: '#f3f4f6' }
   const setupNavItems = [
     { id: 'staff-directory', label: 'Staff Directory', icon: '👥', group: 'People & Staff' },
     { id: 'assignments', label: 'Staff Assignments', icon: '🧑‍🏫', group: 'People & Staff' },
-    { id: 'therapy-schedule', label: 'Therapy Schedule', icon: '🩺', group: 'People & Staff' },
     { id: 'accounts', label: 'Staff Accounts', icon: '🔐', group: 'People & Staff' },
-    { id: 'teaching', label: 'Teaching Actions', icon: '🎓', group: 'Rules & Configuration' },
-    { id: 'vip', label: 'VIP Rules', icon: '⭐', group: 'Rules & Configuration' },
-    { id: 'store', label: 'Store & Sales', icon: '🛍️', group: 'Rules & Configuration' },
     { id: 'classes-divisions', label: 'Classes & Divisions', icon: '🏫', group: 'School Structure' },
-    { id: 'schedule-setup', label: 'Schedule Setup', icon: '🗓️', group: 'School Structure' },
   ]
 
   const normalizedSearch = String(search || '').trim().toLowerCase()
@@ -4612,11 +4516,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       {useTwoLevelNav && (
       <div style={{ width: 216, background: '#f8fafc', borderRight: '1px solid #dbe5f0', padding: '14px 10px', boxSizing: 'border-box' }}>
         <div style={{ padding: '8px 8px 10px', marginBottom: 6 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#0f2942' }}>Hadran Academy</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#0f2942' }}>Yeshiva Ketana</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-            {effectiveRole === 'admin' && isOfficeUser
-              ? 'Office Portal'
-              : effectiveRole === 'admin'
+            {effectiveRole === 'admin'
                 ? 'Principal Portal'
                 : effectiveRole === 'teacher' || effectiveRole === 'rebbe'
                   ? 'Teacher Portal'
@@ -4681,7 +4583,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       {!useTwoLevelNav && (
       <div style={S.sidebar as CSSProperties}>
         <div style={S.sidebarLogo as CSSProperties}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#ffffff' }}>Hadran Academy</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#ffffff' }}>Yeshiva Ketana</div>
           <div style={{ fontSize: 11.5, marginTop: 4, color: 'rgba(255,255,255,0.82)' }}>Legacy Dashboard Layout</div>
         </div>
         <div style={{ display: 'grid', gap: 2, paddingBottom: 10 }}>
@@ -4763,11 +4665,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {studentFallbackPatchCount > 0 && (
-                <span style={{ padding: '6px 10px', borderRadius: 999, background: '#fef2f2', color: '#9f1239', fontSize: 12, fontWeight: 700, border: '1px solid #fecaca' }}>
-                  Pending sync: {studentFallbackPatchCount}
-                </span>
-              )}
               {effectiveRole === 'admin' && !showStaffPanel && (
                 <button
                   onClick={() => setShowStaffPanel(true)}
@@ -4805,46 +4702,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                 </button>
               )}
             </div>
-          </div>
-        )}
-        {studentFallbackPatchCount > 0 && (
-          <div
-            style={{
-              marginBottom: 12,
-              borderRadius: 10,
-              border: '1px solid #facc15',
-              background: '#fffbeb',
-              color: '#854d0e',
-              fontSize: 12,
-              fontWeight: 700,
-              padding: '10px 12px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
-            <span>
-              Saved locally: {studentFallbackPatchCount} student update{studentFallbackPatchCount === 1 ? '' : 's'} are queued because a Supabase write failed.
-              {studentFallbackSyncState === 'syncing' ? ' Retrying now...' : ''}
-              {studentFallbackSyncState === 'error' ? ' Retry failed for some records. Use retry after confirming Supabase access is restored.' : ''}
-            </span>
-            <button
-              onClick={() => flushStudentFallbackPatches()}
-              style={{
-                border: '1px solid #eab308',
-                background: '#fff7cc',
-                color: '#854d0e',
-                borderRadius: 8,
-                fontSize: 11,
-                fontWeight: 700,
-                padding: '5px 8px',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {studentFallbackSyncState === 'syncing' ? 'Retrying...' : 'Retry now'}
-            </button>
           </div>
         )}
         {!isSetupCenterPage && (
@@ -4915,42 +4772,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
         {page === 'dashboard' && (effectiveRole === 'teacher' || effectiveRole === 'rebbe') && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} />}
         {page === 'dashboard' && effectiveRole === 'support_staff' && <TherapistDashboard students={visibleStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s, 'therapy')} staffMembers={staffMembers} therapySchedule={THERAPY_SCHEDULE_STATE} />}
-
-        {page === 'dashboard' && effectiveRole === 'admin' && isOfficeUser && (
-          <AdminOfficeDashboardPage
-            S={S}
-            getGreeting={getGreeting}
-            userName={effectiveUserName}
-            LiveClock={LiveClock}
-            setPage={setPage}
-            storeItems={storeItems}
-            openStudent={openStudent}
-            callsDueStudents={callsDueStudents}
-            alerts={alerts}
-            students={students}
-            setDrillDown={setDrillDown}
-            setShowUnknownPopup={setShowUnknownPopup}
-            divisionLabel={divisionLabel}
-            divisionView={divisionView}
-            divisionSummaries={divisionSummaries}
-            DIVISIONS={DIVISIONS}
-            inClassrooms={inClassrooms}
-            inClassroomsStudents={inClassroomsStudents}
-            late={late}
-            lateStudents={lateStudents}
-            inTherapy={inTherapy}
-            withBT={withBT}
-            leftEarlyStudents={leftEarlyStudents}
-            absentTodayStudents={absentTodayStudents}
-            cameTodayRate={cameTodayRate}
-            cameToday={cameToday}
-            stillInYeshiva={stillInYeshiva}
-            unknown={unknown}
-            urgentStudents={urgentStudents}
-            userAccess={userAccess}
-          />
-        )}
-
 
         {page === 'setup' && effectiveRole === 'admin' && (
           <SetupCenterPage
@@ -5070,19 +4891,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           />
         )}
 
-        {page === 'therapists' && effectiveRole === 'admin' && (
-          <TherapistAssignmentsPage
-            S={S}
-            students={students}
-            setStudents={setStudents}
-            THERAPIST_OPTIONS={THERAPIST_OPTIONS}
-            SCHEDULE_PERIODS={SCHEDULE_PERIODS}
-            persistStudentFields={persistStudentFields}
-          />
-        )}
-
-
-        {page === 'dashboard' && effectiveRole === 'admin' && !isOfficeUser && (
+        {page === 'dashboard' && effectiveRole === 'admin' && (
           <AdminMainDashboard
             S={S}
             getGreeting={getGreeting}
@@ -5163,31 +4972,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         )}
 
         {page === 'attendance' && (
-          <div style={{ maxWidth: 1180, margin: '0 auto 18px' }}>
-            <AttendanceReportsPanel
-              S={S}
-              rows={buildAttendanceReportRows(filteredStudents)}
-              attendanceReportOpen={attendanceReportOpen}
-              setAttendanceReportOpen={setAttendanceReportOpen}
-              attendanceReportView={attendanceReportView}
-              setAttendanceReportView={setAttendanceReportView}
-              attendanceReportDivision={attendanceReportDivision}
-              setAttendanceReportDivision={setAttendanceReportDivision}
-              attendanceReportClass={attendanceReportClass}
-              setAttendanceReportClass={setAttendanceReportClass}
-              attendanceReportStatus={attendanceReportStatus}
-              setAttendanceReportStatus={setAttendanceReportStatus}
-              attendanceReportStudentId={attendanceReportStudentId}
-              setAttendanceReportStudentId={setAttendanceReportStudentId}
-              attendanceReportSearch={attendanceReportSearch}
-              setAttendanceReportSearch={setAttendanceReportSearch}
-              openAttendanceReportWindow={openAttendanceReportWindow}
-            />
-          </div>
-        )}
-
-
-        {page === 'attendance' && (
           <AttendancePage
             students={visibleStudents}
             setStudents={setStudents}
@@ -5209,7 +4993,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusColor={statusColor}
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
-            HISTORICAL_DATA={HISTORICAL_DATA}
+            HISTORICAL_DATA={{}}
           />
         )}
 
@@ -5309,63 +5093,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           />
         )}
 
-                {page === 'alerts' && (
-          <AlertsPage
-            S={S}
-            alerts={alerts}
-            students={students}
-            openStudent={openStudent}
-          />
-        )}
-
-        {page === 'calls' && effectiveRole === 'admin' && (
-          <CallsPage
-            S={S}
-            students={students}
-            openStudent={openStudent}
-            daysSince={daysSince}
-            initials={initials}
-          />
-        )}
-
-        {page === 'todo' && effectiveRole === 'admin' && (
-          <div style={{ display: 'grid', gap: 16 }}>
-            <div style={{ ...S.card, padding: '16px 18px', border: '1px solid #dbe8f5', borderRadius: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 900, color: '#172033', marginBottom: 8 }}>Reports Overview</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-                <div style={{ padding: 12, borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Attendance</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0f2942', marginTop: 4 }}>{reportsOverview.attendanceSummary.total}</div>
-                  <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>Present {reportsOverview.attendanceSummary.present} · Absent {reportsOverview.attendanceSummary.absent}</div>
-                </div>
-              </div>
-            </div>
-            <TodoPage
-              S={S}
-              todos={todos}
-              setTodos={setTodos}
-              newTodo={newTodo}
-              setNewTodo={setNewTodo}
-              newTodoCategory={newTodoCategory}
-              setNewTodoCategory={setNewTodoCategory}
-              newTodoTime={newTodoTime}
-              setNewTodoTime={setNewTodoTime}
-            />
-          </div>
-        )}
-
-        {page === 'messages' && (effectiveRole === 'admin' || effectiveRole === 'teacher' || effectiveRole === 'rebbe') && (
-          <div style={{ animation: 'dashboardPageFade 0.18s ease' }}>
-            <MessagesPage S={S} userName={userName} role={role} />
-          </div>
-        )}
-
-        {page === 'grade-reports' && effectiveRole === 'admin' && (
-          <div style={{ animation: 'dashboardPageFade 0.18s ease' }}>
-            <GradeReportsPage S={S} students={students} />
-          </div>
-        )}
-
       </div>
 
       </div>
@@ -5463,7 +5190,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         isVIP={checkIsVIP}
         getImprovement={getImprovement}
         daysSince={daysSince}
-        HISTORICAL_DATA={HISTORICAL_DATA}
+        HISTORICAL_DATA={{}}
         TrackingTab={TrackingTabView}
         pointsEvents={selectedStudentPointsEvents}
         onUndoPointsEvent={undoPointsEvent}

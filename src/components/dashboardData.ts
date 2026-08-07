@@ -173,114 +173,9 @@ export const STORE_CATEGORY_OPTIONS = [
   { key: 'ices', label: 'Ices / Ice Cream' },
 ]
 
-export const DEMO_STORE_ACTIVITY = [
-  { id: 9001, time: '10:18 AM', studentId: 6, studentName: 'Levitz Avrohom', itemName: 'Water Bottle', cost: 8, staff: 'Eli Bloom', division: 'yeshiva_ketana' },
-  { id: 9002, time: '10:42 AM', studentId: 12, studentName: 'Ettlinger Moshe', itemName: 'Pretzel Bag', cost: 15, staff: 'Zev Reisman', division: 'yeshiva_ketana' },
-  { id: 9003, time: '11:25 AM', studentId: 103, studentName: 'Barber Chaim', itemName: 'Apple Juice Box', cost: 18, staff: 'Eli Stern', division: 'yeshiva_ketana' },
-  { id: 9004, time: '12:12 PM', studentId: 14, studentName: 'Feltman Daniel', itemName: 'Chocolate Chip Cookie', cost: 20, staff: 'Eli Bloom', division: 'yeshiva_ketana' },
-  { id: 9005, time: '12:46 PM', studentId: 21, studentName: 'Moskowitz Meir Shulem', itemName: 'Icy Cup', cost: 12, staff: 'Zev Reisman', division: 'yeshiva_ketana' },
-  { id: 9006, time: '01:18 PM', studentId: 108, studentName: 'Klein Yitzchok', itemName: 'Granola Bar', cost: 16, staff: 'Eli Stern', division: 'yeshiva_ketana' },
-  { id: 9007, time: '01:38 PM', studentId: 3, studentName: 'Haddad Moshe Chaim', itemName: 'Bagel with Cream Cheese', cost: 35, staff: 'Miri Shapiro', division: 'yeshiva_ketana' },
-  { id: 9008, time: '02:04 PM', studentId: 8, studentName: 'Schwartz Moishe Michael', itemName: 'Hot Pretzel', cost: 28, staff: 'Eli Bloom', division: 'yeshiva_ketana' },
-  { id: 9009, time: '02:21 PM', studentId: 18, studentName: 'Reich Nathan', itemName: 'Slush Cup', cost: 15, staff: 'Zev Reisman', division: 'yeshiva_ketana' },
-  { id: 9010, time: '02:43 PM', studentId: 1, studentName: 'Bloom Yair', itemName: 'Gatorade Berry', cost: 30, staff: 'Eli Stern', division: 'yeshiva_ketana' },
-]
+export const DEMO_STORE_ACTIVITY: Array<Record<string, unknown>> = []
 
-export const DEMO_STUDENT_FLAGS = [
-  {
-    id: 'flag-demo-1',
-    studentId: 16,
-    goal: 'Uses an appropriate break request before leaving his seat',
-    startDate: '2026-06-18',
-    endDate: '2026-06-30',
-    createdBy: 'Rabbi Baum',
-    createdAt: '2026-06-18',
-    completed: false,
-    observations: [
-      {
-        id: 'flag-demo-observation-0',
-        observed: false,
-        note: 'Left seat twice before requesting a break.',
-        staffName: 'Rabbi Schults',
-        date: '2026-06-19',
-        time: '10:12 AM',
-      },
-    ],
-  },
-  {
-    id: 'flag-demo-2',
-    studentId: 11,
-    goal: 'Begins assigned work within three minutes',
-    startDate: '2026-06-17',
-    endDate: '2026-06-26',
-    createdBy: 'Rabbi Klein',
-    createdAt: '2026-06-17',
-    completed: false,
-    observations: [
-      {
-        id: 'flag-demo-observation-1',
-        observed: true,
-        note: 'Started independently after one reminder.',
-        staffName: 'Rabbi Klein',
-        date: '2026-06-18',
-        time: '10:14 AM',
-      },
-    ],
-  },
-  {
-    id: 'flag-demo-3',
-    studentId: 3,
-    goal: 'Returns to class within 5 minutes after counseling',
-    startDate: '2026-06-16',
-    endDate: '2026-06-30',
-    createdBy: 'Mrs. Friedman',
-    createdAt: '2026-06-16',
-    completed: false,
-    observations: [
-      {
-        id: 'flag-demo-observation-3a',
-        observed: true,
-        note: 'Returned in 4 minutes after prompt.',
-        staffName: 'Mrs. Friedman',
-        date: '2026-06-20',
-        time: '11:02 AM',
-      },
-    ],
-  },
-  {
-    id: 'flag-demo-4',
-    studentId: 108,
-    goal: 'Checks in before leaving classroom during transitions',
-    startDate: '2026-06-15',
-    endDate: '2026-06-29',
-    createdBy: 'Rabbi Schimborski',
-    createdAt: '2026-06-15',
-    completed: false,
-    observations: [],
-  },
-  {
-    id: 'flag-demo-5',
-    studentId: 3,
-    goal: 'Uses a calm-down strategy before leaving the room',
-    startDate: '2026-06-20',
-    endDate: '2026-07-15',
-    createdBy: 'Mrs. Friedman',
-    createdAt: '2026-06-20',
-    completed: false,
-    observations: [{ id: 'flag-demo-observation-4', observed: true, note: 'Used breathing routine before counseling check-in.', staffName: 'Mrs. Friedman', date: '2026-06-28', time: '10:42 AM' }],
-  },
-  {
-    id: 'flag-demo-6',
-    studentId: 6,
-    goal: 'Returns to class within five minutes after BT support',
-    startDate: '2026-06-21',
-    endDate: '2026-07-19',
-    createdBy: 'Ezriel',
-    createdAt: '2026-06-21',
-    completed: false,
-    observations: [{ id: 'flag-demo-observation-5', observed: false, note: 'Returned after a 7-minute delay with an unexplained late return.', staffName: 'Ezriel', date: '2026-06-24', time: '11:08 AM' }],
-  },
-]
+export const DEMO_STUDENT_FLAGS: Array<Record<string, unknown>> = []
 
 
 
@@ -529,7 +424,7 @@ export function openAttendanceReportWindow({ rows, view, selectedStudent, filter
 }
 
 export function buildAttendanceReportRows(students) {
-  const demoDays = [
+  const reportDays = [
     { key: 'today', label: 'Today', offset: 0 },
     { key: 'yesterday', label: 'Yesterday', offset: 1 },
     { key: 'twoDays', label: '2 Days Ago', offset: 2 },
@@ -540,7 +435,7 @@ export function buildAttendanceReportRows(students) {
   ]
 
   return students.map((student, index) => {
-    const history = demoDays.map((day, dayIndex) => {
+    const history = reportDays.map((day, dayIndex) => {
       let status = 'present'
       if ((index + dayIndex) % 11 === 0) status = 'absent'
       if ((index + dayIndex) % 13 === 0) status = 'late'
@@ -687,9 +582,9 @@ export const STAFF = [
   { id: 's14', name: 'Rabbi Abowitz', role: 'Teacher' },
   { id: 's15', name: 'Rabbi Schults', role: 'Yeshiva Ketana Rebbe' },
   { id: 's16', name: 'Rabbi Schimborski', role: 'Yeshiva Ketana Rebbe' },
-  { id: 's17', name: 'Eli Bloom', role: 'Admin / Office' },
-  { id: 's18', name: 'Zev Reisman', role: 'Admin / Office' },
-  { id: 's19', name: 'Eli Stern', role: 'Admin / Office' },
+  { id: 's17', name: 'Eli Bloom', role: 'Admin' },
+  { id: 's18', name: 'Zev Reisman', role: 'Admin' },
+  { id: 's19', name: 'Eli Stern', role: 'Admin' },
   { id: 's20', name: 'Avrumi', role: 'BT' },
   { id: 's21', name: 'Eliyahu', role: 'BT' },
   { id: 's22', name: 'Yaakov', role: 'BT' },
@@ -794,14 +689,13 @@ export const STUDENT_CLASSES = {
 
 export const DIVISIONS = {
   yeshiva_ketana: { label: 'Yeshiva Ketana', shortLabel: 'YK' },
-  mesivta: { label: 'Mesivta', shortLabel: 'MS' },
 }
 
 export const CLASS_DIVISION = {
-  a: 'mesivta',
-  b: 'mesivta',
-  c: 'mesivta',
-  d: 'mesivta',
+  a: 'yeshiva_ketana',
+  b: 'yeshiva_ketana',
+  c: 'yeshiva_ketana',
+  d: 'yeshiva_ketana',
   'yk-a': 'yeshiva_ketana',
   'yk-b': 'yeshiva_ketana',
 }
@@ -935,19 +829,19 @@ export function divisionLabel(key) {
 }
 
 export function canAccessDashboardPage(role, page) {
-  if (page === 'intake') {
-    return false
-  }
-
   if (role === 'teacher' || role === 'rebbe') {
-    return ['dashboard', 'students', 'store'].includes(page)
+    return ['students', 'behavior', 'store'].includes(page)
   }
 
   if (role === 'support_staff') {
-    return ['students', 'support'].includes(page)
+    return ['students', 'behavior', 'store'].includes(page)
   }
 
-  return true
+  if (role === 'admin') {
+    return ['dashboard', 'students', 'academics', 'setup', 'behavior', 'store', 'staff-directory'].includes(page)
+  }
+
+  return ['students', 'behavior', 'store'].includes(page)
 }
 
 export function canAccessStudentForRole(student, context = {}) {
@@ -1261,11 +1155,11 @@ export const HISTORICAL_DATA = {
   ],
   14: [
     makeDay(0, 90, 85, 'Yitzi Liebowitz', 's9', [
-      { time: '09:05', status: 'classroom', location: 'Mesivta class', note: 'In class on arrival' },
+      { time: '09:05', status: 'classroom', location: 'Yeshiva Ketana class', note: 'In class on arrival' },
       { time: '10:15', status: 'therapy', location: 'Therapy room', staffName: 'Yitzi Liebowitz', note: 'Social skills pullout' },
-      { time: '11:00', status: 'return', location: 'Mesivta class', note: 'Returned and completed assignment' },
+      { time: '11:00', status: 'return', location: 'Yeshiva Ketana class', note: 'Returned and completed assignment' },
       { time: '11:40', status: 'unaccounted', location: 'Hallway', note: 'Out of sight for 8 minutes' },
-      { time: '11:48', status: 'return', location: 'Mesivta class', note: 'Located and brought back' },
+      { time: '11:48', status: 'return', location: 'Yeshiva Ketana class', note: 'Located and brought back' },
     ]),
     makeDay(1, 50, 65, 'Yitzi Liebowitz', 's9'),
     makeDay(2, 75, 40, 'Yitzi Liebowitz', 's9'),
@@ -1302,7 +1196,7 @@ export const HISTORICAL_DATA = {
   ],
   21: [
     makeDay(0, 175, 20, 'Rabbi Klein', 's4', [
-      { time: '09:00', status: 'classroom', location: 'Mesivta shiur', note: 'Consistent classroom attendance' },
+      { time: '09:00', status: 'classroom', location: 'Yeshiva Ketana shiur', note: 'Consistent classroom attendance' },
       { time: '12:10', status: 'hallway', location: 'Hallway', note: 'Lunch transition' },
       { time: '12:20', status: 'return', location: 'Lunchroom', note: 'Returned with peers' },
     ]),
@@ -1770,16 +1664,16 @@ export const statusColor = { present: '#475569', absent: '#9f1239', late: '#9a6a
 export const statusLabel = { present: 'Present', absent: 'Absent', late: 'Late', 'left-early': 'Left Early', therapy: 'In Therapy', 'with-bt': 'With BT', unknown: 'Location Unknown', 'not-arrived': 'Not Arrived' }
 export const statusEmoji = { present: '✅', absent: '❌', late: '⏰', 'left-early': '🚪', therapy: '🧠', 'with-bt': '👤', unknown: '❓', 'not-arrived': '🕐' }
 
-// Demo grade fixtures — added 2026-07-31
+// Seed grade fixtures — added 2026-07-31
 // Class a (Dargei Alef): students 1-7, teacher Rabbi Klein
 ;(function addDemoGrades() {
   const Q = (id, teacher, subject, skill, name, date, score, max, notes, type = 'Quiz', enteredBy = teacher) => ({
-    id: `demo-${id}`, teacher, subject, skill, assessmentName: name, date, scoreType: 'points',
-    score, maxScore: max, rating: null, notes, assessmentType: type, enteredBy, enteredAt: `${date}T09:00:00Z`, sourceContext: 'demo',
+    id: `seed-${id}`, teacher, subject, skill, assessmentName: name, date, scoreType: 'points',
+    score, maxScore: max, rating: null, notes, assessmentType: type, enteredBy, enteredAt: `${date}T09:00:00Z`, sourceContext: 'seeded',
   })
   const M = (id, teacher, subject, skill, name, date, notes = '', enteredBy = teacher) => ({
-    id: `demo-${id}`, teacher, subject, skill, assessmentName: name, date, scoreType: 'status',
-    score: null, maxScore: null, rating: null, notes, attemptStatus: 'missed', assessmentType: 'Quiz', enteredBy, enteredAt: `${date}T09:00:00Z`, sourceContext: 'demo',
+    id: `seed-${id}`, teacher, subject, skill, assessmentName: name, date, scoreType: 'status',
+    score: null, maxScore: null, rating: null, notes, attemptStatus: 'missed', assessmentType: 'Quiz', enteredBy, enteredAt: `${date}T09:00:00Z`, sourceContext: 'seeded',
   })
 
   const sId = (id) => initialStudents.find(s => s.id === id)

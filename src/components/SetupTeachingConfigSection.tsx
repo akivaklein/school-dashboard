@@ -331,10 +331,7 @@ export default function SetupTeachingConfigSection({
                           color: '#68778a',
                           fontSize: 11
                         }}>
-                          These are saved as demo settings in this browser
-                          session. A following integration patch can place
-                          them directly inside the Teaching Mode Class
-                          Actions drawer.
+                          These settings are saved for the current environment and are available in Teaching Mode class actions.
                         </div>
                       </div>
 

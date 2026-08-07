@@ -1,21 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { DEMO_STORE_ACTIVITY, DEMO_STUDENT_FLAGS, HISTORICAL_DATA, THERAPY_SCHEDULE } from '../dashboardData'
 
-describe('demo fixture realism', () => {
-  it('contains rich fallback store activity records for Yeshiva Ketana only', () => {
-    expect(DEMO_STORE_ACTIVITY.length).toBeGreaterThanOrEqual(5)
-    expect(DEMO_STORE_ACTIVITY.some(entry => entry.division === 'yeshiva_ketana')).toBe(true)
-    expect(DEMO_STORE_ACTIVITY.some(entry => entry.division === 'mesivta')).toBe(false)
+describe('secure fixture guardrails', () => {
+  it('keeps runtime store demo fallback disabled', () => {
+    expect(DEMO_STORE_ACTIVITY).toEqual([])
   })
 
-  it('contains multiple active student flags for demo workflows', () => {
-    expect(DEMO_STUDENT_FLAGS.length).toBeGreaterThanOrEqual(4)
-    expect(DEMO_STUDENT_FLAGS.some(flag => Array.isArray(flag.observations) && flag.observations.length > 0)).toBe(true)
+  it('keeps runtime student-flag demo fallback disabled', () => {
+    expect(DEMO_STUDENT_FLAGS).toEqual([])
   })
 
-  it('keeps Avrohom tracking history rich while allowing Yair empty-state', () => {
+  it('retains historical dataset structure for tooling/tests only', () => {
     expect(Array.isArray((HISTORICAL_DATA as Record<string, unknown>)['6'])).toBe(true)
-    expect((HISTORICAL_DATA as Record<string, unknown>)['1']).toBeUndefined()
+    expect(HISTORICAL_DATA).toBeTypeOf('object')
   })
 
   it('includes an active therapy schedule across several students', () => {

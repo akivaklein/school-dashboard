@@ -14,19 +14,6 @@ type SchoolDivision = {
   shortLabel: string
 }
 
-function loadStoredConfig<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback
-
-  try {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) return fallback
-    return JSON.parse(raw) as T
-  } catch (error) {
-    console.warn(`Unable to load ${key}:`, error)
-    return fallback
-  }
-}
-
 export default function SetupSchoolStructureSection({
   S,
   students = [],
@@ -36,15 +23,15 @@ export default function SetupSchoolStructureSection({
   onSaveAssignmentBatch = null as ((batch: Array<{ studentId: number; classId: string; divisionKey: string }>) => Promise<void>) | null,
 }) {
   const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>(() =>
-    loadStoredConfig('school-dashboard-classes', CLASSES.map(cls => ({
+    CLASSES.map(cls => ({
       ...cls,
       divisionKey: CLASS_DIVISION[cls.id] || Object.keys(DIVISIONS)[0] || 'yeshiva_ketana',
-    })))
+    }))
   )
   const [schoolDivisions, setSchoolDivisions] = useState<Record<string, SchoolDivision>>(() =>
-    loadStoredConfig('school-dashboard-divisions', Object.fromEntries(
+    Object.fromEntries(
       Object.entries(DIVISIONS).map(([key, value]) => [key, { ...value }])
-    ))
+    )
   )
   const [showClassEditor, setShowClassEditor] = useState(false)
   const [showDivisionEditor, setShowDivisionEditor] = useState(false)
@@ -63,11 +50,6 @@ export default function SetupSchoolStructureSection({
   const [editingDivisionKey, setEditingDivisionKey] = useState<string | null>(null)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('school-dashboard-classes', JSON.stringify(schoolClasses))
-      window.localStorage.setItem('school-dashboard-divisions', JSON.stringify(schoolDivisions))
-    }
-
     CLASSES.splice(0, CLASSES.length, ...schoolClasses.map(cls => ({
       id: cls.id,
       name: cls.name,

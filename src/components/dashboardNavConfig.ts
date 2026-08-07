@@ -18,72 +18,48 @@ type RoleNavConfig = {
 const ADMIN_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
     { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students', 'academics'] },
-    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule', 'store', 'calls', 'teaching-mode'] },
-    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior', 'alerts'] },
-    { id: 'reports', label: 'Reports', defaultPage: 'todo', pages: ['todo', 'grade-reports', 'attendance-reports'] },
-    { id: 'messages', label: 'Messages', defaultPage: 'messages', pages: ['messages'] },
-    { id: 'setup', label: 'Setup', defaultPage: 'setup', pages: ['setup', 'staff-directory', 'therapists'] },
+    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'classes', label: 'Classes / Assignments', defaultPage: 'academics', pages: ['academics', 'setup'] },
+    { id: 'points', label: 'Points', defaultPage: 'behavior', pages: ['behavior'] },
+    { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
+    { id: 'staff', label: 'Staff / Roles', defaultPage: 'staff-directory', pages: ['staff-directory'] },
+    { id: 'settings', label: 'Basic Settings', defaultPage: 'setup', pages: ['setup'] },
   ],
   submenuByArea: {
     dashboard: [{ id: 'dashboard', label: 'Dashboard' }],
-    students: [
-      { id: 'students', label: 'Students List' },
-      { id: 'academics', label: 'Grades & Test Scores' },
+    students: [{ id: 'students', label: 'My Students' }],
+    classes: [
+      { id: 'academics', label: 'Classes' },
+      { id: 'setup', label: 'Assignments' },
     ],
-    'school-day': [
-      { id: 'attendance', label: 'Attendance' },
-      { id: 'schedule', label: 'Schedule' },
-      { id: 'teaching-mode', label: 'Teaching Mode' },
-      { id: 'store', label: 'Token Store' },
-      { id: 'calls', label: 'Parent Calls' },
-    ],
-    support: [
-      { id: 'support', label: 'Support Overview' },
-      { id: 'behavior', label: 'Behavior' },
-      { id: 'alerts', label: 'Alerts' },
-    ],
-    reports: [{ id: 'todo', label: 'To-Do Queue' }, { id: 'grade-reports', label: 'Grade & Test Reports' }, { id: 'attendance-reports', label: 'Attendance Reports' }],
-    messages: [{ id: 'messages', label: 'Messages' }],
-    setup: [
-      { id: 'setup', label: 'Setup Center' },
-      { id: 'staff-directory', label: 'Staff Directory' },
-      { id: 'therapists', label: 'Therapist Assignments' },
-    ],
+    points: [{ id: 'behavior', label: 'Points' }],
+    store: [{ id: 'store', label: 'Token Store' }],
+    staff: [{ id: 'staff-directory', label: 'Staff Directory' }],
+    settings: [{ id: 'setup', label: 'Basic Settings' }],
   },
 }
 
 const TEACHER_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
-    { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-    { id: 'students', label: 'Students', defaultPage: 'academics', pages: ['students', 'academics'] },
+    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'points', label: 'Points', defaultPage: 'behavior', pages: ['behavior'] },
     { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
-    dashboard: [{ id: 'dashboard', label: 'My Class' }],
-    students: [
-      { id: 'academics', label: 'Grades & Test Scores' },
-      { id: 'students', label: 'Assigned Students' },
-    ],
+    students: [{ id: 'students', label: 'My Students' }],
+    points: [{ id: 'behavior', label: 'Points' }],
     store: [{ id: 'store', label: 'Token Store' }],
   },
 }
 
 const THERAPIST_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
-    { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-    { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule'] },
-    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students'] },
-    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
+    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
-    dashboard: [{ id: 'dashboard', label: 'My Students' }],
-    'school-day': [
-      { id: 'attendance', label: 'Attendance' },
-      { id: 'schedule', label: 'Schedule' },
-    ],
-    students: [{ id: 'students', label: 'Assigned Students' }],
-    support: [{ id: 'support', label: 'Support Overview' }],
+    students: [{ id: 'students', label: 'My Students' }],
+    store: [{ id: 'store', label: 'Token Store' }],
   },
 }
 
@@ -98,32 +74,27 @@ const STORE_NAV_CONFIG: RoleNavConfig = {
 
 const SUPPORT_STAFF_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
-    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students'] },
-    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
+    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'points', label: 'Points', defaultPage: 'behavior', pages: ['behavior'] },
+    { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
-    students: [
-      { id: 'students', label: 'Assigned Students' },
-    ],
-    support: [
-      { id: 'support', label: 'Support Overview' },
-    ],
+    students: [{ id: 'students', label: 'My Students' }],
+    points: [{ id: 'behavior', label: 'Points' }],
+    store: [{ id: 'store', label: 'Token Store' }],
   },
 }
 
 const DEFAULT_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
-    { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-    { id: 'school-day', label: 'School Day', defaultPage: 'schedule', pages: ['schedule', 'teaching-mode'] },
-    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
+    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'points', label: 'Points', defaultPage: 'behavior', pages: ['behavior'] },
+    { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
-    dashboard: [{ id: 'dashboard', label: 'My Students' }],
-    'school-day': [
-      { id: 'schedule', label: 'Schedule' },
-      { id: 'teaching-mode', label: 'Teaching Mode' },
-    ],
-    support: [{ id: 'support', label: 'Support Overview' }],
+    students: [{ id: 'students', label: 'My Students' }],
+    points: [{ id: 'behavior', label: 'Points' }],
+    store: [{ id: 'store', label: 'Token Store' }],
   },
 }
 

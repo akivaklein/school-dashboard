@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { buildStaffAccountData } from '../services/staffService'
 import { matchesContextualSearch } from '../utils/contextualSearch'
 import {
   addStaffMember,
@@ -146,7 +145,6 @@ export default function StaffDirectoryPage({
   const [showInactive, setShowInactive] = useState(false)
   const [showAddStaff, setShowAddStaff] = useState(false)
   const [directorySearch, setDirectorySearch] = useState('')
-  const [creatingAccountFor, setCreatingAccountFor] = useState<number | null>(null)
 
   const directoryMembers = normalizeDirectoryMembers(staffMembers)
 
@@ -278,46 +276,6 @@ export default function StaffDirectoryPage({
       setError('Could not update staff status.')
     } finally {
       setSaving(false)
-    }
-  }
-
-  async function createAccountForMember(member: StaffDirectoryMember) {
-    try {
-      setSaving(true)
-      setError('')
-      setCreatingAccountFor(member.id)
-
-      const accountData = buildStaffAccountData(member, {
-        active: true,
-        accountState: 'active',
-        divisions: member.division || 'both',
-        assignments: member.assignments || [],
-      })
-
-      const accountPayload = {
-        staffName: accountData.staffName,
-        fullName: accountData.fullName,
-        role: accountData.role,
-        roles: accountData.roles,
-        email: accountData.email,
-        phone: accountData.phone,
-        divisions: accountData.divisions,
-        assignments: accountData.assignments,
-        active: true,
-        accountState: 'active' as const,
-      }
-
-      const stored = localStorage.getItem('demo-staff-accounts')
-      const entries = stored ? JSON.parse(stored) : {}
-      entries[member.name] = accountPayload
-      localStorage.setItem('demo-staff-accounts', JSON.stringify(entries))
-      await onStaffChanged()
-    } catch (createError) {
-      console.error('Failed to create account from staff directory:', createError)
-      setError('Could not create the staff account.')
-    } finally {
-      setSaving(false)
-      setCreatingAccountFor(null)
     }
   }
 
@@ -482,9 +440,6 @@ export default function StaffDirectoryPage({
                                 {person.active ? 'Deactivate' : 'Reactivate'}
                               </button>
                             </div>
-                            <button onClick={() => createAccountForMember(person)} disabled={saving} style={{ ...S.btn('primary'), width: '100%' }}>
-                              {creatingAccountFor === person.id ? 'Creating…' : 'Enable Login / Create Account'}
-                            </button>
                           </div>
                         </>
                       )}
