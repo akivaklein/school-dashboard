@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Dashboard from './components/Dashboard'
+import SetNewPasswordPage from './components/SetNewPasswordPage'
 import { supabase } from './supabaseClient'
 
 type DashboardUser = {
@@ -7,7 +8,7 @@ type DashboardUser = {
   name: string
 }
 
-type AuthMode = 'sign-in' | 'forgot-password' | 'reset-password'
+type AuthMode = 'sign-in' | 'forgot-password'
 
 type UserRoleRecord = {
   role: string
@@ -19,7 +20,20 @@ function getRecoveryModeFromUrl(): AuthMode {
   const hash = window.location.hash || ''
   const search = window.location.search || ''
   const raw = `${hash}&${search}`.toLowerCase()
-  return raw.includes('type=recovery') ? 'reset-password' : 'sign-in'
+  return raw.includes('type=recovery') ? 'forgot-password' : 'sign-in'
+}
+
+function readAppUrl() {
+  const configured = String(import.meta.env.VITE_APP_URL || '').trim()
+  if (!configured) return window.location.origin
+  return configured.replace(/\/$/, '')
+}
+
+function hasRecoveryTokens() {
+  const hash = window.location.hash || ''
+  const search = window.location.search || ''
+  const raw = `${hash}&${search}`.toLowerCase()
+  return raw.includes('type=recovery') || raw.includes('access_token=') || raw.includes('refresh_token=') || raw.includes('code=')
 }
 
 function App() {
@@ -30,14 +44,27 @@ function App() {
   const [authError, setAuthError] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
   const [authMessage, setAuthMessage] = useState('')
   const [authActionBusy, setAuthActionBusy] = useState(false)
+  const [isResetReady, setIsResetReady] = useState(false)
+  const [resetLinkError, setResetLinkError] = useState('')
+  const appUrl = readAppUrl()
+  const isResetRoute = window.location.pathname === '/reset-password'
 
   useEffect(() => {
     let active = true
 
     async function initializeAuth() {
+      // Handle recovery links that use code-based exchange.
+      const searchParams = new URLSearchParams(window.location.search)
+      const resetCode = searchParams.get('code')
+      if (resetCode) {
+        const { error } = await supabase.auth.exchangeCodeForSession(resetCode)
+        if (error && active) {
+          setResetLinkError('This password reset link is invalid, expired, or already used. Request a new reset email.')
+        }
+      }
+
       const { data, error } = await supabase.auth.getSession()
       if (!active) return
 
@@ -45,6 +72,22 @@ function App() {
         setAuthError(error.message)
         setIsAuthLoading(false)
         return
+      }
+
+      if (isResetRoute || hasRecoveryTokens()) {
+        if (data.session?.user?.id) {
+          setIsResetReady(true)
+          setResetLinkError('')
+          if (!isResetRoute) {
+            window.history.replaceState({}, document.title, '/reset-password')
+          } else {
+            window.history.replaceState({}, document.title, '/reset-password')
+          }
+        } else if (isResetRoute) {
+          setIsResetReady(false)
+          setResetLinkError('This password reset link is invalid, expired, or already used. Request a new reset email.')
+          window.history.replaceState({}, document.title, '/reset-password')
+        }
       }
 
       const nextUserId = data.session?.user?.id || null
@@ -59,13 +102,16 @@ function App() {
       setSessionUserId(nextUserId)
 
       if (event === 'PASSWORD_RECOVERY') {
-        setAuthMode('reset-password')
+        setIsResetReady(true)
+        setResetLinkError('')
         setAuthMessage('Set a new password to finish account recovery.')
+        window.history.replaceState({}, document.title, '/reset-password')
       }
 
       if (event === 'SIGNED_OUT') {
         setDashboardUser(null)
         setAuthMode('sign-in')
+        setSessionUserId(null)
       }
     })
 
@@ -99,15 +145,18 @@ function App() {
         return
       }
 
-      if (data.is_active === false || data.role !== 'admin') {
+      const normalizedRole = String(data.role || '').trim().toLowerCase()
+      const allowedRoles = new Set(['admin', 'teacher', 'rebbe', 'support_staff'])
+
+      if (data.is_active === false || !allowedRoles.has(normalizedRole)) {
         setDashboardUser(null)
-        setAuthError('This account is not authorized for admin dashboard access.')
+        setAuthError('Access denied. This account is missing a permitted active role.')
         return
       }
 
-      const fallbackName = 'Yeshiva Ketana Admin'
+      const fallbackName = normalizedRole === 'admin' ? 'Yeshiva Ketana Admin' : 'Staff User'
       setDashboardUser({
-        role: 'admin',
+        role: normalizedRole,
         name: (data.display_name || '').trim() || fallbackName,
       })
     }
@@ -151,7 +200,7 @@ function App() {
     setAuthError('')
     setAuthMessage('')
 
-    const redirectTo = `${window.location.origin}/`
+    const redirectTo = `${appUrl}/reset-password`
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
 
     if (error) {
@@ -159,29 +208,6 @@ function App() {
     } else {
       setAuthMessage('Password reset email sent. Open the link to set a new password.')
       setAuthMode('sign-in')
-    }
-
-    setAuthActionBusy(false)
-  }
-
-  async function handleResetPassword() {
-    if (newPassword.trim().length < 8) {
-      setAuthError('Password must be at least 8 characters.')
-      return
-    }
-
-    setAuthActionBusy(true)
-    setAuthError('')
-    setAuthMessage('')
-
-    const { error } = await supabase.auth.updateUser({ password: newPassword.trim() })
-
-    if (error) {
-      setAuthError(error.message)
-    } else {
-      setAuthMessage('Password updated. You can now sign in.')
-      setAuthMode('sign-in')
-      setNewPassword('')
     }
 
     setAuthActionBusy(false)
@@ -201,6 +227,23 @@ function App() {
           Checking secure session...
         </div>
       </div>
+    )
+  }
+
+  if (isResetRoute) {
+    return (
+      <SetNewPasswordPage
+        ready={isResetReady}
+        errorMessage={resetLinkError}
+        onBackToSignIn={() => {
+          setAuthMode('sign-in')
+          setAuthError('')
+          setAuthMessage('')
+          setResetLinkError('')
+          setIsResetReady(false)
+          window.history.replaceState({}, document.title, '/')
+        }}
+      />
     )
   }
 
@@ -236,18 +279,16 @@ function App() {
           </div>
         )}
 
-        {authMode !== 'reset-password' && (
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 5 }}>Email</div>
-            <input
-              type="email"
-              value={email}
-              onChange={event => setEmail(event.target.value)}
-              placeholder="admin@yeshivaketana.org"
-              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #d8e1ec', borderRadius: 10, fontSize: 14 }}
-            />
-          </div>
-        )}
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 5 }}>Email</div>
+          <input
+            type="email"
+            value={email}
+            onChange={event => setEmail(event.target.value)}
+            placeholder="admin@yeshivaketana.org"
+            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #d8e1ec', borderRadius: 10, fontSize: 14 }}
+          />
+        </div>
 
         {authMode === 'sign-in' && (
           <>
@@ -302,28 +343,6 @@ function App() {
               style={{ marginTop: 10, border: 'none', background: 'transparent', color: '#1d4ed8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
             >
               Back to sign in
-            </button>
-          </>
-        )}
-
-        {authMode === 'reset-password' && (
-          <>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 5 }}>New Password</div>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={event => setNewPassword(event.target.value)}
-                placeholder="At least 8 characters"
-                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #d8e1ec', borderRadius: 10, fontSize: 14 }}
-              />
-            </div>
-            <button
-              onClick={handleResetPassword}
-              disabled={authActionBusy}
-              style={{ width: '100%', border: 'none', borderRadius: 10, background: '#1e3a5f', color: '#fff', fontWeight: 800, padding: '11px 12px', cursor: authActionBusy ? 'not-allowed' : 'pointer' }}
-            >
-              {authActionBusy ? 'Updating...' : 'Update Password'}
             </button>
           </>
         )}

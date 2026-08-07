@@ -5,15 +5,14 @@ describe('role access helpers', () => {
   it('blocks removed intake page for all roles', () => {
     expect(canAccessDashboardPage('admin', 'intake')).toBe(false)
     expect(canAccessDashboardPage('teacher', 'intake')).toBe(false)
-    expect(canAccessDashboardPage('therapist', 'intake')).toBe(false)
-    expect(canAccessDashboardPage('store', 'intake')).toBe(false)
+    expect(canAccessDashboardPage('support_staff', 'intake')).toBe(false)
   })
 
   it('blocks teachers from setup and leadership pages', () => {
     expect(canAccessDashboardPage('teacher', 'setup')).toBe(false)
     expect(canAccessDashboardPage('teacher', 'calls')).toBe(false)
-    expect(canAccessDashboardPage('teacher', 'attendance')).toBe(true)
-    expect(canAccessDashboardPage('teacher', 'messages')).toBe(true)
+    expect(canAccessDashboardPage('teacher', 'students')).toBe(true)
+    expect(canAccessDashboardPage('teacher', 'store')).toBe(true)
   })
 
   it('restricts teachers to assigned students', () => {
@@ -49,9 +48,9 @@ describe('role access helpers', () => {
     ).toBe(false)
   })
 
-  it('keeps canteen scoped to store workflows only', () => {
-    expect(canAccessDashboardPage('store', 'store')).toBe(true)
-    expect(canAccessDashboardPage('store', 'teaching-mode')).toBe(false)
+  it('scopes support staff to support pages', () => {
+    expect(canAccessDashboardPage('support_staff', 'support')).toBe(true)
+    expect(canAccessDashboardPage('support_staff', 'store')).toBe(false)
   })
 
   it('supports explicit assignedStudentIds overrides for live role scoping checks', () => {

@@ -56,32 +56,16 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
 const TEACHER_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
     { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-    { id: 'school-day', label: 'School Day', defaultPage: 'teaching-mode', pages: ['teaching-mode', 'attendance', 'schedule'] },
-    { id: 'students', label: 'Students', defaultPage: 'academics', pages: ['academics'] },
-    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
-    { id: 'messages', label: 'Messages', defaultPage: 'messages', pages: ['messages'] },
+    { id: 'students', label: 'Students', defaultPage: 'academics', pages: ['students', 'academics'] },
+    { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
     dashboard: [{ id: 'dashboard', label: 'My Class' }],
-    'school-day': [
-      { id: 'teaching-mode', label: 'Teaching Mode' },
-      { id: 'attendance', label: 'Attendance' },
-      { id: 'schedule', label: 'Schedule' },
+    students: [
+      { id: 'academics', label: 'Grades & Test Scores' },
+      { id: 'students', label: 'Assigned Students' },
     ],
-    students: [{ id: 'academics', label: 'Grades & Test Scores' }],
-    support: [{ id: 'support', label: 'Support Overview' }],
-    messages: [{ id: 'messages', label: 'Messages' }],
-  },
-}
-
-const STORE_NAV_CONFIG: RoleNavConfig = {
-  topAreas: [
-    { id: 'school-day', label: 'School Day', defaultPage: 'store', pages: ['store'] },
-  ],
-  submenuByArea: {
-    'school-day': [
-      { id: 'store', label: 'Token Store' },
-    ],
+    store: [{ id: 'store', label: 'Token Store' }],
   },
 }
 
@@ -90,7 +74,7 @@ const THERAPIST_NAV_CONFIG: RoleNavConfig = {
     { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
     { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'schedule'] },
     { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students'] },
-    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support', 'behavior'] },
+    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
   ],
   submenuByArea: {
     dashboard: [{ id: 'dashboard', label: 'My Students' }],
@@ -98,10 +82,31 @@ const THERAPIST_NAV_CONFIG: RoleNavConfig = {
       { id: 'attendance', label: 'Attendance' },
       { id: 'schedule', label: 'Schedule' },
     ],
-    students: [{ id: 'students', label: 'Students List' }],
+    students: [{ id: 'students', label: 'Assigned Students' }],
+    support: [{ id: 'support', label: 'Support Overview' }],
+  },
+}
+
+const STORE_NAV_CONFIG: RoleNavConfig = {
+  topAreas: [
+    { id: 'school-day', label: 'School Day', defaultPage: 'store', pages: ['store'] },
+  ],
+  submenuByArea: {
+    'school-day': [{ id: 'store', label: 'Token Store' }],
+  },
+}
+
+const SUPPORT_STAFF_NAV_CONFIG: RoleNavConfig = {
+  topAreas: [
+    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'support', label: 'Student Support', defaultPage: 'support', pages: ['support'] },
+  ],
+  submenuByArea: {
+    students: [
+      { id: 'students', label: 'Assigned Students' },
+    ],
     support: [
       { id: 'support', label: 'Support Overview' },
-      { id: 'behavior', label: 'Behavior' },
     ],
   },
 }
@@ -125,7 +130,8 @@ const DEFAULT_NAV_CONFIG: RoleNavConfig = {
 export function getRoleNavConfig(role: string): RoleNavConfig {
   if (role === 'admin') return ADMIN_NAV_CONFIG
   if (role === 'teacher' || role === 'rebbe') return TEACHER_NAV_CONFIG
-  if (role === 'store') return STORE_NAV_CONFIG
   if (role === 'therapist') return THERAPIST_NAV_CONFIG
+  if (role === 'store' || role === 'canteen') return STORE_NAV_CONFIG
+  if (role === 'support_staff') return SUPPORT_STAFF_NAV_CONFIG
   return DEFAULT_NAV_CONFIG
 }

@@ -21,17 +21,20 @@ export function getLastName(name: string) {
 
 export function getLoginRoleKey(role: string) {
   const normalized = String(role || '').trim().toLowerCase()
-  if (normalized === 'store' || normalized === 'staff' || normalized === 'canteen') return 'store'
   if (normalized === 'teacher' || normalized === 'rebbe') return 'teacher'
-  if (normalized === 'therapist' || normalized === 'speech' || normalized === 'ot' || normalized === 'pt' || normalized === 'bcba' || normalized === 'social-counseling' || normalized === 'bt') return 'therapist'
+  if (normalized === 'store' || normalized === 'canteen') return 'store'
+  if (normalized === 'support_staff' || normalized === 'therapist' || normalized === 'speech' || normalized === 'ot' || normalized === 'pt' || normalized === 'bcba' || normalized === 'social-counseling' || normalized === 'bt') return 'support_staff'
   return 'admin'
 }
 
 export function buildLoginAccountRoleLabel(role: string) {
+  const normalized = String(role || '').trim().toLowerCase()
+  if (normalized === 'store' || normalized === 'canteen') return 'Canteen'
+  if (normalized === 'therapist') return 'Therapist'
+
   const key = getLoginRoleKey(role)
   if (key === 'teacher') return 'Teacher'
-  if (key === 'therapist') return 'Therapist'
-  if (key === 'store') return 'Canteen'
+  if (key === 'support_staff') return 'Support Staff'
   return 'Admin'
 }
 

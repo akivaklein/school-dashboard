@@ -12,7 +12,7 @@ create table if not exists public.user_roles (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   constraint user_roles_role_check
-    check (role in ('admin', 'teacher', 'therapist', 'office', 'store'))
+    check (role in ('admin', 'teacher', 'rebbe', 'support_staff'))
 );
 
 alter table public.user_roles add column if not exists role text;
@@ -23,6 +23,10 @@ alter table public.user_roles add column if not exists updated_at timestamptz;
 
 update public.user_roles
 set
+  role = case
+    when role in ('therapist', 'office', 'store', 'support', 'staff') then 'support_staff'
+    else role
+  end,
   display_name = coalesce(nullif(display_name, ''), 'Staff'),
   is_active = coalesce(is_active, true),
   created_at = coalesce(created_at, timezone('utc', now())),
@@ -53,7 +57,7 @@ begin
   ) then
     alter table public.user_roles
       add constraint user_roles_role_check
-      check (role in ('admin', 'teacher', 'therapist', 'office', 'store'));
+      check (role in ('admin', 'teacher', 'rebbe', 'support_staff'));
   end if;
 end $$;
 

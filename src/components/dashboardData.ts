@@ -657,11 +657,12 @@ export function resolveActorName(actorName, role = 'admin') {
 
   if (role === 'teacher') return 'Teacher'
   if (role === 'therapist') return 'Therapist'
+  if (role === 'support_staff') return 'Support Staff'
   return 'Staff'
 }
 
 export function getDashboardContextInfo(page, role, divisionView) {
-  const roleLabel = role === 'teacher' ? 'Teacher' : role === 'therapist' ? 'Therapist' : role === 'store' ? 'Store' : 'Admin'
+  const roleLabel = role === 'teacher' ? 'Teacher' : role === 'rebbe' ? 'Rebbe' : role === 'support_staff' ? 'Support Staff' : 'Admin'
   const pageLabel = page === 'dashboard' ? 'Dashboard' : page === 'attendance' ? 'Attendance' : page === 'behavior' ? 'Behavior' : page === 'academics' ? 'Academics' : page === 'schedule' ? 'Schedule' : page === 'store' ? 'Token Store' : page === 'setup' ? 'Setup Center' : page === 'support' ? 'Student Support' : page === 'staff-directory' ? 'Staff Directory' : page === 'calls' ? 'Calls' : page === 'alerts' ? 'Alerts' : page === 'todos' ? 'Todos' : 'Dashboard'
   const divisionLabel = 'Yeshiva Ketana'
   const contextSummary = `${pageLabel} · ${roleLabel} · ${divisionLabel}`
@@ -905,60 +906,22 @@ export function teacherDivisionForName(name) {
 }
 
 export function getUserAccess(name, role) {
-  if (role === 'store') {
-    return {
-      divisions: ['yeshiva_ketana', 'mesivta'],
-      canManageStore: false
-    }
-  }
-
   if (role === 'teacher' || role === 'rebbe') {
     return {
-      divisions: [teacherDivisionForName(name)],
+      divisions: ['yeshiva_ketana'],
       canManageStore: false
     }
   }
 
-  if (role === 'therapist') {
-    return {
-      divisions: ['yeshiva_ketana', 'mesivta'],
-      canManageStore: false
-    }
-  }
-
-  const bothDivisions = [
-    'Rabbi Baum',
-    'Rabbi Fried',
-    'Rabbi Lefkowitz',
-    'Rabbi Weiss',
-    'Eli Bloom',
-    'Zev Reisman',
-    'Eli Stern'
-  ]
-
-  if (bothDivisions.includes(name)) {
-    return {
-      divisions: ['yeshiva_ketana', 'mesivta'],
-      canManageStore: true
-    }
-  }
-
-  if (name === 'Rabbi Hillel') {
-    return {
-      divisions: ['mesivta'],
-      canManageStore: true
-    }
-  }
-
-  if (name === 'Rabbi Klein') {
+  if (role === 'support_staff') {
     return {
       divisions: ['yeshiva_ketana'],
-      canManageStore: true
+      canManageStore: false
     }
   }
 
   return {
-    divisions: ['yeshiva_ketana', 'mesivta'],
+    divisions: ['yeshiva_ketana'],
     canManageStore: role === 'admin'
   }
 }
@@ -968,7 +931,7 @@ export function defaultDivisionView(access) {
 }
 
 export function divisionLabel(key) {
-  return key === 'all' ? 'Both Divisions' : DIVISIONS[key]?.label || key
+  return key === 'all' ? 'All Yeshiva Ketana' : DIVISIONS[key]?.label || key
 }
 
 export function canAccessDashboardPage(role, page) {
@@ -976,16 +939,12 @@ export function canAccessDashboardPage(role, page) {
     return false
   }
 
-  if (role === 'store') {
-    return page === 'store'
-  }
-
   if (role === 'teacher' || role === 'rebbe') {
-    return ['dashboard', 'attendance', 'schedule', 'teaching-mode', 'support', 'academics', 'behavior', 'messages'].includes(page)
+    return ['dashboard', 'students', 'store'].includes(page)
   }
 
-  if (role === 'therapist') {
-    return ['dashboard', 'attendance', 'schedule', 'support', 'behavior', 'students'].includes(page)
+  if (role === 'support_staff') {
+    return ['students', 'support'].includes(page)
   }
 
   return true
@@ -1024,7 +983,7 @@ export function canAccessStudentForRole(student, context = {}) {
     }
   }
 
-  if (role === 'therapist') {
+  if (role === 'support_staff') {
     const targetStudentId = Number(student.id)
     const providedAssignedIds = Array.isArray(assignedStudentIds)
       ? assignedStudentIds.map(id => Number(id)).filter(id => !Number.isNaN(id))

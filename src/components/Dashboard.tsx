@@ -100,6 +100,14 @@ import {
   persistStudentFields,
   persistStudentFieldsBulk,
 } from '../services/studentPersistenceService'
+import {
+  archiveStudentRecord,
+  createStudentRecord,
+  getStudentDeletionImpact,
+  permanentlyDeleteStudentRecord,
+  restoreStudentRecord,
+  updateStudentRecord,
+} from '../services/studentsAdminService'
 import { recordLoginSession, recordLogoutSession } from '../services/loginSessionService'
 import {
   cameToSchoolToday,
@@ -1375,6 +1383,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     const nextRow = {
       ...row,
+      className: row.class_name ?? row.className,
+      classId: row.class_id ?? row.classId,
+      is_active: row.is_active !== false,
       dailyStatus: row.daily_status ?? row.dailyStatus,
       withStaff: row.with_staff ?? row.withStaff,
       lateDetails: row.late_details ?? row.lateDetails,
@@ -1604,6 +1615,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       const databaseRows = finalRows || []
       const studentsFromDb = databaseRows.map(databaseStudent => ({
         ...databaseStudent,
+        className:
+          databaseStudent.class_name ||
+          databaseStudent.className ||
+          '',
+        classId:
+          databaseStudent.class_id ||
+          databaseStudent.classId ||
+          null,
+        is_active: databaseStudent.is_active !== false,
         dailyStatus:
           databaseStudent.daily_status ||
           databaseStudent.dailyStatus ||
@@ -2067,6 +2087,180 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     setSelectedStudent(student)
     if (tab) setSelectedStudentTab(tab)
+  }
+
+  function mapDatabaseStudentToDashboardStudent(databaseStudent: Record<string, unknown>) {
+    return {
+      ...databaseStudent,
+      className:
+        databaseStudent.class_name ||
+        databaseStudent.className ||
+        '',
+      classId:
+        databaseStudent.class_id ||
+        databaseStudent.classId ||
+        null,
+      is_active: databaseStudent.is_active !== false,
+      dailyStatus:
+        databaseStudent.daily_status ||
+        databaseStudent.dailyStatus ||
+        databaseStudent.status ||
+        'present',
+      withStaff:
+        databaseStudent.with_staff ??
+        databaseStudent.withStaff ??
+        null,
+      lateDetails:
+        databaseStudent.late_details ??
+        databaseStudent.lateDetails ??
+        null,
+      points: resolveLiveStudentPoints(databaseStudent.token_balance),
+      att: Array.isArray(databaseStudent.attendance)
+        ? databaseStudent.attendance
+        : (Array.isArray(databaseStudent.att) ? databaseStudent.att : []),
+      notes: Array.isArray(databaseStudent.notes) ? databaseStudent.notes : [],
+      behaviorLog: Array.isArray(databaseStudent.behavior_log)
+        ? databaseStudent.behavior_log
+        : (Array.isArray(databaseStudent.behaviorLog) ? databaseStudent.behaviorLog : []),
+      parentCalls: Array.isArray(databaseStudent.parent_calls)
+        ? databaseStudent.parent_calls
+        : (Array.isArray(databaseStudent.parentCalls) ? databaseStudent.parentCalls : []),
+      testScores: Array.isArray(databaseStudent.test_scores)
+        ? databaseStudent.test_scores
+        : (Array.isArray(databaseStudent.testScores) ? databaseStudent.testScores : []),
+      classLog: Array.isArray(databaseStudent.class_log)
+        ? databaseStudent.class_log
+        : (Array.isArray(databaseStudent.classLog) ? databaseStudent.classLog : []),
+      therapyAssignments: Array.isArray(databaseStudent.therapy_assignments)
+        ? databaseStudent.therapy_assignments
+        : (Array.isArray(databaseStudent.therapyAssignments) ? databaseStudent.therapyAssignments : []),
+      assignedTherapist:
+        databaseStudent.assigned_therapist ??
+        databaseStudent.assignedTherapist ??
+        '',
+      therapyFrequency:
+        databaseStudent.therapy_frequency ??
+        databaseStudent.therapyFrequency ??
+        '',
+      therapyNotes:
+        databaseStudent.therapy_notes ??
+        databaseStudent.therapyNotes ??
+        '',
+      family: databaseStudent.family && typeof databaseStudent.family === 'object' ? databaseStudent.family : {},
+      medical: databaseStudent.medical && typeof databaseStudent.medical === 'object' ? databaseStudent.medical : {},
+      services: Array.isArray(databaseStudent.services) ? databaseStudent.services : [],
+      breakfast: Array.isArray(databaseStudent.breakfast) ? databaseStudent.breakfast : [],
+      reminders: Number(databaseStudent.reminders || 0),
+    } as StudentLike
+  }
+
+  async function createStudentFromAdmin(payload: {
+    name: string
+    className: string
+    classId?: string
+    status?: string
+    isActive?: boolean
+    teacherAssignments?: string[]
+    supportAssignments?: string[]
+    family?: Record<string, string>
+  }) {
+    const activeRole = previewAs?.role || role
+    if (activeRole !== 'admin') {
+      throw new Error('Only admins can add students.')
+    }
+
+    const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
+    const created = await createStudentRecord(payload, actor)
+
+    const nextStudent = mapDatabaseStudentToDashboardStudent(created)
+
+    if (payload.classId) {
+      await upsertStudentClassAssignment(
+        Number(created.id),
+        payload.classId,
+        'yeshiva_ketana',
+        actor,
+      )
+    }
+
+    setStudents(prev => {
+      const withoutCurrent = prev.filter(student => Number(student.id) !== Number(nextStudent.id))
+      return [...withoutCurrent, nextStudent].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+    })
+  }
+
+  async function updateStudentFromAdmin(student: StudentLike, payload: {
+    name: string
+    className: string
+    classId?: string
+    status?: string
+    isActive?: boolean
+    teacherAssignments?: string[]
+    supportAssignments?: string[]
+    family?: Record<string, string>
+  }) {
+    const activeRole = previewAs?.role || role
+    if (activeRole !== 'admin') {
+      throw new Error('Only admins can edit students.')
+    }
+
+    const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
+    const updated = await updateStudentRecord(Number(student.id), payload, actor)
+    const nextStudent = mapDatabaseStudentToDashboardStudent(updated)
+
+    if (payload.classId) {
+      await upsertStudentClassAssignment(
+        Number(student.id),
+        payload.classId,
+        'yeshiva_ketana',
+        actor,
+      )
+    }
+
+    setStudents(prev => prev.map(entry => Number(entry.id) === Number(student.id) ? nextStudent : entry))
+  }
+
+  async function archiveStudentFromAdmin(student: StudentLike) {
+    const activeRole = previewAs?.role || role
+    if (activeRole !== 'admin') {
+      throw new Error('Only admins can archive students.')
+    }
+
+    const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
+    const updated = await archiveStudentRecord(Number(student.id), actor)
+    const nextStudent = mapDatabaseStudentToDashboardStudent(updated)
+    setStudents(prev => prev.map(entry => Number(entry.id) === Number(student.id) ? nextStudent : entry))
+  }
+
+  async function restoreStudentFromAdmin(student: StudentLike) {
+    const activeRole = previewAs?.role || role
+    if (activeRole !== 'admin') {
+      throw new Error('Only admins can restore students.')
+    }
+
+    const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
+    const updated = await restoreStudentRecord(Number(student.id), actor)
+    const nextStudent = mapDatabaseStudentToDashboardStudent(updated)
+    setStudents(prev => prev.map(entry => Number(entry.id) === Number(student.id) ? nextStudent : entry))
+  }
+
+  async function getDeletionImpactForStudent(student: StudentLike) {
+    return getStudentDeletionImpact(Number(student.id))
+  }
+
+  async function deleteStudentFromAdmin(student: StudentLike) {
+    const activeRole = previewAs?.role || role
+    if (activeRole !== 'admin') {
+      throw new Error('Only admins can permanently delete students.')
+    }
+
+    if (student?.is_active !== false) {
+      throw new Error('Student must be archived before permanent deletion.')
+    }
+
+    const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
+    await permanentlyDeleteStudentRecord(Number(student.id), actor)
+    setStudents(prev => prev.filter(entry => Number(entry.id) !== Number(student.id)))
   }
 
   const refreshStoreData = useCallback(async () => {
@@ -3284,7 +3478,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     setStoredAuthUser(r, name)
     setDivisionView(defaultDivisionView(access))
     setLoggedIn(true)
-    setPage(r === 'store' ? 'store' : 'dashboard')
+    setPage('dashboard')
     if (r === 'teacher' || r === 'rebbe') {
       const classIds = teacherAssignedClassIdsByName.get(normalizeStaffName(name)) || []
       setTeacherClassIds(classIds)
@@ -3327,8 +3521,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     const roleText = [staff.role, ...(staff.roles || [])].join(' ').toLowerCase()
     const role = /teacher|rebbe/.test(roleText)
       ? 'teacher'
-      : /therap|speech|ot|pt|bcba|counsel|bt/.test(roleText)
-        ? 'therapist'
+      : /therap|speech|ot|pt|bcba|counsel|bt|support/.test(roleText)
+        ? 'support_staff'
         : 'admin'
     
     setLoggedInStaff(prev => {
@@ -4200,17 +4394,19 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     )
   }
 
+  const activeStudents = students.filter(student => student?.is_active !== false)
+
   const userAccessForMode = getUserAccess(effectiveUserName, effectiveRole)
   const allowedDivisionSetForMode = new Set(userAccessForMode.divisions)
-  const isStoreRoleForMode = effectiveRole === 'store'
+  const isStoreRoleForMode = false
   const normalizedEffectiveUserName = normalizeStaffName(effectiveUserName)
-  const divisionScopedStudentsForMode = students.filter(
+  const divisionScopedStudentsForMode = activeStudents.filter(
     s =>
       allowedDivisionSetForMode.has(studentDivision(s)) &&
       (divisionView === 'all' || studentDivision(s) === divisionView)
   )
   const isTeacherRoleForMode = effectiveRole === 'teacher' || effectiveRole === 'rebbe'
-  const isTherapistRoleForMode = effectiveRole === 'therapist'
+  const isTherapistRoleForMode = effectiveRole === 'support_staff'
   const teacherAssignmentStudentIdsForMode = Array.from(
     activeTeacherAssignmentIdsByName.get(normalizedEffectiveUserName) || new Set<number>(),
   )
@@ -4229,9 +4425,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const studentsForCurrentRole = isStoreRoleForMode
     ? []
     : isTeacherRoleForMode
-      ? students.filter(s => assignedTeacherStudentSetForMode.has(Number(s.id)))
+      ? activeStudents.filter(s => assignedTeacherStudentSetForMode.has(Number(s.id)))
       : isLeadershipRoleForMode
-        ? students
+        ? activeStudents
         : isTherapistRoleForMode
           ? divisionScopedStudentsForMode.filter(s => assignedStaffStudentSetForMode.has(Number(s.id)) || Boolean(s.services?.length))
           : (
@@ -4243,7 +4439,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   if (teachingMode) return (
     <TeachingMode
       students={studentsForCurrentRole}
-      allStudents={students}
+      allStudents={activeStudents}
       setStudents={setStudents}
       onExit={closeTeachingModeToSchoolDay}
       isAdmin={effectiveRole === 'admin'}
@@ -4271,10 +4467,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const userAccess = getUserAccess(effectiveUserName, effectiveRole)
   const isTeacherRole = effectiveRole === 'teacher' || effectiveRole === 'rebbe'
-  const isStoreRole = effectiveRole === 'store'
-  const isOfficeUser = ['Eli Bloom', 'Zev Reisman', 'Eli Stern'].includes(effectiveUserName)
+  const isStoreRole = false
+  const isOfficeUser = false
   const allowedDivisionSet = new Set(userAccess.divisions)
-  const divisionScopedStudents = students.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
+  const divisionScopedStudents = activeStudents.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
   const normalizedUserName = normalizeStaffName(effectiveUserName)
   const assignedTeacherClassIds = isTeacherRole
     ? (teacherAssignedClassIdsByName.get(normalizedUserName) || teacherClassIds)
@@ -4290,8 +4486,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const visibleStudents = isStoreRole
     ? []
     : isTeacherRole
-      ? students.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
-      : effectiveRole === 'therapist'
+      ? activeStudents.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
+      : effectiveRole === 'support_staff'
         ? divisionScopedStudents.filter(s => assignedStaffStudentSet.has(Number(s.id)) || Boolean(s.services?.length))
         : divisionScopedStudents
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
@@ -4319,7 +4515,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const urgentStudents = visibleStudents.filter(s => (s.reminders ?? 0) >= 6 || Boolean(s.detention) || (s.att ?? []).filter(d => d === 'A').length >= 3 || s.status === 'unknown')
   const callsDueStudents = visibleStudents.filter(s => { const parentCalls = Array.isArray(s.parentCalls) ? s.parentCalls : []; const lc = parentCalls.length > 0 ? parentCalls[parentCalls.length - 1] as { date?: string } | undefined : null; return !lc?.date || daysSince(lc.date) > 14 })
   const divisionSummaries = userAccess.divisions.map(key => {
-    const list = students.filter(s => studentDivision(s) === key)
+    const list = activeStudents.filter(s => studentDivision(s) === key)
     return {
       key,
       label: divisionLabel(key),
@@ -4367,6 +4563,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   ]
 
   const normalizedSearch = String(search || '').trim().toLowerCase()
+  const studentsForStudentsPage = normalizedSearch
+    ? (effectiveRole === 'admin' ? students : visibleStudents).filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
+    : (effectiveRole === 'admin' ? students : visibleStudents)
   const searchedStudents = normalizedSearch
     ? visibleStudents.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
     : visibleStudents
@@ -4424,9 +4623,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                 ? 'Principal Portal'
                 : effectiveRole === 'teacher' || effectiveRole === 'rebbe'
                   ? 'Teacher Portal'
-                  : effectiveRole === 'store'
-                    ? 'Canteen Register'
-                    : 'Therapist Portal'}
+                  : 'Support Staff Portal'}
           </div>
         </div>
 
@@ -4720,7 +4917,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         )}
 
         {page === 'dashboard' && (effectiveRole === 'teacher' || effectiveRole === 'rebbe') && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} />}
-        {page === 'dashboard' && effectiveRole === 'therapist' && <TherapistDashboard students={visibleStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s, 'therapy')} staffMembers={staffMembers} therapySchedule={THERAPY_SCHEDULE_STATE} />}
+        {page === 'dashboard' && effectiveRole === 'support_staff' && <TherapistDashboard students={visibleStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s, 'therapy')} staffMembers={staffMembers} therapySchedule={THERAPY_SCHEDULE_STATE} />}
 
         {page === 'dashboard' && effectiveRole === 'admin' && isOfficeUser && (
           <AdminOfficeDashboardPage
@@ -4937,7 +5134,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
         {page === 'students' && (
           <StudentsListPage
-            searchedStudents={searchedStudents}
+            searchedStudents={studentsForStudentsPage}
             openStudent={openStudent}
             S={S}
             STAFF={STAFF}
@@ -4948,6 +5145,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusLabel={statusLabel}
             daysSince={daysSince}
             initials={initials}
+            role={effectiveRole}
+            classes={CLASSES}
+            onCreateStudent={createStudentFromAdmin}
+            onUpdateStudent={updateStudentFromAdmin}
+            onArchiveStudent={archiveStudentFromAdmin}
+            onRestoreStudent={restoreStudentFromAdmin}
+            onDeleteStudent={deleteStudentFromAdmin}
+            onGetDeletionImpact={getDeletionImpactForStudent}
           />
         )}
 

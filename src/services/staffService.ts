@@ -4,19 +4,7 @@ export const STAFF_ROLE_OPTIONS = [
   'admin',
   'teacher',
   'rebbe',
-  'menahel',
-  'mashgiach',
-  'therapist',
-  'speech',
-  'ot',
-  'pt',
-  'bcba',
-  'social-counseling',
-  'bt',
-  'support',
-  'office',
-  'store',
-  'staff',
+  'support_staff',
 ] as const
 
 export type StaffRole = typeof STAFF_ROLE_OPTIONS[number]
@@ -74,11 +62,11 @@ export const FALLBACK_STAFF_MEMBERS: StaffMemberRecord[] = [
   { id: 1, name: 'Rabbi Baum', role: 'admin', roles: ['admin'], email: '', phone: '', active: true },
   { id: 2, name: 'Rabbi Fried', role: 'admin', roles: ['admin'], email: '', phone: '', active: true },
   { id: 3, name: 'Rabbi Klein', role: 'teacher', roles: ['teacher'], email: '', phone: '', active: true },
-  { id: 4, name: 'Rabbi Schults', role: 'teacher', roles: ['teacher'], email: '', phone: '', active: true },
-  { id: 5, name: 'Shelly Wagschal', role: 'therapist', roles: ['therapist'], email: '', phone: '', active: true },
-  { id: 6, name: 'Aryeh Schechter', role: 'therapist', roles: ['therapist'], email: '', phone: '', active: true },
-  { id: 7, name: 'Mrs. Goldberg', role: 'therapist', roles: ['therapist'], email: '', phone: '', active: true },
-  { id: 8, name: 'Canteen Register', role: 'staff', roles: ['staff'], email: '', phone: '', active: true },
+  { id: 4, name: 'Rabbi Schults', role: 'rebbe', roles: ['rebbe'], email: '', phone: '', active: true },
+  { id: 5, name: 'Shelly Wagschal', role: 'support_staff', roles: ['support_staff'], email: '', phone: '', active: true },
+  { id: 6, name: 'Aryeh Schechter', role: 'support_staff', roles: ['support_staff'], email: '', phone: '', active: true },
+  { id: 7, name: 'Mrs. Goldberg', role: 'support_staff', roles: ['support_staff'], email: '', phone: '', active: true },
+  { id: 8, name: 'Ezriel', role: 'support_staff', roles: ['support_staff'], email: '', phone: '', active: true },
 ]
 
 function normalizeRole(role: string): string {
@@ -91,6 +79,21 @@ function normalizeRole(role: string): string {
 
   if (value === 'yeshiva ketana rebbe' || value === 'rebbe') {
     return 'rebbe'
+  }
+
+  if (
+    value === 'therapist' ||
+    value === 'speech' ||
+    value === 'ot' ||
+    value === 'pt' ||
+    value === 'bcba' ||
+    value === 'social-counseling' ||
+    value === 'social counseling' ||
+    value === 'bt' ||
+    value === 'support' ||
+    value === 'staff'
+  ) {
+    return 'support_staff'
   }
 
   if (value === 'admin / office') {
