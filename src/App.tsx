@@ -50,6 +50,7 @@ function App() {
   const [resetLinkError, setResetLinkError] = useState('')
   const appUrl = readAppUrl()
   const isResetRoute = window.location.pathname === '/reset-password'
+  const shouldShowResetPage = isResetRoute || isResetReady || hasRecoveryTokens()
 
   useEffect(() => {
     let active = true
@@ -78,11 +79,7 @@ function App() {
         if (data.session?.user?.id) {
           setIsResetReady(true)
           setResetLinkError('')
-          if (!isResetRoute) {
-            window.history.replaceState({}, document.title, '/reset-password')
-          } else {
-            window.history.replaceState({}, document.title, '/reset-password')
-          }
+          window.history.replaceState({}, document.title, '/reset-password')
         } else if (isResetRoute) {
           setIsResetReady(false)
           setResetLinkError('This password reset link is invalid, expired, or already used. Request a new reset email.')
@@ -102,9 +99,11 @@ function App() {
       setSessionUserId(nextUserId)
 
       if (event === 'PASSWORD_RECOVERY') {
+        setDashboardUser(null)
         setIsResetReady(true)
         setResetLinkError('')
         setAuthMessage('Set a new password to finish account recovery.')
+        setAuthMode('forgot-password')
         window.history.replaceState({}, document.title, '/reset-password')
       }
 
@@ -230,7 +229,7 @@ function App() {
     )
   }
 
-  if (isResetRoute) {
+  if (shouldShowResetPage) {
     return (
       <SetNewPasswordPage
         ready={isResetReady}

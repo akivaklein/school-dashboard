@@ -1410,29 +1410,26 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     const existingIndex = previous.findIndex(student => Number(student.id) === rowId)
     if (existingIndex === -1) {
-      const initialStudent = initialStudents.find(student => Number(student.id) === rowId)
-      const base = initialStudent
-        ? { ...initialStudent }
-        : {
-            id: rowId,
-            name: String(row.name || `Student ${rowId}`),
-            points: 0,
-            reminders: 0,
-            status: 'present',
-            dailyStatus: 'present',
-            withStaff: null,
-            att: [],
-            breakfast: [],
-            services: [],
-            parentCalls: [],
-            notes: [],
-            behaviorLog: [],
-            testScores: [],
-            classLog: [],
-            lateDetails: null,
-            family: {},
-            medical: {},
-          }
+      const base = {
+        id: rowId,
+        name: String(row.name || `Student ${rowId}`),
+        points: 0,
+        reminders: 0,
+        status: 'present',
+        dailyStatus: 'present',
+        withStaff: null,
+        att: [],
+        breakfast: [],
+        services: [],
+        parentCalls: [],
+        notes: [],
+        behaviorLog: [],
+        testScores: [],
+        classLog: [],
+        lateDetails: null,
+        family: {},
+        medical: {},
+      }
 
       return [...previous, { ...base, ...rowForStudent }]
     }

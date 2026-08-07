@@ -81,6 +81,8 @@ export default function StudentsListPage({
     pageSize,
   }), [studentsForDisplay, tableSearch, sortBy, sortDir, page, pageSize])
 
+  const isEmptyList = totalCount === 0
+
   const tableRows = visibleRows
 
   function toggleSort(column) {
@@ -384,7 +386,11 @@ export default function StudentsListPage({
                 })}
                 {tableRows.length === 0 && (
                   <tr>
-                    <td colSpan={8} style={{ padding: 16, textAlign: 'center', color: '#64748b' }}>No students match current filters.</td>
+                    <td colSpan={8} style={{ padding: 16, textAlign: 'center', color: '#64748b' }}>
+                      {isEmptyList
+                        ? 'No secure Yeshiva Ketana students are stored yet. Use Add Student to create the first record.'
+                        : 'No students match current filters.'}
+                    </td>
                   </tr>
                 )}
               </tbody>
