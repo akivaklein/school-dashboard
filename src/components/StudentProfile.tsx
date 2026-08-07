@@ -377,7 +377,7 @@ export default function StudentProfile({
             </div>
           )}
           {effectiveTab === 'notes' && (
-            <StudentNotes student={s} students={students} setStudents={setStudents} userName={userName} S={S} />
+            <StudentNotes student={s} students={students} setStudents={setStudents} userName={userName} role={role} S={S} />
           )}
 
           {effectiveTab === 'info' && (

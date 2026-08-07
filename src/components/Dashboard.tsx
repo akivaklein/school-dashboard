@@ -4459,6 +4459,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const setupNavItems = [
     { id: 'staff-directory', label: 'Staff Directory', icon: '👥', group: 'People & Staff' },
     { id: 'assignments', label: 'Staff Assignments', icon: '🧑‍🏫', group: 'People & Staff' },
+    { id: 'therapy-schedule', label: 'Therapist / BT Assignments', icon: '🩺', group: 'People & Staff' },
     { id: 'accounts', label: 'Staff Accounts', icon: '🔐', group: 'People & Staff' },
     { id: 'classes-divisions', label: 'Classes & Divisions', icon: '🏫', group: 'School Structure' },
   ]

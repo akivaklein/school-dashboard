@@ -1,17 +1,88 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { resolveActorName } from './dashboardData'
 import { supabase } from '../supabaseClient'
-import { mergeStudentNoteEntries, type StudentNoteEntry } from '../services/realtimePersistence'
+import {
+  archiveStudentNote,
+  canManageStudentNote,
+  createStudentNote,
+  listStudentNotes,
+  updateStudentNote,
+  type StudentNoteRecord,
+} from '../services/studentNotesService'
 
-export default function StudentNotes({ student, students, setStudents, userName, S }) {
+export default function StudentNotes({ student, students, setStudents, userName, role, S }) {
   const [noteText, setNoteText] = useState('')
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
+  const [editingText, setEditingText] = useState('')
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null)
+  const [notes, setNotes] = useState<StudentNoteRecord[]>([])
+  const [loadingNotes, setLoadingNotes] = useState(false)
+  const [busyNoteId, setBusyNoteId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
   const s = students.find(x => x.id === student.id) || student
 
+  const actorName = useMemo(
+    () => resolveActorName(userName, role),
+    [role, userName],
+  )
+
+  function formatNoteTimestamp(timestamp: string | null | undefined) {
+    if (!timestamp) return 'Unknown time'
+    const parsed = new Date(timestamp)
+    if (Number.isNaN(parsed.getTime())) return 'Unknown time'
+    return parsed.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  function syncStudentNotesIntoProfile(nextNotes: StudentNoteRecord[]) {
+    const mapped = nextNotes.map(note => ({
+      id: note.id,
+      date: String(note.created_at || '').slice(0, 10),
+      author: note.author || note.created_by_name || 'Staff',
+      text: note.note,
+    }))
+
+    setStudents(prev => prev.map(entry => (
+      Number(entry.id) === Number(s.id)
+        ? { ...entry, notes: mapped }
+        : entry
+    )))
+  }
+
+  async function refreshNotes() {
+    if (!s?.id) return
+    setLoadingNotes(true)
+    try {
+      const rows = await listStudentNotes(Number(s.id))
+      setNotes(rows)
+      syncStudentNotesIntoProfile(rows)
+      setSaveError(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to load notes right now.'
+      setSaveError(message)
+    } finally {
+      setLoadingNotes(false)
+    }
+  }
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setSessionUserId(data.user?.id || null)
+    })
+  }, [])
+
   useEffect(() => {
     if (!s?.id) return
+
+    refreshNotes()
 
     const notesChannel = supabase
       .channel(`student-notes-${s.id}`)
@@ -23,23 +94,9 @@ export default function StudentNotes({ student, students, setStudents, userName,
           table: 'student_notes',
           filter: `student_id=eq.${Number(s.id)}`,
         },
-        payload => {
-          const nextNote = payload.new as Record<string, unknown> | null
-          if (payload.eventType === 'DELETE') {
-            setStudents(prev => prev.map(studentEntry => studentEntry.id === s.id ? { ...studentEntry, notes: (studentEntry.notes || []).filter((note: any) => String(note.id ?? `${note.date}|${note.author}|${note.text}`) !== String((payload.old as Record<string, unknown> | null)?.id ?? '')) } : studentEntry))
-            return
-          }
-
-          if (!nextNote) return
-          const entry = {
-            id: Number(nextNote.id),
-            date: nextNote.created_at ? String(nextNote.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10),
-            author: String(nextNote.author || 'Staff'),
-            text: String(nextNote.note || ''),
-          }
-
-          setStudents(prev => prev.map(studentEntry => studentEntry.id === s.id ? { ...studentEntry, notes: mergeStudentNoteEntries(studentEntry.notes || [], entry as StudentNoteEntry) } : studentEntry))
-        },
+        () => {
+          refreshNotes()
+        }
       )
       .subscribe(status => {
         if (status === 'CHANNEL_ERROR') {
@@ -50,104 +107,152 @@ export default function StudentNotes({ student, students, setStudents, userName,
     return () => {
       supabase.removeChannel(notesChannel)
     }
-  }, [s?.id, setStudents])
+  }, [s?.id])
+
+  useEffect(() => {
+    if (!successMessage) return
+    const timer = window.setTimeout(() => setSuccessMessage(null), 2200)
+    return () => window.clearTimeout(timer)
+  }, [successMessage])
 
   async function addNote() {
     if (!noteText.trim()) return
     if (!s?.id) return
 
-    const newNote = {
-      date: new Date().toISOString().slice(0, 10),
-      author: resolveActorName(userName, 'admin'),
-      text: noteText.trim(),
-    }
-
     setSaving(true)
     setSaveError(null)
 
-    // Update student notes array in students table (JSONB persistence)
-    const updatedNotes = [...(s.notes || []), newNote]
-    const { error: updateError } = await supabase
-      .from('students')
-      .update({ notes: updatedNotes })
-      .eq('id', s.id)
-
-    if (updateError) {
+    try {
+      await createStudentNote({
+        studentId: Number(s.id),
+        studentName: String(s.name || ''),
+        note: noteText.trim(),
+        author: actorName,
+        actorName,
+      })
+      setNoteText('')
+      setSuccessMessage('Note added.')
+      await refreshNotes()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to save note right now.'
+      setSaveError(message)
+    } finally {
       setSaving(false)
-      const message = updateError.message || 'Unable to save note to the student record.'
-      setSaveError(message)
-      console.error('Error saving student note to students table:', updateError)
-      return
     }
+  }
 
-    // Also insert into student_notes table for audit log
-    const { error: insertError } = await supabase
-      .from('student_notes')
-      .insert([
-        {
-          student_id: Number(s.id),
-          student_name: s.name,
-          note: newNote.text,
-          author: newNote.author,
-          created_at: new Date().toISOString(),
-        },
-      ])
-
-    setSaving(false)
-
-    if (insertError) {
-      const message = insertError.message || 'Unable to save note to the audit log.'
+  async function saveEditedNote(note: StudentNoteRecord) {
+    if (!editingText.trim()) return
+    setBusyNoteId(note.id)
+    setSaveError(null)
+    try {
+      await updateStudentNote({
+        noteId: note.id,
+        note: editingText.trim(),
+        actorName,
+      })
+      setEditingNoteId(null)
+      setEditingText('')
+      setSuccessMessage('Note updated.')
+      await refreshNotes()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to update note right now.'
       setSaveError(message)
-      console.error('Error saving note to audit log:', insertError)
-      // Note was saved to student record, so don't fail completely
+    } finally {
+      setBusyNoteId(null)
     }
-
-    setStudents(prev =>
-      prev.map(x =>
-        x.id === s.id
-          ? { ...x, notes: updatedNotes }
-          : x
-      )
-    )
-
-    setNoteText('')
   }
 
   async function deleteNote(idx: number) {
     if (!s?.id) return
-    const updatedNotes = (s.notes || []).filter((_, i) => i !== idx)
-    const { error } = await supabase.from('students').update({ notes: updatedNotes }).eq('id', s.id)
-    if (error) { console.error('Error deleting note:', error); return }
-    setStudents(prev => prev.map(x => x.id === s.id ? { ...x, notes: updatedNotes } : x))
-    setConfirmDeleteIdx(null)
+    const note = notes[idx]
+    if (!note) return
+
+    setBusyNoteId(note.id)
+    setSaveError(null)
+
+    try {
+      await archiveStudentNote({
+        noteId: note.id,
+        actorName,
+      })
+      setConfirmDeleteIdx(null)
+      setSuccessMessage('Note removed.')
+      await refreshNotes()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to remove note right now.'
+      setSaveError(message)
+    } finally {
+      setBusyNoteId(null)
+    }
   }
 
   return (
     <div style={S.card}>
       <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>Staff Notes</div>
-      {(!s.notes || s.notes.length === 0) ? (
+      {loadingNotes ? (
+        <div style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>Loading notes...</div>
+      ) : notes.length === 0 ? (
         <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16 }}>No notes yet.</div>
       ) : (
-        s.notes.map((n, i) => (
-          <div key={i} style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-              <div>
-                <span style={{ fontWeight: 600, fontSize: 12 }}>{n.author}</span>
-                <span style={{ color: '#94a3b8', fontSize: 12, marginLeft: 8 }}>{n.date}</span>
+        notes.map((n, i) => {
+          const canManage = canManageStudentNote({
+            role,
+            actorUserId: sessionUserId,
+            noteCreatedByUserId: n.created_by_user_id,
+          })
+
+          const isEditing = editingNoteId === n.id
+          const noteBusy = busyNoteId === n.id
+
+          return (
+            <div key={n.id} style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: 12 }}>{n.author || n.created_by_name || 'Staff'}</span>
+                  <span style={{ color: '#94a3b8', fontSize: 12, marginLeft: 8 }}>{formatNoteTimestamp(n.created_at)}</span>
+                  {n.updated_at && (
+                    <span style={{ color: '#94a3b8', fontSize: 12, marginLeft: 8 }}>
+                      Updated by {n.updated_by_name || n.author || 'Staff'} · {formatNoteTimestamp(n.updated_at)}
+                    </span>
+                  )}
+                </div>
+                {canManage && confirmDeleteIdx === i ? (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: '#64748b' }}>Delete this note?</span>
+                    <button onClick={() => deleteNote(i)} disabled={noteBusy} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>{noteBusy ? 'Deleting...' : 'Delete'}</button>
+                    <button onClick={() => setConfirmDeleteIdx(null)} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                ) : canManage ? (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button onClick={() => {
+                      setEditingNoteId(n.id)
+                      setEditingText(n.note)
+                      setConfirmDeleteIdx(null)
+                    }} title="Edit note" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 13, padding: '0 2px', lineHeight: 1 }}>✏</button>
+                    <button onClick={() => setConfirmDeleteIdx(i)} title="Delete note" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 14, padding: '0 2px', lineHeight: 1 }}>🗑</button>
+                  </div>
+                ) : null}
               </div>
-              {confirmDeleteIdx === i ? (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: '#64748b' }}>Delete this note?</span>
-                  <button onClick={() => deleteNote(i)} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>Delete</button>
-                  <button onClick={() => setConfirmDeleteIdx(null)} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+
+              {isEditing ? (
+                <div>
+                  <textarea
+                    value={editingText}
+                    onChange={event => setEditingText(event.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', marginBottom: 8, fontSize: 13, minHeight: 72, boxSizing: 'border-box', resize: 'vertical' }}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => saveEditedNote(n)} disabled={noteBusy || !editingText.trim()} style={{ ...S.btn('primary'), padding: '6px 12px', fontSize: 12 }}>{noteBusy ? 'Saving...' : 'Save'}</button>
+                    <button onClick={() => { setEditingNoteId(null); setEditingText('') }} style={{ ...S.btn('ghost'), padding: '6px 12px', fontSize: 12 }}>Cancel</button>
+                  </div>
                 </div>
               ) : (
-                <button onClick={() => setConfirmDeleteIdx(i)} title="Delete note" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 14, padding: '0 2px', lineHeight: 1 }}>🗑</button>
+                <div style={{ fontSize: 13, color: '#334155' }}>{n.note}</div>
               )}
             </div>
-            <div style={{ fontSize: 13, color: '#334155' }}>{n.text}</div>
-          </div>
-        ))
+          )
+        })
       )}
       <div style={{ marginTop: 14, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
         <textarea
@@ -158,6 +263,9 @@ export default function StudentNotes({ student, students, setStudents, userName,
           lang="en"
           style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', marginBottom: 8, fontSize: 13, minHeight: 70, boxSizing: 'border-box', resize: 'vertical' }}
         />
+        {successMessage && (
+          <div style={{ color: '#166534', fontSize: 12, marginBottom: 8 }}>{successMessage}</div>
+        )}
         {saveError && (
           <div style={{ color: '#b91c1c', fontSize: 12, marginBottom: 8 }}>{saveError}</div>
         )}

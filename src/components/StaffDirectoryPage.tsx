@@ -40,7 +40,7 @@ function categoryForRoles(roles: string[] = []) {
   if (/menahel|mashgiach|admin/.test(roleText)) return 'Administration'
   if (/teacher|rebbe/.test(roleText)) return 'Teachers & Rebbeim'
   if (/therapist|speech|ot|pt|bcba|social-counseling/.test(roleText)) return 'Therapists & Clinicians'
-  if (/office|store/.test(roleText)) return 'Office & Operations'
+  if (/store/.test(roleText)) return 'Operations'
   return 'Support Staff'
 }
 
@@ -153,7 +153,7 @@ export default function StaffDirectoryPage({
       Administration: [] as StaffDirectoryMember[],
       'Teachers & Rebbeim': [] as StaffDirectoryMember[],
       'Therapists & Clinicians': [] as StaffDirectoryMember[],
-      'Office & Operations': [] as StaffDirectoryMember[],
+      Operations: [] as StaffDirectoryMember[],
       'Support Staff': [] as StaffDirectoryMember[],
     }
 

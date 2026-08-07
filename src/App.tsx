@@ -16,6 +16,8 @@ type UserRoleRecord = {
   is_active: boolean | null
 }
 
+const RESET_EMAIL_COOLDOWN_SECONDS = 90
+
 function getRecoveryModeFromUrl(): AuthMode {
   const hash = window.location.hash || ''
   const search = window.location.search || ''
@@ -46,11 +48,22 @@ function App() {
   const [password, setPassword] = useState('')
   const [authMessage, setAuthMessage] = useState('')
   const [authActionBusy, setAuthActionBusy] = useState(false)
+  const [resetCooldownUntil, setResetCooldownUntil] = useState<number>(0)
+  const [resetNow, setResetNow] = useState<number>(Date.now())
   const [isResetReady, setIsResetReady] = useState(false)
   const [resetLinkError, setResetLinkError] = useState('')
   const appUrl = readAppUrl()
   const isResetRoute = window.location.pathname === '/reset-password'
   const shouldShowResetPage = isResetRoute || isResetReady || hasRecoveryTokens()
+  const resetCooldownSeconds = Math.max(0, Math.ceil((resetCooldownUntil - resetNow) / 1000))
+  const resetCooldownActive = resetCooldownSeconds > 0
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setResetNow(Date.now())
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -195,6 +208,10 @@ function App() {
   }
 
   async function handleSendResetEmail() {
+    if (authActionBusy || resetCooldownActive) {
+      return
+    }
+
     setAuthActionBusy(true)
     setAuthError('')
     setAuthMessage('')
@@ -203,8 +220,14 @@ function App() {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
 
     if (error) {
-      setAuthError(error.message)
+      const lowerMessage = String(error.message || '').toLowerCase()
+      if (lowerMessage.includes('rate') || lowerMessage.includes('too many') || lowerMessage.includes('over_email_send_rate_limit')) {
+        setAuthError('Too many reset requests were sent recently. Please wait before trying again.')
+      } else {
+        setAuthError(error.message)
+      }
     } else {
+      setResetCooldownUntil(Date.now() + RESET_EMAIL_COOLDOWN_SECONDS * 1000)
       setAuthMessage('Password reset email sent. Open the link to set a new password.')
       setAuthMode('sign-in')
     }
@@ -327,11 +350,17 @@ function App() {
           <>
             <button
               onClick={handleSendResetEmail}
-              disabled={authActionBusy}
-              style={{ width: '100%', border: 'none', borderRadius: 10, background: '#1e3a5f', color: '#fff', fontWeight: 800, padding: '11px 12px', cursor: authActionBusy ? 'not-allowed' : 'pointer' }}
+              disabled={authActionBusy || resetCooldownActive}
+              style={{ width: '100%', border: 'none', borderRadius: 10, background: '#1e3a5f', color: '#fff', fontWeight: 800, padding: '11px 12px', cursor: (authActionBusy || resetCooldownActive) ? 'not-allowed' : 'pointer', opacity: resetCooldownActive ? 0.65 : 1 }}
             >
-              {authActionBusy ? 'Sending...' : 'Send Reset Email'}
+              {authActionBusy ? 'Sending...' : resetCooldownActive ? `Try Again In ${resetCooldownSeconds}s` : 'Send Reset Email'}
             </button>
+
+            {resetCooldownActive && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
+                For security, reset requests are temporarily throttled after each send.
+              </div>
+            )}
 
             <button
               onClick={() => {
