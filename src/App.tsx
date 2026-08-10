@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import Dashboard from './components/Dashboard'
 import SetNewPasswordPage from './components/SetNewPasswordPage'
 import { supabase } from './supabaseClient'
+import type { AuthMode } from './utils/authRecovery'
 import {
   buildPasswordResetRedirectUrl,
   getPasswordResetErrorMessage,
   getRecoveryModeFromUrl,
+  hasRecoveryTokens,
   shouldShowPasswordResetPage,
 } from './utils/authRecovery'
 
@@ -59,6 +61,7 @@ function App() {
     let active = true
 
     async function initializeAuth() {
+      try {
       // Handle recovery links that use code-based exchange.
       const searchParams = new URLSearchParams(window.location.search)
       const resetCode = searchParams.get('code')
@@ -78,7 +81,7 @@ function App() {
         return
       }
 
-      if (isResetRoute || hasRecoveryTokens()) {
+      if (isResetRoute || hasRecoveryTokens({ search: window.location.search, hash: window.location.hash })) {
         if (data.session?.user?.id) {
           setIsResetReady(true)
           setResetLinkError('')
@@ -93,6 +96,11 @@ function App() {
       const nextUserId = data.session?.user?.id || null
       setSessionUserId(nextUserId)
       setIsAuthLoading(false)
+      } catch (err) {
+        if (!active) return
+        setResetLinkError('An unexpected error occurred during session check. Please refresh or request a new reset link.')
+        setIsAuthLoading(false)
+      }
     }
 
     initializeAuth()

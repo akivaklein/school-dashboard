@@ -53,6 +53,16 @@ export function getRecoveryModeFromUrl(input: {
   return raw.includes('type=recovery') ? 'forgot-password' : 'sign-in'
 }
 
+export function hasRecoveryTokens(input: {
+  search?: string | null
+  hash?: string | null
+}): boolean {
+  const hash = String(input.hash || '')
+  const search = String(input.search || '')
+  const raw = `${hash}&${search}`.toLowerCase()
+  return raw.includes('type=recovery') || raw.includes('access_token=') || raw.includes('refresh_token=') || raw.includes('code=')
+}
+
 export function shouldShowPasswordResetPage(input: {
   pathname?: string | null
   search?: string | null
@@ -61,13 +71,9 @@ export function shouldShowPasswordResetPage(input: {
   isAuthenticated?: boolean
 }) {
   const pathname = String(input.pathname || '')
-  const search = String(input.search || '')
-  const hash = String(input.hash || '')
-  const raw = `${hash}&${search}`.toLowerCase()
-  const hasRecoveryTokens = raw.includes('type=recovery') || raw.includes('access_token=') || raw.includes('refresh_token=') || raw.includes('code=')
   const isResetRoute = pathname === '/reset-password'
 
-  return Boolean(isResetRoute || input.resetReady || hasRecoveryTokens)
+  return Boolean(isResetRoute || input.resetReady || hasRecoveryTokens({ search: input.search, hash: input.hash }))
 }
 
 export function getPasswordResetErrorMessage(message: string | null | undefined): string {
