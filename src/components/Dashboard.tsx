@@ -4969,6 +4969,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             staffMembers={staffMembers}
             initials={initials}
             onStaffChanged={refreshStaffMembers}
+            canManageStaff={effectiveRole === 'admin'}
           />
         )}
 

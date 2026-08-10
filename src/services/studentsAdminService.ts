@@ -9,6 +9,9 @@ type StudentMutationPayload = {
   teacherAssignments?: string[]
   supportAssignments?: string[]
   family?: Record<string, string>
+  assignedTherapist?: string
+  therapyFrequency?: string
+  therapyNotes?: string
 }
 
 type DeletionImpact = {
@@ -83,9 +86,9 @@ export async function createStudentRecord(payload: StudentMutationPayload, actor
     medical: {},
     family,
     therapy_assignments: [],
-    assigned_therapist: '',
-    therapy_frequency: '',
-    therapy_notes: '',
+    assigned_therapist: String(payload.assignedTherapist || '').trim(),
+    therapy_frequency: String(payload.therapyFrequency || '').trim(),
+    therapy_notes: String(payload.therapyNotes || '').trim(),
     is_active: payload.isActive !== false,
     archived_at: payload.isActive === false ? new Date().toISOString() : null,
     archived_by: payload.isActive === false ? actorName : null,
@@ -126,6 +129,9 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
     daily_status: String(payload.status || 'present'),
     family,
     services,
+    assigned_therapist: String(payload.assignedTherapist || '').trim(),
+    therapy_frequency: String(payload.therapyFrequency || '').trim(),
+    therapy_notes: String(payload.therapyNotes || '').trim(),
     is_active: payload.isActive !== false,
     archived_at: payload.isActive === false ? new Date().toISOString() : null,
     archived_by: payload.isActive === false ? actorName : null,

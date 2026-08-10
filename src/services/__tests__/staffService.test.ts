@@ -10,7 +10,7 @@ vi.mock('../../supabaseClient', () => ({
   },
 }))
 
-import { FALLBACK_STAFF_MEMBERS, getStaffAccountStatus, loadStaffMembers } from '../staffService'
+import { FALLBACK_STAFF_MEMBERS, getStaffAccountStatus, loadStaffMembers, updateStaffMember } from '../staffService'
 
 describe('loadStaffMembers', () => {
   beforeEach(() => {
@@ -47,5 +47,34 @@ describe('loadStaffMembers', () => {
     expect(getStaffAccountStatus({ accountState: 'pending', active: true })).toBe('pending-invitation')
     expect(getStaffAccountStatus({ accountState: 'inactive', active: true })).toBe('inactive-account')
     expect(getStaffAccountStatus({ accountState: 'missing', active: true })).toBe('no-account')
+  })
+
+  it('writes an audit entry after a staff update succeeds', async () => {
+    const staffUpdateEq = vi.fn().mockResolvedValue({ error: null })
+    const auditInsert = vi.fn().mockResolvedValue({ error: null })
+
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'staff') {
+        return {
+          update: vi.fn(() => ({ eq: staffUpdateEq })),
+        }
+      }
+
+      if (table === 'audit_logs') {
+        return {
+          insert: auditInsert,
+        }
+      }
+
+      return {}
+    })
+
+    const ok = await updateStaffMember(11, { roles: ['teacher'] })
+
+    expect(ok).toBe(true)
+    expect(auditInsert).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'staff_updated',
+      target_table: 'staff',
+    }))
   })
 })

@@ -124,6 +124,7 @@ type StaffDirectoryPageProps = {
   staffMembers: StaffDirectoryMember[]
   initials: (name: string) => string
   onStaffChanged: () => Promise<void>
+  canManageStaff?: boolean
 }
 
 export default function StaffDirectoryPage({
@@ -131,6 +132,7 @@ export default function StaffDirectoryPage({
   staffMembers,
   initials,
   onStaffChanged,
+  canManageStaff = true,
 }: StaffDirectoryPageProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -302,7 +304,7 @@ export default function StaffDirectoryPage({
           <button onClick={() => setShowInactive(value => !value)} style={S.btn('ghost')}>
             {showInactive ? 'Hide Inactive' : 'Show Inactive'}
           </button>
-          <button onClick={() => setShowAddStaff(true)} style={S.btn('primary')}>
+          <button onClick={() => setShowAddStaff(true)} style={S.btn('primary')} disabled={!canManageStaff}>
             + Add Staff
           </button>
         </div>
@@ -426,7 +428,7 @@ export default function StaffDirectoryPage({
                           </div>
                           <div style={{ display: 'grid', gap: 6 }}>
                             <div style={{ display: 'flex', gap: 6 }}>
-                              <button onClick={() => startEdit(person)} style={{ ...S.btn('ghost'), flex: 1 }}>
+                              <button onClick={() => startEdit(person)} style={{ ...S.btn('ghost'), flex: 1 }} disabled={!canManageStaff}>
                                 Edit
                               </button>
                               <button
@@ -436,6 +438,7 @@ export default function StaffDirectoryPage({
                                     ? { ...S.btn('ghost'), flex: 1, borderColor: '#fecaca', color: '#9f1239' }
                                     : { ...S.btn('success'), flex: 1 }
                                 }
+                                disabled={!canManageStaff}
                               >
                                 {person.active ? 'Deactivate' : 'Reactivate'}
                               </button>

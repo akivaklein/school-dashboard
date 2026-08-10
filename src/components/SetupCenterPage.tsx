@@ -208,6 +208,7 @@ export default function SetupCenterPage({
               staffMembers={staffMembers}
               initials={initials}
               onStaffChanged={refreshStaffMembers}
+              canManageStaff={role === 'admin'}
             />
           )}
 

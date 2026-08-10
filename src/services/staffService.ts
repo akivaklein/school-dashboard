@@ -281,7 +281,19 @@ export async function addStaffMember(nameOrInput: string | AddStaffInput, role =
   }
 }
 
-export async function updateStaffMember(id, updates) {
+async function appendStaffAuditLog(action: string, targetId: number | string, actorName: string, metadata: Record<string, unknown> = {}) {
+  await supabase
+    .from('audit_logs')
+    .insert({
+      user_name: String(actorName || '').trim() || 'Unknown',
+      action,
+      target_table: 'staff',
+      target_id: String(targetId),
+      metadata,
+    })
+}
+
+export async function updateStaffMember(id, updates, actorName = 'System') {
   const normalizedUpdates: UpdateStaffInput = { ...updates }
 
   if (normalizedUpdates.roles || normalizedUpdates.role) {
@@ -308,6 +320,10 @@ export async function updateStaffMember(id, updates) {
       console.error('Failed to update staff member:', error)
       return false
     }
+
+    await appendStaffAuditLog('staff_updated', id, actorName, {
+      updates: normalizedUpdates,
+    })
 
     return true
   } catch (error) {
