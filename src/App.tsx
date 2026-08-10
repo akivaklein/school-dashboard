@@ -2,13 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import Dashboard from './components/Dashboard'
 import SetNewPasswordPage from './components/SetNewPasswordPage'
 import { supabase } from './supabaseClient'
+import {
+  buildPasswordResetRedirectUrl,
+  getPasswordResetErrorMessage,
+  getRecoveryModeFromUrl,
+  shouldShowPasswordResetPage,
+} from './utils/authRecovery'
 
 type DashboardUser = {
   role: string
   name: string
 }
-
-type AuthMode = 'sign-in' | 'forgot-password'
 
 type UserRoleRecord = {
   role: string
@@ -18,29 +22,15 @@ type UserRoleRecord = {
 
 const RESET_EMAIL_COOLDOWN_SECONDS = 90
 
-function getRecoveryModeFromUrl(): AuthMode {
-  const hash = window.location.hash || ''
-  const search = window.location.search || ''
-  const raw = `${hash}&${search}`.toLowerCase()
-  return raw.includes('type=recovery') ? 'forgot-password' : 'sign-in'
-}
-
 function readAppUrl() {
   const configured = String(import.meta.env.VITE_APP_URL || '').trim()
   if (!configured) return window.location.origin
   return configured.replace(/\/$/, '')
 }
 
-function hasRecoveryTokens() {
-  const hash = window.location.hash || ''
-  const search = window.location.search || ''
-  const raw = `${hash}&${search}`.toLowerCase()
-  return raw.includes('type=recovery') || raw.includes('access_token=') || raw.includes('refresh_token=') || raw.includes('code=')
-}
-
 function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(true)
-  const [authMode, setAuthMode] = useState<AuthMode>(() => getRecoveryModeFromUrl())
+  const [authMode, setAuthMode] = useState<AuthMode>(() => getRecoveryModeFromUrl({ pathname: window.location.pathname, search: window.location.search, hash: window.location.hash }))
   const [sessionUserId, setSessionUserId] = useState<string | null>(null)
   const [dashboardUser, setDashboardUser] = useState<DashboardUser | null>(null)
   const [authError, setAuthError] = useState('')
@@ -54,7 +44,7 @@ function App() {
   const [resetLinkError, setResetLinkError] = useState('')
   const appUrl = readAppUrl()
   const isResetRoute = window.location.pathname === '/reset-password'
-  const shouldShowResetPage = isResetRoute || isResetReady || hasRecoveryTokens()
+  const shouldShowResetPage = shouldShowPasswordResetPage({ pathname: window.location.pathname, search: window.location.search, hash: window.location.hash, resetReady: isResetReady, isAuthenticated: Boolean(sessionUserId) })
   const resetCooldownSeconds = Math.max(0, Math.ceil((resetCooldownUntil - resetNow) / 1000))
   const resetCooldownActive = resetCooldownSeconds > 0
 
@@ -75,7 +65,7 @@ function App() {
       if (resetCode) {
         const { error } = await supabase.auth.exchangeCodeForSession(resetCode)
         if (error && active) {
-          setResetLinkError('This password reset link is invalid, expired, or already used. Request a new reset email.')
+          setResetLinkError(getPasswordResetErrorMessage(error.message))
         }
       }
 
@@ -216,7 +206,12 @@ function App() {
     setAuthError('')
     setAuthMessage('')
 
-    const redirectTo = `${appUrl}/reset-password`
+    const redirectTo = buildPasswordResetRedirectUrl({
+      configuredAppUrl: appUrl,
+      currentOrigin: window.location.origin,
+      fallbackOrigin: 'https://yeshiva-ketana-secure.vercel.app',
+      isProduction: import.meta.env.PROD,
+    })
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
 
     if (error) {
