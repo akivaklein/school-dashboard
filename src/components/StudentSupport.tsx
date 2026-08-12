@@ -5,6 +5,7 @@ import { resolveActorName } from './dashboardData'
 type StudentLike = {
   id: number | string
   name?: string
+  status?: string
   [key: string]: unknown
 }
 
@@ -44,6 +45,7 @@ type StudentSupportProps = {
     card: CSSProperties
     tag: (color: string, bg?: string) => CSSProperties
     statCard: (color: string) => CSSProperties
+    avatar: (index: number, size?: number) => CSSProperties
     [key: string]: unknown
   }
   initials: (name: string) => string

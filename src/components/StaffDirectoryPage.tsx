@@ -28,7 +28,7 @@ type StaffDraft = {
   phone: string
 }
 
-const ROLE_OPTIONS = STAFF_ROLE_OPTIONS.filter(role => role !== 'staff')
+const ROLE_OPTIONS = [...STAFF_ROLE_OPTIONS]
 
 function roleLabel(role: string): string {
   return formatStaffRoleLabel([role])

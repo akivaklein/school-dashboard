@@ -2,33 +2,34 @@ import type { CSSProperties, Dispatch, SetStateAction } from 'react'
 import { getStoreSyncUiState } from '../services/storeService'
 
 type StudentLike = {
-  id: number
-  name: string
-  points: number
+  id: number | string
+  name?: string
+  points?: number
   [key: string]: unknown
 }
 
 type StoreItemLike = {
-  id: number
-  name: string
+  id?: number | string
+  name?: string
   sku?: string
   barcode?: string
-  cost: number
-  stock: number
-  lowStockAt: number
-  category: string
-  vip: boolean
-  emoji: string
-  imageUrl: string
+  cost?: number
+  stock?: number
+  lowStockAt?: number
+  category?: string
+  vip?: boolean
+  emoji?: string
+  imageUrl?: string
   [key: string]: unknown
 }
 
 type StorePurchaseLog = {
-  id: number
+  id: number | string
   time: string
   studentName: string
   itemName: string
   cost: number
+  [key: string]: unknown
 }
 
 type NewStoreItemState = {
@@ -47,7 +48,7 @@ type StyleBag = {
   btn: (variant: string) => CSSProperties
   badge: (color: string, bg: string) => CSSProperties
   card: CSSProperties
-  tag: (color: string) => CSSProperties
+  tag: (color: string, background?: string) => CSSProperties
   [key: string]: unknown
 }
 
@@ -63,8 +64,8 @@ type Props = {
   newStoreItem: NewStoreItemState
   setNewStoreItem: Dispatch<SetStateAction<NewStoreItemState>>
   addStoreItem: () => void
-  storeStudent: number | null
-  setStoreStudent: (id: number | null) => void
+  storeStudent: number | string | null
+  setStoreStudent: (id: number | string | null) => void
   visibleStudents: StudentLike[]
   isVIP: (student: StudentLike) => boolean
   students: StudentLike[]
@@ -285,7 +286,7 @@ export default function TokenStorePage({
                   const vip = isVIP(s)
                   const active = storeStudent === s.id
                   return (
-                    <button key={s.id} onClick={() => setStoreStudent(storeStudent === s.id ? null : s.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, width: '100%', padding: '5px 7px', borderRadius: 8, border: `1px solid ${active ? '#334155' : vip ? '#d6b75d' : '#e2e8f0'}`, cursor: 'pointer', fontSize: 11, fontWeight: active ? 700 : 500, background: active ? '#334155' : vip ? '#fffaf0' : '#fbfdff', color: active ? '#fff' : '#334155', textAlign: 'left', display: storeStudent && !active ? 'none' : 'flex' }}>
+                    <button key={s.id} onClick={() => setStoreStudent(storeStudent === s.id ? null : s.id)} style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, width: '100%', padding: '5px 7px', borderRadius: 8, border: `1px solid ${active ? '#334155' : vip ? '#d6b75d' : '#e2e8f0'}`, cursor: 'pointer', fontSize: 11, fontWeight: active ? 700 : 500, background: active ? '#334155' : vip ? '#fffaf0' : '#fbfdff', color: active ? '#fff' : '#334155', textAlign: 'left', display: storeStudent && !active ? 'none' : 'flex' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vip && '⭐ '}{s.name}</span>
                       <span style={{ color: active ? 'rgba(255,255,255,0.75)' : '#7a633a', fontWeight: 700, flexShrink: 0 }}>{s.points}</span>
                     </button>

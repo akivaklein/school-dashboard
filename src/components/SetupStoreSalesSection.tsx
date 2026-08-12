@@ -16,7 +16,6 @@ export default function SetupStoreSalesSection({
         name,
         type: setupSaleDraft.type,
         value: setupSaleDraft.value,
-        active: true
       })
 
       setSetupSales(previous => [...previous, newSale])

@@ -126,7 +126,7 @@ function startOfDay(value: Date) {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate())
 }
 
-function normalizedDayName(value: string) {
+function normalizedDayName(value: string): string {
   const day = String(value || '').trim().toLowerCase()
   if (!day) return ''
   if (day.startsWith('mon')) return 'Monday'

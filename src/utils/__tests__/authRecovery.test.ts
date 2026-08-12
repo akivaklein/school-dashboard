@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import type { AuthMode } from '../authRecovery'
 import {
-  AuthMode,
   buildPasswordResetRedirectUrl,
   getRecoveryModeFromUrl,
   getPasswordResetErrorMessage,

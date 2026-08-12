@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient'
 
 type StudentFlag = {
-  id: string
+  id: string | number
   studentId?: number | string
   [key: string]: unknown
 }

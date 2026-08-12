@@ -432,7 +432,7 @@ export default function SetupTeachingConfigSection({
                       <button onClick={() => updateCatalogSubject(selectedSubject.id, s => ({ ...s, divisionKeys: Object.keys(DIVISIONS || {}) }))} style={{ fontSize: 10, background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 700 }}>Select All</button>
                     </div>
                     <div style={{ display: 'grid', gap: 6 }}>
-                      {Object.entries(DIVISIONS || {}).map(([divisionKey, division]) => (
+                      {Object.entries((DIVISIONS || {}) as Record<string, { label?: string }>).map(([divisionKey, division]) => (
                         <label key={divisionKey} style={{ fontSize: 11, color: '#334155', display: 'flex', gap: 6, alignItems: 'center' }}>
                           <input
                             type="checkbox"

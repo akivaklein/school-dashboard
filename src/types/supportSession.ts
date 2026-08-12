@@ -1,21 +1,22 @@
 export type StudentId = number | string
 
-export interface StudentLike {
+export type StudentLike = {
   id: StudentId
-  name: string
+  name?: string
   status?: string
   dailyStatus?: string
-  withStaff?: string | null
+  withStaff?: string | number | null
   [key: string]: unknown
 }
 
-export interface StaffMember {
-  id: string
-  name: string
-  role: string
+export type StaffMember = {
+  id: string | number
+  name?: string
+  role?: string
+  [key: string]: unknown
 }
 
-export interface SupportSession {
+export type SupportSession = {
   id: number | string
   student_id: StudentId
   student_name: string
@@ -31,7 +32,7 @@ export interface SupportSession {
   follow_up_needed: boolean
 }
 
-export interface EndSupportSessionInput {
+export type EndSupportSessionInput = {
   returnLocation: string
   notes: string
   goalWorkedOn: string

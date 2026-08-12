@@ -107,12 +107,12 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
           }
 
           if (eventType === 'DELETE') {
-            setSessions(prev => mergeSupportSessionEntries(prev as SupportSessionEntry[], oldRow as SupportSessionEntry, 'DELETE'))
+            setSessions(prev => mergeSupportSessionEntries(prev, oldRow as unknown as SupportSession, 'DELETE'))
             return
           }
 
           if (!nextRow) return
-          setSessions(prev => mergeSupportSessionEntries(prev as SupportSessionEntry[], nextRow as SupportSessionEntry, eventType as string))
+          setSessions(prev => mergeSupportSessionEntries(prev, nextRow as unknown as SupportSession, eventType as string))
         },
       )
       .subscribe(status => {

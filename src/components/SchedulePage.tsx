@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isInClassroom } from '../utils/attendancePresence'
-import { buildClassroomCoverageForecast } from './scheduleCoverageForecast'
+import { buildClassroomCoverageForecast, debugCoverageForecastMatching } from './scheduleCoverageForecast'
 
 type Props = {
   S: any
@@ -146,6 +146,16 @@ export default function SchedulePage({
       horizonDays,
     })
   }, [students, CLASSES, SCHEDULE_PERIODS, THERAPY_SCHEDULE, horizonDays])
+
+  const forecastDiagnostics = useMemo(() => {
+    if (!import.meta.env.DEV) return null
+    return debugCoverageForecastMatching({
+      students,
+      classes: CLASSES || [],
+      therapySchedule: THERAPY_SCHEDULE || [],
+      horizonDays,
+    })
+  }, [students, CLASSES, THERAPY_SCHEDULE, horizonDays])
 
   return (
     <div>

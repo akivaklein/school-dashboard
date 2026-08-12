@@ -45,7 +45,7 @@ export default function AttendancePage({
   const [lateNote, setLateNote] = useState('')
   const actingStaffName = resolveActorName(userName, role)
 
-  function buildClassLogEntry(type, note, extra = {}) {
+  function buildClassLogEntry(type, note, extra: { staffId?: number | string | null } = {}) {
     return {
       time: new Date().toLocaleTimeString('en-US', {
         hour: '2-digit',
@@ -251,7 +251,7 @@ export default function AttendancePage({
     : STAFF
 
   async function handleToggle(s) {
-    if (role === 'therapist' && isStudentInClass(s)) {
+    if (role === 'therapist' && isInClassroom(s)) {
       return
     }
 

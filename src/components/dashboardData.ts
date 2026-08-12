@@ -844,7 +844,15 @@ export function canAccessDashboardPage(role, page) {
   return ['students', 'behavior', 'store'].includes(page)
 }
 
-export function canAccessStudentForRole(student, context = {}) {
+type StudentAccessContext = {
+  role?: string
+  userName?: string
+  setupAssignments?: Record<string, unknown>
+  students?: unknown[]
+  assignedStudentIds?: Array<string | number>
+}
+
+export function canAccessStudentForRole(student, context: StudentAccessContext = {}) {
   const { role, userName = '', setupAssignments = {}, students = [], assignedStudentIds = [] } = context || {}
 
   if (!student) return false

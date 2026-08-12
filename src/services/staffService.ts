@@ -9,7 +9,7 @@ export const STAFF_ROLE_OPTIONS = [
 
 export type StaffRole = typeof STAFF_ROLE_OPTIONS[number]
 
-export interface StaffMemberRecord {
+export type StaffMemberRecord = {
   id: number
   name: string
   role: string

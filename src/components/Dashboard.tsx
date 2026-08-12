@@ -86,6 +86,7 @@ import {
   getStaffByName,
   staffMatchesAnyRole,
   FALLBACK_STAFF_MEMBERS,
+  type StaffMemberRecord,
 } from '../services/staffService'
 import {
   persistStudentFields,
@@ -152,9 +153,21 @@ import {
   statusEmoji,
 } from './dashboardData'
 
-type StudentLike = {
-  id?: number | string
+export type StudentLike = {
+  id: number | string
   name?: string
+  status?: string | null
+  dailyStatus?: string | null
+  withStaff?: string | number | null
+  className?: string
+  classId?: string | number | null
+  is_active?: boolean
+  services?: Array<{ type?: string; [key: string]: unknown }>
+  notes?: Array<Record<string, unknown>>
+  behaviorLog?: Array<Record<string, unknown>>
+  parentCalls?: Array<Record<string, unknown>>
+  testScores?: Array<{ id?: string | number; [key: string]: unknown }>
+  token_balance?: number
   att?: string[]
   lateDetails?: { timeArrived?: string; reason?: string; note?: string }
   classLog?: Array<{ type: string; time: string; note?: string; staffId?: number | string }>
@@ -167,10 +180,12 @@ type StudentLike = {
 type StoreItemLike = {
   name?: string
   emoji?: string
+  cost?: number
+  stock?: number
   [key: string]: unknown
 }
 
-type AttendanceHistoryEntry = {
+export type AttendanceHistoryEntry = {
   date: string
   inMins: number
   outMins: number
@@ -179,7 +194,7 @@ type AttendanceHistoryEntry = {
   [key: string]: unknown
 }
 
-type StaffMemberLike = {
+export type StaffMemberLike = {
   id?: number | string
   name?: string
   role?: string
@@ -334,7 +349,7 @@ const S = {
   sidebar: { width: 244, background: 'linear-gradient(180deg, #23344b 0%, #1d2b3c 100%)', color: '#fff', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, overflowY: 'auto', overflowX: 'hidden', boxShadow: '8px 0 24px rgba(31,44,63,0.10)' },
   sidebarLogo: { padding: '22px 18px 18px', borderBottom: '1px solid rgba(255,255,255,0.10)', marginBottom: 10, flexShrink: 0 },
   sidebarItem: (active: boolean) => ({ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer', borderRadius: 10, margin: '3px 10px', background: active ? '#eef4fb' : 'transparent', color: active ? '#223046' : 'rgba(255,255,255,0.78)', fontSize: 13.5, fontWeight: active ? 700 : 500, transition: 'background 0.15s, color 0.15s, transform 0.15s', flexShrink: 0 }),
-  main: { marginLeft: 244, padding: '32px 56px 50px 40px', minHeight: '100vh', flex: 1, width: 'calc(100% - 244px)', boxSizing: 'border-box' },
+  main: { marginLeft: 244, padding: '32px 56px 50px 40px', minHeight: '100vh', flex: 1, width: 'calc(100% - 244px)', boxSizing: 'border-box' } as CSSProperties,
   card: { background: '#ffffff', borderRadius: 16, padding: '22px', boxShadow: '0 12px 30px rgba(15,23,42,0.04)', border: '1px solid #dfe8f2' },
   statCard: (color: string) => ({ background: '#ffffff', borderRadius: 16, padding: '18px 20px', boxShadow: '0 12px 30px rgba(15,23,42,0.04)', border: '1px solid #dfe8f2', borderLeft: `3px solid ${color}` }),
   badge: (color: string, bg: string) => ({ display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, color, background: bg }),
@@ -342,7 +357,7 @@ const S = {
     const map = { primary: ['#48698d','#fff'], danger: ['#a24860','#fff'], ghost: ['#eef3f8','#41556d'], success: ['#5a7a66','#fff'], purple: ['#6b7088','#fff'], gold: ['#8a7245','#fff8df'] } as const
     return { padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, background: map[variant][0], color: map[variant][1], transition: 'transform 0.15s, box-shadow 0.15s' }
   },
-  tag: (color: string) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: color + '10', color, border: `1px solid ${color}22` }),
+  tag: (color: string, background?: string) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: background || color + '10', color, border: `1px solid ${color}22` }),
   avatar: (idx: number, size = 36) => ({ width: size, height: size, borderRadius: '50%', background: AVATAR_COLORS[idx % AVATAR_COLORS.length], color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size > 30 ? 13 : 10, flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.18)' }),
 }
 
@@ -518,7 +533,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
   const absent = coverageSnapshot.metrics.absent
   const late = coverageSnapshot.metrics.late
   const inTherapy = coverageSnapshot.students.filter((entry: { status: string }) => entry.status === 'pullout').length
-  const withBT = coverageSnapshot.students.filter((entry: { status: string }) => entry.status === 'pullout' && entry.currentStatus === 'with-bt').length
+  const withBT = coverageSnapshot.students.filter((entry: { status: string; currentStatus?: string }) => entry.status === 'pullout' && entry.currentStatus === 'with-bt').length
   const unknown = coverageSnapshot.students.filter((entry: { status: string }) => entry.status === 'unknown').length
   const unresolved = classStudents.filter((s: StudentLike) => !isInClassroom(s) && !isInSchool(s) && getDailyAttendanceStatus(s) !== 'absent' && getDailyAttendanceStatus(s) !== 'late').length
   const pulloutStudents = classStudents.filter((s: StudentLike) => ['therapy', 'with-bt', 'unknown'].includes(String(s.status)))
@@ -845,7 +860,7 @@ function StudentFlagsPanel({
     boxShadow: '0 4px 14px rgba(30,41,59,0.045)'
   }
 
-  const input = {
+  const input: CSSProperties = {
     width: '100%',
     padding: '9px 11px',
     borderRadius: 9,
@@ -1314,7 +1329,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [students, setStudents] = useState<StudentLike[]>([])
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState<string | null>(null)
-  const [staffMembers, setStaffMembers] = useState<StaffMemberLike[]>(FALLBACK_STAFF_MEMBERS as StaffMemberLike[])
+  const [staffMembers, setStaffMembers] = useState<StaffMemberRecord[]>(FALLBACK_STAFF_MEMBERS)
   const [staffLoadError, setStaffLoadError] = useState<string | null>(null)
   const storePurchaseAttemptKeysRef = useRef<Record<string, string>>({})
   const navRestoreAppliedRef = useRef(false)
@@ -1373,6 +1388,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       className: row.class_name ?? row.className,
       classId: row.class_id ?? row.classId,
       is_active: row.is_active !== false,
+      notes: row.notes,
       dailyStatus: row.daily_status ?? row.dailyStatus,
       withStaff: row.with_staff ?? row.withStaff,
       lateDetails: row.late_details ?? row.lateDetails,
@@ -2018,7 +2034,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }, [selectedStudent, markRealtimeNotice])
 
-  const [storeStudent, setStoreStudent] = useState<StudentLike | null>(null)
+  const [storeStudent, setStoreStudent] = useState<number | string | null>(null)
   const [storeCategoryFilter, setStoreCategoryFilter] = useState('all')
   const [storeItemSearch, setStoreItemSearch] = useState('')
   const [storeItems, setStoreItems] = useState<StoreItemLike[]>([])
@@ -3966,7 +3982,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       name: normalizedItem.name,
     }
 
-    saveStoreItem(persistedItem as typeof nextItem, userName || 'Store Manager')
+    saveStoreItem(persistedItem, userName || 'Store Manager')
       .then(savedItem => {
         setStoreSyncState('ready')
         setStoreItems(prev => prev.map(item => (
@@ -4556,7 +4572,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           })}
         </div>
 
-        <div style={{ marginTop: 'auto', padding: '12px 8px 0', borderTop: '1px solid #dbe5f0', marginTop: 14 }}>
+        <div style={{ marginTop: 14, padding: '12px 8px 0', borderTop: '1px solid #dbe5f0' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#0f2942', marginBottom: 2 }}>{userName || 'Signed in user'}</div>
           <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 8 }}>{buildLoginAccountRoleLabel(role)}</div>
           {effectiveRole === 'admin' && (

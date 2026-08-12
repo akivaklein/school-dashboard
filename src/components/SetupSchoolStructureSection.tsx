@@ -84,7 +84,7 @@ export default function SetupSchoolStructureSection({
     if (!Object.keys(studentClassOverrides).length) return
     setStudentClassMap(prev => {
       const next = { ...prev }
-      Object.entries(studentClassOverrides).forEach(([id, { classId }]) => {
+      Object.entries((studentClassOverrides || {}) as Record<string, { classId: string }>).forEach(([id, { classId }]) => {
         next[Number(id)] = classId
       })
       return next

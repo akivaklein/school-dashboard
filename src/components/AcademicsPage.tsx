@@ -667,9 +667,10 @@ export default function AcademicsPage({
   }
 
   const sortedScores = allScores.slice().sort((a, b) => b.date.localeCompare(a.date))
-  const allSubjectChips = ['all', ...Array.from(new Set(
-    (academicCatalog?.subjects || []).filter(s => s.active !== false).map(s => s.label)
-  )).sort()]
+  const subjectLabels: string[] = (academicCatalog?.subjects || [])
+    .filter((subject: { active?: boolean }) => subject.active !== false)
+    .map((subject: { label?: string }) => String(subject.label || ''))
+  const allSubjectChips = ['all', ...Array.from(new Set(subjectLabels)).sort()]
 
   return (
     <div>

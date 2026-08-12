@@ -165,8 +165,8 @@ export default function TeachingMode({
 
   const periodIds = [1, 2, 3]
   const periodBuckets = useMemo(() => {
-    const ownerAssignments = canViewEntireSchool
-      ? Object.values(teachingAssignments || {})
+    const ownerAssignments: Array<{ periods?: Record<number, Array<number | string>> } | null> = canViewEntireSchool
+      ? Object.values((teachingAssignments || {}) as Record<string, { periods?: Record<number, Array<number | string>> }>)
       : [{ periods: assignmentPeriods || {} }]
 
     return periodIds.map(period => {
@@ -308,7 +308,7 @@ export default function TeachingMode({
     }
   }, [scopeType, selectedClass, selectedTeacher, selectedGrade, selectedPeriod])
 
-  function buildClassLogEntry(type, note, extra = {}) {
+  function buildClassLogEntry(type, note, extra: { staffId?: number | string | null } = {}) {
     return {
       time: new Date().toLocaleTimeString('en-US', {
         hour: '2-digit',
@@ -844,7 +844,7 @@ export default function TeachingMode({
                   <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>{Math.floor(iv.duration/60)} min {iv.duration%60} sec</div>
                   {Object.keys(iv.reminders).length === 0 
                     ? <div style={{ fontSize: 12, color: '#56765f', fontWeight: 600 }}>✅ No reminders!</div>
-                    : Object.entries(iv.reminders).map(([id, count]) => {
+                    : Object.entries(iv.reminders as Record<string, number>).map(([id, count]) => {
                         const s = students.find(x => x.id === parseInt(id))
                         return <div key={id} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid #f8fafc' }}><span style={{ fontWeight: 600 }}>{s?.name}</span>: <span style={{ color: '#8f3a50', fontWeight: 700 }}>{count} ⚠️</span></div>
                       })

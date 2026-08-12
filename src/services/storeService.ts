@@ -221,7 +221,14 @@ export type CreateStoreRedemptionInput = {
   metadata?: Record<string, unknown>
 }
 
-export function normalizeStoreItemInput(input: Partial<CreateStoreItemInput> & Partial<StoreItem>): {
+export type StoreItemInputLike =
+  Omit<Partial<CreateStoreItemInput> & Partial<StoreItem>, 'cost' | 'stock' | 'lowStockAt'> & {
+    cost?: number | string
+    stock?: number | string
+    lowStockAt?: number | string
+  }
+
+export function normalizeStoreItemInput(input: StoreItemInputLike): {
   name: string
   sku: string
   barcode: string

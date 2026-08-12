@@ -81,7 +81,11 @@ export default function SetupAssignmentsSection({
   function getCurrentAssignmentOwner(studentId, type) {
     if (!studentId) return null
 
-    const ownerEntries = Object.entries(setupAssignments || {}).filter(([, assignment]) => {
+    const assignmentEntries = Object.entries(
+      (setupAssignments || {}) as Record<string, { periods?: Record<number, Array<number | string>>; caseload?: Array<number | string> } | null>,
+    )
+
+    const ownerEntries = assignmentEntries.filter(([, assignment]) => {
       if (!assignment) return false
 
       if (type === 'period') {

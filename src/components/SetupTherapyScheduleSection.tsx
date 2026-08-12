@@ -1,3 +1,14 @@
+type TherapyScheduleRow = {
+  id?: number | string
+  day: string
+  time: string
+  studentId?: number | string
+  classId?: string
+  className?: string
+  teacherName?: string
+  [key: string]: unknown
+}
+
 export default function SetupTherapyScheduleSection({
   setupTherapySchedule,
   setSetupTherapySchedule,
@@ -31,6 +42,7 @@ export default function SetupTherapyScheduleSection({
                           .filter(row => row.student)
 
                         const getTimeOfDay = time => {
+                          const normalized = String(time || '').toUpperCase()
                           const match = normalized.match(/(\d+):(\d+)\s*(AM|PM)/)
                           if (!match) return 'Other'
 
@@ -662,7 +674,7 @@ export default function SetupTherapyScheduleSection({
                             return
                           }
 
-                          const rowsByClass = rowsInBlock.reduce(
+                          const rowsByClass = rowsInBlock.reduce<Record<string, TherapyScheduleRow[]>>(
                             (groups, row) => {
                               const classId =
                                 row.classId ||
@@ -762,7 +774,7 @@ export default function SetupTherapyScheduleSection({
                           .filter(group => group.rows.length > 0)
 
                         const timeGroups = Object.entries(
-                          sortedRows.reduce((groups, row) => {
+                          sortedRows.reduce<Record<string, { day: string; time: string; rows: TherapyScheduleRow[] }>>((groups, row) => {
                             const key = `${row.day}|${row.time}`
 
                             if (!groups[key]) {

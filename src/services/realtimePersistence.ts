@@ -33,7 +33,7 @@ export function mergeStudentNoteEntries(existing: StudentNoteEntry[], next: Stud
   return [next, ...withoutCurrent]
 }
 
-export function mergeSupportSessionEntries(existing: SupportSessionEntry[], next: SupportSessionEntry, eventType: string = 'INSERT') {
+export function mergeSupportSessionEntries<T extends { id: number | string }>(existing: T[], next: T, eventType: string = 'INSERT'): T[] {
   const id = Number(next.id)
 
   if (eventType === 'DELETE') {

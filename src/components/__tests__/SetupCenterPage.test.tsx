@@ -67,6 +67,16 @@ const baseProps = {
   currentAssignment: null,
   setPage: () => {},
   SETUP_PEOPLE: [],
+  academicCatalog: { subjects: [], skills: [] },
+  setAcademicCatalog: () => {},
+  TEACHING_STAFF_OPTIONS: [],
+  onPreviewAs: () => {},
+  studentClassOverrides: {},
+  teacherRebbeAssignments: [],
+  onSaveTeacherRebbeAssignment: async () => {},
+  onSetTeacherRebbeAssignmentStatus: async () => {},
+  onSaveStudentClassAssignment: async () => {},
+  onSaveStudentClassAssignmentBatch: async () => {},
 }
 
 describe('SetupCenterPage', () => {
