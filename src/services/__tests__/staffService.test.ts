@@ -10,7 +10,74 @@ vi.mock('../../supabaseClient', () => ({
   },
 }))
 
-import { FALLBACK_STAFF_MEMBERS, getStaffAccountStatus, loadStaffMembers, updateStaffMember } from '../staffService'
+import { FALLBACK_STAFF_MEMBERS, getStaffAccountStatus, getStaffById, getStaffByName, loadStaffMembers, updateStaffMember } from '../staffService'
+
+describe('getStaffByName', () => {
+  beforeEach(() => {
+    fromMock.mockReset()
+  })
+
+  function mockNameLookup(result: { data: unknown; error: unknown }) {
+    const limitMock = vi.fn().mockResolvedValue(result)
+    const orderMock = vi.fn().mockReturnValue({ limit: limitMock })
+    const eqMock = vi.fn().mockReturnValue({ order: orderMock })
+    const selectMock = vi.fn().mockReturnValue({ eq: eqMock })
+    fromMock.mockReturnValue({ select: selectMock })
+    return { limitMock, selectMock }
+  }
+
+  it('returns null instead of throwing a 406 when zero staff rows match', async () => {
+    const { limitMock } = mockNameLookup({ data: [], error: null })
+
+    await expect(getStaffByName('Nobody')).resolves.toBeNull()
+    expect(limitMock).toHaveBeenCalledWith(1)
+  })
+
+  it('returns the first record when duplicate staff rows exist', async () => {
+    mockNameLookup({
+      data: [
+        { id: 3, name: 'Rabbi Klein', role: 'teacher', roles: ['teacher'], email: '', phone: '', active: true },
+        { id: 9, name: 'Rabbi Klein', role: 'admin', roles: ['admin'], email: '', phone: '', active: true },
+      ],
+      error: null,
+    })
+
+    const member = await getStaffByName('Rabbi Klein')
+
+    expect(member).toMatchObject({ id: 3, name: 'Rabbi Klein', roles: ['teacher'] })
+  })
+
+  it('returns null when the query is rejected by row level security', async () => {
+    mockNameLookup({ data: null, error: { message: 'permission denied for table staff' } })
+
+    await expect(getStaffByName('Rabbi Klein')).resolves.toBeNull()
+  })
+})
+
+describe('getStaffById', () => {
+  beforeEach(() => {
+    fromMock.mockReset()
+  })
+
+  it('returns null when no staff row matches the id', async () => {
+    const maybeSingleMock = vi.fn().mockResolvedValue({ data: null, error: null })
+    const eqMock = vi.fn().mockReturnValue({ maybeSingle: maybeSingleMock })
+    fromMock.mockReturnValue({ select: vi.fn().mockReturnValue({ eq: eqMock }) })
+
+    await expect(getStaffById(404)).resolves.toBeNull()
+  })
+
+  it('maps a normal staff record', async () => {
+    const maybeSingleMock = vi.fn().mockResolvedValue({
+      data: { id: 1, name: 'Rabbi Baum', role: 'admin', roles: ['admin'], email: '', phone: '', active: true },
+      error: null,
+    })
+    const eqMock = vi.fn().mockReturnValue({ maybeSingle: maybeSingleMock })
+    fromMock.mockReturnValue({ select: vi.fn().mockReturnValue({ eq: eqMock }) })
+
+    await expect(getStaffById(1)).resolves.toMatchObject({ id: 1, name: 'Rabbi Baum', roles: ['admin'] })
+  })
+})
 
 describe('loadStaffMembers', () => {
   beforeEach(() => {

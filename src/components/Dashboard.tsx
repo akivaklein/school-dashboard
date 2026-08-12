@@ -119,7 +119,6 @@ import { canAccessDashboardPage, canAccessStudentForRole } from './dashboardData
 import {
   STORE_CATEGORY_OPTIONS,
   openAttendanceReportWindow,
-  buildAttendanceReportRows,
   SKILL_RATINGS,
   RATING_SCORE,
   ACADEMIC_AREAS,
@@ -4472,9 +4471,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ? visibleStudents.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
     : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
-  const reportsOverview = buildReportsOverview({
-    attendanceRows: buildAttendanceReportRows(filteredStudents),
-  })
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening'
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })

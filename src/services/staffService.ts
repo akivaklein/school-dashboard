@@ -214,14 +214,14 @@ export async function getStaffById(id) {
       .from('staff')
       .select('id, name, role, roles, email, phone, active, created_at, updated_at')
       .eq('id', id)
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.error('Failed to load staff member:', error)
       return null
     }
 
-    return mapStaffRecord(data)
+    return data ? mapStaffRecord(data) : null
   } catch (error) {
     console.error('Error getting staff member:', error)
     return null
@@ -234,14 +234,16 @@ export async function getStaffByName(name) {
       .from('staff')
       .select('id, name, role, roles, email, phone, active, created_at, updated_at')
       .eq('name', name)
-      .single()
+      .order('id')
+      .limit(1)
 
     if (error) {
       console.error('Failed to load staff member:', error)
       return null
     }
 
-    return mapStaffRecord(data)
+    const row = Array.isArray(data) ? data[0] : null
+    return row ? mapStaffRecord(row) : null
   } catch (error) {
     console.error('Error getting staff member by name:', error)
     return null

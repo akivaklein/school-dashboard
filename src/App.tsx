@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Dashboard from './components/Dashboard'
+import AppErrorBoundary from './components/AppErrorBoundary'
 import SetNewPasswordPage from './components/SetNewPasswordPage'
 import { supabase } from './supabaseClient'
 import type { AuthMode } from './utils/authRecovery'
@@ -10,16 +11,12 @@ import {
   hasRecoveryTokens,
   shouldShowPasswordResetPage,
 } from './utils/authRecovery'
+import { ROLE_LOOKUP_FAILED_MESSAGE, resolveDashboardAccess } from './utils/dashboardAccess'
+import type { UserRoleRecord } from './utils/dashboardAccess'
 
 type DashboardUser = {
   role: string
   name: string
-}
-
-type UserRoleRecord = {
-  role: string
-  display_name: string | null
-  is_active: boolean | null
 }
 
 const RESET_EMAIL_COOLDOWN_SECONDS = 90
@@ -145,30 +142,27 @@ function App() {
         .from('user_roles')
         .select('role, display_name, is_active')
         .eq('user_id', sessionUserId)
-        .single<UserRoleRecord>()
+        .order('role')
+        .returns<UserRoleRecord[]>()
 
       if (!active) return
 
       if (error) {
+        console.error('Failed to load dashboard role:', error.message)
         setDashboardUser(null)
-        setAuthError('Authenticated, but no active dashboard role is configured for this account.')
+        setAuthError(ROLE_LOOKUP_FAILED_MESSAGE)
         return
       }
 
-      const normalizedRole = String(data.role || '').trim().toLowerCase()
-      const allowedRoles = new Set(['admin', 'teacher', 'rebbe', 'support_staff'])
+      const access = resolveDashboardAccess(data)
 
-      if (data.is_active === false || !allowedRoles.has(normalizedRole)) {
+      if (access.status === 'denied') {
         setDashboardUser(null)
-        setAuthError('Access denied. This account is missing a permitted active role.')
+        setAuthError(access.message)
         return
       }
 
-      const fallbackName = normalizedRole === 'admin' ? 'Yeshiva Ketana Admin' : 'Staff User'
-      setDashboardUser({
-        role: normalizedRole,
-        name: (data.display_name || '').trim() || fallbackName,
-      })
+      setDashboardUser(access.user)
     }
 
     loadUserRole()
@@ -274,10 +268,12 @@ function App() {
 
   if (dashboardUser) {
     return (
-      <Dashboard
-        teacherUser={dashboardUser}
-        onTeacherSessionLogout={handleSecureLogout}
-      />
+      <AppErrorBoundary onLogout={handleSecureLogout}>
+        <Dashboard
+          teacherUser={dashboardUser}
+          onTeacherSessionLogout={handleSecureLogout}
+        />
+      </AppErrorBoundary>
     )
   }
 
@@ -381,6 +377,15 @@ function App() {
         <div style={{ marginTop: 14, fontSize: 11, color: '#64748b' }}>
           Public signup is disabled in this secure deployment.
         </div>
+
+        {sessionUserId && (
+          <button
+            onClick={handleSecureLogout}
+            style={{ marginTop: 12, width: '100%', border: '1px solid #d8e1ec', borderRadius: 10, background: '#fff', color: '#1e3a5f', fontWeight: 800, padding: '10px 12px', cursor: 'pointer' }}
+          >
+            Log Out
+          </button>
+        )}
       </div>
     </div>
   )
