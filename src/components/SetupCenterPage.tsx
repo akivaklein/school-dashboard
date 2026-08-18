@@ -227,6 +227,7 @@ export default function SetupCenterPage({
               setSetupStudentSearch={setSetupStudentSearch}
               currentAssignment={currentAssignment}
               copyPeriodOneToTwo={copyPeriodOneToTwo}
+              activeStudents={(students || []).filter(student => student?.is_active !== false)}
               filteredSetupStudents={filteredSetupStudents}
               togglePeriodStudent={togglePeriodStudent}
               toggleCaseloadStudent={toggleCaseloadStudent}

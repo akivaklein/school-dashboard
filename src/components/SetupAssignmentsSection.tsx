@@ -14,6 +14,7 @@ export default function SetupAssignmentsSection({
   setSetupStudentSearch,
   currentAssignment,
   copyPeriodOneToTwo,
+  activeStudents = [],
   filteredSetupStudents,
   togglePeriodStudent,
   toggleCaseloadStudent,
@@ -38,8 +39,11 @@ export default function SetupAssignmentsSection({
 
   const currentTeacherAssignments = useMemo(() => {
     if (!currentPerson?.name) return []
-    return (teacherRebbeAssignments || []).filter(assignment => assignment.teacher_name === currentPerson.name)
-  }, [teacherRebbeAssignments, currentPerson?.name])
+    return (teacherRebbeAssignments || []).filter(assignment => (
+      assignment.teacher_name === currentPerson.name &&
+      activeStudents.some(student => Number(student.id) === Number(assignment.student_id))
+    ))
+  }, [teacherRebbeAssignments, currentPerson?.name, activeStudents])
 
   function toggleDraftWeekday(day) {
     setTeacherDraft(prev => ({
@@ -303,10 +307,14 @@ export default function SetupAssignmentsSection({
                                         (
                                           assignment.periods?.[period] ||
                                           []
+                                        ).filter(studentId =>
+                                          activeStudents.some(student => Number(student.id) === Number(studentId))
                                         ).length,
                                       0
                                     )
-                                  : (assignment.caseload || []).length
+                                  : (assignment.caseload || []).filter(studentId =>
+                                      activeStudents.some(student => Number(student.id) === Number(studentId))
+                                    ).length
 
                               return (
                                 <button
@@ -410,6 +418,20 @@ export default function SetupAssignmentsSection({
                               lang="en"
                             />
                           </div>
+
+                          {filteredSetupStudents.length === 0 && (
+                            <div style={{
+                              marginTop: 14,
+                              padding: 14,
+                              border: '1px solid #dce4ed',
+                              borderRadius: 10,
+                              background: '#f8fafc',
+                              color: '#52667e',
+                              fontSize: 12,
+                            }}>
+                              No active students are available for assignment. Add a student from the Students page first.
+                            </div>
+                          )}
 
                           {currentPerson?.type === 'teacher' ? (
                             <div style={{
@@ -609,7 +631,7 @@ export default function SetupAssignmentsSection({
                                     <div style={{ padding: '10px 9px', fontSize: 11, color: '#64748b' }}>No teacher/rebbe assignments saved yet.</div>
                                   )}
                                   {currentTeacherAssignments.map(assignment => {
-                                    const studentName = filteredSetupStudents.find(student => Number(student.id) === Number(assignment.student_id))?.name || `Student ${assignment.student_id}`
+                                    const studentName = activeStudents.find(student => Number(student.id) === Number(assignment.student_id))?.name || `Student ${assignment.student_id}`
                                     return (
                                       <div key={assignment.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) minmax(95px, 0.7fr) minmax(95px, 0.8fr) minmax(90px, 0.8fr) minmax(90px, 0.8fr) auto', gap: 8, padding: '8px 9px', borderTop: '1px solid #edf2f7', fontSize: 11, alignItems: 'center' }}>
                                         <div><div style={{ fontWeight: 700 }}>{studentName}</div><div style={{ color: '#64748b' }}>{assignment.subject || 'General'}</div></div>

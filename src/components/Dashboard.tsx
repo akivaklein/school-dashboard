@@ -2580,9 +2580,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const filteredSetupStudents = useMemo(() => {
     const search = setupStudentSearch.trim().toLowerCase()
-    if (!search) return students || []
+    const activeSetupStudents = (students || []).filter(student => student?.is_active !== false)
+    if (!search) return activeSetupStudents
 
-    return (students || []).filter(student => {
+    return activeSetupStudents.filter(student => {
       const haystack = `${student.name || ''} ${student.className || ''} ${student.id || ''}`.toLowerCase()
       return haystack.includes(search)
     })
