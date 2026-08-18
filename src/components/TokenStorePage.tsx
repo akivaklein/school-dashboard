@@ -58,9 +58,9 @@ type Props = {
   showStoreManager: boolean
   setShowStoreManager: (value: boolean) => void
   storeItems: StoreItemLike[]
-  updateStoreItem: (id: number, field: string, value: unknown) => void
-  adjustStoreStock: (id: number, amount: number) => void
-  removeStoreItem: (id: number) => void
+  updateStoreItem: (id: number | string, field: string, value: unknown) => void
+  adjustStoreStock: (id: number | string, amount: number) => void
+  removeStoreItem: (id: number | string) => void
   newStoreItem: NewStoreItemState
   setNewStoreItem: Dispatch<SetStateAction<NewStoreItemState>>
   addStoreItem: () => void

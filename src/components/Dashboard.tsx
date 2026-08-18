@@ -47,6 +47,7 @@ import {
   reverseStorePurchaseTx,
   setStoreItemActive,
   updateStoreItem as saveStoreItem,
+  type StoreItem,
 } from '../services/storeService'
 import {
   listTodos,
@@ -178,6 +179,7 @@ export type StudentLike = {
 }
 
 type StoreItemLike = {
+  id?: number | string
   name?: string
   emoji?: string
   cost?: number
@@ -198,6 +200,7 @@ export type StaffMemberLike = {
   id?: number | string
   name?: string
   role?: string
+  active?: boolean
   [key: string]: unknown
 }
 
@@ -495,7 +498,7 @@ function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = nu
 }
 
 
-function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP, staffMembers }: { students: StudentLike[]; setStudents: Dispatch<SetStateAction<StudentLike[]>>; userName: string | null; setSelectedStudent: (student: StudentLike) => void; setTeachingMode: Dispatch<SetStateAction<boolean>>; initialClass?: string | number | null; setDrillDown: Dispatch<SetStateAction<{ title: string; students: StudentLike[] } | null>>; recordStudentPointsAction: (payload: Record<string, unknown>) => Promise<void>; isVIP: (student: StudentLike) => boolean; staffMembers: StaffMemberLike[] }) {
+function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP, staffMembers }: { students: StudentLike[]; setStudents: Dispatch<SetStateAction<StudentLike[]>>; userName: string | null; setSelectedStudent: (student: StudentLike) => void; setTeachingMode: Dispatch<SetStateAction<boolean>>; initialClass?: string | number | null; setDrillDown: Dispatch<SetStateAction<{ title: string; students: StudentLike[] } | null>>; recordStudentPointsAction: (payload: { studentId: number | string; pointsDelta: number; reminderDelta?: number; reason: string; eventType: string; category: string; sourceContext: string; note?: string | null; metadata?: Record<string, unknown> }) => Promise<boolean>; isVIP: (student: StudentLike) => boolean; staffMembers: StaffMemberLike[] }) {
   const [selectedClass, setSelectedClass] = useState(initialClass)
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
   const currentTimeLabel = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -1401,8 +1404,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       token_balance: resolveLiveStudentPoints(row.token_balance),
     }
 
-    const rowForStudent = {
+    const rowForStudent: StudentLike = {
       ...nextRow,
+      id: rowId,
+      className: typeof nextRow.className === 'string' ? nextRow.className : '',
+      classId: typeof nextRow.classId === 'string' || typeof nextRow.classId === 'number' ? nextRow.classId : null,
+      dailyStatus: nextRow.dailyStatus == null ? null : String(nextRow.dailyStatus),
+      withStaff: typeof nextRow.withStaff === 'string' || typeof nextRow.withStaff === 'number' ? nextRow.withStaff : null,
       att: Array.isArray(nextRow.att) ? nextRow.att : [],
       notes: Array.isArray(nextRow.notes) ? nextRow.notes : [],
       behaviorLog: Array.isArray(nextRow.behaviorLog) ? nextRow.behaviorLog : [],
@@ -2059,9 +2067,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     const activeRole = previewAs?.role || role
     const activeUserName = previewAs?.name || userName
     const normalizedActiveName = normalizeStaffName(activeUserName)
-    const assignedIdsForAccess = activeRole === 'teacher' || activeRole === 'rebbe'
+    const assignedIdsForAccess = (activeRole === 'teacher' || activeRole === 'rebbe'
       ? Array.from(activeTeacherAssignmentIdsByName.get(normalizedActiveName) || new Set<number>())
-      : getTeacherAssignedStudentIds(activeUserName, setupAssignments)
+      : getTeacherAssignedStudentIds(activeUserName, setupAssignments))
+      .map(id => Number(id))
+      .filter(Number.isFinite)
 
     if (!canAccessStudentForRole(student, {
       role: activeRole,
@@ -2078,27 +2088,26 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     if (tab) setSelectedStudentTab(tab)
   }
 
-  function mapDatabaseStudentToDashboardStudent(databaseStudent: Record<string, unknown>) {
+  function mapDatabaseStudentToDashboardStudent(databaseStudent: Record<string, unknown>): StudentLike {
     return {
+      id: Number(databaseStudent.id),
       ...databaseStudent,
-      className:
-        databaseStudent.class_name ||
-        databaseStudent.className ||
-        '',
-      classId:
-        databaseStudent.class_id ||
-        databaseStudent.classId ||
-        null,
+      className: typeof databaseStudent.class_name === 'string'
+        ? databaseStudent.class_name
+        : (typeof databaseStudent.className === 'string' ? databaseStudent.className : ''),
+      classId: typeof databaseStudent.class_id === 'string' || typeof databaseStudent.class_id === 'number'
+        ? databaseStudent.class_id
+        : (typeof databaseStudent.classId === 'string' || typeof databaseStudent.classId === 'number' ? databaseStudent.classId : null),
       is_active: databaseStudent.is_active !== false,
-      dailyStatus:
+      dailyStatus: String(
         databaseStudent.daily_status ||
         databaseStudent.dailyStatus ||
         databaseStudent.status ||
         'present',
-      withStaff:
-        databaseStudent.with_staff ??
-        databaseStudent.withStaff ??
-        null,
+      ),
+      withStaff: typeof databaseStudent.with_staff === 'string' || typeof databaseStudent.with_staff === 'number'
+        ? databaseStudent.with_staff
+        : (typeof databaseStudent.withStaff === 'string' || typeof databaseStudent.withStaff === 'number' ? databaseStudent.withStaff : null),
       lateDetails:
         databaseStudent.late_details ??
         databaseStudent.lateDetails ??
@@ -2140,7 +2149,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       services: Array.isArray(databaseStudent.services) ? databaseStudent.services : [],
       breakfast: Array.isArray(databaseStudent.breakfast) ? databaseStudent.breakfast : [],
       reminders: Number(databaseStudent.reminders || 0),
-    } as StudentLike
+    }
   }
 
   async function createStudentFromAdmin(payload: {
@@ -2491,7 +2500,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           byStudentId.get(row.student_id)!.push(row)
         })
         return prev.map(student => {
-          const entries = byStudentId.get(student.id)
+          const entries = byStudentId.get(Number(student.id))
           if (!entries?.length) return student
           // Merge: DB entries take precedence over in-memory entries for same id
           const dbIds = new Set(entries.map(e => e.id))
@@ -3003,7 +3012,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         byStudent.get(studentId)!.push(score)
       })
       return prev.map(s => {
-        const newScores = byStudent.get(s.id)
+        const newScores = byStudent.get(Number(s.id))
         if (!newScores?.length) return s
         const newIds = new Set(newScores.map(n => n.id))
         const existing = (s.testScores || []).filter((t: any) => !newIds.has(t.id))
@@ -3560,6 +3569,18 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     return true
   }
 
+  type StudentPointsActionPayload = {
+    studentId: number | string
+    pointsDelta: number
+    reminderDelta?: number
+    reason: string
+    eventType: string
+    category: string
+    sourceContext: string
+    note?: string | null
+    metadata?: Record<string, unknown>
+  }
+
   async function recordStudentPointsAction({
     studentId,
     pointsDelta,
@@ -3570,7 +3591,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     sourceContext,
     note = null,
     metadata = {},
-  }) {
+  }: StudentPointsActionPayload): Promise<boolean> {
     const originalStudent = students.find(
       student => Number(student.id) === Number(studentId)
     )
@@ -3968,8 +3989,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       return
     }
 
-    const normalizedItem = normalizeStoreItemInput(nextItem)
-    const persistedItem = {
+    const normalizedItem = normalizeStoreItemInput({ ...nextItem, id: Number(nextItem.id) })
+    const persistedItem: StoreItem = {
       ...nextItem,
       ...normalizedItem,
       id: Number(nextItem.id),
@@ -3980,6 +4001,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       vip: normalizedItem.vip,
       category: normalizedItem.category,
       name: normalizedItem.name,
+      barcode: normalizedItem.barcode,
+      imageUrl: normalizedItem.imageUrl,
+      active: nextItem.active !== false,
+      updatedBy: normalizedItem.updatedBy,
+      createdAt: String(nextItem.createdAt || new Date().toISOString()),
+      updatedAt: String(nextItem.updatedAt || new Date().toISOString()),
     }
 
     saveStoreItem(persistedItem, userName || 'Store Manager')
@@ -4449,7 +4476,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   })
 
   const alerts = visibleStudents.flatMap(s => {
-    const a: Array<{ student?: string; id?: number | string; msg: string; type: 'danger' | 'warn' | 'info' }> = []
+    const a: Array<{ student?: string; id: number | string; msg: string; type: 'danger' | 'warn' | 'info' }> = []
     const attendance = Array.isArray(s.att) ? s.att : []
     const absCount = attendance.filter(d => d === 'A').length
     const lateCount = attendance.filter(d => d === 'L').length
@@ -5237,7 +5264,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       {/* Staff Login Panel */}
       {role === 'admin' && showStaffPanel && (
         <StaffLoginPanel 
-          loggedInStaff={loggedInStaff}
+          loggedInStaff={loggedInStaff.flatMap(staff => (
+            staff.id == null || !staff.name || !staff.role
+              ? []
+              : [{ id: Number(staff.id), name: staff.name, role: staff.role, active: staff.active !== false }]
+          ))}
           onAddLogin={handleAddStaffLogin}
           onRemoveLogin={handleRemoveStaffLogin}
           onShowManagement={() => setShowStaffManagement(true)}

@@ -9,6 +9,8 @@ import {
   resolveClassroomStatusAfterAttendanceUpdate,
 } from '../utils/attendancePresence'
 
+type AttendanceStudent = { id: number | string; [key: string]: unknown }
+
 export default function AttendancePage({
   students,
   setStudents,
@@ -23,7 +25,7 @@ export default function AttendancePage({
   STAFF,
   S,
   initials,
-  isVIP = () => false,
+  isVIP = (_student: AttendanceStudent) => false,
   DAYS,
   CLASSES,
   STUDENT_CLASSES,
