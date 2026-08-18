@@ -25,6 +25,8 @@ type StoreItemLike = {
 
 type StorePurchaseLog = {
   id: number | string
+  pointsEventId?: number | null
+  reversedAt?: string | null
   time: string
   studentName: string
   itemName: string
@@ -81,6 +83,7 @@ type Props = {
   storeSyncState: string
   storeLastLoadError: string
   refreshStoreData: () => void
+  onReverseStoreRedemption?: (purchase: StorePurchaseLog) => Promise<void>
 }
 
 export default function TokenStorePage({
@@ -112,6 +115,7 @@ export default function TokenStorePage({
   storeSyncState,
   storeLastLoadError,
   refreshStoreData,
+  onReverseStoreRedemption,
 }: Props) {
   const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 96px'
   const syncUi = getStoreSyncUiState({
@@ -441,11 +445,20 @@ export default function TokenStorePage({
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           {purchaseLog.slice(0, 4).map(log => (
-                            <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '62px 1fr 1fr 58px', gap: 8, alignItems: 'center', padding: '7px 8px', border: '1px solid #e7edf3', borderRadius: 9, background: '#fbfdff', fontSize: 11.5 }}>
+                            <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '62px minmax(90px, 1fr) minmax(90px, 1fr) 58px auto', gap: 8, alignItems: 'center', padding: '7px 8px', border: '1px solid #e7edf3', borderRadius: 9, background: '#fbfdff', fontSize: 11.5 }}>
                               <span style={{ color: '#64748b' }}>{log.time}</span>
                               <span style={{ fontWeight: 600, color: '#1f2937' }}>{log.studentName}</span>
                               <span>{log.itemName}</span>
                               <span style={{ fontWeight: 700, color: '#7a633a', textAlign: 'right' }}>{log.cost} pts</span>
+                              {userAccess.canManageStore && log.pointsEventId && !log.reversedAt ? (
+                                <button
+                                  onClick={() => onReverseStoreRedemption?.(log)}
+                                  title="Reverse this redemption"
+                                  style={{ ...S.btn('danger'), padding: '4px 7px', fontSize: 10, whiteSpace: 'nowrap' }}
+                                >Reverse</button>
+                              ) : log.reversedAt ? (
+                                <span style={{ color: '#64748b', fontSize: 10 }}>Reversed</span>
+                              ) : null}
                             </div>
                           ))}
                         </div>

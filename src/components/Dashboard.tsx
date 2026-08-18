@@ -1370,6 +1370,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const toPurchaseLogEntry = useCallback((row: Record<string, unknown>) => ({
     id: Number(row.id),
+    pointsEventId: row.points_event_id === null ? null : Number(row.points_event_id),
+    reversedAt: row.reversed_at ? String(row.reversed_at) : null,
     time: new Date(String(row.created_at || new Date().toISOString())).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -2046,7 +2048,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [storeCategoryFilter, setStoreCategoryFilter] = useState('all')
   const [storeItemSearch, setStoreItemSearch] = useState('')
   const [storeItems, setStoreItems] = useState<StoreItemLike[]>([])
-  const [purchaseLog, setPurchaseLog] = useState<Array<{ id: number | string; time: string; studentId: number | null; studentName: string; itemName: string; cost: number; staff: string; division: string }>>([])
+  const [purchaseLog, setPurchaseLog] = useState<Array<{ id: number | string; pointsEventId: number | null; reversedAt: string | null; time: string; studentId: number | null; studentName: string; itemName: string; cost: number; staff: string; division: string }>>([])
   const [storePersistenceReady, setStorePersistenceReady] = useState(false)
   const [storeSyncState, setStoreSyncState] = useState('loading')
   const [storeLastLoadError, setStoreLastLoadError] = useState('')
@@ -2272,6 +2274,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setPurchaseLog(
         loadedRedemptions.map(redemption => ({
           id: redemption.id,
+          pointsEventId: redemption.pointsEventId,
+          reversedAt: redemption.reversedAt,
           time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
@@ -2297,6 +2301,27 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       )
     }
   }, [])
+
+  async function reverseStoreRedemptionFromStore(purchase: {
+    id: number | string
+    pointsEventId?: number | null
+    studentName: string
+    itemName: string
+  }) {
+    const activeRole = previewAs?.role || role
+    if (activeRole !== 'admin') throw new Error('Only admins can reverse store redemptions.')
+    if (!purchase.pointsEventId) throw new Error('This redemption has no linked points event.')
+    if (!window.confirm(`Reverse ${purchase.itemName} for ${purchase.studentName}? Points and stock will be restored.`)) return
+
+    await reverseStorePurchaseTx({
+      targetPointsEventId: Number(purchase.pointsEventId),
+      staffName: (previewAs?.name || userName || 'Admin').trim() || 'Admin',
+      staffRole: activeRole,
+      note: `Reversed store redemption #${purchase.id}`,
+      sourceContext: 'token-store-history',
+    })
+    await refreshStoreData()
+  }
 
   useEffect(() => {
     let active = true
@@ -3930,6 +3955,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
       setPurchaseLog(prev => [{
         id: Number(purchaseResult.redemptionId),
+        pointsEventId: Number(purchaseResult.pointsEventId),
+        reversedAt: null,
         time: new Date().toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
@@ -5132,6 +5159,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             storeSyncState={storeSyncState}
             storeLastLoadError={storeLastLoadError}
             refreshStoreData={refreshStoreData}
+            onReverseStoreRedemption={reverseStoreRedemptionFromStore}
           />
         )}
 
