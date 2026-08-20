@@ -4540,6 +4540,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'assignments', label: 'Staff Assignments', icon: '🧑‍🏫', group: 'People & Staff' },
     { id: 'therapy-schedule', label: 'Therapist / BT Assignments', icon: '🩺', group: 'People & Staff' },
     { id: 'accounts', label: 'Staff Accounts', icon: '🔐', group: 'People & Staff' },
+    { id: 'register-accounts', label: 'Canteen Registers', icon: '🧾', group: 'People & Staff' },
     { id: 'classes-divisions', label: 'Classes & Divisions', icon: '🏫', group: 'School Structure' },
   ]
 

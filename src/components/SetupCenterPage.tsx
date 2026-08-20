@@ -7,6 +7,7 @@ import SetupStoreSalesSection from './SetupStoreSalesSection'
 import SetupAccountsSection from './SetupAccountsSection'
 import SetupSchoolStructureSection from './SetupSchoolStructureSection'
 import StaffDirectoryPage from './StaffDirectoryPage'
+import RegisterAccountsSection from './RegisterAccountsSection'
 import { getSetupSectionMeta } from './setupCenterUtils'
 import { STUDENT_CLASSES } from './dashboardData'
 
@@ -339,6 +340,7 @@ export default function SetupCenterPage({
               onPreviewAs={onPreviewAs}
             />
           )}
+          {setupTab === 'register-accounts' && <RegisterAccountsSection S={S} />}
       </div>
     </div>
   )
