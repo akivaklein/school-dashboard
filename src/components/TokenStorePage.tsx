@@ -369,6 +369,23 @@ export default function TokenStorePage({
                 <input
                   value={storeItemSearch}
                   onChange={e => setStoreItemSearch(e.target.value)}
+                  onKeyDown={event => {
+                    if (event.key !== 'Enter') return
+                    const scanValue = storeItemSearch.trim().toLowerCase()
+                    if (!scanValue || !s) return
+                    const scannedItem = storeItems.find(item => (
+                      String(item.barcode || '').trim().toLowerCase() === scanValue ||
+                      String(item.sku || '').trim().toLowerCase() === scanValue
+                    ))
+                    if (!scannedItem) return
+                    event.preventDefault()
+                    const unavailableReason = getStoreUnavailableReason(scannedItem)
+                    if (unavailableReason) return
+                    const confirmed = window.confirm(`Redeem ${scannedItem.name} for ${scannedItem.cost} points from ${s.name}?`)
+                    if (!confirmed) return
+                    buyItem(storeStudent as number, scannedItem)
+                    setStoreItemSearch('')
+                  }}
                   placeholder="Search name, SKU, or barcode..."
                   spellCheck
                   lang="en"
@@ -436,7 +453,11 @@ export default function TokenStorePage({
                     <div style={{ fontSize: 11, color: dimUnavailable ? '#64748b' : item.stock <= item.lowStockAt ? '#9a6a2a' : '#64748b', marginBottom: 10 }}>
                       {`${item.stock} left${item.stock <= item.lowStockAt && item.stock > 0 ? ' · Low stock' : ''}`}
                     </div>
-                    <button onClick={() => s && buyItem(storeStudent as number, item)} disabled={disabled} style={{ ...(disabled ? S.btn('ghost') : S.btn('success')), width: '100%', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 12 }}>
+                    <button onClick={() => {
+                      if (!s || disabled) return
+                      const confirmed = window.confirm(`Redeem ${item.name} for ${item.cost} points from ${s.name}?`)
+                      if (confirmed) buyItem(storeStudent as number, item)
+                    }} disabled={disabled} style={{ ...(disabled ? S.btn('ghost') : S.btn('success')), width: '100%', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 12 }}>
                       {!s ? 'Select student' : unavailable ? unavailableReason : 'Redeem'}
                     </button>
                   </div>
