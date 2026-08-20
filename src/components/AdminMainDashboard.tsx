@@ -5,6 +5,7 @@ import {
   isInSchool,
 } from '../utils/attendancePresence'
 import { formatUnknownDuration } from '../utils/unknownLocationTimer'
+import { resolveStudentClassId } from './dashboardData'
 
 export default function AdminMainDashboard({
   S,
@@ -74,7 +75,7 @@ export default function AdminMainDashboard({
     unknownDuration: formatUnknownDuration(student.unknownSince),
     lastKnownLocation: student.lastKnownLocation || 'Not recorded',
     lastKnownTime: student.lastKnownTime || 'Not recorded',
-    expectedCurrentLocation: classLabelById[STUDENT_CLASSES?.[student.id]] || 'Class assignment',
+    expectedCurrentLocation: classLabelById[resolveStudentClassId(student)] || 'Class assignment',
   }))
 
   return (
@@ -314,7 +315,7 @@ export default function AdminMainDashboard({
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
             {CLASSES.map(cls => {
-              const clsStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
+              const clsStudents = students.filter(s => s?.is_active !== false && resolveStudentClassId(s) === cls.id)
               const clsPresent = clsStudents.filter(s => isInClassroom(s)).length
               const clsAbsent = clsStudents.filter(s => getDailyAttendanceStatus(s) === 'absent').length
               const clsOut = clsStudents.filter(s => !isInClassroom(s) && isInSchool(s)).length
