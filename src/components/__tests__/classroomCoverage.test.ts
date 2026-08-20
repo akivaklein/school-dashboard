@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildClassroomCoverageSnapshot, initialStudents } from '../dashboardData'
+import { buildClassroomCoverageSnapshot, initialStudents, resolveStudentClassId } from '../dashboardData'
 
 describe('classroom coverage snapshots', () => {
   it('builds a clear coverage snapshot for the current class period', () => {
@@ -42,5 +42,9 @@ describe('classroom coverage snapshots', () => {
 
     expect(snapshot.expectedCount).toBe(7)
     expect(snapshot.students.some(entry => entry.studentId === 999)).toBe(false)
+  })
+
+  it('uses the saved class assignment before the legacy student map', () => {
+    expect(resolveStudentClassId({ id: 113, class_id: 'yk-a', class_name: 'Yeshiva Ketana Alef' })).toBe('yk-a')
   })
 })

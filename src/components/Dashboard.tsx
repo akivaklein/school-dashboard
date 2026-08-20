@@ -511,10 +511,6 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
   }, [initialClass])
 
   const getStudentClassId = (student: StudentLike) => {
-    const studentId = Number(student.id)
-    const mappedClass = (STUDENT_CLASSES as Record<string | number, string>)[studentId] || (STUDENT_CLASSES as Record<string | number, string>)[String(student.id)]
-    if (mappedClass) return mappedClass
-
     const explicitClassId = student.classId || student.class_id
     if (explicitClassId) return explicitClassId
 
@@ -522,6 +518,10 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
       const classMatch = CLASSES.find(cls => cls.name === student.className)
       return classMatch?.id || null
     }
+
+    const studentId = Number(student.id)
+    const mappedClass = (STUDENT_CLASSES as Record<string | number, string>)[studentId] || (STUDENT_CLASSES as Record<string | number, string>)[String(student.id)]
+    if (mappedClass) return mappedClass
 
     return null
   }

@@ -738,9 +738,6 @@ export function resolveStudentGrade(student) {
 }
 
 export function resolveStudentClassId(student) {
-  const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
-  if (mappedClass) return mappedClass
-
   const explicitClassId = student.classId || student.class_id
   if (explicitClassId) return explicitClassId
 
@@ -748,6 +745,9 @@ export function resolveStudentClassId(student) {
     const classMatch = CLASSES.find(cls => cls.name === student.className)
     return classMatch?.id || null
   }
+
+  const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
+  if (mappedClass) return mappedClass
 
   return null
 }
