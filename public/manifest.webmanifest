@@ -1,0 +1,10 @@
+{
+  "name": "Yeshiva Ketana Secure",
+  "short_name": "YK Secure",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#1e3a5f",
+  "description": "Secure Yeshiva Ketana dashboard and Token Store register",
+  "icons": []
+}

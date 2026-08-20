@@ -1,11 +1,20 @@
-import { useState } from 'react'
-import { createRegisterAccount } from '../services/registerAccountsService'
+import { useEffect, useState } from 'react'
+import { createRegisterAccount, listRegisterAccounts, type RegisterAccountSummary } from '../services/registerAccountsService'
 
 export default function RegisterAccountsSection({ S }) {
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [saving, setSaving] = useState(false)
+  const [accounts, setAccounts] = useState<RegisterAccountSummary[]>([])
+  const [loadingAccounts, setLoadingAccounts] = useState(true)
+
+  async function refreshAccounts() {
+    setLoadingAccounts(true)
+    try { setAccounts(await listRegisterAccounts()) } catch (error) { setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Unable to load register accounts.' }) } finally { setLoadingAccounts(false) }
+  }
+
+  useEffect(() => { refreshAccounts() }, [])
 
   async function submit(event) {
     event.preventDefault()
@@ -21,6 +30,7 @@ export default function RegisterAccountsSection({ S }) {
       setStatus({ tone: 'success', text: `${displayName.trim()} can now sign in to the Token Store.` })
       setDisplayName('')
       setPassword('')
+      await refreshAccounts()
     } catch (error) {
       setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Unable to create register account.' })
     } finally {
@@ -47,6 +57,12 @@ export default function RegisterAccountsSection({ S }) {
         <button type="submit" disabled={saving} style={{ ...S.btn('primary'), justifySelf: 'start', padding: '9px 14px' }}>{saving ? 'Creating...' : 'Create Register Account'}</button>
       </form>
       <div style={{ marginTop: 16, fontSize: 11, lineHeight: 1.5, color: '#64748b' }}>The cashier signs in with this register name and PIN. Keep the PIN private and change it by creating a new register PIN when needed.</div>
+      <div style={{ marginTop: 24, borderTop: '1px solid #e2e8f0', paddingTop: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#223046', marginBottom: 8 }}>Register accounts</div>
+        {loadingAccounts ? <div style={{ fontSize: 12, color: '#64748b' }}>Loading accounts...</div> : accounts.length === 0 ? <div style={{ fontSize: 12, color: '#64748b' }}>No register accounts yet.</div> : (
+          <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}><thead><tr style={{ textAlign: 'left', background: '#f8fafc' }}><th style={{ padding: 8 }}>Name</th><th style={{ padding: 8 }}>Status</th><th style={{ padding: 8 }}>Created</th><th style={{ padding: 8 }}>Last sign-in</th></tr></thead><tbody>{accounts.map(account => <tr key={account.id} style={{ borderTop: '1px solid #eef2f7' }}><td style={{ padding: 8, fontWeight: 700 }}>{account.displayName}</td><td style={{ padding: 8, color: account.active ? '#166534' : '#64748b' }}>{account.active ? 'Active' : 'Inactive'}</td><td style={{ padding: 8, color: '#64748b' }}>{account.createdAt ? new Date(account.createdAt).toLocaleDateString() : '—'}</td><td style={{ padding: 8, color: '#64748b' }}>{account.lastSignInAt ? new Date(account.lastSignInAt).toLocaleString() : 'Never'}</td></tr>)}</tbody></table></div>
+        )}
+      </div>
     </div>
   )
 }

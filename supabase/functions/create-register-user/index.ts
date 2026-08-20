@@ -40,6 +40,25 @@ Deno.serve(async request => {
     if (actorRoleError || actorRole?.role !== 'admin') throw new Error('Only administrators can create register accounts.')
 
     const body = await request.json()
+    if (body.action === 'list') {
+      const [{ data: roles, error: rolesError }, { data: authUsers, error: usersError }] = await Promise.all([
+        adminClient.from('user_roles').select('user_id, display_name, is_active, created_at').eq('role', 'register').order('display_name'),
+        adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+      ])
+      if (rolesError || usersError) throw new Error(rolesError?.message || usersError?.message || 'Unable to load register accounts.')
+      const usersById = new Map((authUsers?.users || []).map(user => [user.id, user]))
+      return new Response(JSON.stringify((roles || []).map(role => {
+        const user = usersById.get(role.user_id)
+        return {
+          id: role.user_id,
+          displayName: role.display_name,
+          active: role.is_active !== false && user?.banned_until !== 'none',
+          createdAt: user?.created_at || role.created_at || null,
+          lastSignInAt: user?.last_sign_in_at || null,
+        }
+      })), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    }
+
     const displayName = String(body.displayName || '').trim()
     const password = String(body.password || '')
     const email = registerAccountEmail(displayName)
