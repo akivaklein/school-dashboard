@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import type { CSSProperties, Dispatch, SetStateAction } from 'react'
 import { getStoreSyncUiState } from '../services/storeService'
 
@@ -27,6 +28,7 @@ type StorePurchaseLog = {
   id: number | string
   pointsEventId?: number | null
   reversedAt?: string | null
+  createdAt?: string
   time: string
   studentName: string
   itemName: string
@@ -117,6 +119,7 @@ export default function TokenStorePage({
   refreshStoreData,
   onReverseStoreRedemption,
 }: Props) {
+  const [reportRange, setReportRange] = useState<'today' | 'week'>('today')
   const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 96px'
   const syncUi = getStoreSyncUiState({
     persistenceReady: storePersistenceReady,
@@ -125,6 +128,32 @@ export default function TokenStorePage({
   })
 
   const lastErrorText = storeLastLoadError || 'none'
+
+  const redemptionReport = useMemo(() => {
+    const now = new Date()
+    const start = new Date(now)
+    start.setHours(0, 0, 0, 0)
+    if (reportRange === 'week') start.setDate(start.getDate() - 6)
+
+    const grouped = new Map<string, { studentName: string; points: number; redemptions: number }>()
+    purchaseLog.forEach(log => {
+      if (log.reversedAt) return
+      const createdAt = new Date(log.createdAt || '')
+      if (Number.isNaN(createdAt.getTime()) || createdAt < start) return
+      const key = String(log.studentId ?? log.studentName)
+      const current = grouped.get(key) || { studentName: log.studentName, points: 0, redemptions: 0 }
+      current.points += Number(log.cost || 0)
+      current.redemptions += 1
+      grouped.set(key, current)
+    })
+
+    const rows = Array.from(grouped.values()).sort((left, right) => right.points - left.points || left.studentName.localeCompare(right.studentName))
+    return {
+      rows,
+      totalPoints: rows.reduce((sum, row) => sum + row.points, 0),
+      totalRedemptions: rows.reduce((sum, row) => sum + row.redemptions, 0),
+    }
+  }, [purchaseLog, reportRange])
 
   return (
     <div>
@@ -461,6 +490,43 @@ export default function TokenStorePage({
                               ) : null}
                             </div>
                           ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ ...S.card, padding: 16, gridColumn: '1 / -1' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13 }}>Points Redemption Report</div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Points redeemed by student. Reversed redemptions are excluded.</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={() => setReportRange('today')} style={{ ...S.btn(reportRange === 'today' ? 'primary' : 'ghost'), padding: '6px 10px', fontSize: 11 }}>Today</button>
+                          <button onClick={() => setReportRange('week')} style={{ ...S.btn(reportRange === 'week' ? 'primary' : 'ghost'), padding: '6px 10px', fontSize: 11 }}>Last 7 Days</button>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                        <span style={S.badge('#475569', '#f1f5f9')}>{redemptionReport.totalPoints} points</span>
+                        <span style={S.badge('#475569', '#f1f5f9')}>{redemptionReport.totalRedemptions} redemptions</span>
+                      </div>
+                      {redemptionReport.rows.length === 0 ? (
+                        <div style={{ color: '#94a3b8', fontSize: 12 }}>No redemptions in this period.</div>
+                      ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                            <thead><tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                              <th style={{ textAlign: 'left', padding: 8 }}>Student</th>
+                              <th style={{ textAlign: 'right', padding: 8 }}>Redemptions</th>
+                              <th style={{ textAlign: 'right', padding: 8 }}>Points redeemed</th>
+                            </tr></thead>
+                            <tbody>{redemptionReport.rows.map(row => (
+                              <tr key={row.studentName} style={{ borderBottom: '1px solid #eef2f7' }}>
+                                <td style={{ padding: 8, fontWeight: 700 }}>{row.studentName}</td>
+                                <td style={{ padding: 8, textAlign: 'right' }}>{row.redemptions}</td>
+                                <td style={{ padding: 8, textAlign: 'right', fontWeight: 700, color: '#7a633a' }}>{row.points}</td>
+                              </tr>
+                            ))}</tbody>
+                          </table>
                         </div>
                       )}
                     </div>

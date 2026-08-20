@@ -1375,6 +1375,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     id: Number(row.id),
     pointsEventId: row.points_event_id === null ? null : Number(row.points_event_id),
     reversedAt: row.reversed_at ? String(row.reversed_at) : null,
+    createdAt: String(row.created_at || new Date().toISOString()),
     time: new Date(String(row.created_at || new Date().toISOString())).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -2051,7 +2052,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [storeCategoryFilter, setStoreCategoryFilter] = useState('all')
   const [storeItemSearch, setStoreItemSearch] = useState('')
   const [storeItems, setStoreItems] = useState<StoreItemLike[]>([])
-  const [purchaseLog, setPurchaseLog] = useState<Array<{ id: number | string; pointsEventId: number | null; reversedAt: string | null; time: string; studentId: number | null; studentName: string; itemName: string; cost: number; staff: string; division: string }>>([])
+  const [purchaseLog, setPurchaseLog] = useState<Array<{ id: number | string; pointsEventId: number | null; reversedAt: string | null; createdAt: string; time: string; studentId: number | null; studentName: string; itemName: string; cost: number; staff: string; division: string }>>([])
   const [storePersistenceReady, setStorePersistenceReady] = useState(false)
   const [storeSyncState, setStoreSyncState] = useState('loading')
   const [storeLastLoadError, setStoreLastLoadError] = useState('')
@@ -2275,13 +2276,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStoreLastLoadError('')
 
       const loadedItems = await listStoreItems()
-      const loadedRedemptions = await listStoreRedemptions(25)
+      const loadedRedemptions = await listStoreRedemptions(500)
       setStoreItems(loadedItems)
       setPurchaseLog(
         loadedRedemptions.map(redemption => ({
           id: redemption.id,
           pointsEventId: redemption.pointsEventId,
           reversedAt: redemption.reversedAt,
+          createdAt: redemption.createdAt,
           time: new Date(redemption.createdAt).toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
@@ -3963,6 +3965,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         id: Number(purchaseResult.redemptionId),
         pointsEventId: Number(purchaseResult.pointsEventId),
         reversedAt: null,
+        createdAt: new Date().toISOString(),
         time: new Date().toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
