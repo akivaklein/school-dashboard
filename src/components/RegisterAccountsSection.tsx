@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createRegisterAccount, listRegisterAccounts, type RegisterAccountSummary } from '../services/registerAccountsService'
+import { createRegisterAccount, listRegisterAccounts, resetRegisterPin, type RegisterAccountSummary } from '../services/registerAccountsService'
 
 export default function RegisterAccountsSection({ S }) {
   const [displayName, setDisplayName] = useState('')
@@ -38,6 +38,20 @@ export default function RegisterAccountsSection({ S }) {
     }
   }
 
+  async function handleResetPin(account: RegisterAccountSummary) {
+    const nextPin = window.prompt(`Enter a new 4-digit PIN for ${account.displayName}:`)
+    if (!nextPin || !/^\d{4}$/.test(nextPin)) {
+      setStatus({ tone: 'error', text: 'PIN must be exactly 4 digits.' })
+      return
+    }
+    try {
+      await resetRegisterPin(account.id, nextPin)
+      setStatus({ tone: 'success', text: `PIN reset for ${account.displayName}.` })
+    } catch (error) {
+      setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Unable to reset register PIN.' })
+    }
+  }
+
   return (
     <div style={{ ...S.card, maxWidth: 720 }}>
       <div style={{ fontSize: 18, fontWeight: 800, color: '#223046' }}>Canteen Register Accounts</div>
@@ -60,7 +74,7 @@ export default function RegisterAccountsSection({ S }) {
       <div style={{ marginTop: 24, borderTop: '1px solid #e2e8f0', paddingTop: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: '#223046', marginBottom: 8 }}>Register accounts</div>
         {loadingAccounts ? <div style={{ fontSize: 12, color: '#64748b' }}>Loading accounts...</div> : accounts.length === 0 ? <div style={{ fontSize: 12, color: '#64748b' }}>No register accounts yet.</div> : (
-          <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}><thead><tr style={{ textAlign: 'left', background: '#f8fafc' }}><th style={{ padding: 8 }}>Name</th><th style={{ padding: 8 }}>Status</th><th style={{ padding: 8 }}>Created</th><th style={{ padding: 8 }}>Last sign-in</th></tr></thead><tbody>{accounts.map(account => <tr key={account.id} style={{ borderTop: '1px solid #eef2f7' }}><td style={{ padding: 8, fontWeight: 700 }}>{account.displayName}</td><td style={{ padding: 8, color: account.active ? '#166534' : '#64748b' }}>{account.active ? 'Active' : 'Inactive'}</td><td style={{ padding: 8, color: '#64748b' }}>{account.createdAt ? new Date(account.createdAt).toLocaleDateString() : '—'}</td><td style={{ padding: 8, color: '#64748b' }}>{account.lastSignInAt ? new Date(account.lastSignInAt).toLocaleString() : 'Never'}</td></tr>)}</tbody></table></div>
+          <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}><thead><tr style={{ textAlign: 'left', background: '#f8fafc' }}><th style={{ padding: 8 }}>Name</th><th style={{ padding: 8 }}>Status</th><th style={{ padding: 8 }}>Created</th><th style={{ padding: 8 }}>Last sign-in</th><th style={{ padding: 8 }}>Actions</th></tr></thead><tbody>{accounts.map(account => <tr key={account.id} style={{ borderTop: '1px solid #eef2f7' }}><td style={{ padding: 8, fontWeight: 700 }}>{account.displayName}</td><td style={{ padding: 8, color: account.active ? '#166534' : '#64748b' }}>{account.active ? 'Active' : 'Inactive'}</td><td style={{ padding: 8, color: '#64748b' }}>{account.createdAt ? new Date(account.createdAt).toLocaleDateString() : '—'}</td><td style={{ padding: 8, color: '#64748b' }}>{account.lastSignInAt ? new Date(account.lastSignInAt).toLocaleString() : 'Never'}</td><td style={{ padding: 8 }}><button onClick={() => handleResetPin(account)} style={{ ...S.btn('ghost'), padding: '5px 8px', fontSize: 11 }}>Reset PIN</button></td></tr>)}</tbody></table></div>
         )}
       </div>
     </div>

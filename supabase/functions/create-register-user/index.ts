@@ -40,6 +40,15 @@ Deno.serve(async request => {
     if (actorRoleError || actorRole?.role !== 'admin') throw new Error('Only administrators can create register accounts.')
 
     const body = await request.json()
+    if (body.action === 'reset-pin') {
+      const userId = String(body.userId || '').trim()
+      const password = String(body.password || '')
+      if (!userId || !/^\d{4}$/.test(password)) throw new Error('A user and exactly 4 digits are required.')
+      const { error: updateError } = await adminClient.auth.admin.updateUserById(userId, { password })
+      if (updateError) throw new Error(updateError.message || 'Unable to reset register PIN.')
+      return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    }
+
     if (body.action === 'list') {
       const [{ data: roles, error: rolesError }, { data: authUsers, error: usersError }] = await Promise.all([
         adminClient.from('user_roles').select('user_id, display_name, is_active, created_at').eq('role', 'register').order('display_name'),

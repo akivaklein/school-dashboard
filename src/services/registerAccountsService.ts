@@ -29,3 +29,11 @@ export async function listRegisterAccounts(): Promise<RegisterAccountSummary[]> 
   if (data?.error) throw new Error(String(data.error))
   return Array.isArray(data) ? data : []
 }
+
+export async function resetRegisterPin(userId: string, password: string) {
+  const { data, error } = await supabase.functions.invoke('create-register-user', {
+    body: { action: 'reset-pin', userId, password },
+  })
+  if (error) throw new Error(error.message || 'Unable to reset register PIN.')
+  if (data?.error) throw new Error(String(data.error))
+}

@@ -41,6 +41,7 @@ import {
   createStoreItem,
   listStoreItems,
   listStoreRedemptions,
+  seedStoreItems,
   formatSupabaseError,
   normalizeStoreItemInput,
   redeemStorePurchaseTx,
@@ -154,6 +155,7 @@ import {
   statusColor,
   statusLabel,
   statusEmoji,
+  STORE_ITEMS,
 } from './dashboardData'
 
 export type StudentLike = {
@@ -2275,7 +2277,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStoreSyncState('loading')
       setStoreLastLoadError('')
 
-      const loadedItems = await listStoreItems()
+      let loadedItems = await listStoreItems()
+      if (loadedItems.length === 0 && role === 'admin') {
+        await seedStoreItems(STORE_ITEMS)
+        loadedItems = await listStoreItems()
+      }
       const loadedRedemptions = await listStoreRedemptions(500)
       setStoreItems(loadedItems)
       setPurchaseLog(
@@ -2308,7 +2314,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           : 'Unable to load token store data from Supabase.',
       )
     }
-  }, [])
+  }, [role])
 
   async function reverseStoreRedemptionFromStore(purchase: {
     id: number | string
@@ -4409,7 +4415,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const isLeadershipRoleForMode = effectiveRole === 'admin'
   const assignedTeacherStudentSetForMode = new Set(assignedTeacherStudentIdsForMode)
   const studentsForCurrentRole = isStoreRoleForMode
-    ? activeStudents
+    ? students.filter(student => student?.is_active !== false)
     : isTeacherRoleForMode
       ? activeStudents.filter(s => assignedTeacherStudentSetForMode.has(Number(s.id)))
       : isLeadershipRoleForMode
@@ -4469,7 +4475,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     : getTeacherAssignedStudentIds(effectiveUserName, setupAssignments)
   const assignedStaffStudentSet = new Set(assignedStaffStudentIds)
   const visibleStudents = isStoreRole
-    ? activeStudents
+    ? students.filter(student => student?.is_active !== false)
     : isTeacherRole
       ? activeStudents.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
       : effectiveRole === 'support_staff'
