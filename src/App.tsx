@@ -13,6 +13,7 @@ import {
 } from './utils/authRecovery'
 import { ROLE_LOOKUP_FAILED_MESSAGE, resolveDashboardAccess } from './utils/dashboardAccess'
 import type { UserRoleRecord } from './utils/dashboardAccess'
+import { registerAccountEmail } from './utils/registerIdentity'
 
 type DashboardUser = {
   role: string
@@ -35,6 +36,7 @@ function App() {
   const [authError, setAuthError] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [isRegisterLogin, setIsRegisterLogin] = useState(false)
   const [authMessage, setAuthMessage] = useState('')
   const [authActionBusy, setAuthActionBusy] = useState(false)
   const [resetCooldownUntil, setResetCooldownUntil] = useState<number>(0)
@@ -188,7 +190,7 @@ function App() {
     setAuthMessage('')
 
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: isRegisterLogin ? registerAccountEmail(email) : email.trim(),
       password,
     })
 
@@ -281,7 +283,7 @@ function App() {
     <div style={appShellStyle}>
       <div style={{ width: '100%', maxWidth: 460, background: '#fff', border: '1px solid #d8e1ec', borderRadius: 18, boxShadow: '0 18px 38px rgba(15,23,42,0.09)', padding: 26 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: '#172033', marginBottom: 6 }}>Yeshiva Ketana Secure Login</div>
-        <div style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>Sign in with your Supabase Auth email and password.</div>
+        <div style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>{isRegisterLogin ? 'Canteen register sign in' : 'Sign in with your Supabase Auth email and password.'}</div>
 
         {(authError || authMessage) && (
           <div
@@ -301,12 +303,12 @@ function App() {
         )}
 
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 5 }}>Email</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 5 }}>{isRegisterLogin ? 'Register name' : 'Email'}</div>
           <input
-            type="email"
+            type={isRegisterLogin ? 'text' : 'email'}
             value={email}
             onChange={event => setEmail(event.target.value)}
-            placeholder="admin@yeshivaketana.org"
+            placeholder={isRegisterLogin ? 'Canteen Register 1' : 'admin@yeshivaketana.org'}
             style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #d8e1ec', borderRadius: 10, fontSize: 14 }}
           />
         </div>
@@ -319,7 +321,9 @@ function App() {
                 type="password"
                 value={password}
                 onChange={event => setPassword(event.target.value)}
-                placeholder="Enter password"
+                placeholder={isRegisterLogin ? '4-digit PIN' : 'Enter password'}
+                inputMode={isRegisterLogin ? 'numeric' : undefined}
+                maxLength={isRegisterLogin ? 4 : undefined}
                 style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #d8e1ec', borderRadius: 10, fontSize: 14 }}
               />
             </div>
@@ -332,7 +336,11 @@ function App() {
               {authActionBusy ? 'Signing In...' : 'Sign In'}
             </button>
 
-            <button
+            <button onClick={() => { setIsRegisterLogin(prev => !prev); setEmail(''); setPassword(''); setAuthError(''); setAuthMessage('') }} style={{ marginTop: 10, border: 'none', background: 'transparent', color: '#1d4ed8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              {isRegisterLogin ? 'Staff/admin sign in' : 'Canteen register sign in'}
+            </button>
+
+            {!isRegisterLogin && <button
               onClick={() => {
                 setAuthMode('forgot-password')
                 setAuthError('')
@@ -341,7 +349,7 @@ function App() {
               style={{ marginTop: 10, border: 'none', background: 'transparent', color: '#1d4ed8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
             >
               Forgot password?
-            </button>
+            </button>}
           </>
         )}
 

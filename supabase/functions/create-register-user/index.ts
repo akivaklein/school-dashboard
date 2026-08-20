@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+function registerAccountEmail(displayName: string) {
+  const slug = displayName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return `register-${slug || 'account'}@yeshiva-ketana.local`
+}
+
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -35,11 +40,11 @@ Deno.serve(async request => {
     if (actorRoleError || actorRole?.role !== 'admin') throw new Error('Only administrators can create register accounts.')
 
     const body = await request.json()
-    const email = String(body.email || '').trim().toLowerCase()
     const displayName = String(body.displayName || '').trim()
     const password = String(body.password || '')
-    if (!email || !displayName || password.length < 8) {
-      throw new Error('Name, email, and a password of at least 8 characters are required.')
+    const email = registerAccountEmail(displayName)
+    if (!displayName || !/^\d{4}$/.test(password)) {
+      throw new Error('Register name and a 4-digit PIN are required.')
     }
 
     const { data: created, error: createError } = await adminClient.auth.admin.createUser({

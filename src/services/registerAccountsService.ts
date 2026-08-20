@@ -2,7 +2,6 @@ import { supabase } from '../supabaseClient'
 
 export async function createRegisterAccount(input: {
   displayName: string
-  email: string
   password: string
 }) {
   const { data, error } = await supabase.functions.invoke('create-register-user', {
