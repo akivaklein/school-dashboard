@@ -25,6 +25,24 @@ function splitCsv(value) {
     .filter(Boolean)
 }
 
+function studentClassId(student) {
+  return String(student?.classId || student?.class_id || '')
+}
+
+function studentClassName(student, classes) {
+  const classId = studentClassId(student)
+  const configuredClass = (classes || []).find(entry => String(entry.id) === classId)
+  return String(student?.className || student?.class_name || configuredClass?.name || '')
+}
+
+function studentPhoneNumbers(student) {
+  const family = student?.family && typeof student.family === 'object' ? student.family : {}
+  const father = String(family.fatherPhone || family.father_phone || student?.fatherPhone || student?.father_phone || '').trim()
+  const mother = String(family.motherPhone || family.mother_phone || student?.motherPhone || student?.mother_phone || '').trim()
+  const general = String(family.phone || student?.phone || student?.parentPhone || student?.parent_phone || '').trim()
+  return { father, mother, general }
+}
+
 export default function StudentsListPage({
   searchedStudents,
   openStudent,
@@ -52,6 +70,7 @@ export default function StudentsListPage({
   const [sortDir, setSortDir] = useState('asc')
   const [page, setPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
+  const [directoryClassFilter, setDirectoryClassFilter] = useState('all')
   const [busyId, setBusyId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [editingStudent, setEditingStudent] = useState(null)
@@ -72,6 +91,19 @@ export default function StudentsListPage({
   )
 
   const studentsForDisplay = showArchived ? archivedStudents : activeStudents
+
+  const directoryStudents = useMemo(() => {
+    const query = String(tableSearch || '').trim().toLowerCase()
+    return studentsForDisplay
+      .filter(student => directoryClassFilter === 'all' || studentClassId(student) === directoryClassFilter)
+      .filter(student => {
+        if (!query) return true
+        const phones = studentPhoneNumbers(student)
+        return [student?.name, studentClassName(student, classes), phones.father, phones.mother, phones.general]
+          .some(value => String(value || '').toLowerCase().includes(query))
+      })
+      .sort((left, right) => String(left?.name || '').localeCompare(String(right?.name || '')))
+  }, [studentsForDisplay, directoryClassFilter, tableSearch, classes])
 
   const { visibleRows, totalPages, totalCount, safePage } = useMemo(() => buildStudentListViewModel({
     students: studentsForDisplay,
@@ -268,8 +300,53 @@ export default function StudentsListPage({
           )}
           <button onClick={() => setViewMode('cards')} style={{ ...S.btn(viewMode === 'cards' ? 'primary' : 'ghost'), padding: '8px 12px', fontSize: 12 }}>Cards</button>
           <button onClick={() => setViewMode('table')} style={{ ...S.btn(viewMode === 'table' ? 'primary' : 'ghost'), padding: '8px 12px', fontSize: 12 }}>Table</button>
+          <button onClick={() => setViewMode('directory')} style={{ ...S.btn(viewMode === 'directory' ? 'primary' : 'ghost'), padding: '8px 12px', fontSize: 12 }}>Directory</button>
         </div>
       </div>
+
+      {viewMode === 'directory' && (
+        <div style={S.card}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#1e293b' }}>Student contact directory</div>
+            <select value={directoryClassFilter} onChange={event => setDirectoryClassFilter(event.target.value)} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12 }}>
+              <option value="all">All classes</option>
+              {(classes || []).map(entry => <option key={`directory-${entry.id}`} value={entry.id}>{entry.name} · {entry.grade}</option>)}
+            </select>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Student</th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Class</th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Father phone</th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Mother phone</th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {directoryStudents.map(student => {
+                  const phones = studentPhoneNumbers(student)
+                  return (
+                    <tr key={`directory-row-${student.id}`} style={{ borderBottom: '1px solid #eef2f7' }}>
+                      <td style={{ padding: 10, fontWeight: 700 }}>{student.name}</td>
+                      <td style={{ padding: 10 }}>{studentClassName(student, classes) || '—'}</td>
+                      <td style={{ padding: 10 }}>{phones.father || phones.general || '—'}</td>
+                      <td style={{ padding: 10 }}>{phones.mother || phones.general || '—'}</td>
+                      <td style={{ padding: 10 }}>
+                        <button onClick={() => openStudent(student)} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Open</button>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {directoryStudents.length === 0 && (
+                  <tr><td colSpan={5} style={{ padding: 16, textAlign: 'center', color: '#64748b' }}>No students match this directory filter.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {viewMode === 'cards' && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

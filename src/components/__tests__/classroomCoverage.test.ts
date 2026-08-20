@@ -35,4 +35,12 @@ describe('classroom coverage snapshots', () => {
     expect(periodThree.metrics.present).toBe(0)
     expect(periodThree.metrics.late).toBe(3)
   })
+
+  it('does not include archived students in classroom expectations', () => {
+    const archivedStudent = { ...initialStudents[0], id: 999, is_active: false }
+    const snapshot = buildClassroomCoverageSnapshot([...initialStudents, archivedStudent], 'a', { id: 1, subject: 'Gemara' })
+
+    expect(snapshot.expectedCount).toBe(7)
+    expect(snapshot.students.some(entry => entry.studentId === 999)).toBe(false)
+  })
 })

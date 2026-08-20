@@ -585,7 +585,7 @@ export function buildClassroomCoverageForecast({
   const combinedScheduleRows = buildCombinedScheduleRows(students, therapySchedule)
 
   return (classes || []).map(classInfo => {
-    const roster = (students || []).filter(student => resolveForecastStudentClassId(student, classes || []) === classInfo.id)
+    const roster = (students || []).filter(student => student?.is_active !== false && resolveForecastStudentClassId(student, classes || []) === classInfo.id)
     const rosterMap = new Map<number, StudentLike>()
     const rosterNameMap = new Map<string, StudentLike>()
 

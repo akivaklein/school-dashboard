@@ -674,8 +674,8 @@ export const CLASSES = [
   { id: 'b', name: 'Dargei Beis', grade: '10th Grade', teacher: 'Rabbi Goldstein' },
   { id: 'c', name: 'Dargei Gimmel', grade: '11th Grade', teacher: 'Rabbi Ehrnreich' },
   { id: 'd', name: 'Dargei Daled', grade: '12th Grade', teacher: 'Rabbi Ambush' },
-  { id: 'yk-a', name: 'Yeshiva Ketana Alef', grade: '7th/8th Grade', teacher: 'Rabbi Schults' },
-  { id: 'yk-b', name: 'Yeshiva Ketana Beis', grade: '7th/8th Grade', teacher: 'Rabbi Schimborski' },
+  { id: 'yk-a', name: 'Yeshiva Ketana Alef', grade: '8th Grade', teacher: 'Rabbi Schults' },
+  { id: 'yk-b', name: 'Yeshiva Ketana Beis', grade: '7th Grade', teacher: 'Rabbi Schimborski' },
 ]
 
 export const STUDENT_CLASSES = {
@@ -923,7 +923,7 @@ export function canAccessStudentForRole(student, context: StudentAccessContext =
 }
 
 export function buildClassroomCoverageSnapshot(students, classId, period = null) {
-  const roster = (students || []).filter(student => resolveStudentClassId(student) === classId)
+  const roster = (students || []).filter(student => student?.is_active !== false && resolveStudentClassId(student) === classId)
 
   const entries = roster.map(student => {
     const attendanceStatus = String(getDailyAttendanceStatus(student))
