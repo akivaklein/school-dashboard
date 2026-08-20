@@ -38,19 +38,44 @@ function toRecord(row: Record<string, unknown>): StudentNoteRecord {
   }
 }
 
+function isMissingNotesColumnError(error: { message?: string } | null | undefined) {
+  const message = String(error?.message || '').toLowerCase()
+  return message.includes('student_notes') && (
+    message.includes('column') ||
+    message.includes('schema cache') ||
+    message.includes('does not exist')
+  )
+}
+
 export async function listStudentNotes(studentId: number): Promise<StudentNoteRecord[]> {
-  const { data, error } = await supabase
+  const primary = await supabase
     .from('student_notes')
     .select('*')
     .eq('student_id', studentId)
     .eq('is_deleted', false)
     .order('created_at', { ascending: false })
 
-  if (error) {
-    throw new Error(error.message || 'Unable to load notes right now.')
+  if (!primary.error) {
+    return (primary.data || []).map((row: Record<string, unknown>) => toRecord(row))
   }
 
-  return (data || []).map((row: Record<string, unknown>) => toRecord(row))
+  if (!isMissingNotesColumnError(primary.error)) {
+    throw new Error(primary.error.message || 'Unable to load notes right now.')
+  }
+
+  const fallback = await supabase
+    .from('student_notes')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false })
+
+  if (fallback.error) {
+    throw new Error(fallback.error.message || 'Unable to load notes right now.')
+  }
+
+  return (fallback.data || [])
+    .filter((row: Record<string, unknown>) => row.is_deleted !== true)
+    .map((row: Record<string, unknown>) => toRecord(row))
 }
 
 export async function createStudentNote(input: {
@@ -60,25 +85,43 @@ export async function createStudentNote(input: {
   author: string
   actorName: string
 }) {
-  const { data, error } = await supabase
+  const payload = {
+    student_id: input.studentId,
+    student_name: input.studentName,
+    note: input.note,
+    author: input.author,
+    created_by_name: input.actorName,
+  }
+  const primary = await supabase
     .from('student_notes')
-    .insert([
-      {
-        student_id: input.studentId,
-        student_name: input.studentName,
-        note: input.note,
-        author: input.author,
-        created_by_name: input.actorName,
-      },
-    ])
+    .insert([payload])
     .select('*')
     .single()
 
-  if (error) {
-    throw new Error(error.message || 'Unable to save note right now.')
+  if (!primary.error) {
+    return toRecord(primary.data as Record<string, unknown>)
   }
 
-  return toRecord(data as Record<string, unknown>)
+  if (!isMissingNotesColumnError(primary.error)) {
+    throw new Error(primary.error.message || 'Unable to save note right now.')
+  }
+
+  const fallback = await supabase
+    .from('student_notes')
+    .insert([{
+      student_id: input.studentId,
+      student_name: input.studentName,
+      note: input.note,
+      author: input.author,
+    }])
+    .select('*')
+    .single()
+
+  if (fallback.error) {
+    throw new Error(fallback.error.message || 'Unable to save note right now.')
+  }
+
+  return toRecord(fallback.data as Record<string, unknown>)
 }
 
 export async function updateStudentNote(input: {
@@ -86,7 +129,7 @@ export async function updateStudentNote(input: {
   note: string
   actorName: string
 }) {
-  const { data, error } = await supabase
+  const primary = await supabase
     .from('student_notes')
     .update({
       note: input.note,
@@ -97,11 +140,26 @@ export async function updateStudentNote(input: {
     .select('*')
     .single()
 
-  if (error) {
-    throw new Error(error.message || 'Unable to update note right now.')
+  if (!primary.error) {
+    return toRecord(primary.data as Record<string, unknown>)
   }
 
-  return toRecord(data as Record<string, unknown>)
+  if (!isMissingNotesColumnError(primary.error)) {
+    throw new Error(primary.error.message || 'Unable to update note right now.')
+  }
+
+  const fallback = await supabase
+    .from('student_notes')
+    .update({ note: input.note })
+    .eq('id', input.noteId)
+    .select('*')
+    .single()
+
+  if (fallback.error) {
+    throw new Error(fallback.error.message || 'Unable to update note right now.')
+  }
+
+  return toRecord(fallback.data as Record<string, unknown>)
 }
 
 export async function archiveStudentNote(input: {

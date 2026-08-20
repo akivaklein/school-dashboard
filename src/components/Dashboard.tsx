@@ -140,6 +140,7 @@ import {
   resolveLiveStudentPoints,
   resolveStudentClassId,
   resolveStudentGrade,
+  isYeshivaKetanaStudent,
   getTeacherAssignedStudentIds,
   getUserAccess,
   defaultDivisionView,
@@ -4376,7 +4377,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     )
   }
 
-  const activeStudents = students.filter(student => student?.is_active !== false)
+  const activeStudents = students.filter(student => student?.is_active !== false && isYeshivaKetanaStudent(student))
 
   const userAccessForMode = getUserAccess(effectiveUserName, effectiveRole)
   const allowedDivisionSetForMode = new Set(userAccessForMode.divisions)
@@ -4540,9 +4541,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   ]
 
   const normalizedSearch = String(search || '').trim().toLowerCase()
+  const studentsForStudentsPageBase = effectiveRole === 'admin'
+    ? students.filter(isYeshivaKetanaStudent)
+    : visibleStudents
   const studentsForStudentsPage = normalizedSearch
-    ? (effectiveRole === 'admin' ? students : visibleStudents).filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
-    : (effectiveRole === 'admin' ? students : visibleStudents)
+    ? studentsForStudentsPageBase.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
+    : studentsForStudentsPageBase
   const searchedStudents = normalizedSearch
     ? visibleStudents.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
     : visibleStudents
@@ -4903,7 +4907,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             TEACHING_STAFF_OPTIONS={TEACHING_STAFF_OPTIONS}
             SUPPORT_STAFF_OPTIONS={SUPPORT_STAFF_OPTIONS}
             setupNavItems={setupNavItems}
-            students={students}
+            students={activeStudents}
             staffMembers={staffMembers}
             initials={initials}
             refreshStaffMembers={refreshStaffMembers}

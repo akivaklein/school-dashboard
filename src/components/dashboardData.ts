@@ -670,10 +670,6 @@ export const TEACHER_CLASS_MAP = {
 }
 
 export const CLASSES = [
-  { id: 'a', name: 'Dargei Alef', grade: '9th Grade', teacher: 'Rabbi Klein' },
-  { id: 'b', name: 'Dargei Beis', grade: '10th Grade', teacher: 'Rabbi Goldstein' },
-  { id: 'c', name: 'Dargei Gimmel', grade: '11th Grade', teacher: 'Rabbi Ehrnreich' },
-  { id: 'd', name: 'Dargei Daled', grade: '12th Grade', teacher: 'Rabbi Ambush' },
   { id: 'yk-a', name: 'Yeshiva Ketana Alef', grade: '8th Grade', teacher: 'Rabbi Schults' },
   { id: 'yk-b', name: 'Yeshiva Ketana Beis', grade: '7th Grade', teacher: 'Rabbi Schimborski' },
 ]
@@ -754,6 +750,15 @@ export function resolveStudentClassId(student) {
   }
 
   return null
+}
+
+export function isYeshivaKetanaStudent(student) {
+  const classId = String(resolveStudentClassId(student) || '').trim().toLowerCase()
+  const className = String(student?.className || student?.class_name || '').trim().toLowerCase()
+  const grade = resolveStudentGrade(student)
+  const isYeshivaKetanaClass = classId === 'yk-a' || classId === 'yk-b' || className.includes('yeshiva ketana')
+
+  return isYeshivaKetanaClass && (grade === '7' || grade === '8')
 }
 
 function collectAssignmentStudentIds(assignment) {
