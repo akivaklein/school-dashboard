@@ -726,6 +726,21 @@ export function resolveLiveStudentPoints(tokenBalance) {
   return Number(tokenBalance ?? 0) || 0
 }
 
+export function resolveStudentGrade(student) {
+  const rawGrade = student?.grade
+  if (typeof rawGrade !== 'undefined' && rawGrade !== null && String(rawGrade).trim()) {
+    return String(rawGrade).trim()
+  }
+
+  const explicitClassId = String(student?.classId || student?.class_id || '').trim().toLowerCase()
+  const explicitClassName = String(student?.className || '').trim().toLowerCase()
+
+  if (explicitClassId === 'yk-a' || explicitClassName.includes('alef')) return '8'
+  if (explicitClassId === 'yk-b' || explicitClassName.includes('beis') || explicitClassName.includes('beit')) return '7'
+
+  return ''
+}
+
 export function resolveStudentClassId(student) {
   const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
   if (mappedClass) return mappedClass

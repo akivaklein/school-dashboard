@@ -139,6 +139,7 @@ import {
   studentDivision,
   resolveLiveStudentPoints,
   resolveStudentClassId,
+  resolveStudentGrade,
   getTeacherAssignedStudentIds,
   getUserAccess,
   defaultDivisionView,
@@ -162,6 +163,7 @@ export type StudentLike = {
   withStaff?: string | number | null
   className?: string
   classId?: string | number | null
+  grade?: string | number | null
   is_active?: boolean
   services?: Array<{ type?: string; [key: string]: unknown }>
   notes?: Array<Record<string, unknown>>
@@ -2100,6 +2102,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       classId: typeof databaseStudent.class_id === 'string' || typeof databaseStudent.class_id === 'number'
         ? databaseStudent.class_id
         : (typeof databaseStudent.classId === 'string' || typeof databaseStudent.classId === 'number' ? databaseStudent.classId : null),
+      grade: typeof databaseStudent.grade === 'string' || typeof databaseStudent.grade === 'number'
+        ? databaseStudent.grade
+        : resolveStudentGrade(databaseStudent),
       is_active: databaseStudent.is_active !== false,
       dailyStatus: String(
         databaseStudent.daily_status ||
