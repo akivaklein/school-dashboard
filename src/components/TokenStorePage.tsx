@@ -136,13 +136,14 @@ export default function TokenStorePage({
     start.setHours(0, 0, 0, 0)
     if (reportRange === 'week') start.setDate(start.getDate() - 6)
 
-    const grouped = new Map<string, { studentName: string; points: number; redemptions: number }>()
+    const grouped = new Map<string, { studentName: string; staff: string; points: number; redemptions: number }>()
     purchaseLog.forEach(log => {
       if (log.reversedAt) return
       const createdAt = new Date(log.createdAt || '')
       if (Number.isNaN(createdAt.getTime()) || createdAt < start) return
-      const key = String(log.studentId ?? log.studentName)
-      const current = grouped.get(key) || { studentName: log.studentName, points: 0, redemptions: 0 }
+      const staffName = String(log.staff || 'Unknown register')
+      const key = `${String(log.studentId ?? log.studentName)}:${staffName}`
+      const current = grouped.get(key) || { studentName: log.studentName, staff: staffName, points: 0, redemptions: 0 }
       current.points += Number(log.cost || 0)
       current.redemptions += 1
       grouped.set(key, current)
@@ -506,10 +507,11 @@ export default function TokenStorePage({
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           {purchaseLog.slice(0, 4).map(log => (
-                            <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '62px minmax(90px, 1fr) minmax(90px, 1fr) 58px auto', gap: 8, alignItems: 'center', padding: '7px 8px', border: '1px solid #e7edf3', borderRadius: 9, background: '#fbfdff', fontSize: 11.5 }}>
+                            <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '62px minmax(90px, 1fr) minmax(90px, 1fr) minmax(80px, 1fr) 58px auto', gap: 8, alignItems: 'center', padding: '7px 8px', border: '1px solid #e7edf3', borderRadius: 9, background: '#fbfdff', fontSize: 11.5 }}>
                               <span style={{ color: '#64748b' }}>{log.time}</span>
                               <span style={{ fontWeight: 600, color: '#1f2937' }}>{log.studentName}</span>
                               <span>{log.itemName}</span>
+                              <span style={{ color: '#64748b' }}>{String(log.staff || 'Unknown register')}</span>
                               <span style={{ fontWeight: 700, color: '#7a633a', textAlign: 'right' }}>{log.cost} pts</span>
                               {userAccess.canManageStore && log.pointsEventId && !log.reversedAt ? (
                                 <button
@@ -548,12 +550,14 @@ export default function TokenStorePage({
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                             <thead><tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                               <th style={{ textAlign: 'left', padding: 8 }}>Student</th>
+                              <th style={{ textAlign: 'left', padding: 8 }}>Checked out by</th>
                               <th style={{ textAlign: 'right', padding: 8 }}>Redemptions</th>
                               <th style={{ textAlign: 'right', padding: 8 }}>Points redeemed</th>
                             </tr></thead>
                             <tbody>{redemptionReport.rows.map(row => (
                               <tr key={row.studentName} style={{ borderBottom: '1px solid #eef2f7' }}>
                                 <td style={{ padding: 8, fontWeight: 700 }}>{row.studentName}</td>
+                                <td style={{ padding: 8 }}>{row.staff}</td>
                                 <td style={{ padding: 8, textAlign: 'right' }}>{row.redemptions}</td>
                                 <td style={{ padding: 8, textAlign: 'right', fontWeight: 700, color: '#7a633a' }}>{row.points}</td>
                               </tr>
