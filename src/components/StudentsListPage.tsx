@@ -306,6 +306,7 @@ export default function StudentsListPage({
                   </div>
                 </div>
                 <div><div style={{ fontSize: 13, fontWeight: 600 }}>{lastCall ? `${daysSince(lastCall.date)}d` : 'Never'}</div><div style={{ fontSize: 10, color: '#94a3b8' }}>last call</div></div>
+                {isAdmin && <button onClick={event => { event.stopPropagation(); openEditForm(s) }} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Edit</button>}
               </div>
             </div>
           )
