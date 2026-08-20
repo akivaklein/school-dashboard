@@ -4,6 +4,7 @@ type StudentMutationPayload = {
   name: string
   className: string
   classId?: string
+  grade?: string | number | null
   status?: string
   isActive?: boolean
   teacherAssignments?: string[]
@@ -42,6 +43,20 @@ function normalizeAssignments(values: string[] | undefined) {
   return Array.from(new Set((values || []).map(value => String(value || '').trim()).filter(Boolean)))
 }
 
+export function normalizeStudentGrade(value: string | number | null | undefined): string {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+
+  if (/^7$|^grade\s*7$|^7th$/i.test(raw)) return '7'
+  if (/^8$|^grade\s*8$|^8th$/i.test(raw)) return '8'
+
+  const lowered = raw.toLowerCase()
+  if (lowered.includes('alef')) return '8'
+  if (lowered.includes('beis') || lowered.includes('beit')) return '7'
+
+  return ''
+}
+
 async function appendAuditLog(action: string, targetId: number | string, userName: string, metadata: Record<string, unknown>) {
   await supabase
     .from('audit_logs')
@@ -58,6 +73,9 @@ export async function createStudentRecord(payload: StudentMutationPayload, actor
   const family = normalizeFamilyDetails(payload.family)
   const teacherAssignments = normalizeAssignments(payload.teacherAssignments)
   const supportAssignments = normalizeAssignments(payload.supportAssignments)
+  const grade = normalizeStudentGrade(payload.grade) || normalizeStudentGrade(
+    /alef/i.test(String(payload.className || '')) ? '8' : /beis|beit/i.test(String(payload.className || '')) ? '7' : '',
+  )
 
   const services = [
     ...teacherAssignments.map(name => ({ role: 'teacher', staffName: name })),
@@ -90,6 +108,7 @@ export async function createStudentRecord(payload: StudentMutationPayload, actor
     therapy_frequency: String(payload.therapyFrequency || '').trim(),
     therapy_notes: String(payload.therapyNotes || '').trim(),
     is_active: payload.isActive !== false,
+    grade,
     archived_at: payload.isActive === false ? new Date().toISOString() : null,
     archived_by: payload.isActive === false ? actorName : null,
   }
@@ -116,6 +135,9 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
   const family = normalizeFamilyDetails(payload.family)
   const teacherAssignments = normalizeAssignments(payload.teacherAssignments)
   const supportAssignments = normalizeAssignments(payload.supportAssignments)
+  const grade = normalizeStudentGrade(payload.grade) || normalizeStudentGrade(
+    /alef/i.test(String(payload.className || '')) ? '8' : /beis|beit/i.test(String(payload.className || '')) ? '7' : '',
+  )
 
   const services = [
     ...teacherAssignments.map(name => ({ role: 'teacher', staffName: name })),
@@ -133,6 +155,7 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
     therapy_frequency: String(payload.therapyFrequency || '').trim(),
     therapy_notes: String(payload.therapyNotes || '').trim(),
     is_active: payload.isActive !== false,
+    grade,
     archived_at: payload.isActive === false ? new Date().toISOString() : null,
     archived_by: payload.isActive === false ? actorName : null,
   }
@@ -148,6 +171,7 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
 
   await appendAuditLog('student_updated', studentId, actorName, {
     className: patch.class_name,
+    grade,
     isActive: patch.is_active,
     teacherAssignments,
     supportAssignments,
@@ -227,16 +251,7 @@ export async function getStudentDeletionImpact(studentId: number): Promise<Delet
 }
 
 export async function permanentlyDeleteStudentRecord(studentId: number, actorName: string) {
-  const impact = await getStudentDeletionImpact(studentId)
-
-  const { error } = await supabase
-    .from('students')
-    .delete()
-    .eq('id', studentId)
-
-  if (error) throw error
-
-  await appendAuditLog('student_deleted_permanent', studentId, actorName, impact)
-
-  return impact
+  void studentId
+  void actorName
+  throw new Error('Permanent student deletion is disabled for Yeshiva Ketana. Archive the student instead.')
 }

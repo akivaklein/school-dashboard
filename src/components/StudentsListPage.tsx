@@ -6,6 +6,7 @@ function defaultStudentForm() {
     name: '',
     classId: '',
     className: '',
+    grade: '8',
     teacherAssignmentsText: '',
     supportAssignmentsText: '',
     fatherName: '',
@@ -138,10 +139,17 @@ export default function StudentsListPage({
 
     setEditingStudent(student)
     setFormError('')
+    const inferredGrade = student.grade || (
+      /alef/i.test(String(student.className || student.class_name || classMatch?.name || '')) ? '8'
+      : /beis|beit/i.test(String(student.className || student.class_name || classMatch?.name || '')) ? '7'
+      : '8'
+    )
+
     setFormState({
       name: student.name || '',
       classId: student.classId || student.class_id || classMatch?.id || '',
       className: student.className || student.class_name || classMatch?.name || '',
+      grade: String(inferredGrade),
       teacherAssignmentsText: teacherAssignments.join(', '),
       supportAssignmentsText: supportAssignments.join(', '),
       fatherName: String(family.fatherName || ''),
@@ -171,10 +179,16 @@ export default function StudentsListPage({
     const className = String(formState.className || selectedClass?.name || '').trim()
     const classId = String(formState.classId || selectedClass?.id || '').trim()
 
+    const normalizedGrade = String(formState.grade || '').trim()
+    const safeGrade = normalizedGrade === '7' || normalizedGrade === '8' ? normalizedGrade : (
+      /alef/i.test(className) ? '8' : /beis|beit/i.test(className) ? '7' : '8'
+    )
+
     const payload = {
       name: String(formState.name || '').trim(),
       className,
       classId,
+      grade: safeGrade,
       status: 'present',
       isActive: formState.isActive !== false,
       teacherAssignments: splitCsv(formState.teacherAssignmentsText),
@@ -220,40 +234,6 @@ export default function StudentsListPage({
     try {
       setBusyId(student.id)
       await onRestoreStudent?.(student)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function handlePermanentDelete(student) {
-    if (!isAdmin || !student) return
-
-    const impact = await onGetDeletionImpact?.(student)
-    const message = [
-      `You are permanently deleting ${student.name}.`,
-      '',
-      'This operation removes the student row and affects related history:',
-      `- Attendance: ${impact?.attendanceHistoryRows || 0} row(s)`,
-      `- Notes: ${impact?.notesRows || 0} row(s)`,
-      `- Points history: ${impact?.pointsHistoryRows || 0} row(s)`,
-      `- Store redemptions: ${impact?.storeRedemptionsRows || 0} row(s)`,
-      `- Class assignments: ${impact?.classAssignmentsRows || 0} row(s)`,
-      `- Support records: ${impact?.supportRows || 0} row(s)`,
-      `- Assignment records: ${impact?.assignmentRows || 0} row(s)`,
-      `- Related activity total: ${impact?.relatedActivityRows || 0}`,
-      '',
-      'Type DELETE in the next prompt only if you want to continue.',
-    ].join('\n')
-
-    const confirmed = window.confirm(message)
-    if (!confirmed) return
-
-    const explicit = window.prompt('Type DELETE to permanently remove this archived student:')
-    if (explicit !== 'DELETE') return
-
-    try {
-      setBusyId(student.id)
-      await onDeleteStudent?.(student)
     } finally {
       setBusyId(null)
     }
@@ -378,7 +358,6 @@ export default function StudentsListPage({
                           {isAdmin && <button onClick={() => openEditForm(student)} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }} disabled={isBusy}>Edit</button>}
                           {isAdmin && student.is_active !== false && <button onClick={() => handleArchive(student)} style={{ ...S.btn('danger'), padding: '6px 10px', fontSize: 11 }} disabled={isBusy}>Archive</button>}
                           {isAdmin && student.is_active === false && <button onClick={() => handleRestore(student)} style={{ ...S.btn('success'), padding: '6px 10px', fontSize: 11 }} disabled={isBusy}>Restore</button>}
-                          {isAdmin && student.is_active === false && <button onClick={() => handlePermanentDelete(student)} style={{ ...S.btn('danger'), padding: '6px 10px', fontSize: 11 }} disabled={isBusy}>Delete</button>}
                         </div>
                       </td>
                     </tr>
@@ -428,10 +407,18 @@ export default function StudentsListPage({
                   <select value={formState.classId} onChange={event => {
                     const classId = event.target.value
                     const selectedClass = (classes || []).find(entry => entry.id === classId)
-                    setFormState(prev => ({ ...prev, classId, className: selectedClass?.name || '' }))
+                    const nextGrade = /alef/i.test(String(selectedClass?.name || '')) ? '8' : /beis|beit/i.test(String(selectedClass?.name || '')) ? '7' : formState.grade
+                    setFormState(prev => ({ ...prev, classId, className: selectedClass?.name || '', grade: nextGrade }))
                   }} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12 }}>
                     <option value="">Select class</option>
                     {(classes || []).map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Grade</span>
+                  <select value={formState.grade} onChange={event => setFormState(prev => ({ ...prev, grade: event.target.value }))} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12 }}>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
                   </select>
                 </label>
                 <label style={{ display: 'grid', gap: 4 }}>
