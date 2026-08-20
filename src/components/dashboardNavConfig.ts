@@ -72,6 +72,15 @@ const STORE_NAV_CONFIG: RoleNavConfig = {
   },
 }
 
+const REGISTER_NAV_CONFIG: RoleNavConfig = {
+  topAreas: [
+    { id: 'school-day', label: 'Register', defaultPage: 'store', pages: ['store'] },
+  ],
+  submenuByArea: {
+    'school-day': [{ id: 'store', label: 'Token Store' }],
+  },
+}
+
 const SUPPORT_STAFF_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
     { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students'] },
@@ -103,6 +112,7 @@ export function getRoleNavConfig(role: string): RoleNavConfig {
   if (role === 'teacher' || role === 'rebbe') return TEACHER_NAV_CONFIG
   if (role === 'therapist') return THERAPIST_NAV_CONFIG
   if (role === 'store' || role === 'canteen') return STORE_NAV_CONFIG
+  if (role === 'register') return REGISTER_NAV_CONFIG
   if (role === 'support_staff') return SUPPORT_STAFF_NAV_CONFIG
   return DEFAULT_NAV_CONFIG
 }

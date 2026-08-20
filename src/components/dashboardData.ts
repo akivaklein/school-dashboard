@@ -834,6 +834,13 @@ export function getUserAccess(name, role) {
     }
   }
 
+  if (role === 'register') {
+    return {
+      divisions: ['yeshiva_ketana'],
+      canManageStore: false,
+    }
+  }
+
   return {
     divisions: ['yeshiva_ketana'],
     canManageStore: role === 'admin'
@@ -857,6 +864,8 @@ export function canAccessDashboardPage(role, page) {
     return ['students', 'behavior', 'store'].includes(page)
   }
 
+  if (role === 'register') return ['store'].includes(page)
+
   if (role === 'admin') {
     return ['dashboard', 'students', 'academics', 'setup', 'behavior', 'store', 'staff-directory'].includes(page)
   }
@@ -876,6 +885,8 @@ export function canAccessStudentForRole(student, context: StudentAccessContext =
   const { role, userName = '', setupAssignments = {}, students = [], assignedStudentIds = [] } = context || {}
 
   if (!student) return false
+
+  if (role === 'register') return false
 
   if (role === 'teacher' || role === 'rebbe') {
     const targetStudentId = Number(student.id)

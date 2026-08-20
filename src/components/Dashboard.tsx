@@ -4384,7 +4384,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const userAccessForMode = getUserAccess(effectiveUserName, effectiveRole)
   const allowedDivisionSetForMode = new Set(userAccessForMode.divisions)
-  const isStoreRoleForMode = false
+  const isStoreRoleForMode = effectiveRole === 'register' || effectiveRole === 'store' || effectiveRole === 'canteen'
   const normalizedEffectiveUserName = normalizeStaffName(effectiveUserName)
   const divisionScopedStudentsForMode = activeStudents.filter(
     s =>
@@ -4409,7 +4409,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const isLeadershipRoleForMode = effectiveRole === 'admin'
   const assignedTeacherStudentSetForMode = new Set(assignedTeacherStudentIdsForMode)
   const studentsForCurrentRole = isStoreRoleForMode
-    ? []
+    ? activeStudents
     : isTeacherRoleForMode
       ? activeStudents.filter(s => assignedTeacherStudentSetForMode.has(Number(s.id)))
       : isLeadershipRoleForMode
@@ -4453,7 +4453,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const userAccess = getUserAccess(effectiveUserName, effectiveRole)
   const isTeacherRole = effectiveRole === 'teacher' || effectiveRole === 'rebbe'
-  const isStoreRole = false
+  const isStoreRole = effectiveRole === 'register' || effectiveRole === 'store' || effectiveRole === 'canteen'
   const allowedDivisionSet = new Set(userAccess.divisions)
   const divisionScopedStudents = activeStudents.filter(s => allowedDivisionSet.has(studentDivision(s)) && (divisionView === 'all' || studentDivision(s) === divisionView))
   const normalizedUserName = normalizeStaffName(effectiveUserName)
@@ -4469,7 +4469,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     : getTeacherAssignedStudentIds(effectiveUserName, setupAssignments)
   const assignedStaffStudentSet = new Set(assignedStaffStudentIds)
   const visibleStudents = isStoreRole
-    ? []
+    ? activeStudents
     : isTeacherRole
       ? activeStudents.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
       : effectiveRole === 'support_staff'

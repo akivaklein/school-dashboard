@@ -23,6 +23,7 @@ export function getLoginRoleKey(role: string) {
   const normalized = String(role || '').trim().toLowerCase()
   if (normalized === 'teacher' || normalized === 'rebbe') return 'teacher'
   if (normalized === 'store' || normalized === 'canteen') return 'store'
+  if (normalized === 'register' || normalized === 'cashier') return 'register'
   if (normalized === 'support_staff' || normalized === 'therapist' || normalized === 'speech' || normalized === 'ot' || normalized === 'pt' || normalized === 'bcba' || normalized === 'social-counseling' || normalized === 'bt') return 'support_staff'
   return 'admin'
 }
@@ -30,6 +31,7 @@ export function getLoginRoleKey(role: string) {
 export function buildLoginAccountRoleLabel(role: string) {
   const normalized = String(role || '').trim().toLowerCase()
   if (normalized === 'store' || normalized === 'canteen') return 'Canteen'
+  if (normalized === 'register' || normalized === 'cashier') return 'Register'
   if (normalized === 'therapist') return 'Therapist'
 
   const key = getLoginRoleKey(role)

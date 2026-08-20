@@ -19,6 +19,11 @@ describe('resolveDashboardAccess', () => {
     expect(result).toEqual({ status: 'granted', user: { role: 'admin', name: 'Yeshiva Ketana Admin' } })
   })
 
+  it('grants restricted register access with a register display name', () => {
+    expect(resolveDashboardAccess([{ role: 'register', display_name: null, is_active: true }]))
+      .toEqual({ status: 'granted', user: { role: 'register', name: 'Store Register' } })
+  })
+
   it('returns a clear message when zero profiles match', () => {
     expect(resolveDashboardAccess([])).toEqual({ status: 'denied', message: NO_PROFILE_MESSAGE })
     expect(resolveDashboardAccess(null)).toEqual({ status: 'denied', message: NO_PROFILE_MESSAGE })

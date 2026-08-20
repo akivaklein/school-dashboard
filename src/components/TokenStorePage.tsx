@@ -120,6 +120,7 @@ export default function TokenStorePage({
   onReverseStoreRedemption,
 }: Props) {
   const [reportRange, setReportRange] = useState<'today' | 'week'>('today')
+  const [studentSearch, setStudentSearch] = useState('')
   const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 96px'
   const syncUi = getStoreSyncUiState({
     persistenceReady: storePersistenceReady,
@@ -289,7 +290,16 @@ export default function TokenStorePage({
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Students</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Students</div>
+            <input
+              value={studentSearch}
+              onChange={event => setStudentSearch(event.target.value)}
+              placeholder="Find student by name..."
+              aria-label="Find student by name"
+              style={{ padding: '6px 9px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12, width: 190 }}
+            />
+          </div>
           {storeStudent && <button onClick={() => setStoreStudent(null)} style={{ ...S.btn('ghost'), padding: '6px 10px' }}>Clear</button>}
         </div>
 
@@ -303,7 +313,8 @@ export default function TokenStorePage({
             const groupStudents = visibleStudents
               .filter(s => {
                 const firstLetter = (s.name || '').trim().charAt(0).toUpperCase()
-                return firstLetter >= group.from && firstLetter <= group.to
+                const matchesName = !studentSearch.trim() || String(s.name || '').toLowerCase().includes(studentSearch.trim().toLowerCase())
+                return firstLetter >= group.from && firstLetter <= group.to && matchesName
               })
               .sort((a, b) => a.name.localeCompare(b.name))
             return { ...group, students: groupStudents }
