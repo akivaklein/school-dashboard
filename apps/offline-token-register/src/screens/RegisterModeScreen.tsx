@@ -41,6 +41,7 @@ export default function RegisterModeScreen({ navigation }: Props) {
   const [error, setError] = useState('')
   const [showStudentSelect, setShowStudentSelect] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
+  const [registerTab, setRegisterTab] = useState<'products' | 'cart'>('products')
 
   const barcodeBufferRef = useRef(new BarcodeBuffer())
   const barcodeInputRef = useRef<TextInput>(null)
@@ -131,6 +132,18 @@ export default function RegisterModeScreen({ navigation }: Props) {
   }
 
   const addToCart = (product: Product) => {
+    if (product.quantity !== null && product.quantity !== undefined && product.quantity <= 0) {
+      setError('Item is out of stock')
+      return
+    }
+    if (product.vip_only && !selectedStudent?.is_vip) {
+      setError('This item is VIP only')
+      return
+    }
+    if (selectedStudent && selectedStudent.balance < totalCost + product.point_cost) {
+      setError('Not enough points for this item')
+      return
+    }
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id)
       if (existing) {
@@ -209,6 +222,7 @@ export default function RegisterModeScreen({ navigation }: Props) {
     setBarcodeInput('')
     setShowStudentSelect(true)
     setStudentSearch('')
+    setRegisterTab('products')
   }
 
   const handleLockScreen = () => {
@@ -260,9 +274,13 @@ export default function RegisterModeScreen({ navigation }: Props) {
           data={filteredStudents}
           keyExtractor={item => String(item.id)}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.studentButton} onPress={() => selectStudent(item)}>
+            <TouchableOpacity style={[styles.studentButton, item.is_vip && styles.studentButtonVip]} onPress={() => selectStudent(item)}>
               <View style={styles.studentButtonContent}>
-                <Text style={styles.studentName}>{item.name}</Text>
+                <View style={styles.studentNameRow}>
+                  {item.is_vip && <Text style={styles.vipStar}>⭐</Text>}
+                  <Text style={styles.studentName}>{item.name}</Text>
+                  {item.is_vip && <Text style={styles.vipLabel}>VIP</Text>}
+                </View>
                 <Text style={styles.studentBalance}>{item.balance} pts</Text>
               </View>
               <Text style={styles.studentArrow}>›</Text>
@@ -277,11 +295,22 @@ export default function RegisterModeScreen({ navigation }: Props) {
     )
   }
 
+  const getProductUnavailableReason = (product: Product): string => {
+    if (!selectedStudent) return ''
+    if (product.quantity !== null && product.quantity !== undefined && product.quantity <= 0) return 'Out of stock'
+    if (product.vip_only && !selectedStudent.is_vip) return 'VIP only'
+    if (selectedStudent.balance - totalCost < product.point_cost) return 'Need more pts'
+    return ''
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.studentDisplayName}>{selectedStudent?.name}</Text>
+          <View style={styles.studentDisplayRow}>
+            <Text style={styles.studentDisplayName}>{selectedStudent?.name}</Text>
+            {selectedStudent?.is_vip && <Text style={styles.headerVipBadge}>⭐ VIP</Text>}
+          </View>
           <Text style={styles.studentDisplayBalance}>{selectedStudent?.balance} points</Text>
         </View>
         <TouchableOpacity style={styles.changStudentButton} onPress={() => setShowStudentSelect(true)}>
@@ -289,45 +318,128 @@ export default function RegisterModeScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
-      <TextInput
-        ref={barcodeInputRef}
-        style={styles.barcodeInput}
-        placeholder="Scan product barcode..."
-        value={barcodeInput}
-        onChangeText={setBarcodeInput}
-        onSubmitEditing={() => {
-          if (barcodeInput) {
-            handleBarcodeInput(barcodeInput)
-          }
-        }}
-        autoFocus
-        placeholderTextColor="#999"
-        editable={!loading}
-      />
+      {/* Tab bar */}
+      <View style={styles.regTabBar}>
+        <TouchableOpacity
+          style={[styles.regTab, registerTab === 'products' && styles.regTabActive]}
+          onPress={() => setRegisterTab('products')}
+        >
+          <Text style={[styles.regTabText, registerTab === 'products' && styles.regTabTextActive]}>
+            PRODUCTS
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.regTab, registerTab === 'cart' && styles.regTabActive]}
+          onPress={() => setRegisterTab('cart')}
+        >
+          <Text style={[styles.regTabText, registerTab === 'cart' && styles.regTabTextActive]}>
+            CART{cart.length > 0 ? ` (${cart.reduce((s, i) => s + i.quantity, 0)})` : ''}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-      <ScrollView style={styles.cartContainer}>
-        {cart.length === 0 ? (
-          <Text style={styles.emptyCart}>No items in cart</Text>
-        ) : (
-          cart.map(item => (
-            <View key={item.product.id} style={styles.cartItem}>
-              <View style={styles.cartItemInfo}>
-                <Text style={styles.cartItemName}>{item.product.name}</Text>
-                <Text style={styles.cartItemCost}>{item.product.point_cost} pts</Text>
-              </View>
-              <View style={styles.cartItemControls}>
-                <Text style={styles.cartItemQty}>× {item.quantity}</Text>
+      {registerTab === 'products' ? (
+        <ScrollView style={styles.productGrid} contentContainerStyle={styles.productGridContent}>
+          <View style={styles.productRow}>
+            {products.map(product => {
+              const reason = getProductUnavailableReason(product)
+              const unavailable = !!reason
+              const dimmed = !!selectedStudent && unavailable
+              return (
                 <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removeFromCart(item.product.id)}
+                  key={product.id}
+                  style={[styles.productCard, dimmed && styles.productCardDimmed]}
+                  onPress={() => {
+                    if (!selectedStudent) {
+                      setError('Select a student first')
+                      return
+                    }
+                    if (unavailable) {
+                      setError(reason)
+                      return
+                    }
+                    addToCart(product)
+                  }}
+                  activeOpacity={unavailable ? 0.9 : 0.7}
                 >
-                  <Text style={styles.removeButtonText}>✕</Text>
+                  {product.vip_only && (
+                    <View style={styles.productVipTag}>
+                      <Text style={styles.productVipTagText}>VIP</Text>
+                    </View>
+                  )}
+                  {dimmed && (
+                    <View style={styles.productUnavailableTag}>
+                      <Text style={styles.productUnavailableTagText}>{reason}</Text>
+                    </View>
+                  )}
+                  <Text style={styles.productCardName}>{product.name}</Text>
+                  <Text style={[styles.productCardCost, dimmed && styles.productCardCostDimmed]}>
+                    {product.point_cost} pts
+                  </Text>
+                  {product.quantity !== null && product.quantity !== undefined && (
+                    <Text style={[
+                      styles.productCardStock,
+                      product.quantity <= 0 && styles.productCardStockOut,
+                      product.low_stock_threshold !== null &&
+                      product.low_stock_threshold !== undefined &&
+                      product.quantity > 0 &&
+                      product.quantity <= product.low_stock_threshold &&
+                        styles.productCardStockLow,
+                    ]}>
+                      {product.quantity <= 0
+                        ? 'Out of stock'
+                        : product.low_stock_threshold !== null &&
+                          product.low_stock_threshold !== undefined &&
+                          product.quantity <= product.low_stock_threshold
+                        ? `${product.quantity} left · Low`
+                        : `${product.quantity} left`}
+                    </Text>
+                  )}
                 </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+              )
+            })}
+          </View>
+        </ScrollView>
+      ) : (
+        <>
+          <TextInput
+            ref={barcodeInputRef}
+            style={styles.barcodeInput}
+            placeholder="Scan product barcode..."
+            value={barcodeInput}
+            onChangeText={setBarcodeInput}
+            onSubmitEditing={() => {
+              if (barcodeInput) handleBarcodeInput(barcodeInput)
+            }}
+            autoFocus
+            placeholderTextColor="#999"
+            editable={!loading}
+          />
+          <ScrollView style={styles.cartContainer}>
+            {cart.length === 0 ? (
+              <Text style={styles.emptyCart}>No items in cart</Text>
+            ) : (
+              cart.map(item => (
+                <View key={item.product.id} style={styles.cartItem}>
+                  <View style={styles.cartItemInfo}>
+                    <Text style={styles.cartItemName}>{item.product.name}</Text>
+                    <Text style={styles.cartItemCost}>{item.product.point_cost} pts</Text>
+                  </View>
+                  <View style={styles.cartItemControls}>
+                    <Text style={styles.cartItemQty}>× {item.quantity}</Text>
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => removeFromCart(item.product.id)}
+                    >
+                      <Text style={styles.removeButtonText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </>
+      )}
 
       <View style={styles.footer}>
         <View style={styles.totalContainer}>
@@ -442,13 +554,36 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
   },
+  studentButtonVip: {
+    backgroundColor: '#fffaf0',
+    borderWidth: 1,
+    borderColor: '#d6b75d',
+  },
   studentButtonContent: {
     flex: 1,
+  },
+  studentNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  vipStar: {
+    fontSize: 12,
   },
   studentName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
+  },
+  vipLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#7a5c1e',
+    backgroundColor: '#f7e9c3',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   studentBalance: {
     fontSize: 12,
@@ -591,6 +726,133 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 8,
     textAlign: 'center',
+    fontWeight: '600',
+  },
+  // Header VIP badge
+  studentDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerVipBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffe082',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  // Register tab bar
+  regTabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  regTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  regTabActive: {
+    borderBottomColor: '#1976D2',
+  },
+  regTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#999',
+    letterSpacing: 0.5,
+  },
+  regTabTextActive: {
+    color: '#1976D2',
+  },
+  // Product grid
+  productGrid: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  productGridContent: {
+    padding: 10,
+  },
+  productRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  productCard: {
+    width: '47%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    position: 'relative',
+    minHeight: 90,
+  },
+  productCardDimmed: {
+    opacity: 0.45,
+  },
+  productVipTag: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: '#7a5c1e',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  productVipTagText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  productUnavailableTag: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: '#e5e7eb',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  productUnavailableTagText: {
+    color: '#64748b',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  productCardName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  productCardCost: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#9a6a2a',
+    marginBottom: 4,
+  },
+  productCardCostDimmed: {
+    color: '#94a3b8',
+  },
+  productCardStock: {
+    fontSize: 10,
+    color: '#64748b',
+  },
+  productCardStockLow: {
+    color: '#9a6a2a',
+    fontWeight: '600',
+  },
+  productCardStockOut: {
+    color: '#9f1239',
     fontWeight: '600',
   },
 })

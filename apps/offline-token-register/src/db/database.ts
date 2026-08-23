@@ -7,20 +7,39 @@ let db: SQLite.SQLiteDatabase | null = null
 
 function createBrowserDatabase(): SQLite.SQLiteDatabase {
   const now = new Date().toISOString()
-  const students: Student[] = [
-    { id: 1, barcode: 'STU-1001', name: 'Ari Cohen', balance: 120, is_active: true, created_at: now, updated_at: now },
-    { id: 2, barcode: 'STU-1002', name: 'David Levy', balance: 85, is_active: true, created_at: now, updated_at: now },
-    { id: 3, barcode: 'STU-1003', name: 'Moshe Weiss', balance: 210, is_active: true, created_at: now, updated_at: now },
+  const defaultStudents: Student[] = [
+    { id: 1, barcode: 'STU-1001', name: 'Ari Cohen', balance: 120, is_vip: true, is_active: true, created_at: now, updated_at: now },
+    { id: 2, barcode: 'STU-1002', name: 'David Levy', balance: 85, is_vip: false, is_active: true, created_at: now, updated_at: now },
+    { id: 3, barcode: 'STU-1003', name: 'Moshe Weiss', balance: 210, is_vip: false, is_active: true, created_at: now, updated_at: now },
   ]
-  const products: Product[] = [
-    { id: 1, barcode: 'ITEM-1001', name: 'Chocolate Bar', point_cost: 20, quantity: 24, low_stock_threshold: 5, is_active: true, created_at: now, updated_at: now },
-    { id: 2, barcode: 'ITEM-1002', name: 'Potato Chips', point_cost: 15, quantity: 18, low_stock_threshold: 5, is_active: true, created_at: now, updated_at: now },
-    { id: 3, barcode: 'ITEM-1003', name: 'Juice Box', point_cost: 10, quantity: 30, low_stock_threshold: 8, is_active: true, created_at: now, updated_at: now },
+  const defaultProducts: Product[] = [
+    { id: 1, barcode: 'ITEM-1001', name: 'Chocolate Bar', point_cost: 20, quantity: 24, low_stock_threshold: 5, vip_only: false, is_active: true, created_at: now, updated_at: now },
+    { id: 2, barcode: 'ITEM-1002', name: 'Potato Chips', point_cost: 15, quantity: 18, low_stock_threshold: 5, vip_only: false, is_active: true, created_at: now, updated_at: now },
+    { id: 3, barcode: 'ITEM-1003', name: 'Juice Box', point_cost: 10, quantity: 30, low_stock_threshold: 8, vip_only: true, is_active: true, created_at: now, updated_at: now },
   ]
-  const purchases: Purchase[] = []
-  const balanceHistory: BalanceHistory[] = []
-  const adminConfig = new Map<string, string>()
+  const storageKey = 'token-register-browser-data-v2'
+  type BrowserSnapshot = { students: Student[]; products: Product[]; purchases: Purchase[]; balanceHistory: BalanceHistory[]; adminConfig: [string, string][] }
+  let snapshot: BrowserSnapshot | null = null
+  try {
+    const saved = globalThis.localStorage?.getItem(storageKey)
+    snapshot = saved ? JSON.parse(saved) as BrowserSnapshot : null
+  } catch (error) {
+    console.warn('Browser data could not be restored:', error)
+  }
+  const students: Student[] = snapshot?.students || defaultStudents
+  const products: Product[] = snapshot?.products || defaultProducts
+  const purchases: Purchase[] = snapshot?.purchases || []
+  const balanceHistory: BalanceHistory[] = snapshot?.balanceHistory || []
+  const adminConfig = new Map<string, string>(snapshot?.adminConfig || [])
   let nextId = 4
+  const persist = () => {
+    try {
+      globalThis.localStorage?.setItem(storageKey, JSON.stringify({ students, products, purchases, balanceHistory, adminConfig: [...adminConfig.entries()] }))
+    } catch (error) {
+      console.warn('Browser data could not be saved:', error)
+    }
+  }
+  persist()
 
   const sortByName = <T extends { name: string }>(items: T[]) =>
     [...items].sort((left, right) => left.name.localeCompare(right.name))
@@ -71,7 +90,7 @@ function createBrowserDatabase(): SQLite.SQLiteDatabase {
     async runAsync(sql: string, params: unknown[] = []): Promise<{ lastInsertRowId: number }> {
       const timestamp = new Date().toISOString()
       if (sql.startsWith('INSERT INTO students')) {
-        const student = { id: nextId++, barcode: String(params[0]), name: String(params[1]), balance: Number(params[2]), is_active: true, created_at: String(params[3]), updated_at: String(params[4]) }
+        const student: Student = { id: nextId++, barcode: String(params[0]), name: String(params[1]), balance: Number(params[2]), is_vip: Boolean(params[3]), is_active: true, created_at: String(params[4]), updated_at: String(params[5]) }
         students.push(student)
         return { lastInsertRowId: student.id }
       }
@@ -79,14 +98,15 @@ function createBrowserDatabase(): SQLite.SQLiteDatabase {
         const id = Number(params[params.length - 1])
         const student = students.find(item => item.id === id)
         if (student) {
-          const fields = [...sql.matchAll(/(barcode|name|balance|is_active) = \?/g)].map(match => match[1])
+          const fields = [...sql.matchAll(/(barcode|name|balance|is_vip|is_active) = \?/g)].map(match => match[1])
           fields.forEach((field, index) => { (student as unknown as Record<string, unknown>)[field] = params[index] })
           student.updated_at = timestamp
+          persist()
         }
         return { lastInsertRowId: 0 }
       }
       if (sql.startsWith('INSERT INTO products')) {
-        const product = { id: nextId++, barcode: String(params[0]), name: String(params[1]), point_cost: Number(params[2]), quantity: params[3] as number | null, low_stock_threshold: params[4] as number | null, is_active: true, created_at: String(params[5]), updated_at: String(params[6]) }
+        const product: Product = { id: nextId++, barcode: String(params[0]), name: String(params[1]), point_cost: Number(params[2]), quantity: params[3] as number | null, low_stock_threshold: params[4] as number | null, vip_only: Boolean(params[5]), is_active: true, created_at: String(params[6]), updated_at: String(params[7]) }
         products.push(product)
         return { lastInsertRowId: product.id }
       }
@@ -94,15 +114,19 @@ function createBrowserDatabase(): SQLite.SQLiteDatabase {
         const id = Number(params[params.length - 1])
         const product = products.find(item => item.id === id)
         if (product) {
-          const fields = [...sql.matchAll(/(barcode|name|point_cost|quantity|low_stock_threshold|is_active) = \?/g)].map(match => match[1])
+          const fields = [...sql.matchAll(/(barcode|name|point_cost|quantity|low_stock_threshold|vip_only|is_active) = \?/g)].map(match => match[1])
           fields.forEach((field, index) => { (product as unknown as Record<string, unknown>)[field] = params[index] })
           product.updated_at = timestamp
+          persist()
         }
         return { lastInsertRowId: 0 }
       }
       if (sql.startsWith('INSERT INTO purchases')) {
         const purchase = { id: nextId++, student_id: Number(params[0]), product_id: Number(params[1]), student_barcode: String(params[2]), student_name: String(params[3]), product_name: String(params[4]), point_cost: Number(params[5]), points_after: Number(params[6]), is_reversed: false, created_at: String(params[7]) }
         purchases.push(purchase)
+        const product = products.find(item => item.id === purchase.product_id)
+        if (product && product.quantity !== null && product.quantity !== undefined) product.quantity = Math.max(0, product.quantity - 1)
+        persist()
         return { lastInsertRowId: purchase.id }
       }
       if (sql.startsWith('UPDATE purchases')) {
@@ -111,14 +135,21 @@ function createBrowserDatabase(): SQLite.SQLiteDatabase {
           purchase.is_reversed = true
           purchase.reversed_at = String(params[0])
           purchase.reverse_reason = String(params[1])
+          const product = products.find(item => item.id === purchase.product_id)
+          if (product && product.quantity !== null && product.quantity !== undefined) product.quantity += 1
+          persist()
         }
         return { lastInsertRowId: 0 }
       }
       if (sql.startsWith('INSERT INTO balance_history')) {
         balanceHistory.push({ id: nextId++, student_id: Number(params[0]), student_barcode: String(params[1]), student_name: String(params[2]), old_balance: Number(params[3]), new_balance: Number(params[4]), change_amount: Number(params[5]), operation_type: String(params[6]) as BalanceHistory['operation_type'], reason: String(params[7]), created_at: String(params[8]) })
+        persist()
         return { lastInsertRowId: balanceHistory[balanceHistory.length - 1].id }
       }
-      if (sql.startsWith('INSERT OR REPLACE INTO admin_config')) adminConfig.set(String(params[0]), String(params[1]))
+      if (sql.startsWith('INSERT OR REPLACE INTO admin_config')) {
+        adminConfig.set(String(params[0]), String(params[1]))
+        persist()
+      }
       return { lastInsertRowId: 0 }
     },
   }
@@ -149,6 +180,15 @@ export async function initializeDatabase(): Promise<SQLite.SQLiteDatabase> {
     // Create indexes
     for (const indexStmt of SQL_STATEMENTS.createIndexes) {
       await db.execAsync(indexStmt)
+    }
+
+    // Migration: add new columns to existing databases (safe to re-run; ignore duplicate column errors)
+    for (const migration of SQL_STATEMENTS.migrationAddVipColumns) {
+      try {
+        await db.execAsync(migration)
+      } catch {
+        // Column already exists — skip
+      }
     }
 
     console.log('Database initialized successfully')

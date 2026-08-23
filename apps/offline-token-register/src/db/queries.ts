@@ -45,15 +45,16 @@ export async function createStudent(input: {
   barcode: string
   name: string
   balance?: number
+  is_vip?: boolean
 }): Promise<Student> {
   return withDatabase(async db => {
     const now = new Date().toISOString()
     const balance = input.balance || 0
 
     const result = await db.runAsync(
-      `INSERT INTO students (barcode, name, balance, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, 1, ?, ?)`,
-      [input.barcode, input.name, balance, now, now]
+      `INSERT INTO students (barcode, name, balance, is_vip, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, ?, ?)`,
+      [input.barcode, input.name, balance, input.is_vip ? 1 : 0, now, now]
     )
 
     const student = await db.getFirstAsync<Student>(
@@ -69,7 +70,7 @@ export async function createStudent(input: {
 export async function updateStudent(id: number, updates: Partial<Omit<Student, 'id' | 'created_at'>>): Promise<Student> {
   return withDatabase(async db => {
     const now = new Date().toISOString()
-    const allowedFields = ['barcode', 'name', 'balance', 'is_active']
+    const allowedFields = ['barcode', 'name', 'balance', 'is_active', 'is_vip']
     const fields = Object.keys(updates).filter(k => allowedFields.includes(k))
 
     if (fields.length === 0) {
@@ -183,19 +184,21 @@ export async function createProduct(input: {
   point_cost: number
   quantity?: number
   low_stock_threshold?: number
+  vip_only?: boolean
 }): Promise<Product> {
   return withDatabase(async db => {
     const now = new Date().toISOString()
 
     const result = await db.runAsync(
-      `INSERT INTO products (barcode, name, point_cost, quantity, low_stock_threshold, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+      `INSERT INTO products (barcode, name, point_cost, quantity, low_stock_threshold, vip_only, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       [
         input.barcode,
         input.name,
         input.point_cost,
         input.quantity || null,
         input.low_stock_threshold || null,
+        input.vip_only ? 1 : 0,
         now,
         now,
       ]
@@ -214,7 +217,7 @@ export async function createProduct(input: {
 export async function updateProduct(id: number, updates: Partial<Omit<Product, 'id' | 'created_at'>>): Promise<Product> {
   return withDatabase(async db => {
     const now = new Date().toISOString()
-    const allowedFields = ['barcode', 'name', 'point_cost', 'quantity', 'low_stock_threshold', 'is_active']
+    const allowedFields = ['barcode', 'name', 'point_cost', 'quantity', 'low_stock_threshold', 'is_active', 'vip_only']
     const fields = Object.keys(updates).filter(k => allowedFields.includes(k))
 
     if (fields.length === 0) {
@@ -287,6 +290,13 @@ export async function recordPurchase(input: {
     )
 
     if (!purchase) throw new Error('Failed to record purchase')
+
+    // Decrement stock (native SQLite path; browser adapter handles this in runAsync)
+    await db.runAsync(
+      'UPDATE products SET quantity = quantity - 1, updated_at = ? WHERE id = ? AND quantity IS NOT NULL AND quantity > 0',
+      [now, input.product_id]
+    )
+
     return purchase
   })
 }
@@ -326,6 +336,12 @@ export async function reversePurchase(purchaseId: number, reason: string): Promi
     await db.runAsync(
       'UPDATE purchases SET is_reversed = 1, reversed_at = ?, reverse_reason = ? WHERE id = ?',
       [now, reason, purchaseId]
+    )
+
+    // Restore stock (native SQLite path; browser adapter handles this in runAsync)
+    await db.runAsync(
+      'UPDATE products SET quantity = quantity + 1, updated_at = ? WHERE id = ? AND quantity IS NOT NULL',
+      [now, purchase.product_id]
     )
 
     // Restore student balance

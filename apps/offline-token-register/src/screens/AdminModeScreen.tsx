@@ -50,11 +50,11 @@ export default function AdminModeScreen({ navigation }: Props) {
 
   const [studentModal, setStudentModal] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
-  const [studentForm, setStudentForm] = useState({ name: '', barcode: '', balance: '0' })
+  const [studentForm, setStudentForm] = useState({ name: '', barcode: '', balance: '0', is_vip: false })
 
   const [productModal, setProductModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [productForm, setProductForm] = useState({ name: '', barcode: '', cost: '0', quantity: '', lowStock: '' })
+  const [productForm, setProductForm] = useState({ name: '', barcode: '', cost: '0', quantity: '', lowStock: '', vip_only: false })
 
   const [pointsStudent, setPointsStudent] = useState<Student | null>(null)
   const [pointsModal, setPointsModal] = useState(false)
@@ -120,10 +120,11 @@ export default function AdminModeScreen({ navigation }: Props) {
         name: student.name,
         barcode: student.barcode,
         balance: String(student.balance),
+        is_vip: student.is_vip ?? false,
       })
     } else {
       setEditingStudent(null)
-      setStudentForm({ name: '', barcode: generateStudentBarcode(students.length + 1), balance: '0' })
+      setStudentForm({ name: '', barcode: generateStudentBarcode(students.length + 1), balance: '0', is_vip: false })
     }
     setStudentModal(true)
   }
@@ -143,12 +144,14 @@ export default function AdminModeScreen({ navigation }: Props) {
           name: studentForm.name.trim(),
           barcode: studentForm.barcode.trim(),
           balance,
+          is_vip: studentForm.is_vip,
         })
       } else {
         await createStudent({
           name: studentForm.name.trim(),
           barcode: studentForm.barcode.trim() || generateStudentBarcode(students.length + 1),
           balance,
+          is_vip: studentForm.is_vip,
         })
       }
 
@@ -209,6 +212,7 @@ export default function AdminModeScreen({ navigation }: Props) {
         cost: String(product.point_cost),
         quantity: String(product.quantity || ''),
         lowStock: String(product.low_stock_threshold || ''),
+        vip_only: product.vip_only ?? false,
       })
     } else {
       setEditingProduct(null)
@@ -218,6 +222,7 @@ export default function AdminModeScreen({ navigation }: Props) {
         cost: '0',
         quantity: '',
         lowStock: '',
+        vip_only: false,
       })
     }
     setProductModal(true)
@@ -247,6 +252,7 @@ export default function AdminModeScreen({ navigation }: Props) {
           point_cost: cost,
           quantity: quantity ?? undefined,
           low_stock_threshold: lowStock ?? undefined,
+          vip_only: productForm.vip_only,
         })
       } else {
         await createProduct({
@@ -255,6 +261,7 @@ export default function AdminModeScreen({ navigation }: Props) {
           point_cost: cost,
           quantity: quantity ?? undefined,
           low_stock_threshold: lowStock ?? undefined,
+          vip_only: productForm.vip_only,
         })
       }
 
@@ -752,7 +759,10 @@ export default function AdminModeScreen({ navigation }: Props) {
               renderItem={({ item }) => (
                 <View style={styles.itemCard}>
                   <View style={styles.itemContent}>
-                    <Text style={styles.itemName}>{item.name}</Text>
+                    <View style={styles.itemNameRow}>
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      {item.is_vip && <Text style={styles.vipBadge}>VIP</Text>}
+                    </View>
                     <Text style={styles.itemSubtitle}>{item.barcode}</Text>
                     <Text style={styles.itemBalance}>{item.balance} points</Text>
                   </View>
@@ -807,7 +817,10 @@ export default function AdminModeScreen({ navigation }: Props) {
               renderItem={({ item }) => (
                 <View style={styles.itemCard}>
                   <View style={styles.itemContent}>
-                    <Text style={styles.itemName}>{item.name}</Text>
+                    <View style={styles.itemNameRow}>
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      {item.vip_only && <Text style={styles.vipBadge}>VIP Only</Text>}
+                    </View>
                     <Text style={styles.itemSubtitle}>{item.barcode}</Text>
                     <Text style={styles.itemBalance}>{item.point_cost} pts</Text>
                     {item.quantity !== null && (
@@ -955,6 +968,14 @@ export default function AdminModeScreen({ navigation }: Props) {
               keyboardType="numeric"
             />
 
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>VIP Student</Text>
+              <Switch
+                value={studentForm.is_vip}
+                onValueChange={v => setStudentForm(prev => ({ ...prev, is_vip: v }))}
+              />
+            </View>
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
@@ -1018,6 +1039,14 @@ export default function AdminModeScreen({ navigation }: Props) {
               onChangeText={text => setProductForm(prev => ({ ...prev, lowStock: text }))}
               keyboardType="numeric"
             />
+
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>VIP Only Item</Text>
+              <Switch
+                value={productForm.vip_only}
+                onValueChange={v => setProductForm(prev => ({ ...prev, vip_only: v }))}
+              />
+            </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -1205,6 +1234,36 @@ const styles = StyleSheet.create({
   reversedItem: {
     backgroundColor: '#f5f5f5',
     opacity: 0.6,
+  },
+  itemNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  vipBadge: {
+    backgroundColor: '#7a5c1e',
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    marginTop: 4,
+  },
+  switchLabel: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
   },
   itemContent: {
     flex: 1,

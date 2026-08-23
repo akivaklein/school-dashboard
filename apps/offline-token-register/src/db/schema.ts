@@ -5,6 +5,7 @@ export interface Student {
   barcode: string
   name: string
   balance: number
+  is_vip: boolean
   is_active: boolean
   created_at: string
   updated_at: string
@@ -17,6 +18,7 @@ export interface Product {
   point_cost: number
   quantity?: number | null
   low_stock_threshold?: number | null
+  vip_only: boolean
   is_active: boolean
   created_at: string
   updated_at: string
@@ -65,6 +67,7 @@ export const SQL_STATEMENTS = {
       barcode TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       balance INTEGER NOT NULL DEFAULT 0,
+      is_vip INTEGER NOT NULL DEFAULT 0,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -79,6 +82,7 @@ export const SQL_STATEMENTS = {
       point_cost INTEGER NOT NULL,
       quantity INTEGER,
       low_stock_threshold INTEGER,
+      vip_only INTEGER NOT NULL DEFAULT 0,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -127,6 +131,12 @@ export const SQL_STATEMENTS = {
       updated_at TEXT NOT NULL
     )
   `,
+
+  // Migration-safe ALTER TABLE for existing databases
+  migrationAddVipColumns: [
+    'ALTER TABLE students ADD COLUMN is_vip INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE products ADD COLUMN vip_only INTEGER NOT NULL DEFAULT 0',
+  ],
 
   createIndexes: [
     'CREATE INDEX IF NOT EXISTS idx_students_barcode ON students(barcode)',
