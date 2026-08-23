@@ -14,7 +14,7 @@ export const FULL_STUDENT_SEED: Array<Pick<Student, 'id' | 'barcode' | 'name' | 
     "barcode": "STU-0002",
     "name": "Friedlander Zev",
     "balance": 80,
-    "is_vip": true,
+    "is_vip": false,
     "is_active": true
   },
   {
@@ -30,7 +30,7 @@ export const FULL_STUDENT_SEED: Array<Pick<Student, 'id' | 'barcode' | 'name' | 
     "barcode": "STU-0004",
     "name": "Hayon David",
     "balance": 95,
-    "is_vip": true,
+    "is_vip": false,
     "is_active": true
   },
   {
@@ -102,7 +102,7 @@ export const FULL_STUDENT_SEED: Array<Pick<Student, 'id' | 'barcode' | 'name' | 
     "barcode": "STU-0013",
     "name": "Feldman Shraga",
     "balance": 85,
-    "is_vip": true,
+    "is_vip": false,
     "is_active": true
   },
   {
@@ -134,7 +134,7 @@ export const FULL_STUDENT_SEED: Array<Pick<Student, 'id' | 'barcode' | 'name' | 
     "barcode": "STU-0017",
     "name": "Mezei Yehuda",
     "balance": 90,
-    "is_vip": true,
+    "is_vip": false,
     "is_active": true
   },
   {
@@ -214,7 +214,7 @@ export const FULL_STUDENT_SEED: Array<Pick<Student, 'id' | 'barcode' | 'name' | 
     "barcode": "STU-0027",
     "name": "Stern Aaron",
     "balance": 80,
-    "is_vip": true,
+    "is_vip": false,
     "is_active": true
   },
   {

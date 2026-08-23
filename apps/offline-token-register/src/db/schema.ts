@@ -29,6 +29,8 @@ export interface Product {
 
 export interface Purchase {
   id: number
+  transaction_uuid?: string
+  source_device_id?: string | null
   student_id: number
   product_id: number
   student_barcode: string
@@ -39,11 +41,15 @@ export interface Purchase {
   is_reversed: boolean
   reversed_at?: string | null
   reverse_reason?: string | null
+  synced_at?: string | null
   created_at: string
 }
 
 export interface BalanceHistory {
   id: number
+  transaction_uuid?: string
+  source_device_id?: string | null
+  source_ref?: string | null
   student_id: number
   student_barcode: string
   student_name: string
@@ -98,6 +104,8 @@ export const SQL_STATEMENTS = {
   createPurchases: `
     CREATE TABLE IF NOT EXISTS purchases (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_uuid TEXT NOT NULL,
+      source_device_id TEXT,
       student_id INTEGER NOT NULL,
       product_id INTEGER NOT NULL,
       student_barcode TEXT NOT NULL,
@@ -108,6 +116,7 @@ export const SQL_STATEMENTS = {
       is_reversed INTEGER NOT NULL DEFAULT 0,
       reversed_at TEXT,
       reverse_reason TEXT,
+      synced_at TEXT,
       created_at TEXT NOT NULL,
       FOREIGN KEY (student_id) REFERENCES students(id),
       FOREIGN KEY (product_id) REFERENCES products(id)
@@ -117,6 +126,9 @@ export const SQL_STATEMENTS = {
   createBalanceHistory: `
     CREATE TABLE IF NOT EXISTS balance_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_uuid TEXT NOT NULL,
+      source_device_id TEXT,
+      source_ref TEXT,
       student_id INTEGER NOT NULL,
       student_barcode TEXT NOT NULL,
       student_name TEXT NOT NULL,
@@ -145,6 +157,12 @@ export const SQL_STATEMENTS = {
     "ALTER TABLE products ADD COLUMN image_url TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE products ADD COLUMN emoji TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE products ADD COLUMN category TEXT NOT NULL DEFAULT 'nosh'",
+    "ALTER TABLE purchases ADD COLUMN transaction_uuid TEXT NOT NULL DEFAULT ''",
+    'ALTER TABLE purchases ADD COLUMN source_device_id TEXT',
+    'ALTER TABLE purchases ADD COLUMN synced_at TEXT',
+    "ALTER TABLE balance_history ADD COLUMN transaction_uuid TEXT NOT NULL DEFAULT ''",
+    'ALTER TABLE balance_history ADD COLUMN source_device_id TEXT',
+    'ALTER TABLE balance_history ADD COLUMN source_ref TEXT',
   ],
 
   createIndexes: [

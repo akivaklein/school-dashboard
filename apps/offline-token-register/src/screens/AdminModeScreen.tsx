@@ -526,8 +526,8 @@ export default function AdminModeScreen({ navigation }: Props) {
 
   const handleImportFullCatalog = () => {
     Alert.alert(
-      'Import Full Catalog',
-      'This replaces current students, products, and local history with the complete Vercel-style seed data. Continue?',
+      'Import Preview Catalog',
+      'This replaces local students/products/history with preview seed data. VIP status in this preview dataset is NOT verified and must be set manually or synced from Supabase records. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -538,7 +538,10 @@ export default function AdminModeScreen({ navigation }: Props) {
               setLoading(true)
               await replaceStudentsAndProducts(FULL_STUDENT_SEED, FULL_PRODUCT_SEED)
               await loadData()
-              Alert.alert('Import complete', `Loaded ${FULL_STUDENT_SEED.length} students and ${FULL_PRODUCT_SEED.length} products.`)
+              Alert.alert(
+                'Preview import complete',
+                `Loaded ${FULL_STUDENT_SEED.length} preview students and ${FULL_PRODUCT_SEED.length} preview products. Confirm VIP status from real records before production use.`,
+              )
             } catch (error) {
               Alert.alert('Import failed', error instanceof Error ? error.message : 'Unable to import full catalog.')
             } finally {
@@ -969,7 +972,7 @@ export default function AdminModeScreen({ navigation }: Props) {
             <Text style={styles.tabTitle}>Backup & Restore</Text>
 
             <TouchableOpacity style={[styles.largeButton, styles.dangerButton]} onPress={handleImportFullCatalog}>
-              <Text style={styles.largeButtonText}>Import Full Student/Product Catalog</Text>
+              <Text style={styles.largeButtonText}>Import Preview Student/Product Catalog</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.largeButton, styles.primaryButton]} onPress={handleCreateBackup}>

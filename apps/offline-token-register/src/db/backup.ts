@@ -20,6 +20,13 @@ export interface BackupData {
 
 const BACKUP_FILENAME = 'TokenRegister_Backup.json'
 
+function buildTxId(prefix: string): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 export async function createBackup(): Promise<string> {
   try {
     const students = await getAllStudents()
@@ -91,10 +98,10 @@ export async function restoreFromBackup(backupPath: string): Promise<{ success: 
     const db = getDatabase()
 
     // Clear existing data
-    await db.execAsync('DELETE FROM purchases')
-    await db.execAsync('DELETE FROM balance_history')
-    await db.execAsync('DELETE FROM students')
-    await db.execAsync('DELETE FROM products')
+    await db.runAsync('DELETE FROM purchases')
+    await db.runAsync('DELETE FROM balance_history')
+    await db.runAsync('DELETE FROM students')
+    await db.runAsync('DELETE FROM products')
 
     // Restore students
     for (const student of backup.students) {
@@ -140,10 +147,12 @@ export async function restoreFromBackup(backupPath: string): Promise<{ success: 
     // Restore purchases
     for (const purchase of backup.purchases) {
       await db.runAsync(
-        `INSERT INTO purchases (id, student_id, product_id, student_barcode, student_name, product_name, point_cost, points_after, is_reversed, reversed_at, reverse_reason, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO purchases (id, transaction_uuid, source_device_id, student_id, product_id, student_barcode, student_name, product_name, point_cost, points_after, is_reversed, reversed_at, reverse_reason, synced_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           purchase.id,
+          purchase.transaction_uuid || buildTxId('restore-purchase'),
+          purchase.source_device_id || 'restore-file',
           purchase.student_id,
           purchase.product_id,
           purchase.student_barcode,
@@ -154,6 +163,7 @@ export async function restoreFromBackup(backupPath: string): Promise<{ success: 
           purchase.is_reversed ? 1 : 0,
           purchase.reversed_at || null,
           purchase.reverse_reason || null,
+          purchase.synced_at || null,
           purchase.created_at,
         ]
       )
@@ -162,10 +172,13 @@ export async function restoreFromBackup(backupPath: string): Promise<{ success: 
     // Restore balance history
     for (const history of backup.balanceHistory) {
       await db.runAsync(
-        `INSERT INTO balance_history (id, student_id, student_barcode, student_name, old_balance, new_balance, change_amount, operation_type, reason, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO balance_history (id, transaction_uuid, source_device_id, source_ref, student_id, student_barcode, student_name, old_balance, new_balance, change_amount, operation_type, reason, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           history.id,
+          history.transaction_uuid || buildTxId('restore-balance'),
+          history.source_device_id || 'restore-file',
+          history.source_ref || null,
           history.student_id,
           history.student_barcode,
           history.student_name,

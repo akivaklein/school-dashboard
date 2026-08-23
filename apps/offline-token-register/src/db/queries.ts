@@ -1,6 +1,13 @@
 import { getDatabase, withDatabase } from './database'
 import type { Student, Product, Purchase, BalanceHistory, AdminConfig } from './schema'
 
+function generateTransactionId(prefix: string): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 // ==================== STUDENTS ====================
 
 export async function getAllStudents(): Promise<Student[]> {
@@ -122,9 +129,22 @@ export async function updateStudentBalance(id: number, newBalance: number, reaso
     // Record in balance history
     const now = new Date().toISOString()
     const historyResult = await db.runAsync(
-      `INSERT INTO balance_history (student_id, student_barcode, student_name, old_balance, new_balance, change_amount, operation_type, reason, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, student.barcode, student.name, oldBalance, newBalance, changeAmount, operationType, reason, now]
+      `INSERT INTO balance_history (transaction_uuid, source_device_id, source_ref, student_id, student_barcode, student_name, old_balance, new_balance, change_amount, operation_type, reason, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        generateTransactionId('balance'),
+        'offline-tablet',
+        null,
+        id,
+        student.barcode,
+        student.name,
+        oldBalance,
+        newBalance,
+        changeAmount,
+        operationType,
+        reason,
+        now,
+      ]
     )
 
     const history = await db.getFirstAsync<BalanceHistory>(
@@ -274,11 +294,14 @@ export async function recordPurchase(input: {
 }): Promise<Purchase> {
   return withDatabase(async db => {
     const now = new Date().toISOString()
+    const txId = generateTransactionId('purchase')
 
     const result = await db.runAsync(
-      `INSERT INTO purchases (student_id, product_id, student_barcode, student_name, product_name, point_cost, points_after, is_reversed, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+      `INSERT INTO purchases (transaction_uuid, source_device_id, student_id, product_id, student_barcode, student_name, product_name, point_cost, points_after, is_reversed, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
       [
+        txId,
+        'offline-tablet',
         input.student_id,
         input.product_id,
         input.student_barcode,
@@ -359,9 +382,12 @@ export async function reversePurchase(purchaseId: number, reason: string): Promi
 
     // Record in balance history
     await db.runAsync(
-      `INSERT INTO balance_history (student_id, student_barcode, student_name, old_balance, new_balance, change_amount, operation_type, reason, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'reversal', ?, ?)`,
+      `INSERT INTO balance_history (transaction_uuid, source_device_id, source_ref, student_id, student_barcode, student_name, old_balance, new_balance, change_amount, operation_type, reason, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'reversal', ?, ?)`,
       [
+        generateTransactionId('reversal'),
+        'offline-tablet',
+        purchase.transaction_uuid || null,
         purchase.student_id,
         purchase.student_barcode,
         purchase.student_name,

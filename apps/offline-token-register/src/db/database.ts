@@ -217,8 +217,47 @@ function createBrowserDatabase(): SQLite.SQLiteDatabase {
         return { lastInsertRowId: 0 }
       }
       if (sql.startsWith('INSERT INTO purchases')) {
-        const purchase = { id: nextId++, student_id: Number(params[0]), product_id: Number(params[1]), student_barcode: String(params[2]), student_name: String(params[3]), product_name: String(params[4]), point_cost: Number(params[5]), points_after: Number(params[6]), is_reversed: false, created_at: String(params[7]) }
+        const isRestoreInsert = sql.includes('(id,')
+        let purchase: Purchase
+        if (isRestoreInsert) {
+          purchase = {
+            id: Number(params[0]),
+            transaction_uuid: String(params[1] || ''),
+            source_device_id: params[2] ? String(params[2]) : null,
+            student_id: Number(params[3]),
+            product_id: Number(params[4]),
+            student_barcode: String(params[5]),
+            student_name: String(params[6]),
+            product_name: String(params[7]),
+            point_cost: Number(params[8]),
+            points_after: Number(params[9]),
+            is_reversed: Boolean(params[10]),
+            reversed_at: params[11] ? String(params[11]) : null,
+            reverse_reason: params[12] ? String(params[12]) : null,
+            synced_at: params[13] ? String(params[13]) : null,
+            created_at: String(params[14] || timestamp),
+          }
+        } else {
+          purchase = {
+            id: nextId++,
+            transaction_uuid: String(params[0] || ''),
+            source_device_id: params[1] ? String(params[1]) : null,
+            student_id: Number(params[2]),
+            product_id: Number(params[3]),
+            student_barcode: String(params[4]),
+            student_name: String(params[5]),
+            product_name: String(params[6]),
+            point_cost: Number(params[7]),
+            points_after: Number(params[8]),
+            is_reversed: false,
+            reversed_at: null,
+            reverse_reason: null,
+            synced_at: null,
+            created_at: String(params[9] || timestamp),
+          }
+        }
         purchases.push(purchase)
+        nextId = Math.max(nextId, purchase.id + 1)
         const product = products.find(item => item.id === purchase.product_id)
         if (product && product.quantity !== null && product.quantity !== undefined) product.quantity = Math.max(0, product.quantity - 1)
         persist()
@@ -237,7 +276,60 @@ function createBrowserDatabase(): SQLite.SQLiteDatabase {
         return { lastInsertRowId: 0 }
       }
       if (sql.startsWith('INSERT INTO balance_history')) {
-        balanceHistory.push({ id: nextId++, student_id: Number(params[0]), student_barcode: String(params[1]), student_name: String(params[2]), old_balance: Number(params[3]), new_balance: Number(params[4]), change_amount: Number(params[5]), operation_type: String(params[6]) as BalanceHistory['operation_type'], reason: String(params[7]), created_at: String(params[8]) })
+        const isRestoreInsert = sql.includes('(id,')
+        const hasLiteralReversal = sql.includes("'reversal'")
+        let history: BalanceHistory
+        if (isRestoreInsert) {
+          history = {
+            id: Number(params[0]),
+            transaction_uuid: String(params[1] || ''),
+            source_device_id: params[2] ? String(params[2]) : null,
+            source_ref: params[3] ? String(params[3]) : null,
+            student_id: Number(params[4]),
+            student_barcode: String(params[5]),
+            student_name: String(params[6]),
+            old_balance: Number(params[7]),
+            new_balance: Number(params[8]),
+            change_amount: Number(params[9]),
+            operation_type: String(params[10]) as BalanceHistory['operation_type'],
+            reason: String(params[11]),
+            created_at: String(params[12]),
+          }
+        } else if (hasLiteralReversal) {
+          history = {
+            id: nextId++,
+            transaction_uuid: String(params[0] || ''),
+            source_device_id: params[1] ? String(params[1]) : null,
+            source_ref: params[2] ? String(params[2]) : null,
+            student_id: Number(params[3]),
+            student_barcode: String(params[4]),
+            student_name: String(params[5]),
+            old_balance: Number(params[6]),
+            new_balance: Number(params[7]),
+            change_amount: Number(params[8]),
+            operation_type: 'reversal',
+            reason: String(params[9]),
+            created_at: String(params[10]),
+          }
+        } else {
+          history = {
+            id: nextId++,
+            transaction_uuid: String(params[0] || ''),
+            source_device_id: params[1] ? String(params[1]) : null,
+            source_ref: params[2] ? String(params[2]) : null,
+            student_id: Number(params[3]),
+            student_barcode: String(params[4]),
+            student_name: String(params[5]),
+            old_balance: Number(params[6]),
+            new_balance: Number(params[7]),
+            change_amount: Number(params[8]),
+            operation_type: String(params[9]) as BalanceHistory['operation_type'],
+            reason: String(params[10]),
+            created_at: String(params[11]),
+          }
+        }
+        balanceHistory.push(history)
+        nextId = Math.max(nextId, history.id + 1)
         persist()
         return { lastInsertRowId: balanceHistory[balanceHistory.length - 1].id }
       }
