@@ -1,0 +1,14 @@
+node_modules/
+*.jks
+*.pem
+*.log
+npm-debug.log*
+*.pid
+*.seed
+.DS_Store
+.env
+.env.local
+dist/
+build/
+.expo/
+.expo-shared/

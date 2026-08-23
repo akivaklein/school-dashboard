@@ -1,0 +1,26 @@
+{
+  "cli": {
+    "version": ">= 5.0.0"
+  },
+  "build": {
+    "default": {
+      "node": "18.x",
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "production"
+      }
+    },
+    "preview": {
+      "extends": "default",
+      "distribution": "internal"
+    },
+    "production": {
+      "extends": "default",
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "offline-token-register",
+  "version": "1.0.0",
+  "description": "Offline Token Store Register for Android tablets",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "eject": "expo eject",
+    "build:android": "eas build --platform android --non-interactive",
+    "build:android:preview": "eas build --platform android --non-interactive --profile preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "expo": "~51.0.0",
+    "expo-status-bar": "~1.12.1",
+    "expo-constants": "~16.0.2",
+    "expo-sqlite": "~14.0.0",
+    "expo-barcode-scanner": "~13.0.1",
+    "expo-file-system": "~17.0.1",
+    "expo-sharing": "~14.0.1",
+    "expo-document-picker": "~12.0.2",
+    "expo-permissions": "~15.0.1",
+    "expo-device": "~6.0.2",
+    "expo-keyboard": "~13.0.1",
+    "react": "~18.3.1",
+    "react-native": "~0.74.1",
+    "react-native-gesture-handler": "~2.14.1",
+    "@react-navigation/native": "~6.1.18",
+    "@react-navigation/bottom-tabs": "~6.6.1",
+    "@react-navigation/stack": "~6.4.1",
+    "react-native-screens": "~3.31.1",
+    "react-native-safe-area-context": "~4.10.5",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "~18.2.45",
+    "@types/react-native": "~0.74.4",
+    "typescript": "~5.3.3"
+  }
+}
