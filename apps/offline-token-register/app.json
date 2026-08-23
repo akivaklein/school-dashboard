@@ -15,16 +15,13 @@
       "**/*"
     ],
     "ios": {
-      "supportsTabletMode": true,
-      "supportsLandscape": false
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "minSdkVersion": 21,
-      "targetSdkVersion": 34,
       "package": "com.yeashivketana.tokenregister",
       "permissions": [
         "CAMERA",
@@ -52,6 +49,17 @@
         "projectId": "1daa54b2-7110-4179-9f65-4bbf9314a690"
       }
     },
-    "owner": "akivaklein"
+    "owner": "akivaklein",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 21,
+            "targetSdkVersion": 34
+          }
+        }
+      ]
+    ]
   }
 }
