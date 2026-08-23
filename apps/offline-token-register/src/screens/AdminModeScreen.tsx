@@ -245,16 +245,16 @@ export default function AdminModeScreen({ navigation }: Props) {
           name: productForm.name.trim(),
           barcode: productForm.barcode.trim(),
           point_cost: cost,
-          quantity,
-          low_stock_threshold: lowStock,
+          quantity: quantity ?? undefined,
+          low_stock_threshold: lowStock ?? undefined,
         })
       } else {
         await createProduct({
           name: productForm.name.trim(),
           barcode: productForm.barcode.trim() || generateProductBarcode(products.length + 1),
           point_cost: cost,
-          quantity,
-          low_stock_threshold: lowStock,
+          quantity: quantity ?? undefined,
+          low_stock_threshold: lowStock ?? undefined,
         })
       }
 
@@ -844,7 +844,7 @@ export default function AdminModeScreen({ navigation }: Props) {
         )}
 
         {/* POINTS TAB */}
-        {tab === 'points' && (
+        {tab === 'quickpoints' && (
           <View>
             <View style={styles.tabHeader}>
               <Text style={styles.tabTitle}>Manage Points</Text>

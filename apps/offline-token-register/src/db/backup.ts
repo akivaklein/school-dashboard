@@ -43,7 +43,7 @@ export async function createBackup(): Promise<string> {
     }
 
     const backupJson = JSON.stringify(backup, null, 2)
-    const backupPath = `${FileSystem.DocumentDirectoryPath}/${BACKUP_FILENAME}`
+    const backupPath = `${FileSystem.documentDirectory}${BACKUP_FILENAME}`
 
     await FileSystem.writeAsStringAsync(backupPath, backupJson, {
       encoding: FileSystem.EncodingType.UTF8,
@@ -188,12 +188,14 @@ export async function restoreFromBackup(backupPath: string): Promise<{ success: 
 }
 
 export async function getBackupDirectory(): Promise<string> {
-  return FileSystem.DocumentDirectoryPath
+  return FileSystem.documentDirectory || ''
 }
 
 export async function listBackupFiles(): Promise<string[]> {
   try {
-    const files = await FileSystem.readDirectoryAsync(FileSystem.DocumentDirectoryPath)
+    const dir = FileSystem.documentDirectory
+    if (!dir) return []
+    const files = await FileSystem.readDirectoryAsync(dir)
     return files.filter(f => f.endsWith('.json') && f.includes('Backup'))
   } catch (error) {
     console.error('Error listing backup files:', error)

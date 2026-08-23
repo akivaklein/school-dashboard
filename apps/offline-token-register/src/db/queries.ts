@@ -79,7 +79,10 @@ export async function updateStudent(id: number, updates: Partial<Omit<Student, '
     }
 
     const setClause = fields.map(f => `${f} = ?`).join(', ')
-    const values = fields.map(f => updates[f as keyof typeof updates])
+    const values = fields.map(f => {
+      const value = updates[f as keyof typeof updates]
+      return typeof value === 'boolean' ? (value ? 1 : 0) : value ?? null
+    })
 
     await db.runAsync(
       `UPDATE students SET ${setClause}, updated_at = ? WHERE id = ?`,
@@ -221,7 +224,10 @@ export async function updateProduct(id: number, updates: Partial<Omit<Product, '
     }
 
     const setClause = fields.map(f => `${f} = ?`).join(', ')
-    const values = fields.map(f => updates[f as keyof typeof updates])
+    const values = fields.map(f => {
+      const value = updates[f as keyof typeof updates]
+      return typeof value === 'boolean' ? (value ? 1 : 0) : value ?? null
+    })
 
     await db.runAsync(
       `UPDATE products SET ${setClause}, updated_at = ? WHERE id = ?`,

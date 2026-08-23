@@ -14,7 +14,6 @@ import {
   Dimensions,
 } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
-import * as Keyboard as KeyboardModule from 'expo-keyboard'
 
 import { getActiveStudents, getActiveProducts, recordPurchase, updateStudent, getStudentById, getProductById } from '../db/queries'
 import { generateStudentBarcode, generateProductBarcode, BarcodeBuffer, isStudentBarcode, isProductBarcode, extractIdFromBarcode } from '../utils/barcode'
