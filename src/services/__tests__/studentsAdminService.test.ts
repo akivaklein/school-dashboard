@@ -24,6 +24,21 @@ describe('studentsAdminService', () => {
     expect(normalizeStudentGrade('Yeshiva Ketana Alef')).toBe('8')
     expect(normalizeStudentGrade('Yeshiva Ketana Beis')).toBe('7')
     expect(normalizeStudentGrade('Grade 8')).toBe('8')
+    expect(normalizeStudentGrade('7th Grade')).toBe('7')
+    expect(normalizeStudentGrade('8th Grade')).toBe('8')
+  })
+
+  it('derives class_name from grade so class and grade cannot contradict', async () => {
+    const eqMock = vi.fn().mockResolvedValue({ error: null })
+    const selectMock = vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: { id: 13 }, error: null }) })
+    const insertMock = vi.fn().mockReturnValue({ select: selectMock })
+    fromMock.mockReturnValue({ insert: insertMock, update: vi.fn().mockReturnValue({ eq: eqMock }) })
+
+    await createStudentRecord({ name: 'Yaakov', className: 'Yeshiva Ketana Beis', grade: '7' }, 'Admin User')
+
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ class_name: '7th Grade', grade: '7' }),
+    )
   })
 
   it('stores grade as 7 or 8 for Yeshiva Ketana student creation', async () => {
@@ -45,7 +60,7 @@ describe('studentsAdminService', () => {
     expect(result.id).toBe(12)
     expect(insertMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        class_name: 'Yeshiva Ketana Alef',
+        class_name: '8th Grade',
         grade: '8',
         is_active: true,
       }),

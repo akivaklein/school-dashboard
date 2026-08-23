@@ -314,7 +314,7 @@ export default function SetupSchoolStructureSection({
             <div key={cls.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#fff' }}>
               <div>
                 <div style={{ fontWeight: 800, color: '#223046', fontSize: 13 }}>{cls.name}</div>
-                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{cls.grade || 'Grade pending'}{cls.teacher ? ` · ${cls.teacher}` : ''}</div>
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{cls.grade && cls.grade !== cls.name ? `${cls.grade}${cls.teacher ? ' · ' : ''}` : ''}{cls.teacher || (cls.grade ? '' : 'Grade pending')}</div>
                 <div style={{ fontSize: 11, color: '#4f6687', marginTop: 4 }}>{schoolDivisions[cls.divisionKey]?.label || 'Division pending'}</div>
               </div>
               <button onClick={() => startEditClass(cls)} style={{ border: '1px solid #dbe7f1', background: '#f8fbff', color: '#31506f', borderRadius: 8, padding: '7px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>

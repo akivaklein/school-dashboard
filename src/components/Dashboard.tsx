@@ -512,21 +512,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
     setSelectedClass(initialClass)
   }, [initialClass])
 
-  const getStudentClassId = (student: StudentLike) => {
-    const explicitClassId = student.classId || student.class_id
-    if (explicitClassId) return explicitClassId
-
-    if (student.className) {
-      const classMatch = CLASSES.find(cls => cls.name === student.className)
-      return classMatch?.id || null
-    }
-
-    const studentId = Number(student.id)
-    const mappedClass = (STUDENT_CLASSES as Record<string | number, string>)[studentId] || (STUDENT_CLASSES as Record<string | number, string>)[String(student.id)]
-    if (mappedClass) return mappedClass
-
-    return null
-  }
+  const getStudentClassId = (student: StudentLike) => resolveStudentClassId(student)
 
   const classStudents = selectedClass
     ? students.filter((s: StudentLike) => getStudentClassId(s) === selectedClass)
@@ -3211,7 +3197,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       supervisingBcba = '',
       note = ''
     }) => {
-      const classId = STUDENT_CLASSES[student.id]
+      const classId = resolveStudentClassId(student)
       const classInfo = CLASSES.find(cls => cls.id === classId)
       const missed = missedClassForTime(time, classInfo)
 
@@ -4440,7 +4426,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       initialClass={assignedTeacherClassIdsForMode[0] || null}
       S={S}
       STAFF={STAFF}
-      STUDENT_CLASSES={STUDENT_CLASSES}
       CLASSES={CLASSES}
       statusColor={statusColor}
       statusEmoji={statusEmoji}
@@ -5077,7 +5062,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             isVIP={checkIsVIP}
             DAYS={DAYS}
             CLASSES={CLASSES}
-            STUDENT_CLASSES={STUDENT_CLASSES}
             statusColor={statusColor}
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
@@ -5101,7 +5085,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             openStudent={openStudent}
             S={S}
             CLASSES={CLASSES}
-            STUDENT_CLASSES={STUDENT_CLASSES}
             CLASS_DIVISION={CLASS_DIVISION}
             ACADEMIC_AREAS={ACADEMIC_AREAS}
             academicCatalog={academicCatalog}

@@ -44,17 +44,24 @@ function normalizeAssignments(values: string[] | undefined) {
 }
 
 export function normalizeStudentGrade(value: string | number | null | undefined): string {
-  const raw = String(value ?? '').trim()
+  const raw = String(value ?? '').trim().toLowerCase()
   if (!raw) return ''
 
-  if (/^7$|^grade\s*7$|^7th$/i.test(raw)) return '7'
-  if (/^8$|^grade\s*8$|^8th$/i.test(raw)) return '8'
-
-  const lowered = raw.toLowerCase()
-  if (lowered.includes('alef')) return '8'
-  if (lowered.includes('beis') || lowered.includes('beit')) return '7'
+  if (raw.includes('alef')) return '8'
+  if (raw.includes('beis') || raw.includes('beit')) return '7'
+  if (/(^|[^0-9])8([^0-9]|$)/.test(raw)) return '8'
+  if (/(^|[^0-9])7([^0-9]|$)/.test(raw)) return '7'
 
   return ''
+}
+
+const GRADE_CLASS_NAMES: Record<string, string> = { '7': '7th Grade', '8': '8th Grade' }
+
+// Grade is the source of truth; class_name is always derived from it so the two cannot diverge.
+function resolveGradeAndClassName(payload: StudentMutationPayload) {
+  const grade = normalizeStudentGrade(payload.grade) || normalizeStudentGrade(payload.className) || normalizeStudentGrade(payload.classId)
+  const className = GRADE_CLASS_NAMES[grade] || String(payload.className || '').trim()
+  return { grade, className }
 }
 
 async function appendAuditLog(action: string, targetId: number | string, userName: string, metadata: Record<string, unknown>) {
@@ -73,9 +80,7 @@ export async function createStudentRecord(payload: StudentMutationPayload, actor
   const family = normalizeFamilyDetails(payload.family)
   const teacherAssignments = normalizeAssignments(payload.teacherAssignments)
   const supportAssignments = normalizeAssignments(payload.supportAssignments)
-  const grade = normalizeStudentGrade(payload.grade) || normalizeStudentGrade(
-    /alef/i.test(String(payload.className || '')) ? '8' : /beis|beit/i.test(String(payload.className || '')) ? '7' : '',
-  )
+  const { grade, className } = resolveGradeAndClassName(payload)
 
   const services = [
     ...teacherAssignments.map(name => ({ role: 'teacher', staffName: name })),
@@ -84,7 +89,7 @@ export async function createStudentRecord(payload: StudentMutationPayload, actor
 
   const row = {
     name: String(payload.name || '').trim(),
-    class_name: String(payload.className || '').trim(),
+    class_name: className,
     status: String(payload.status || 'present'),
     daily_status: String(payload.status || 'present'),
     division: 'yeshiva-ketana',
@@ -135,9 +140,7 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
   const family = normalizeFamilyDetails(payload.family)
   const teacherAssignments = normalizeAssignments(payload.teacherAssignments)
   const supportAssignments = normalizeAssignments(payload.supportAssignments)
-  const grade = normalizeStudentGrade(payload.grade) || normalizeStudentGrade(
-    /alef/i.test(String(payload.className || '')) ? '8' : /beis|beit/i.test(String(payload.className || '')) ? '7' : '',
-  )
+  const { grade, className } = resolveGradeAndClassName(payload)
 
   const services = [
     ...teacherAssignments.map(name => ({ role: 'teacher', staffName: name })),
@@ -146,7 +149,7 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
 
   const patch = {
     name: String(payload.name || '').trim(),
-    class_name: String(payload.className || '').trim(),
+    class_name: className,
     status: String(payload.status || 'present'),
     daily_status: String(payload.status || 'present'),
     family,

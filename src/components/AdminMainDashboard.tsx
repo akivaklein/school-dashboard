@@ -325,7 +325,7 @@ export default function AdminMainDashboard({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: '#263241' }}>{cls.name}</div>
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{cls.grade} · {cls.teacher}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{cls.teacher}</div>
                       <div style={{ fontSize: 11, color: '#4f6687', fontWeight: 700, marginTop: 7 }}>{clsPct}% currently in</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>

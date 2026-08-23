@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import playSound from '../utils/playSound'
-import { resolveActorName } from './dashboardData'
+import { resolveActorName, resolveStudentClassId } from './dashboardData'
 import {
   buildLateToClassFields,
   buildTeachingModeWriteFailureMessage,
@@ -55,7 +55,6 @@ export default function TeachingMode({
   initialClass = null,
   S,
   STAFF,
-  STUDENT_CLASSES,
   CLASSES,
   statusColor,
   statusEmoji,
@@ -146,12 +145,12 @@ export default function TeachingMode({
   const classOptions = useMemo(() => {
     const classIdsInScope = new Set(
       scopeBaseStudents
-        .map(student => STUDENT_CLASSES[student.id])
+        .map(student => resolveStudentClassId(student))
         .filter(Boolean),
     )
 
     return CLASSES.filter(cls => classIdsInScope.has(cls.id))
-  }, [scopeBaseStudents, STUDENT_CLASSES, CLASSES])
+  }, [scopeBaseStudents, CLASSES])
 
   const teacherOptions = useMemo(
     () => classOptions.map(cls => cls.teacher).filter((value, index, arr) => arr.indexOf(value) === index),
@@ -412,21 +411,20 @@ export default function TeachingMode({
   const scopeOptions = [
     ...(canViewEntireSchool ? [{ value: 'entire', label: 'Entire School' }] : []),
     { value: 'teacher', label: 'Teacher' },
-    { value: 'class', label: 'Class' },
-    { value: 'grade', label: 'Grade' },
+    { value: 'class', label: 'Grade' },
     { value: 'period', label: 'Period' },
     ...(hasAssignedStudents ? [{ value: 'assigned', label: 'My Assigned Students' }] : []),
   ]
 
   const scopedStudents = useMemo(() => {
-    const byClass = (student, classId) => STUDENT_CLASSES[student.id] === classId
+    const byClass = (student, classId) => resolveStudentClassId(student) === classId
     const byTeacher = (student, teacherName) => {
-      const classId = STUDENT_CLASSES[student.id]
+      const classId = resolveStudentClassId(student)
       const cls = CLASSES.find(item => item.id === classId)
       return cls?.teacher === teacherName
     }
     const byGrade = (student, gradeName) => {
-      const classId = STUDENT_CLASSES[student.id]
+      const classId = resolveStudentClassId(student)
       const cls = CLASSES.find(item => item.id === classId)
       return cls?.grade === gradeName
     }
@@ -474,7 +472,6 @@ export default function TeachingMode({
     selectedGrade,
     selectedPeriod,
     periodBuckets,
-    STUDENT_CLASSES,
     CLASSES,
   ])
 

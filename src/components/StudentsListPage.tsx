@@ -1,11 +1,20 @@
 import { useMemo, useState } from 'react'
 import { buildStudentListViewModel } from './studentListUtils'
+import { CLASS_ID_BY_GRADE, GRADE_LABELS, normalizeGradeValue, resolveStudentGrade } from './dashboardData'
+
+const GRADE_OPTIONS = ['8', '7']
+
+function gradeClassId(grade) {
+  return CLASS_ID_BY_GRADE[grade] || ''
+}
+
+function gradeClassName(grade) {
+  return GRADE_LABELS[grade] || ''
+}
 
 function defaultStudentForm() {
   return {
     name: '',
-    classId: '',
-    className: '',
     grade: '8',
     teacherAssignmentsText: '',
     supportAssignmentsText: '',
@@ -26,10 +35,14 @@ function splitCsv(value) {
 }
 
 function studentClassId(student) {
-  return String(student?.classId || student?.class_id || '')
+  const explicit = String(student?.classId || student?.class_id || '')
+  return explicit || gradeClassId(resolveStudentGrade(student))
 }
 
 function studentClassName(student, classes) {
+  const gradeName = gradeClassName(resolveStudentGrade(student))
+  if (gradeName) return gradeName
+
   const classId = studentClassId(student)
   const configuredClass = (classes || []).find(entry => String(entry.id) === classId)
   return String(student?.className || student?.class_name || configuredClass?.name || '')
@@ -171,17 +184,11 @@ export default function StudentsListPage({
 
     setEditingStudent(student)
     setFormError('')
-    const inferredGrade = student.grade || (
-      /alef/i.test(String(student.className || student.class_name || classMatch?.name || '')) ? '8'
-      : /beis|beit/i.test(String(student.className || student.class_name || classMatch?.name || '')) ? '7'
-      : '8'
-    )
+    const inferredGrade = resolveStudentGrade(student) || normalizeGradeValue(classMatch?.name) || '8'
 
     setFormState({
       name: student.name || '',
-      classId: student.classId || student.class_id || classMatch?.id || '',
-      className: student.className || student.class_name || classMatch?.name || '',
-      grade: String(inferredGrade),
+      grade: inferredGrade,
       teacherAssignmentsText: teacherAssignments.join(', '),
       supportAssignmentsText: supportAssignments.join(', '),
       fatherName: String(family.fatherName || ''),
@@ -202,24 +209,16 @@ export default function StudentsListPage({
       return
     }
 
-    if (!String(formState.className || '').trim() && !String(formState.classId || '').trim()) {
-      setFormError('Class is required.')
+    const safeGrade = normalizeGradeValue(formState.grade)
+    if (!safeGrade) {
+      setFormError('Grade is required.')
       return
     }
 
-    const selectedClass = (classes || []).find(entry => entry.id === formState.classId)
-    const className = String(formState.className || selectedClass?.name || '').trim()
-    const classId = String(formState.classId || selectedClass?.id || '').trim()
-
-    const normalizedGrade = String(formState.grade || '').trim()
-    const safeGrade = normalizedGrade === '7' || normalizedGrade === '8' ? normalizedGrade : (
-      /alef/i.test(className) ? '8' : /beis|beit/i.test(className) ? '7' : '8'
-    )
-
     const payload = {
       name: String(formState.name || '').trim(),
-      className,
-      classId,
+      className: gradeClassName(safeGrade),
+      classId: gradeClassId(safeGrade),
       grade: safeGrade,
       status: 'present',
       isActive: formState.isActive !== false,
@@ -309,8 +308,8 @@ export default function StudentsListPage({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: '#1e293b' }}>Student contact directory</div>
             <select value={directoryClassFilter} onChange={event => setDirectoryClassFilter(event.target.value)} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12 }}>
-              <option value="all">All classes</option>
-              {(classes || []).map(entry => <option key={`directory-${entry.id}`} value={entry.id}>{entry.name} · {entry.grade}</option>)}
+              <option value="all">All grades</option>
+              {(classes || []).map(entry => <option key={`directory-${entry.id}`} value={entry.id}>{entry.name}</option>)}
             </select>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -318,7 +317,7 @@ export default function StudentsListPage({
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   <th style={{ textAlign: 'left', padding: 10 }}>Student</th>
-                  <th style={{ textAlign: 'left', padding: 10 }}>Class</th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Grade</th>
                   <th style={{ textAlign: 'left', padding: 10 }}>Father phone</th>
                   <th style={{ textAlign: 'left', padding: 10 }}>Mother phone</th>
                   <th style={{ textAlign: 'left', padding: 10 }}>Actions</th>
@@ -399,7 +398,7 @@ export default function StudentsListPage({
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="Student" column="name" /></th>
                   <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="ID" column="id" /></th>
-                  <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="Class" column="className" /></th>
+                  <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="Grade" column="className" /></th>
                   <th style={{ textAlign: 'left', padding: 10 }}>Status</th>
                   <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="Points" column="points" /></th>
                   <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="Reminders" column="reminders" /></th>
@@ -421,7 +420,7 @@ export default function StudentsListPage({
                         </div>
                       </td>
                       <td style={{ padding: 10 }}>{student.id}</td>
-                      <td style={{ padding: 10 }}>{student.className || student.class_name || '—'}</td>
+                      <td style={{ padding: 10 }}>{studentClassName(student, classes) || '—'}</td>
                       <td style={{ padding: 10 }}>
                         <span style={S.tag(statusColor[student.status])}>{statusEmoji[student.status]} {statusLabel[student.status]}</span>
                         {withStaffObj && <div style={{ fontSize: 10, color: '#3f6b76', marginTop: 3 }}>With {withStaffObj.name}</div>}
@@ -481,22 +480,9 @@ export default function StudentsListPage({
                   <input value={formState.name} onChange={event => setFormState(prev => ({ ...prev, name: event.target.value }))} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12 }} />
                 </label>
                 <label style={{ display: 'grid', gap: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Class</span>
-                  <select value={formState.classId} onChange={event => {
-                    const classId = event.target.value
-                    const selectedClass = (classes || []).find(entry => entry.id === classId)
-                    const nextGrade = /alef/i.test(String(selectedClass?.name || '')) ? '8' : /beis|beit/i.test(String(selectedClass?.name || '')) ? '7' : formState.grade
-                    setFormState(prev => ({ ...prev, classId, className: selectedClass?.name || '', grade: nextGrade }))
-                  }} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12 }}>
-                    <option value="">Select class</option>
-                    {(classes || []).map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-                  </select>
-                </label>
-                <label style={{ display: 'grid', gap: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Grade</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Grade (class)</span>
                   <select value={formState.grade} onChange={event => setFormState(prev => ({ ...prev, grade: event.target.value }))} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12 }}>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
+                    {GRADE_OPTIONS.map(grade => <option key={`grade-opt-${grade}`} value={grade}>{GRADE_LABELS[grade]}</option>)}
                   </select>
                 </label>
                 <label style={{ display: 'grid', gap: 4 }}>

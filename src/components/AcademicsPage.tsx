@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { resolveStudentClassId } from './dashboardData'
 
 export function StudentScoresTab({
   student,
@@ -214,7 +215,6 @@ export default function AcademicsPage({
   openStudent,
   S,
   CLASSES,
-  STUDENT_CLASSES,
   CLASS_DIVISION,
   ACADEMIC_AREAS,
   academicCatalog,
@@ -265,13 +265,13 @@ export default function AcademicsPage({
         teacherAssignedStudentIds?.length
           ? students.filter(s => teacherAssignedStudentIds.includes(Number(s.id)))
           : teacherAssignedClassIds?.length
-            ? students.filter(s => teacherAssignedClassIds.includes(STUDENT_CLASSES[s.id]))
+            ? students.filter(s => teacherAssignedClassIds.includes(resolveStudentClassId(s)))
             : teacherClass
-              ? students.filter(s => STUDENT_CLASSES[s.id] === teacherClass)
+              ? students.filter(s => resolveStudentClassId(s) === teacherClass)
               : []
       )
     : students
-  const visibleStudents = scopedStudents.filter(s => classFilter === 'all' || STUDENT_CLASSES[s.id] === classFilter)
+  const visibleStudents = scopedStudents.filter(s => classFilter === 'all' || resolveStudentClassId(s) === classFilter)
 
   const bulkVisibleStudents = useMemo(() => {
     if (role === 'teacher' || role === 'rebbe') {
@@ -302,7 +302,7 @@ export default function AcademicsPage({
     return scopedStudents.filter(student => {
       const id = Number(student.id)
       if (!assignedIds.has(id)) return false
-      if (classFilter !== 'all' && STUDENT_CLASSES[student.id] !== classFilter) {
+      if (classFilter !== 'all' && resolveStudentClassId(student) !== classFilter) {
         return false
       }
       return true
@@ -314,7 +314,6 @@ export default function AcademicsPage({
     setupAssignments,
     loggedInTeacher,
     classFilter,
-    STUDENT_CLASSES,
   ])
 
   useEffect(() => {
@@ -662,7 +661,8 @@ export default function AcademicsPage({
     return <span style={{ color: '#64748b', fontSize: 12 }}>—</span>
   }
   function getClassName(studentId: number): string {
-    const cls = CLASSES.find(c => c.id === STUDENT_CLASSES[studentId])
+    const student = (students || []).find(item => Number(item.id) === Number(studentId)) || { id: studentId }
+    const cls = CLASSES.find(c => c.id === resolveStudentClassId(student))
     return cls?.name || '—'
   }
 
@@ -994,7 +994,7 @@ export default function AcademicsPage({
                   <div key={student.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 0.7fr) minmax(0, 1fr)', gap: 10, alignItems: 'center', padding: '8px 0', borderTop: '1px solid #eef2f7' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.name}</div>
-                      <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{CLASSES.find(c => c.id === STUDENT_CLASSES[student.id])?.name || 'Unassigned class'}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{CLASSES.find(c => c.id === resolveStudentClassId(student))?.name || 'Unassigned class'}</div>
                     </div>
 
                     {bulkForm.gradingMethod === 'points' || bulkForm.gradingMethod === 'percentage' ? (

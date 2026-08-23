@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { resolveActorName } from './dashboardData'
+import { resolveActorName, resolveStudentClassId } from './dashboardData'
 import {
   getDailyAttendanceStatus,
   isInClassroom,
@@ -28,7 +28,6 @@ export default function AttendancePage({
   isVIP = (_student: AttendanceStudent) => false,
   DAYS,
   CLASSES,
-  STUDENT_CLASSES,
   statusColor,
   statusEmoji,
   statusLabel,
@@ -371,7 +370,7 @@ export default function AttendancePage({
   }
 
   async function resolveFlaggedStudentsForClass(classId) {
-    const classStudents = students.filter(s => STUDENT_CLASSES[s.id] === classId)
+    const classStudents = students.filter(s => s?.is_active !== false && resolveStudentClassId(s) === classId)
     const flaggedStudents = classStudents.filter(
       s => s.status === 'unknown' || s.status === 'not-arrived'
     )
@@ -760,7 +759,7 @@ export default function AttendancePage({
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
             {CLASSES.map(cls => {
-              const classStudents = students.filter(s => STUDENT_CLASSES[s.id] === cls.id)
+              const classStudents = students.filter(s => s?.is_active !== false && resolveStudentClassId(s) === cls.id)
               if (classStudents.length === 0) return null
 
               const inClassCount = classStudents.filter(s => isInClassroom(s)).length
@@ -774,7 +773,7 @@ export default function AttendancePage({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b' }}>{cls.name}</div>
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{cls.grade} · {cls.teacher}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{cls.teacher}</div>
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: flaggedCount > 0 ? '#9f1239' : '#4b6854' }}>
                       {flaggedCount > 0 ? `${flaggedCount} flagged` : 'Clear'}
@@ -827,7 +826,6 @@ export default function AttendancePage({
             initials={initials}
             DAYS={DAYS}
             CLASSES={CLASSES}
-            STUDENT_CLASSES={STUDENT_CLASSES}
             HISTORICAL_DATA={HISTORICAL_DATA}
             isVIP={isVIP}
           />
@@ -837,7 +835,7 @@ export default function AttendancePage({
   )
 }
 
-function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DAYS, CLASSES, STUDENT_CLASSES, HISTORICAL_DATA, isVIP }) {
+function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DAYS, CLASSES, HISTORICAL_DATA, isVIP }) {
   const [view, setView] = useState('daily')
   const dailyLabels = { 'P': 'P', 'A': 'A', 'L': 'L', 'LE': 'LE' }
   const dailyColors = {
@@ -901,12 +899,12 @@ function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DA
       {view === 'class' && (
         <div>
           {CLASSES.map(cls => {
-            const clsStudents = filteredStudents.filter(s => STUDENT_CLASSES[s.id] === cls.id)
+            const clsStudents = filteredStudents.filter(s => s?.is_active !== false && resolveStudentClassId(s) === cls.id)
             if (clsStudents.length === 0) return null
             return (
               <div key={cls.id} style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: '#111827', marginBottom: 8, padding: '6px 10px', background: '#f8fafc', borderRadius: 6 }}>
-                  🏫 {cls.name} — {cls.grade} · {cls.teacher}
+                  🏫 {cls.name} · {cls.teacher}
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>

@@ -669,9 +669,19 @@ export const TEACHER_CLASS_MAP = {
   'Rabbi Schimborski': 'yk-b',
 }
 
+export const GRADE_LABELS = {
+  '7': '7th Grade',
+  '8': '8th Grade',
+}
+
+export const CLASS_ID_BY_GRADE = {
+  '7': 'yk-b',
+  '8': 'yk-a',
+}
+
 export const CLASSES = [
-  { id: 'yk-a', name: 'Yeshiva Ketana Alef', grade: '8th Grade', teacher: 'Rabbi Schults' },
-  { id: 'yk-b', name: 'Yeshiva Ketana Beis', grade: '7th Grade', teacher: 'Rabbi Schimborski' },
+  { id: 'yk-a', name: '8th Grade', grade: '8th Grade', teacher: 'Rabbi Schults' },
+  { id: 'yk-b', name: '7th Grade', grade: '7th Grade', teacher: 'Rabbi Schimborski' },
 ]
 
 export const STUDENT_CLASSES = {
@@ -722,29 +732,47 @@ export function resolveLiveStudentPoints(tokenBalance) {
   return Number(tokenBalance ?? 0) || 0
 }
 
-export function resolveStudentGrade(student) {
-  const rawGrade = student?.grade
-  if (typeof rawGrade !== 'undefined' && rawGrade !== null && String(rawGrade).trim()) {
-    return String(rawGrade).trim()
-  }
+// Grade is the single source of truth: '7' or '8'. Legacy Alef/Beis labels map to 8/7.
+export function normalizeGradeValue(value) {
+  const raw = String(value ?? '').trim().toLowerCase()
+  if (!raw) return ''
 
-  const explicitClassId = String(student?.classId || student?.class_id || '').trim().toLowerCase()
-  const explicitClassName = String(student?.className || '').trim().toLowerCase()
-
-  if (explicitClassId === 'yk-a' || explicitClassName.includes('alef')) return '8'
-  if (explicitClassId === 'yk-b' || explicitClassName.includes('beis') || explicitClassName.includes('beit')) return '7'
+  if (raw.includes('alef')) return '8'
+  if (raw.includes('beis') || raw.includes('beit')) return '7'
+  if (/(^|[^0-9])8([^0-9]|$)/.test(raw)) return '8'
+  if (/(^|[^0-9])7([^0-9]|$)/.test(raw)) return '7'
 
   return ''
+}
+
+export function gradeLabel(value) {
+  const normalized = normalizeGradeValue(value)
+  return GRADE_LABELS[normalized] || ''
+}
+
+export function resolveStudentGrade(student) {
+  const direct = normalizeGradeValue(student?.grade)
+  if (direct) return direct
+
+  const explicitClassId = String(student?.classId || student?.class_id || '').trim().toLowerCase()
+  if (explicitClassId === 'yk-a') return '8'
+  if (explicitClassId === 'yk-b') return '7'
+
+  return normalizeGradeValue(student?.className || student?.class_name)
 }
 
 export function resolveStudentClassId(student) {
   const explicitClassId = student.classId || student.class_id
   if (explicitClassId) return explicitClassId
 
-  if (student.className) {
-    const classMatch = CLASSES.find(cls => cls.name === student.className)
-    return classMatch?.id || null
+  const rawClassName = student.className || student.class_name
+  if (rawClassName) {
+    const classMatch = CLASSES.find(cls => cls.name === rawClassName)
+    if (classMatch) return classMatch.id
   }
+
+  const gradeClassId = CLASS_ID_BY_GRADE[resolveStudentGrade(student)]
+  if (gradeClassId) return gradeClassId
 
   const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
   if (mappedClass) return mappedClass
@@ -753,12 +781,8 @@ export function resolveStudentClassId(student) {
 }
 
 export function isYeshivaKetanaStudent(student) {
-  const classId = String(resolveStudentClassId(student) || '').trim().toLowerCase()
-  const className = String(student?.className || student?.class_name || '').trim().toLowerCase()
   const grade = resolveStudentGrade(student)
-  const isYeshivaKetanaClass = classId === 'yk-a' || classId === 'yk-b' || className.includes('yeshiva ketana')
-
-  return isYeshivaKetanaClass && (grade === '7' || grade === '8')
+  return grade === '7' || grade === '8'
 }
 
 function collectAssignmentStudentIds(assignment) {
@@ -1126,23 +1150,23 @@ export function makeDay(daysAgo, inMins, outMins, staffName, staffId, segments =
 export const HISTORICAL_DATA = {
   6: [
     makeDay(0, 165, 70, 'Yitzi + Ezriel', 's9', [
-      { time: '09:10', status: 'classroom', location: 'Shiur Beis', note: 'Morning seder with class' },
+      { time: '09:10', status: 'classroom', location: 'Classroom', note: 'Morning seder with class' },
       { time: '10:20', status: 'therapy', location: 'Therapy room', staffName: 'Yitzi Liebowitz', note: 'OT regulation block' },
-      { time: '11:05', status: 'return', location: 'Shiur Beis', note: 'Returned to class after therapy' },
+      { time: '11:05', status: 'return', location: 'Classroom', note: 'Returned to class after therapy' },
       { time: '11:30', status: 'bt-support', location: 'Resource corner', staffName: 'Ezriel', note: 'BT prompting for transitions' },
       { time: '12:05', status: 'hallway', location: 'Hallway', note: 'Transition before lunch' },
       { time: '12:20', status: 'unaccounted', location: 'Hallway', note: 'Unaccounted for 10 minutes' },
       { time: '12:30', status: 'return', location: 'Lunchroom', staffName: 'Ezriel', note: 'Located and rejoined group' },
     ]),
     makeDay(1, 150, 35, 'Ezriel', 's10', [
-      { time: '09:05', status: 'classroom', location: 'Shiur Beis', note: 'On-task in class' },
+      { time: '09:05', status: 'classroom', location: 'Classroom', note: 'On-task in class' },
       { time: '10:35', status: 'bt-support', location: 'Class doorway', staffName: 'Ezriel', note: 'Prompting and redirection' },
-      { time: '10:50', status: 'return', location: 'Shiur Beis', note: 'Resumed classwork' },
+      { time: '10:50', status: 'return', location: 'Classroom', note: 'Resumed classwork' },
     ]),
     makeDay(2, 125, 50, 'Yitzi Liebowitz', 's9', [
-      { time: '09:15', status: 'classroom', location: 'Shiur Beis', note: 'Participating in Gemara' },
+      { time: '09:15', status: 'classroom', location: 'Classroom', note: 'Participating in Gemara' },
       { time: '10:40', status: 'therapy', location: 'Therapy room', staffName: 'Yitzi Liebowitz', note: 'Sensory motor session' },
-      { time: '11:25', status: 'return', location: 'Shiur Beis', note: 'Returned and settled quickly' },
+      { time: '11:25', status: 'return', location: 'Classroom', note: 'Returned and settled quickly' },
     ]),
     makeDay(3, 95, 40, 'Mrs. Goldberg', 's6'),
     makeDay(4, 120, 55, 'Ezriel', 's10'),
@@ -1178,11 +1202,11 @@ export const HISTORICAL_DATA = {
   ],
   12: [
     makeDay(0, 105, 80, 'Ezriel + Dovid', 's10', [
-      { time: '09:10', status: 'classroom', location: 'Shiur Alef', note: 'Morning class block' },
+      { time: '09:10', status: 'classroom', location: 'Classroom', note: 'Morning class block' },
       { time: '10:30', status: 'bt-support', location: 'Resource room', staffName: 'Ezriel', note: 'Reading support' },
-      { time: '11:00', status: 'return', location: 'Shiur Alef', note: 'Returned from support' },
+      { time: '11:00', status: 'return', location: 'Classroom', note: 'Returned from support' },
       { time: '11:20', status: 'bt-support', location: 'Resource room', staffName: 'Dovid', note: 'Behavior coaching' },
-      { time: '11:55', status: 'return', location: 'Shiur Alef', note: 'Back in class before lunch' },
+      { time: '11:55', status: 'return', location: 'Classroom', note: 'Back in class before lunch' },
     ]),
     makeDay(1, 85, 30, 'Dovid', 's11'),
     makeDay(2, 70, 45, 'Ezriel', 's10'),
@@ -1809,7 +1833,7 @@ export const statusEmoji = { present: '✅', absent: '❌', late: '⏰', 'left-e
     Q('d24c','Rabbi Abowitz','Math','Statistics','Stats Problem Set','2026-07-07',91,100,''),
   ]
 
-  // YK Alef (yk-a) – Rabbi Schults
+  // 8th Grade (yk-a) – Rabbi Schults
   const s101 = sId(101)
   if (s101 && !s101.testScores?.length) s101.testScores = [
     Q('yk101a','Rabbi Schults','Chumash','Bereishis','Chumash Test','2026-07-21',100,100,'A+', 'Test'),
@@ -1828,7 +1852,7 @@ export const statusEmoji = { present: '✅', absent: '❌', late: '⏰', 'left-e
     Q('yk103b','Rabbi Schults','Kriah','Fluency','Fluency Check', '2026-07-07',92,100,'Great improvement!'),
   ]
 
-  // YK Beis (yk-b) – Rabbi Schimborski
+  // 7th Grade (yk-b) – Rabbi Schimborski
   const s109 = sId(109)
   if (s109 && !s109.testScores?.length) s109.testScores = [
     Q('yk109a','Rabbi Schimborski','Chumash','Vayikra','Parsha Quiz','2026-07-21',95,100,''),
