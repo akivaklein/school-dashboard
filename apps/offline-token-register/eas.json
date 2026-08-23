@@ -4,7 +4,7 @@
   },
   "build": {
     "default": {
-      "node": "18.x",
+      "node": "18.20.8",
       "env": {
         "EXPO_PUBLIC_APP_VARIANT": "production"
       }

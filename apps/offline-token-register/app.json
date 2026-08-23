@@ -46,6 +46,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1daa54b2-7110-4179-9f65-4bbf9314a690"
+      }
+    },
+    "owner": "akivaklein"
   }
 }
