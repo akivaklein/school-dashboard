@@ -30,8 +30,10 @@ import {
   getPurchaseHistory,
   reversePurchase,
   getStudentById,
+  replaceStudentsAndProducts,
 } from '../db/queries'
 import { shareBackup, restoreFromBackup, listBackupFiles } from '../db/backup'
+import { FULL_PRODUCT_SEED, FULL_STUDENT_SEED } from '../db/webSeedData'
 import { generateStudentBarcode, generateProductBarcode } from '../utils/barcode'
 import type { Student, Product, Purchase } from '../db/schema'
 
@@ -54,7 +56,7 @@ export default function AdminModeScreen({ navigation }: Props) {
 
   const [productModal, setProductModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [productForm, setProductForm] = useState({ name: '', barcode: '', cost: '0', quantity: '', lowStock: '', vip_only: false })
+  const [productForm, setProductForm] = useState({ name: '', barcode: '', cost: '0', quantity: '', lowStock: '', vip_only: false, image_url: '', emoji: '', category: 'nosh' })
 
   const [pointsStudent, setPointsStudent] = useState<Student | null>(null)
   const [pointsModal, setPointsModal] = useState(false)
@@ -213,6 +215,9 @@ export default function AdminModeScreen({ navigation }: Props) {
         quantity: String(product.quantity || ''),
         lowStock: String(product.low_stock_threshold || ''),
         vip_only: product.vip_only ?? false,
+        image_url: product.image_url || '',
+        emoji: product.emoji || '',
+        category: product.category || 'nosh',
       })
     } else {
       setEditingProduct(null)
@@ -223,6 +228,9 @@ export default function AdminModeScreen({ navigation }: Props) {
         quantity: '',
         lowStock: '',
         vip_only: false,
+        image_url: '',
+        emoji: '',
+        category: 'nosh',
       })
     }
     setProductModal(true)
@@ -253,6 +261,9 @@ export default function AdminModeScreen({ navigation }: Props) {
           quantity: quantity ?? undefined,
           low_stock_threshold: lowStock ?? undefined,
           vip_only: productForm.vip_only,
+          image_url: productForm.image_url.trim(),
+          emoji: productForm.emoji.trim(),
+          category: (productForm.category || 'nosh').trim() || 'nosh',
         })
       } else {
         await createProduct({
@@ -262,6 +273,9 @@ export default function AdminModeScreen({ navigation }: Props) {
           quantity: quantity ?? undefined,
           low_stock_threshold: lowStock ?? undefined,
           vip_only: productForm.vip_only,
+          image_url: productForm.image_url.trim(),
+          emoji: productForm.emoji.trim(),
+          category: (productForm.category || 'nosh').trim() || 'nosh',
         })
       }
 
@@ -508,6 +522,32 @@ export default function AdminModeScreen({ navigation }: Props) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleImportFullCatalog = () => {
+    Alert.alert(
+      'Import Full Catalog',
+      'This replaces current students, products, and local history with the complete Vercel-style seed data. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true)
+              await replaceStudentsAndProducts(FULL_STUDENT_SEED, FULL_PRODUCT_SEED)
+              await loadData()
+              Alert.alert('Import complete', `Loaded ${FULL_STUDENT_SEED.length} students and ${FULL_PRODUCT_SEED.length} products.`)
+            } catch (error) {
+              Alert.alert('Import failed', error instanceof Error ? error.message : 'Unable to import full catalog.')
+            } finally {
+              setLoading(false)
+            }
+          },
+        },
+      ],
+    )
   }
 
   // ==================== RENDER ====================
@@ -823,6 +863,7 @@ export default function AdminModeScreen({ navigation }: Props) {
                     </View>
                     <Text style={styles.itemSubtitle}>{item.barcode}</Text>
                     <Text style={styles.itemBalance}>{item.point_cost} pts</Text>
+                    <Text style={styles.itemQuantity}>Category: {item.category || 'nosh'}</Text>
                     {item.quantity !== null && (
                       <Text style={styles.itemQuantity}>Stock: {item.quantity}</Text>
                     )}
@@ -926,6 +967,10 @@ export default function AdminModeScreen({ navigation }: Props) {
         {tab === 'backup' && (
           <View>
             <Text style={styles.tabTitle}>Backup & Restore</Text>
+
+            <TouchableOpacity style={[styles.largeButton, styles.dangerButton]} onPress={handleImportFullCatalog}>
+              <Text style={styles.largeButtonText}>Import Full Student/Product Catalog</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={[styles.largeButton, styles.primaryButton]} onPress={handleCreateBackup}>
               <Text style={styles.largeButtonText}>Create Backup</Text>
@@ -1038,6 +1083,28 @@ export default function AdminModeScreen({ navigation }: Props) {
               value={productForm.lowStock}
               onChangeText={text => setProductForm(prev => ({ ...prev, lowStock: text }))}
               keyboardType="numeric"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Category (drinks, nosh, snacks...)"
+              value={productForm.category}
+              onChangeText={text => setProductForm(prev => ({ ...prev, category: text }))}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Emoji fallback (optional)"
+              value={productForm.emoji}
+              onChangeText={text => setProductForm(prev => ({ ...prev, emoji: text }))}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Picture URL (optional)"
+              value={productForm.image_url}
+              onChangeText={text => setProductForm(prev => ({ ...prev, image_url: text }))}
+              autoCapitalize="none"
             />
 
             <View style={styles.switchRow}>

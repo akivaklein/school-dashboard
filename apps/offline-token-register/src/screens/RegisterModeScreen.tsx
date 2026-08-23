@@ -12,16 +12,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  Image,
 } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 
-import { getActiveStudents, getActiveProducts, recordPurchase, updateStudent, getStudentById, getProductById } from '../db/queries'
+import { getActiveStudents, getActiveProducts, recordPurchase, updateStudent, getStudentPurchaseHistory, reversePurchase } from '../db/queries'
 import { generateStudentBarcode, generateProductBarcode, BarcodeBuffer, isStudentBarcode, isProductBarcode, extractIdFromBarcode } from '../utils/barcode'
-import type { Student, Product } from '../db/schema'
+import type { Student, Product, Purchase } from '../db/schema'
 
 type Props = NativeStackScreenProps<any, 'RegisterMode'>
 
 const { width, height } = Dimensions.get('window')
+const isCompactTablet = width <= 900
 
 interface CartItem {
   product: Product
@@ -42,6 +44,10 @@ export default function RegisterModeScreen({ navigation }: Props) {
   const [showStudentSelect, setShowStudentSelect] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
   const [registerTab, setRegisterTab] = useState<'products' | 'cart'>('products')
+  const [productSearch, setProductSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [studentPurchases, setStudentPurchases] = useState<Purchase[]>([])
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<number, boolean>>({})
 
   const barcodeBufferRef = useRef(new BarcodeBuffer())
   const barcodeInputRef = useRef<TextInput>(null)
@@ -63,6 +69,17 @@ export default function RegisterModeScreen({ navigation }: Props) {
   useEffect(() => {
     resetInactivityTimer()
   }, [selectedStudent, barcodeInput])
+
+  useEffect(() => {
+    if (!selectedStudent) {
+      setStudentPurchases([])
+      return
+    }
+
+    getStudentPurchaseHistory(selectedStudent.id, 20)
+      .then(history => setStudentPurchases(history.filter(purchase => !purchase.is_reversed)))
+      .catch(error => console.error('Unable to load student purchase history:', error))
+  }, [selectedStudent])
 
   const loadData = async () => {
     try {
@@ -97,6 +114,8 @@ export default function RegisterModeScreen({ navigation }: Props) {
     setCart([])
     setTotalCost(0)
     setBarcodeInput('')
+    setProductSearch('')
+    setCategoryFilter('all')
   }
 
   const handleBarcodeInput = (barcode: string) => {
@@ -198,10 +217,15 @@ export default function RegisterModeScreen({ navigation }: Props) {
       // Update student balance
       await updateStudent(selectedStudent.id, { balance: newBalance })
 
+      const refreshedStudents = await getActiveStudents()
+      setStudents(refreshedStudents)
+      const refreshedProducts = await getActiveProducts()
+      setProducts(refreshedProducts)
+
       // Show confirmation and clear
       Alert.alert('Checkout Complete', `${selectedStudent.name} spent ${totalCost} points.`, [
         {
-          text: 'OK',
+          text: 'Back to Student List',
           onPress: () => {
             clearCheckout()
           },
@@ -215,6 +239,50 @@ export default function RegisterModeScreen({ navigation }: Props) {
     }
   }
 
+  const handleReturnPurchase = (purchase: Purchase) => {
+    Alert.alert(
+      'Return / Exchange',
+      `Return ${purchase.product_name} for ${purchase.student_name} and restore ${purchase.point_cost} points?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Return',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true)
+              await reversePurchase(purchase.id, 'Register return/exchange')
+
+              const [nextStudents, nextProducts, history] = await Promise.all([
+                getActiveStudents(),
+                getActiveProducts(),
+                selectedStudent ? getStudentPurchaseHistory(selectedStudent.id, 20) : Promise.resolve([]),
+              ])
+
+              setStudents(nextStudents)
+              setProducts(nextProducts)
+              if (selectedStudent) {
+                const nextStudent = nextStudents.find(student => student.id === selectedStudent.id) || null
+                setSelectedStudent(nextStudent)
+              }
+              setStudentPurchases(history.filter(entry => !entry.is_reversed))
+
+              Alert.alert(
+                'Return Complete',
+                'Points and inventory were restored. You can now add replacement items to the cart for an exchange.',
+                [{ text: 'Continue Exchange', onPress: () => setRegisterTab('products') }],
+              )
+            } catch (error) {
+              setError(error instanceof Error ? error.message : 'Return failed')
+            } finally {
+              setLoading(false)
+            }
+          },
+        },
+      ],
+    )
+  }
+
   const clearCheckout = () => {
     setSelectedStudent(null)
     setCart([])
@@ -222,6 +290,8 @@ export default function RegisterModeScreen({ navigation }: Props) {
     setBarcodeInput('')
     setShowStudentSelect(true)
     setStudentSearch('')
+    setProductSearch('')
+    setCategoryFilter('all')
     setRegisterTab('products')
   }
 
@@ -303,6 +373,16 @@ export default function RegisterModeScreen({ navigation }: Props) {
     return ''
   }
 
+  const productCategories = ['all', ...Array.from(new Set(products.map(product => String(product.category || 'nosh')))).sort((left, right) => left.localeCompare(right))]
+  const visibleProducts = products.filter(product => {
+    const query = productSearch.trim().toLowerCase()
+    const matchesCategory = categoryFilter === 'all' || String(product.category || 'nosh') === categoryFilter
+    const matchesSearch = !query
+      || product.name.toLowerCase().includes(query)
+      || product.barcode.toLowerCase().includes(query)
+    return matchesCategory && matchesSearch
+  })
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       <View style={styles.header}>
@@ -340,11 +420,36 @@ export default function RegisterModeScreen({ navigation }: Props) {
 
       {registerTab === 'products' ? (
         <ScrollView style={styles.productGrid} contentContainerStyle={styles.productGridContent}>
+          <TextInput
+            style={styles.productSearchInput}
+            placeholder="Search name or barcode..."
+            value={productSearch}
+            onChangeText={setProductSearch}
+            placeholderTextColor="#94a3b8"
+          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+            {productCategories.map(category => {
+              const active = categoryFilter === category
+              return (
+                <TouchableOpacity
+                  key={category}
+                  style={[styles.categoryChip, active && styles.categoryChipActive]}
+                  onPress={() => setCategoryFilter(category)}
+                >
+                  <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
+                    {category === 'all' ? 'All' : category}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </ScrollView>
+
           <View style={styles.productRow}>
-            {products.map(product => {
+            {visibleProducts.map(product => {
               const reason = getProductUnavailableReason(product)
               const unavailable = !!reason
               const dimmed = !!selectedStudent && unavailable
+              const hasImage = !!product.image_url && !imageLoadErrors[product.id]
               return (
                 <TouchableOpacity
                   key={product.id}
@@ -372,6 +477,17 @@ export default function RegisterModeScreen({ navigation }: Props) {
                       <Text style={styles.productUnavailableTagText}>{reason}</Text>
                     </View>
                   )}
+                  <View style={styles.productImageWrap}>
+                    {hasImage ? (
+                      <Image
+                        source={{ uri: String(product.image_url) }}
+                        style={styles.productImage}
+                        onError={() => setImageLoadErrors(prev => ({ ...prev, [product.id]: true }))}
+                      />
+                    ) : (
+                      <Text style={styles.productEmojiFallback}>{product.emoji || '◼'}</Text>
+                    )}
+                  </View>
                   <Text style={styles.productCardName}>{product.name}</Text>
                   <Text style={[styles.productCardCost, dimmed && styles.productCardCostDimmed]}>
                     {product.point_cost} pts
@@ -437,6 +553,28 @@ export default function RegisterModeScreen({ navigation }: Props) {
                 </View>
               ))
             )}
+
+            {selectedStudent && (
+              <View style={styles.returnSection}>
+                <Text style={styles.returnSectionTitle}>Return / Exchange</Text>
+                <Text style={styles.returnSectionSubtitle}>Tap a recent purchase to return it and restore points/stock, then choose replacement items.</Text>
+                {studentPurchases.length === 0 ? (
+                  <Text style={styles.returnEmptyText}>No recent purchases for this student.</Text>
+                ) : (
+                  studentPurchases.slice(0, 8).map(purchase => (
+                    <View key={purchase.id} style={styles.returnRow}>
+                      <View style={styles.returnRowInfo}>
+                        <Text style={styles.returnItemName}>{purchase.product_name}</Text>
+                        <Text style={styles.returnItemMeta}>{purchase.point_cost} pts · {new Date(purchase.created_at).toLocaleString()}</Text>
+                      </View>
+                      <TouchableOpacity style={styles.returnButton} onPress={() => handleReturnPurchase(purchase)}>
+                        <Text style={styles.returnButtonText}>Return</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
           </ScrollView>
         </>
       )}
@@ -494,7 +632,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: isCompactTablet ? 18 : 20,
     fontWeight: 'bold',
     color: '#fff',
   },
@@ -502,7 +640,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   studentDisplayName: {
-    fontSize: 18,
+    fontSize: isCompactTablet ? 16 : 18,
     fontWeight: 'bold',
     color: '#fff',
   },
@@ -531,8 +669,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     margin: 12,
-    padding: 12,
-    fontSize: 16,
+    padding: isCompactTablet ? 10 : 12,
+    fontSize: isCompactTablet ? 14 : 16,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ddd',
@@ -778,23 +916,73 @@ const styles = StyleSheet.create({
   productGridContent: {
     padding: 10,
   },
+  productSearchInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#d8dee9',
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: isCompactTablet ? 8 : 10,
+    fontSize: isCompactTablet ? 13 : 14,
+    marginBottom: 8,
+  },
+  categoryRow: {
+    paddingBottom: 8,
+    gap: 6,
+  },
+  categoryChip: {
+    borderWidth: 1,
+    borderColor: '#d8dee9',
+    backgroundColor: '#fff',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  categoryChipActive: {
+    borderColor: '#1e3a8a',
+    backgroundColor: '#1e3a8a',
+  },
+  categoryChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+    textTransform: 'capitalize',
+  },
+  categoryChipTextActive: {
+    color: '#fff',
+  },
   productRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
   productCard: {
-    width: '47%',
+    width: isCompactTablet ? '48%' : '47%',
     backgroundColor: '#fff',
     borderRadius: 10,
-    padding: 12,
+    padding: isCompactTablet ? 10 : 12,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 3,
     position: 'relative',
-    minHeight: 90,
+    minHeight: isCompactTablet ? 118 : 128,
+  },
+  productImageWrap: {
+    height: isCompactTablet ? 40 : 48,
+    marginBottom: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productImage: {
+    width: isCompactTablet ? 50 : 62,
+    height: isCompactTablet ? 40 : 48,
+    resizeMode: 'contain',
+    borderRadius: 8,
+  },
+  productEmojiFallback: {
+    fontSize: isCompactTablet ? 22 : 26,
   },
   productCardDimmed: {
     opacity: 0.45,
@@ -828,14 +1016,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   productCardName: {
-    fontSize: 13,
+    fontSize: isCompactTablet ? 12 : 13,
     fontWeight: '600',
     color: '#333',
     marginBottom: 4,
     marginTop: 4,
   },
   productCardCost: {
-    fontSize: 15,
+    fontSize: isCompactTablet ? 14 : 15,
     fontWeight: '700',
     color: '#9a6a2a',
     marginBottom: 4,
@@ -854,5 +1042,64 @@ const styles = StyleSheet.create({
   productCardStockOut: {
     color: '#9f1239',
     fontWeight: '600',
+  },
+  returnSection: {
+    marginTop: 12,
+    backgroundColor: '#eef6ff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#c7ddff',
+    padding: 10,
+  },
+  returnSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1e3a8a',
+  },
+  returnSectionSubtitle: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  returnEmptyText: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  returnRow: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 8,
+    marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  returnRowInfo: {
+    flex: 1,
+  },
+  returnItemName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  returnItemMeta: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  returnButton: {
+    backgroundColor: '#1e3a8a',
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  returnButtonText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
   },
 })

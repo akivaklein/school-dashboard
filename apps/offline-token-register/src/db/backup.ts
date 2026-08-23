@@ -99,13 +99,14 @@ export async function restoreFromBackup(backupPath: string): Promise<{ success: 
     // Restore students
     for (const student of backup.students) {
       await db.runAsync(
-        `INSERT INTO students (id, barcode, name, balance, is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO students (id, barcode, name, balance, is_vip, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           student.id,
           student.barcode,
           student.name,
           student.balance,
+          student.is_vip ? 1 : 0,
           student.is_active ? 1 : 0,
           student.created_at,
           student.updated_at,
@@ -116,8 +117,8 @@ export async function restoreFromBackup(backupPath: string): Promise<{ success: 
     // Restore products
     for (const product of backup.products) {
       await db.runAsync(
-        `INSERT INTO products (id, barcode, name, point_cost, quantity, low_stock_threshold, is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (id, barcode, name, point_cost, quantity, low_stock_threshold, vip_only, image_url, emoji, category, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           product.id,
           product.barcode,
@@ -125,6 +126,10 @@ export async function restoreFromBackup(backupPath: string): Promise<{ success: 
           product.point_cost,
           product.quantity || null,
           product.low_stock_threshold || null,
+          product.vip_only ? 1 : 0,
+          product.image_url || '',
+          product.emoji || '',
+          product.category || 'nosh',
           product.is_active ? 1 : 0,
           product.created_at,
           product.updated_at,

@@ -185,13 +185,16 @@ export async function createProduct(input: {
   quantity?: number
   low_stock_threshold?: number
   vip_only?: boolean
+  image_url?: string
+  emoji?: string
+  category?: string
 }): Promise<Product> {
   return withDatabase(async db => {
     const now = new Date().toISOString()
 
     const result = await db.runAsync(
-      `INSERT INTO products (barcode, name, point_cost, quantity, low_stock_threshold, vip_only, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      `INSERT INTO products (barcode, name, point_cost, quantity, low_stock_threshold, vip_only, image_url, emoji, category, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       [
         input.barcode,
         input.name,
@@ -199,6 +202,9 @@ export async function createProduct(input: {
         input.quantity || null,
         input.low_stock_threshold || null,
         input.vip_only ? 1 : 0,
+        input.image_url || '',
+        input.emoji || '',
+        input.category || 'nosh',
         now,
         now,
       ]
@@ -217,7 +223,7 @@ export async function createProduct(input: {
 export async function updateProduct(id: number, updates: Partial<Omit<Product, 'id' | 'created_at'>>): Promise<Product> {
   return withDatabase(async db => {
     const now = new Date().toISOString()
-    const allowedFields = ['barcode', 'name', 'point_cost', 'quantity', 'low_stock_threshold', 'is_active', 'vip_only']
+    const allowedFields = ['barcode', 'name', 'point_cost', 'quantity', 'low_stock_threshold', 'is_active', 'vip_only', 'image_url', 'emoji', 'category']
     const fields = Object.keys(updates).filter(k => allowedFields.includes(k))
 
     if (fields.length === 0) {
@@ -408,5 +414,58 @@ export async function setAdminConfig(key: string, value: string): Promise<void> 
       `INSERT OR REPLACE INTO admin_config (key, value, updated_at) VALUES (?, ?, ?)`,
       [key, value, now]
     )
+  })
+}
+
+export async function replaceStudentsAndProducts(
+  students: Array<Pick<Student, 'id' | 'barcode' | 'name' | 'balance' | 'is_vip' | 'is_active'>>,
+  products: Array<Pick<Product, 'id' | 'barcode' | 'name' | 'point_cost' | 'quantity' | 'low_stock_threshold' | 'vip_only' | 'is_active' | 'image_url' | 'emoji' | 'category'>>,
+): Promise<void> {
+  return withDatabase(async db => {
+    const now = new Date().toISOString()
+
+    await db.runAsync('DELETE FROM purchases')
+    await db.runAsync('DELETE FROM balance_history')
+    await db.runAsync('DELETE FROM students')
+    await db.runAsync('DELETE FROM products')
+
+    for (const student of students) {
+      await db.runAsync(
+        `INSERT INTO students (id, barcode, name, balance, is_vip, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          student.id,
+          student.barcode,
+          student.name,
+          Math.max(0, Number(student.balance || 0)),
+          student.is_vip ? 1 : 0,
+          student.is_active === false ? 0 : 1,
+          now,
+          now,
+        ],
+      )
+    }
+
+    for (const product of products) {
+      await db.runAsync(
+        `INSERT INTO products (id, barcode, name, point_cost, quantity, low_stock_threshold, vip_only, image_url, emoji, category, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          product.id,
+          product.barcode,
+          product.name,
+          Math.max(0, Number(product.point_cost || 0)),
+          product.quantity ?? null,
+          product.low_stock_threshold ?? null,
+          product.vip_only ? 1 : 0,
+          product.image_url || '',
+          product.emoji || '',
+          product.category || 'nosh',
+          product.is_active === false ? 0 : 1,
+          now,
+          now,
+        ],
+      )
+    }
   })
 }

@@ -19,6 +19,9 @@ export interface Product {
   quantity?: number | null
   low_stock_threshold?: number | null
   vip_only: boolean
+  image_url?: string
+  emoji?: string
+  category?: string
   is_active: boolean
   created_at: string
   updated_at: string
@@ -83,6 +86,9 @@ export const SQL_STATEMENTS = {
       quantity INTEGER,
       low_stock_threshold INTEGER,
       vip_only INTEGER NOT NULL DEFAULT 0,
+      image_url TEXT NOT NULL DEFAULT '',
+      emoji TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'nosh',
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -136,6 +142,9 @@ export const SQL_STATEMENTS = {
   migrationAddVipColumns: [
     'ALTER TABLE students ADD COLUMN is_vip INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE products ADD COLUMN vip_only INTEGER NOT NULL DEFAULT 0',
+    "ALTER TABLE products ADD COLUMN image_url TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE products ADD COLUMN emoji TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE products ADD COLUMN category TEXT NOT NULL DEFAULT 'nosh'",
   ],
 
   createIndexes: [
