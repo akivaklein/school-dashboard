@@ -372,6 +372,22 @@ const S = {
 
 const buttonVariants = { primary: true, danger: true, ghost: true, success: true, purple: true, gold: true } as const
 
+function useCompactViewport(maxWidth = 900) {
+  const [isCompact, setIsCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia(`(max-width: ${maxWidth}px)`).matches)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mediaQuery = window.matchMedia(`(max-width: ${maxWidth}px)`)
+    const updateCompactState = () => setIsCompact(mediaQuery.matches)
+
+    updateCompactState()
+    mediaQuery.addEventListener('change', updateCompactState)
+    return () => mediaQuery.removeEventListener('change', updateCompactState)
+  }, [maxWidth])
+
+  return isCompact
+}
+
 // ── TRACKING TAB COMPONENT ────────────────────────────────────────────────────
 function FamilyEditorPopup({ s, setStudents, userName }: { s: StudentLike; setStudents: React.Dispatch<React.SetStateAction<StudentLike[]>>; userName: string | null }) {
   const [open, setOpen] = useState(false)
@@ -4532,7 +4548,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const isSetupCenterPage = page === 'setup' && effectiveRole === 'admin'
   const showGlobalTopControls = effectiveRole === 'admin' && !showStaffPanel
-  const mainStyle = { ...S.main, background: '#f3f4f6' }
   const setupNavItems = [
     { id: 'staff-directory', label: 'Staff Directory', icon: '👥', group: 'People & Staff' },
     { id: 'assignments', label: 'Staff Assignments', icon: '🧑‍🏫', group: 'People & Staff' },
@@ -4562,6 +4577,46 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening'
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+  const isCompactViewport = useCompactViewport()
+  const appStyle = {
+    ...S.app,
+    flexDirection: isCompactViewport ? 'column' : 'row',
+    width: '100%',
+    maxWidth: '100%',
+    overflowX: 'hidden',
+  } as CSSProperties
+  const compactNavShellStyle = {
+    width: '100%',
+    background: '#f8fafc',
+    borderRight: 'none',
+    borderBottom: '1px solid #dbe5f0',
+    padding: '10px 10px 8px',
+    boxSizing: 'border-box',
+    overflowX: 'auto',
+  } as CSSProperties
+  const twoLevelNavStyle = isCompactViewport
+    ? compactNavShellStyle
+    : ({ width: 216, background: '#f8fafc', borderRight: '1px solid #dbe5f0', padding: '14px 10px', boxSizing: 'border-box', flexShrink: 0 } as CSSProperties)
+  const legacySidebarStyle = isCompactViewport
+    ? ({ ...S.sidebar, position: 'relative', width: '100%', height: 'auto', minHeight: 'auto', flexDirection: 'column', boxShadow: 'none', overflowX: 'auto' } as CSSProperties)
+    : (S.sidebar as CSSProperties)
+  const submenuGridStyle = {
+    display: 'grid',
+    gap: isCompactViewport ? 6 : 3,
+    gridAutoFlow: isCompactViewport ? 'column' : undefined,
+    gridAutoColumns: isCompactViewport ? 'max-content' : undefined,
+    overflowX: isCompactViewport ? 'auto' : undefined,
+    paddingBottom: isCompactViewport ? 4 : undefined,
+  } as CSSProperties
+  const mainStyle = {
+    ...S.main,
+    marginLeft: isCompactViewport ? 0 : S.main.marginLeft,
+    width: isCompactViewport ? '100%' : S.main.width,
+    maxWidth: '100%',
+    minWidth: 0,
+    padding: isCompactViewport ? '16px 12px 28px' : S.main.padding,
+    background: '#f3f4f6',
+  } as CSSProperties
 
   function ClickCard({ label, val, color, sub, filterStudents, goToPage = null }) {
     return (
@@ -4580,7 +4635,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   }
 
   return (
-    <div style={S.app}>
+    <div style={appStyle}>
       {previewAs && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 2000, background: '#1d4ed8', color: '#fff', padding: '8px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, boxShadow: '0 2px 8px rgba(29,78,216,0.4)' }}>
           <span>👁 Previewing as <strong>{previewAs.name}</strong> · {previewAs.role.charAt(0).toUpperCase() + previewAs.role.slice(1)}</span>
@@ -4599,7 +4654,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         }
       `}</style>
       {useTwoLevelNav && (
-      <div style={{ width: 216, background: '#f8fafc', borderRight: '1px solid #dbe5f0', padding: '14px 10px', boxSizing: 'border-box' }}>
+      <div style={twoLevelNavStyle}>
         <div style={{ padding: '8px 8px 10px', marginBottom: 6 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#0f2942' }}>Yeshiva Ketana</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
@@ -4611,7 +4666,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           </div>
         </div>
 
-        <div style={{ display: 'grid', gap: 3 }}>
+        <div style={submenuGridStyle}>
           {submenuItems.map(item => {
             const isActive = page === item.id || (item.id === 'teaching-mode' && teachingMode)
             return (
@@ -4666,7 +4721,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       )}
 
       {!useTwoLevelNav && (
-      <div style={S.sidebar as CSSProperties}>
+      <div style={legacySidebarStyle}>
         <div style={S.sidebarLogo as CSSProperties}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#ffffff' }}>Yeshiva Ketana</div>
           <div style={{ fontSize: 11.5, marginTop: 4, color: 'rgba(255,255,255,0.82)' }}>Legacy Dashboard Layout</div>
@@ -4791,14 +4846,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         )}
         {!isSetupCenterPage && (
           <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {divisionOptions.map(option => (
                 <button key={option} onClick={() => setDivisionView(option)} style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${divisionView === option ? '#5f83aa' : '#d8e1ec'}`, background: divisionView === option ? '#dbe8f5' : '#ffffff', color: divisionView === option ? '#112f4d' : '#334155', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: 'none' }}>
                   {divisionLabel(option)}
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
               {realtimeNotice && (
                 <div style={{
                   border: '1px solid #dbe7f4',
@@ -4814,7 +4869,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                 </div>
               )}
               <div style={{ position: 'relative' }}>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." spellCheck lang="en" style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #dde6f0', fontSize: 13, width: 'min(100%, 280px)', background: '#fcfdff', boxShadow: '0 6px 18px rgba(30,41,59,0.04)', outline: 'none' }} />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." spellCheck lang="en" style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #dde6f0', fontSize: 13, width: isCompactViewport ? '100%' : 'min(100%, 280px)', maxWidth: '100%', background: '#fcfdff', boxShadow: '0 6px 18px rgba(30,41,59,0.04)', outline: 'none', boxSizing: 'border-box' }} />
                 {search && (
                   <div style={{ position: 'absolute', top: '100%', left: 0, width: 300, background: '#fff', border: '1px solid #e5ebf2', borderRadius: 10, boxShadow: '0 10px 24px rgba(30,41,59,0.10)', zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
                     {searchedStudents.slice(0,6).map((s,i) => (

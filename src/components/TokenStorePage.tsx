@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, Dispatch, SetStateAction } from 'react'
 import { getStoreSyncUiState } from '../services/storeService'
 
@@ -88,6 +88,22 @@ type Props = {
   onReverseStoreRedemption?: (purchase: StorePurchaseLog) => Promise<void>
 }
 
+function useCompactViewport(maxWidth = 820) {
+  const [isCompact, setIsCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia(`(max-width: ${maxWidth}px)`).matches)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mediaQuery = window.matchMedia(`(max-width: ${maxWidth}px)`)
+    const updateCompactState = () => setIsCompact(mediaQuery.matches)
+
+    updateCompactState()
+    mediaQuery.addEventListener('change', updateCompactState)
+    return () => mediaQuery.removeEventListener('change', updateCompactState)
+  }, [maxWidth])
+
+  return isCompact
+}
+
 export default function TokenStorePage({
   S,
   userAccess,
@@ -121,7 +137,15 @@ export default function TokenStorePage({
 }: Props) {
   const [reportRange, setReportRange] = useState<'today' | 'week'>('today')
   const [studentSearch, setStudentSearch] = useState('')
+  const isCompactViewport = useCompactViewport()
   const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 96px'
+  const addItemGridTemplate = isCompactViewport
+    ? 'repeat(auto-fit, minmax(140px, 1fr))'
+    : 'minmax(80px, 90px) minmax(160px, 1.3fr) minmax(110px, 130px) minmax(130px, 150px) repeat(4, minmax(90px, 120px)) minmax(90px, 100px) minmax(110px, 130px)'
+  const storeFilterGridTemplate = isCompactViewport ? '1fr' : 'minmax(180px, 260px) 1fr'
+  const studentGridTemplate = isCompactViewport ? 'repeat(auto-fit, minmax(138px, 1fr))' : 'repeat(auto-fit, minmax(165px, 1fr))'
+  const itemGridTemplate = isCompactViewport ? 'repeat(auto-fit, minmax(140px, 1fr))' : 'repeat(auto-fit, minmax(170px, 1fr))'
+  const activityGridTemplate = isCompactViewport ? '1fr auto' : '62px minmax(90px, 1fr) minmax(90px, 1fr) minmax(80px, 1fr) 58px auto'
   const syncUi = getStoreSyncUiState({
     persistenceReady: storePersistenceReady,
     pendingSync: storeSyncState === 'pending-sync',
@@ -165,13 +189,13 @@ export default function TokenStorePage({
         const totalStock = storeItems.reduce((sum, item) => sum + (item.stock || 0), 0)
         return (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isCompactViewport ? 'stretch' : 'center', gap: 12, marginBottom: 10, flexDirection: isCompactViewport ? 'column' : 'row' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: '#16243a' }}>Token Store</h1>
                 <span style={{ fontSize: 12, color: '#64748b' }}>Select student, then checkout</span>
               </div>
               {userAccess.canManageStore && (
-                <button onClick={() => setShowStoreManager(!showStoreManager)} style={{ ...S.btn(showStoreManager ? 'primary' : 'ghost'), padding: '7px 12px' }}>
+                <button onClick={() => setShowStoreManager(!showStoreManager)} style={{ ...S.btn(showStoreManager ? 'primary' : 'ghost'), padding: '7px 12px', minHeight: 40 }}>
                   {showStoreManager ? 'Close Inventory' : 'Manage Inventory'}
                 </button>
               )}
@@ -253,7 +277,7 @@ export default function TokenStorePage({
 
                 <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 14, paddingTop: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Add Store Item</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 90px) minmax(160px, 1.3fr) minmax(110px, 130px) minmax(130px, 150px) repeat(4, minmax(90px, 120px)) minmax(90px, 100px) minmax(110px, 130px)', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: addItemGridTemplate, gap: 8, alignItems: 'center' }}>
                     <input value={newStoreItem.emoji} onChange={e => setNewStoreItem(prev => ({ ...prev, emoji: e.target.value }))} placeholder="Icon" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input value={newStoreItem.name} onChange={e => setNewStoreItem(prev => ({ ...prev, name: e.target.value }))} placeholder="Item name" spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input value={newStoreItem.sku} onChange={e => setNewStoreItem(prev => ({ ...prev, sku: e.target.value }))} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
@@ -290,21 +314,21 @@ export default function TokenStorePage({
       })()}
 
       <div style={{ marginBottom: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isCompactViewport ? 'stretch' : 'center', marginBottom: 6, gap: 8, flexDirection: isCompactViewport ? 'column' : 'row' }}>
+          <div style={{ display: 'flex', alignItems: isCompactViewport ? 'stretch' : 'center', gap: 8, flexDirection: isCompactViewport ? 'column' : 'row' }}>
             <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Students</div>
             <input
               value={studentSearch}
               onChange={event => setStudentSearch(event.target.value)}
               placeholder="Find student by name..."
               aria-label="Find student by name"
-              style={{ padding: '6px 9px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12, width: 190 }}
+              style={{ padding: '9px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12, width: isCompactViewport ? '100%' : 190, boxSizing: 'border-box' }}
             />
           </div>
           {storeStudent && <button onClick={() => setStoreStudent(null)} style={{ ...S.btn('ghost'), padding: '6px 10px' }}>Clear</button>}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: studentGridTemplate, gap: 8 }}>
           {[
             { label: 'A–F', from: 'A', to: 'F' },
             { label: 'G–M', from: 'G', to: 'M' },
@@ -331,7 +355,7 @@ export default function TokenStorePage({
                   const vip = isVIP(s)
                   const active = storeStudent === s.id
                   return (
-                    <button key={s.id} onClick={() => setStoreStudent(storeStudent === s.id ? null : s.id)} style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, width: '100%', padding: '5px 7px', borderRadius: 8, border: `1px solid ${active ? '#334155' : vip ? '#d6b75d' : '#e2e8f0'}`, cursor: 'pointer', fontSize: 11, fontWeight: active ? 700 : 500, background: active ? '#334155' : vip ? '#fffaf0' : '#fbfdff', color: active ? '#fff' : '#334155', textAlign: 'left', display: storeStudent && !active ? 'none' : 'flex' }}>
+                    <button key={s.id} onClick={() => setStoreStudent(storeStudent === s.id ? null : s.id)} style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, width: '100%', minHeight: isCompactViewport ? 38 : undefined, padding: isCompactViewport ? '8px 9px' : '5px 7px', borderRadius: 8, border: `1px solid ${active ? '#334155' : vip ? '#d6b75d' : '#e2e8f0'}`, cursor: 'pointer', fontSize: 11, fontWeight: active ? 700 : 500, background: active ? '#334155' : vip ? '#fffaf0' : '#fbfdff', color: active ? '#fff' : '#334155', textAlign: 'left', display: storeStudent && !active ? 'none' : 'flex' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vip && '⭐ '}{s.name}</span>
                       <span style={{ color: active ? 'rgba(255,255,255,0.75)' : '#7a633a', fontWeight: 700, flexShrink: 0 }}>{s.points}</span>
                     </button>
@@ -377,7 +401,7 @@ export default function TokenStorePage({
             </div>
 
             <div style={{ ...S.card, marginBottom: 12, padding: 12 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 260px) 1fr', gap: 10, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: storeFilterGridTemplate, gap: 10, alignItems: 'center' }}>
                 <input
                   value={storeItemSearch}
                   onChange={e => setStoreItemSearch(e.target.value)}
@@ -401,7 +425,7 @@ export default function TokenStorePage({
                   placeholder="Search name, SKU, or barcode..."
                   spellCheck
                   lang="en"
-                  style={{ padding: '9px 11px', borderRadius: 10, border: '1px solid #d8dee9', fontSize: 13, outline: 'none' }}
+                  style={{ padding: '10px 11px', borderRadius: 10, border: '1px solid #d8dee9', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }}
                 />
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {STORE_CATEGORY_OPTIONS.map(cat => {
@@ -412,7 +436,7 @@ export default function TokenStorePage({
                         key={cat.key}
                         onClick={() => setStoreCategoryFilter(cat.key)}
                         style={{
-                          padding: '7px 10px',
+                          padding: isCompactViewport ? '8px 10px' : '7px 10px',
                           borderRadius: 8,
                           border: `1px solid ${active ? '#334155' : '#d8dee9'}`,
                           background: active ? '#334155' : '#fff',
@@ -436,14 +460,14 @@ export default function TokenStorePage({
             </div>
 
             {vip && <div style={{ background: '#fefce8', border: '1px solid #e6cf8b', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}><div><div style={{ fontWeight: 700, color: '#854d0e' }}>VIP student: VIP items are included when in stock and affordable.</div></div></div>}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: itemGridTemplate, gap: isCompactViewport ? 8 : 12 }}>
               {visibleStoreItems.map(item => {
                 const unavailableReason = getStoreUnavailableReason(item)
                 const unavailable = !!unavailableReason
                 const disabled = !s || unavailable
                 const dimUnavailable = !!s && unavailable
                 return (
-                  <div key={item.id} style={{ ...S.card, textAlign: 'center', opacity: dimUnavailable ? 0.48 : 1, position: 'relative', filter: dimUnavailable ? 'grayscale(1)' : 'none', boxShadow: dimUnavailable ? '0 6px 18px rgba(15,23,42,0.03)' : S.card.boxShadow }}>
+                  <div key={item.id} style={{ ...S.card, textAlign: 'center', opacity: dimUnavailable ? 0.48 : 1, position: 'relative', filter: dimUnavailable ? 'grayscale(1)' : 'none', boxShadow: dimUnavailable ? '0 6px 18px rgba(15,23,42,0.03)' : S.card.boxShadow, padding: isCompactViewport ? 14 : S.card.padding, minWidth: 0 }}>
                     {item.vip && <div style={{ position: 'absolute', top: 8, right: 8, background: dimUnavailable ? '#94a3b8' : '#7a633a', color: '#fff', padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>VIP</div>}
                     {dimUnavailable && <div style={{ position: 'absolute', top: 8, left: 8, background: '#e5e7eb', color: '#64748b', padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{unavailableReason}</div>}
                     <div style={{ height: 48, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -469,7 +493,7 @@ export default function TokenStorePage({
                       if (!s || disabled) return
                       const confirmed = window.confirm(`Redeem ${item.name} for ${item.cost} points from ${s.name}?`)
                       if (confirmed) buyItem(storeStudent as number, item)
-                    }} disabled={disabled} style={{ ...(disabled ? S.btn('ghost') : S.btn('success')), width: '100%', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 12 }}>
+                    }} disabled={disabled} style={{ ...(disabled ? S.btn('ghost') : S.btn('success')), width: '100%', minHeight: 40, cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 12 }}>
                       {!s ? 'Select student' : unavailable ? unavailableReason : 'Redeem'}
                     </button>
                   </div>
@@ -507,7 +531,7 @@ export default function TokenStorePage({
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           {purchaseLog.slice(0, 4).map(log => (
-                            <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '62px minmax(90px, 1fr) minmax(90px, 1fr) minmax(80px, 1fr) 58px auto', gap: 8, alignItems: 'center', padding: '7px 8px', border: '1px solid #e7edf3', borderRadius: 9, background: '#fbfdff', fontSize: 11.5 }}>
+                            <div key={log.id} style={{ display: 'grid', gridTemplateColumns: activityGridTemplate, gap: 8, alignItems: 'center', padding: '7px 8px', border: '1px solid #e7edf3', borderRadius: 9, background: '#fbfdff', fontSize: 11.5 }}>
                               <span style={{ color: '#64748b' }}>{log.time}</span>
                               <span style={{ fontWeight: 600, color: '#1f2937' }}>{log.studentName}</span>
                               <span>{log.itemName}</span>
