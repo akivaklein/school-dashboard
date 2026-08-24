@@ -372,17 +372,27 @@ const S = {
 
 const buttonVariants = { primary: true, danger: true, ghost: true, success: true, purple: true, gold: true } as const
 
-function useCompactViewport(maxWidth = 900) {
-  const [isCompact, setIsCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia(`(max-width: ${maxWidth}px)`).matches)
+function getViewportWidth() {
+  if (typeof window === 'undefined') return Number.POSITIVE_INFINITY
+  return Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth)
+}
+
+function useCompactViewport(maxWidth = 760) {
+  const [isCompact, setIsCompact] = useState(() => getViewportWidth() <= maxWidth)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const mediaQuery = window.matchMedia(`(max-width: ${maxWidth}px)`)
-    const updateCompactState = () => setIsCompact(mediaQuery.matches)
+    const updateCompactState = () => setIsCompact(getViewportWidth() <= maxWidth)
 
     updateCompactState()
-    mediaQuery.addEventListener('change', updateCompactState)
-    return () => mediaQuery.removeEventListener('change', updateCompactState)
+    window.addEventListener('resize', updateCompactState)
+    window.addEventListener('orientationchange', updateCompactState)
+    window.visualViewport?.addEventListener('resize', updateCompactState)
+    return () => {
+      window.removeEventListener('resize', updateCompactState)
+      window.removeEventListener('orientationchange', updateCompactState)
+      window.visualViewport?.removeEventListener('resize', updateCompactState)
+    }
   }, [maxWidth])
 
   return isCompact
