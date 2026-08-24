@@ -333,7 +333,7 @@ export default function StudentsListPage({
                       <td style={{ padding: 10 }}>{phones.father || phones.general || '—'}</td>
                       <td style={{ padding: 10 }}>{phones.mother || phones.general || '—'}</td>
                       <td style={{ padding: 10 }}>
-                        <button onClick={() => openStudent(student)} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Open</button>
+                        <button onClick={() => openStudent(student, 'overview', directoryStudents)} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Open</button>
                       </td>
                     </tr>
                   )
@@ -355,7 +355,7 @@ export default function StudentsListPage({
           const imp = getImprovement(s)
           const vip = isVIP(s)
           return (
-            <div key={s.id} onClick={() => openStudent(s)} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', padding: '14px 18px', borderLeft: vip ? '4px solid #ca8a04' : s.status === 'unknown' ? '4px solid #9f1239' : '1px solid #e2e8f0' }}>
+            <div key={s.id} onClick={() => openStudent(s, 'overview', studentsForDisplay)} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', padding: '14px 18px', borderLeft: vip ? '4px solid #ca8a04' : s.status === 'unknown' ? '4px solid #9f1239' : '1px solid #e2e8f0' }}>
               <div style={S.avatar(i, 40)}>{initials(s.name)}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -431,7 +431,7 @@ export default function StudentsListPage({
                       <td style={{ padding: 10 }}>{presentDays}/6</td>
                       <td style={{ padding: 10 }}>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button onClick={() => openStudent(student)} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Open</button>
+                          <button onClick={() => openStudent(student, 'overview', tableRows)} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }}>Open</button>
                           {isAdmin && <button onClick={() => openEditForm(student)} style={{ ...S.btn('ghost'), padding: '6px 10px', fontSize: 11 }} disabled={isBusy}>Edit</button>}
                           {isAdmin && student.is_active !== false && <button onClick={() => handleArchive(student)} style={{ ...S.btn('danger'), padding: '6px 10px', fontSize: 11 }} disabled={isBusy}>Archive</button>}
                           {isAdmin && student.is_active === false && <button onClick={() => handleRestore(student)} style={{ ...S.btn('success'), padding: '6px 10px', fontSize: 11 }} disabled={isBusy}>Restore</button>}

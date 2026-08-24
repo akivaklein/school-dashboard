@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import StudentNotes from './StudentNotes'
 import { resolveActorName } from './dashboardData'
-import { getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
+import { buildStudentNavigationList, getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
 
 export default function StudentProfile({
   student,
   students,
+  navigationStudents,
   setStudents,
   onClose,
   onNavigateStudent,
@@ -44,7 +45,8 @@ export default function StudentProfile({
     ? ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes']
     : ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes','info']
   const s = getStudentById(students, student.id) || student
-  const { previous, next } = getStudentNavigationPair(students, s?.id)
+  const navigationList = buildStudentNavigationList(Array.isArray(navigationStudents) ? navigationStudents : students)
+  const { previous, next } = getStudentNavigationPair(navigationList, s?.id)
   const normalizedStudent = normalizeStudentProfileFields(s)
   const improvement = getImprovement(s)
   const vip = isVIP(s)

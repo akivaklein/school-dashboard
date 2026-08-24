@@ -5,6 +5,7 @@ import AttendancePage from './AttendancePage'
 import BehaviorPage from './BehaviorPage'
 import TeachingMode from './TeachingMode'
 import StudentProfile from './StudentProfile'
+import { buildStudentNavigationList } from './studentProfileNavigation'
 import StudentNotes from './StudentNotes'
 import StudentSupport from './StudentSupport'
 import SchedulePage from './SchedulePage'
@@ -2055,9 +2056,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [drillDown, setDrillDown] = useState<{ title: string; students: StudentLike[] } | null>(null)
   const [showUnknownPopup, setShowUnknownPopup] = useState(false)
   const [unknownNotes, setUnknownNotes] = useState<Record<string, string>>({})
+  const [studentNavigationIds, setStudentNavigationIds] = useState<Array<string | number>>([])
 
   // Open a student profile with optional tab
-  const openStudent = (student: StudentLike, tab = 'overview') => {
+  const openStudent = (student: StudentLike, tab = 'overview', navigationList?: StudentLike[]) => {
     const activeRole = previewAs?.role || role
     const activeUserName = previewAs?.name || userName
     const normalizedActiveName = normalizeStaffName(activeUserName)
@@ -2079,6 +2081,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
 
     setSelectedStudent(student)
+    setStudentNavigationIds(
+      Array.isArray(navigationList)
+        ? navigationList.map(entry => entry?.id).filter(id => id != null) as Array<string | number>
+        : [],
+    )
     if (tab) setSelectedStudentTab(tab)
   }
 
@@ -4546,6 +4553,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ? visibleStudents.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
     : visibleStudents
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
+  const studentNavigationSource = studentNavigationIds.length > 0
+    ? studentNavigationIds
+      .map(id => students.find(entry => Number(entry.id) === Number(id)))
+      .filter((entry): entry is StudentLike => Boolean(entry))
+    : studentsForStudentsPage
+  const studentProfileNavigationList = buildStudentNavigationList(studentNavigationSource)
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening'
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
@@ -5243,11 +5256,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       {selectedStudent && <StudentProfile
         student={selectedStudent}
         students={students}
+        navigationStudents={studentProfileNavigationList}
         setStudents={setStudents}
         onClose={() => setSelectedStudent(null)}
         onNavigateStudent={(student, tab) => {
-          openStudent(student, tab)
-          setSelectedStudent(student)
+          openStudent(student, tab, studentProfileNavigationList)
         }}
         role={role}
         userName={userName}
