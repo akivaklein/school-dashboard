@@ -4385,6 +4385,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }, [dashboardLayoutMode])
 
+  const isCompactViewport = useCompactViewport()
+
   if (!loggedIn) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', fontWeight: 700, fontSize: 14 }}>
@@ -4577,7 +4579,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening'
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
-  const isCompactViewport = useCompactViewport()
   const appStyle = {
     ...S.app,
     flexDirection: isCompactViewport ? 'column' : 'row',
