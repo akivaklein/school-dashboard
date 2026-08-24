@@ -377,7 +377,7 @@ function getViewportWidth() {
   return Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth)
 }
 
-function useCompactViewport(maxWidth = 760) {
+function useCompactViewport(maxWidth = 1080) {
   const [isCompact, setIsCompact] = useState(() => getViewportWidth() <= maxWidth)
 
   useEffect(() => {
@@ -4621,11 +4621,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   } as CSSProperties
   const mainStyle = {
     ...S.main,
-    marginLeft: isCompactViewport ? 0 : S.main.marginLeft,
-    width: isCompactViewport ? '100%' : S.main.width,
+    marginLeft: isCompactViewport || useTwoLevelNav ? 0 : S.main.marginLeft,
+    width: isCompactViewport || useTwoLevelNav ? 'auto' : S.main.width,
     maxWidth: '100%',
     minWidth: 0,
-    padding: isCompactViewport ? '16px 12px 28px' : S.main.padding,
+    padding: isCompactViewport ? '14px 10px 28px' : useTwoLevelNav ? '24px 24px 44px' : S.main.padding,
     background: '#f3f4f6',
   } as CSSProperties
 
