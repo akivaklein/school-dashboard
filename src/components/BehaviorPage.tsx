@@ -33,7 +33,6 @@ export default function BehaviorPage({
 }) {
   const [behaviorStudent, setBehaviorStudent] = useState(null)
   const [behaviorTab, setBehaviorTab] = useState('positive')
-  const [bulkMode, setBulkMode] = useState(false)
   const [bulkSelectedIds, setBulkSelectedIds] = useState([])
   const [bulkPointAmount, setBulkPointAmount] = useState(1)
   const [bulkReason, setBulkReason] = useState('Bulk points')
@@ -41,17 +40,6 @@ export default function BehaviorPage({
   const [bulkMessage, setBulkMessage] = useState('')
 
   const sortedSearchedStudents = [...searchedStudents].sort((firstStudent, secondStudent) => secondStudent.points - firstStudent.points)
-
-  function toggleBulkMode() {
-    setBulkMode(previous => {
-      const nextValue = !previous
-      if (!nextValue) {
-        setBulkSelectedIds([])
-        setBulkMessage('')
-      }
-      return nextValue
-    })
-  }
 
   function toggleBulkStudent(studentId) {
     setBulkSelectedIds(previous => previous.includes(studentId)
@@ -211,87 +199,94 @@ export default function BehaviorPage({
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#223046' }}>Bulk Points</div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
-                  Select multiple students here and add points once.
+                  Select students from this roster and add points once.
                 </div>
               </div>
-              <button onClick={toggleBulkMode} style={S.btn(bulkMode ? 'ghost' : 'primary')}>
-                {bulkMode ? 'Close Bulk' : 'Bulk Add Points'}
-              </button>
             </div>
 
-            {bulkMode && (
-              <div style={{ border: '1px solid #dce4ed', borderRadius: 12, padding: 12, background: '#f8fbff', display: 'grid', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>
-                    {bulkSelectedIds.length} selected
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button onClick={selectAllVisibleStudents} style={S.btn('ghost')}>Select Visible</button>
-                    <button onClick={() => setBulkSelectedIds([])} style={S.btn('ghost')}>Clear</button>
-                  </div>
+            <div style={{ border: '1px solid #dce4ed', borderRadius: 12, padding: 12, background: '#f8fbff', display: 'grid', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>
+                  {bulkSelectedIds.length} selected
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
-                  {[1, 2, 3, 5, 10].map(amount => (
-                    <button
-                      key={amount}
-                      disabled={bulkSaving || bulkSelectedIds.length === 0}
-                      onClick={() => applyBulkPoints(amount)}
-                      style={{
-                        ...S.btn('success'),
-                        opacity: bulkSaving || bulkSelectedIds.length === 0 ? 0.55 : 1,
-                      }}
-                    >
-                      +{amount}
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button onClick={selectAllVisibleStudents} style={S.btn('ghost')}>Select Visible</button>
+                  <button onClick={() => setBulkSelectedIds([])} style={S.btn('ghost')}>Clear</button>
                 </div>
+              </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '120px minmax(180px, 1fr) auto', gap: 8, alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    min="1"
-                    value={bulkPointAmount}
-                    onChange={event => setBulkPointAmount(Number(event.target.value))}
-                    style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
-                  />
-                  <input
-                    value={bulkReason}
-                    onChange={event => setBulkReason(event.target.value)}
-                    placeholder="Reason shown in behavior log"
-                    spellCheck
-                    lang="en"
-                    style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
-                  />
+              <div style={{ border: '1px solid #dce4ed', borderRadius: 9, background: '#ffffff', maxHeight: 260, overflowY: 'auto' }}>
+                {sortedSearchedStudents.map(student => {
+                  const isSelected = bulkSelectedIds.includes(student.id)
+                  return (
+                    <label key={student.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderBottom: '1px solid #edf2f7', cursor: 'pointer', background: isSelected ? '#f3f7ff' : '#ffffff' }}>
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleBulkStudent(student.id)} />
+                      <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#334155' }}>{student.name}</span>
+                      <span style={{ fontSize: 11, color: '#8a6b25', fontWeight: 800 }}>{student.points} pts</span>
+                    </label>
+                  )
+                })}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
+                {[1, 2, 3, 5, 10].map(amount => (
                   <button
-                    disabled={bulkSaving || bulkSelectedIds.length === 0 || Number(bulkPointAmount || 0) <= 0}
-                    onClick={() => applyBulkPoints()}
+                    key={amount}
+                    disabled={bulkSaving || bulkSelectedIds.length === 0}
+                    onClick={() => applyBulkPoints(amount)}
                     style={{
-                      ...S.btn('primary'),
-                      opacity: bulkSaving || bulkSelectedIds.length === 0 || Number(bulkPointAmount || 0) <= 0 ? 0.55 : 1,
+                      ...S.btn('success'),
+                      opacity: bulkSaving || bulkSelectedIds.length === 0 ? 0.55 : 1,
                     }}
                   >
-                    {bulkSaving ? 'Saving...' : 'Add Custom'}
+                    +{amount}
                   </button>
-                </div>
-
-                {bulkMessage && (
-                  <div style={{ fontSize: 12, fontWeight: 800, color: bulkMessage.includes('did not save') ? '#9f1239' : '#4b6854' }}>
-                    {bulkMessage}
-                  </div>
-                )}
+                ))}
               </div>
-            )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '120px minmax(180px, 1fr) auto', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="number"
+                  min="1"
+                  value={bulkPointAmount}
+                  onChange={event => setBulkPointAmount(Number(event.target.value))}
+                  style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
+                />
+                <input
+                  value={bulkReason}
+                  onChange={event => setBulkReason(event.target.value)}
+                  placeholder="Reason shown in behavior log"
+                  spellCheck
+                  lang="en"
+                  style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
+                />
+                <button
+                  disabled={bulkSaving || bulkSelectedIds.length === 0 || Number(bulkPointAmount || 0) <= 0}
+                  onClick={() => applyBulkPoints()}
+                  style={{
+                    ...S.btn('primary'),
+                    opacity: bulkSaving || bulkSelectedIds.length === 0 || Number(bulkPointAmount || 0) <= 0 ? 0.55 : 1,
+                  }}
+                >
+                  {bulkSaving ? 'Saving...' : 'Add Custom'}
+                </button>
+              </div>
+
+              {bulkMessage && (
+                <div style={{ fontSize: 12, fontWeight: 800, color: bulkMessage.includes('did not save') ? '#9f1239' : '#4b6854' }}>
+                  {bulkMessage}
+                </div>
+              )}
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
           {sortedSearchedStudents.map((s, i) => {
             const vip = isVIP(s)
-            const selectedForBulk = bulkSelectedIds.includes(s.id)
             return (
               <div
                 key={s.id}
-                onClick={() => bulkMode ? toggleBulkStudent(s.id) : setBehaviorStudent(s)}
+                onClick={() => setBehaviorStudent(s)}
                 style={{
                   ...S.card,
                   cursor: 'pointer',
@@ -299,19 +294,9 @@ export default function BehaviorPage({
                   alignItems: 'center',
                   gap: 10,
                   padding: '12px 14px',
-                  border: selectedForBulk ? '2px solid #5f84bb' : S.card.border,
-                  borderLeft: vip ? '3px solid #ca8a04' : selectedForBulk ? '2px solid #5f84bb' : undefined,
-                  background: selectedForBulk ? '#f3f7ff' : S.card.background,
+                  borderLeft: vip ? '3px solid #ca8a04' : undefined,
                 }}
               >
-                {bulkMode && (
-                  <input
-                    type="checkbox"
-                    checked={selectedForBulk}
-                    onChange={() => toggleBulkStudent(s.id)}
-                    onClick={event => event.stopPropagation()}
-                  />
-                )}
                 <div style={S.avatar(s.id - 1, 36)}>{initials(s.name)}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
