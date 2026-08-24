@@ -4567,6 +4567,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'accounts', label: 'Staff Accounts', icon: '🔐', group: 'People & Staff' },
     { id: 'register-accounts', label: 'Canteen Registers', icon: '🧾', group: 'People & Staff' },
     { id: 'classes-divisions', label: 'Classes & Divisions', icon: '🏫', group: 'School Structure' },
+    { id: 'teaching', label: 'Behavior & Testing Options', icon: '📝', group: 'Rules & Options' },
+    { id: 'vip', label: 'VIP Rules', icon: '⭐', group: 'Rules & Options' },
+    { id: 'store', label: 'Store Sales', icon: '🏷️', group: 'Rules & Options' },
   ]
 
   const normalizedSearch = String(search || '').trim().toLowerCase()

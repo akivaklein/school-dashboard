@@ -338,16 +338,16 @@ export default function SetupTeachingConfigSection({
       <div style={{ ...S.card, gridColumn: '1 / -1' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 900, color: '#223046' }}>Academic Subjects and Skills</div>
+            <div style={{ fontSize: 17, fontWeight: 900, color: '#223046' }}>Testing, Davening, and Behavior Subjects</div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
-              Add/edit subjects, archive inactive items, and assign by division, class, or teacher.
+              Add/edit subject areas and topics, archive inactive items, and assign by division, class, or teacher.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               value={newSubjectLabel}
               onChange={event => setNewSubjectLabel(event.target.value)}
-              placeholder="Add subject (e.g. Gemara)"
+              placeholder="Add subject (e.g. Davening)"
               spellCheck
               lang="en"
               style={{ padding: '8px 10px', border: '1px solid #dce4ed', borderRadius: 8, minWidth: 220 }}
@@ -492,12 +492,12 @@ export default function SetupTeachingConfigSection({
 
                 <div style={{ borderTop: '1px solid #e7edf5', paddingTop: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#223046' }}>Skills / Topics</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#223046' }}>Topics / Subtopics</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <input
                         value={newSkillLabel}
                         onChange={event => setNewSkillLabel(event.target.value)}
-                        placeholder="Add skill/topic"
+                        placeholder="Add topic (e.g. Shachris - Ashrei)"
                         spellCheck
                         lang="en"
                         style={{ padding: '8px 10px', border: '1px solid #dce4ed', borderRadius: 8, minWidth: 200 }}
