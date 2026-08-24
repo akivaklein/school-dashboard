@@ -18,6 +18,7 @@ const baseProps = {
   removeStoreItem: () => {},
   newStoreItem: {
     emoji: '',
+    imageUrl: '',
     name: '',
     sku: '',
     barcode: '',

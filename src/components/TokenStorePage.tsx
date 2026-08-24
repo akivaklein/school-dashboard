@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { CSSProperties, Dispatch, SetStateAction } from 'react'
+import type { ChangeEvent, CSSProperties, Dispatch, SetStateAction } from 'react'
 import { getStoreSyncUiState } from '../services/storeService'
 
 type StudentLike = {
@@ -38,6 +38,7 @@ type StorePurchaseLog = {
 
 type NewStoreItemState = {
   emoji: string
+  imageUrl: string
   name: string
   sku: string
   barcode: string
@@ -47,6 +48,8 @@ type NewStoreItemState = {
   category: string
   vip: boolean
 }
+
+const MAX_STORE_ITEM_IMAGE_BYTES = 750 * 1024
 
 type StyleBag = {
   btn: (variant: string) => CSSProperties
@@ -163,6 +166,30 @@ export default function TokenStorePage({
   })
 
   const lastErrorText = storeLastLoadError || 'none'
+
+  function handleNewItemPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('Choose an image file.')
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > MAX_STORE_ITEM_IMAGE_BYTES) {
+      alert('Choose a photo that is 750 KB or smaller.')
+      event.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setNewStoreItem(previous => ({ ...previous, imageUrl: String(reader.result || '') }))
+    }
+    reader.onerror = () => alert('Unable to read that photo. Please try another image.')
+    reader.readAsDataURL(file)
+  }
 
   const redemptionReport = useMemo(() => {
     const now = new Date()
@@ -302,6 +329,19 @@ export default function TokenStorePage({
                     </select>
                     <label style={{ fontSize: 12, color: '#475569', display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={newStoreItem.vip} onChange={e => setNewStoreItem(prev => ({ ...prev, vip: e.target.checked }))} /> VIP</label>
                     <button onClick={addStoreItem} style={S.btn('primary')}>Add Item</button>
+                  </div>
+                  <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <label style={{ ...S.btn('ghost'), cursor: 'pointer' }}>
+                      Add Photo
+                      <input type="file" accept="image/*" capture="environment" onChange={handleNewItemPhoto} style={{ display: 'none' }} />
+                    </label>
+                    <span style={{ fontSize: 11, color: '#64748b' }}>Up to 750 KB</span>
+                    {newStoreItem.imageUrl && (
+                      <>
+                        <img src={newStoreItem.imageUrl} alt="New item preview" style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 6, border: '1px solid #d8dee9' }} />
+                        <button onClick={() => setNewStoreItem(previous => ({ ...previous, imageUrl: '' }))} style={{ ...S.btn('ghost'), padding: '5px 8px', fontSize: 11 }}>Remove Photo</button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
