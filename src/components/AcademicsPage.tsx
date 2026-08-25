@@ -487,8 +487,12 @@ export default function AcademicsPage({
     for (const student of bulkVisibleStudents) {
       const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
 
-      if (state.mode !== 'missed' && state.mode !== 'absent') {
+      // Skip students without data (but allow missed/absent)
+      if (state.mode === 'score') {
         if (effectiveScoreType === 'points' && (state.score === '' || state.score === null || state.score === undefined)) {
+          continue
+        }
+        if (effectiveScoreType === 'rating' && (state.score === '' || state.score === null || state.score === undefined)) {
           continue
         }
       }
@@ -517,9 +521,7 @@ export default function AcademicsPage({
         scoreType: attemptStatus === 'scored' ? effectiveScoreType : 'status',
         score: attemptStatus === 'scored' && effectiveScoreType === 'points' ? Number(state.score) : null,
         maxScore: attemptStatus === 'scored' && effectiveScoreType === 'points' ? numericMaxScore : null,
-        rating: attemptStatus === 'scored' && effectiveScoreType === 'rating'
-          ? (bulkForm.gradingMethod === 'letter-grade' ? ratingFromLetter : bulkForm.rating)
-          : null,
+        rating: attemptStatus === 'scored' && effectiveScoreType === 'rating' ? String(state.score || '') : null,
         notes: mergedNotes,
         attemptStatus,
         enteredBy: userName || loggedInTeacher || 'Staff',
