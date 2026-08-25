@@ -1,20 +1,20 @@
-import { useState, useEffect, useMemo, useCallback, useRef, type Dispatch, type SetStateAction, type CSSProperties } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, type Dispatch, type SetStateAction, type CSSProperties } from 'react'
 import { supabase } from '../supabaseClient'
 import playSound from '../utils/playSound'
-import AttendancePage from './AttendancePage'
-import BehaviorPage from './BehaviorPage'
-import TeachingMode from './TeachingMode'
-import StudentProfile from './StudentProfile'
+const AttendancePage = lazy(() => import('./AttendancePage'))
+const BehaviorPage = lazy(() => import('./BehaviorPage'))
+const TeachingMode = lazy(() => import('./TeachingMode'))
+const StudentProfile = lazy(() => import('./StudentProfile'))
 import { buildStudentNavigationList } from './studentProfileNavigation'
 import StudentNotes from './StudentNotes'
-import StudentSupport from './StudentSupport'
-import SchedulePage from './SchedulePage'
-import TokenStorePage from './TokenStorePage'
+const StudentSupport = lazy(() => import('./StudentSupport'))
+const SchedulePage = lazy(() => import('./SchedulePage'))
+const TokenStorePage = lazy(() => import('./TokenStorePage'))
 import AcademicsPage, { StudentScoresTab } from './AcademicsPage'
-import SetupCenterPage from './SetupCenterPage'
-import StudentsListPage from './StudentsListPage'
+const SetupCenterPage = lazy(() => import('./SetupCenterPage'))
+const StudentsListPage = lazy(() => import('./StudentsListPage'))
 import StaffDirectoryPage from './StaffDirectoryPage'
-import AdminMainDashboard from './AdminMainDashboard'
+const AdminMainDashboard = lazy(() => import('./AdminMainDashboard'))
 import {
   applyPointsEventTx,
   listPointsEventsForStudent,
@@ -110,12 +110,12 @@ import {
   isInClassroom,
   isInSchool,
 } from '../utils/attendancePresence'
-import DrillDown from './dashboard/DrillDown'
+const DrillDown = lazy(() => import('./dashboard/DrillDown'))
 import { buildLoginAccountRoleLabel, getLoginRoleKey } from './dashboard/loginUserSearch'
-import TrackingTabView from './dashboard/TrackingTab'
-import StaffLoginPanel from './StaffLoginPanel'
-import StaffManagementModal from './StaffManagementModal'
-import LoginActivityView from './LoginActivityView'
+const TrackingTabView = lazy(() => import('./dashboard/TrackingTab'))
+const StaffLoginPanel = lazy(() => import('./StaffLoginPanel'))
+const StaffManagementModal = lazy(() => import('./StaffManagementModal'))
+const LoginActivityView = lazy(() => import('./LoginActivityView'))
 import { getLookupValue } from './dashboardUtils'
 import { getRoleNavConfig } from './dashboardNavConfig'
 import { canAccessDashboardPage, canAccessStudentForRole } from './dashboardData'
@@ -158,6 +158,14 @@ import {
   statusEmoji,
   STORE_ITEMS,
 } from './dashboardData'
+
+function PageLoadingFallback() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: '#64748b', fontSize: 13 }}>
+      Loading…
+    </div>
+  )
+}
 
 export type StudentLike = {
   id: number | string
@@ -4452,31 +4460,33 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             )
   
   if (teachingMode) return (
-    <TeachingMode
-      students={studentsForCurrentRole}
-      allStudents={activeStudents}
-      setStudents={setStudents}
-      onExit={closeTeachingModeToSchoolDay}
-      isAdmin={effectiveRole === 'admin'}
-      role={effectiveRole}
-      userName={effectiveUserName}
-      initialClass={assignedTeacherClassIdsForMode[0] || null}
-      S={S}
-      STAFF={STAFF}
-      CLASSES={CLASSES}
-      statusColor={statusColor}
-      statusEmoji={statusEmoji}
-      statusLabel={statusLabel}
-      isVIP={checkIsVIP}
-      initials={initials}
-      persistStudentFields={persistStudentFields}
-      persistStudentFieldsBulk={persistStudentFieldsBulk}
-      recordStudentPointsAction={recordStudentPointsAction}
-      canViewEntireSchool={effectiveRole === 'admin'}
-      assignedStudentIds={assignedStaffStudentIdsForMode}
-      assignmentPeriods={teacherAssignmentPeriodBuckets?.[normalizedEffectiveUserName]?.periods || {}}
-      teachingAssignments={teacherAssignmentPeriodBuckets}
-    />
+    <Suspense fallback={<PageLoadingFallback />}>
+      <TeachingMode
+        students={studentsForCurrentRole}
+        allStudents={activeStudents}
+        setStudents={setStudents}
+        onExit={closeTeachingModeToSchoolDay}
+        isAdmin={effectiveRole === 'admin'}
+        role={effectiveRole}
+        userName={effectiveUserName}
+        initialClass={assignedTeacherClassIdsForMode[0] || null}
+        S={S}
+        STAFF={STAFF}
+        CLASSES={CLASSES}
+        statusColor={statusColor}
+        statusEmoji={statusEmoji}
+        statusLabel={statusLabel}
+        isVIP={checkIsVIP}
+        initials={initials}
+        persistStudentFields={persistStudentFields}
+        persistStudentFieldsBulk={persistStudentFieldsBulk}
+        recordStudentPointsAction={recordStudentPointsAction}
+        canViewEntireSchool={effectiveRole === 'admin'}
+        assignedStudentIds={assignedStaffStudentIdsForMode}
+        assignmentPeriods={teacherAssignmentPeriodBuckets?.[normalizedEffectiveUserName]?.periods || {}}
+        teachingAssignments={teacherAssignmentPeriodBuckets}
+      />
+    </Suspense>
   )
 
   const userAccess = getUserAccess(effectiveUserName, effectiveRole)
@@ -4914,28 +4924,31 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         )}
 
         {page === 'support' && effectiveRole !== 'store' && (
-          <StudentSupport
-            students={visibleStudents}
-            setStudents={setStudents}
-            userName={effectiveUserName}
-            role={effectiveRole}
-            alerts={alerts}
-            openStudent={openStudent}
-            setPage={setPage}
-            flags={studentFlags}
-            setFlags={setStudentFlags}
-            initialSection={supportInitialSection}
-            staff={STAFF}
-            FlagsPanel={StudentFlagsPanel}
-            S={S}
-            initials={initials}
-          />
+          <Suspense fallback={<PageLoadingFallback />}>
+            <StudentSupport
+              students={visibleStudents}
+              setStudents={setStudents}
+              userName={effectiveUserName}
+              role={effectiveRole}
+              alerts={alerts}
+              openStudent={openStudent}
+              setPage={setPage}
+              flags={studentFlags}
+              setFlags={setStudentFlags}
+              initialSection={supportInitialSection}
+              staff={STAFF}
+              FlagsPanel={StudentFlagsPanel}
+              S={S}
+              initials={initials}
+            />
+          </Suspense>
         )}
 
         {page === 'dashboard' && (effectiveRole === 'teacher' || effectiveRole === 'rebbe') && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} />}
         {page === 'dashboard' && effectiveRole === 'support_staff' && <TherapistDashboard students={visibleStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s, 'therapy')} staffMembers={staffMembers} therapySchedule={THERAPY_SCHEDULE_STATE} />}
 
         {page === 'setup' && effectiveRole === 'admin' && (
+          <Suspense fallback={<PageLoadingFallback />}>
           <SetupCenterPage
             S={S}
             role={effectiveRole}
@@ -5051,9 +5064,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               await upsertStudentClassAssignmentBatch(batch.map(b => ({ ...b, updatedBy: effectiveUserName || 'Admin' })))
             }}
           />
+          </Suspense>
         )}
 
         {page === 'dashboard' && effectiveRole === 'admin' && (
+          <Suspense fallback={<PageLoadingFallback />}>
           <AdminMainDashboard
             S={S}
             getGreeting={getGreeting}
@@ -5098,9 +5113,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             setTodos={setTodos}
             FlagDashboardWidget={FlagDashboardWidget}
           />
+          </Suspense>
         )}
 
         {page === 'students' && (
+          <Suspense fallback={<PageLoadingFallback />}>
           <StudentsListPage
             searchedStudents={studentsForStudentsPage}
             openStudent={openStudent}
@@ -5122,6 +5139,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             onDeleteStudent={deleteStudentFromAdmin}
             onGetDeletionImpact={getDeletionImpactForStudent}
           />
+          </Suspense>
         )}
 
         {page === 'staff-directory' && effectiveRole !== 'teacher' && effectiveRole !== 'rebbe' && (
@@ -5135,6 +5153,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         )}
 
         {page === 'attendance' && (
+          <Suspense fallback={<PageLoadingFallback />}>
           <AttendancePage
             students={visibleStudents}
             setStudents={setStudents}
@@ -5157,6 +5176,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusLabel={statusLabel}
             HISTORICAL_DATA={{}}
           />
+          </Suspense>
         )}
 
         {page === 'academics' && (
@@ -5191,6 +5211,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         )}
 
         {page === 'schedule' && (
+          <Suspense fallback={<PageLoadingFallback />}>
           <SchedulePage
             S={S}
             students={visibleStudents}
@@ -5204,9 +5225,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusLabel={statusLabel}
             CLASSES={CLASSES}
           />
+          </Suspense>
         )}
 
         {page === 'behavior' && (
+          <Suspense fallback={<PageLoadingFallback />}>
           <BehaviorPage
             students={visibleStudents}
             searchedStudents={searchedStudents}
@@ -5219,9 +5242,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusLabel={statusLabel}
             onAdjustPoints={recordStudentPointsAction}
           />
+          </Suspense>
         )}
 
         {page === 'store' && (
+          <Suspense fallback={<PageLoadingFallback />}>
           <TokenStorePage
             S={S}
             userAccess={userAccess}
@@ -5253,6 +5278,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             refreshStoreData={refreshStoreData}
             onReverseStoreRedemption={reverseStoreRedemptionFromStore}
           />
+          </Suspense>
         )}
 
       </div>
@@ -5298,6 +5324,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       )}
 
       {drillDown && (
+        <Suspense fallback={<PageLoadingFallback />}>
         <DrillDown
           title={drillDown.title}
           students={drillDown.students
@@ -5329,8 +5356,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           statusEmoji={statusEmoji}
           statusLabel={statusLabel}
         />
+        </Suspense>
       )}
-      {selectedStudent && <StudentProfile
+      {selectedStudent && (
+        <Suspense fallback={<PageLoadingFallback />}>
+        <StudentProfile
         student={selectedStudent}
         students={students}
         navigationStudents={studentProfileNavigationList}
@@ -5380,10 +5410,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         FamilyEditorPopup={FamilyEditorPopup}
         MedicalEditorPopup={MedicalEditorPopup}
         persistStudentFields={persistStudentFields}
-      />}
+        />
+        </Suspense>
+      )}
       
       {/* Staff Login Panel */}
       {role === 'admin' && showStaffPanel && (
+        <Suspense fallback={<PageLoadingFallback />}>
         <StaffLoginPanel 
           loggedInStaff={loggedInStaff.flatMap(staff => (
             staff.id == null || !staff.name || !staff.role
@@ -5395,18 +5428,23 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           onShowManagement={() => setShowStaffManagement(true)}
           onClose={() => setShowStaffPanel(false)}
         />
+        </Suspense>
       )}
 
       
       
       {/* Staff Management Modal */}
       {role === 'admin' && showStaffManagement && (
+        <Suspense fallback={<PageLoadingFallback />}>
         <StaffManagementModal onClose={() => setShowStaffManagement(false)} />
+        </Suspense>
       )}
       
       {/* Login Activity Modal */}
       {role === 'admin' && showLoginActivity && (
+        <Suspense fallback={<PageLoadingFallback />}>
         <LoginActivityView onClose={() => setShowLoginActivity(false)} />
+        </Suspense>
       )}
     </div>
   )
