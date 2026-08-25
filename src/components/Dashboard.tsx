@@ -5231,6 +5231,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             ACADEMIC_AREAS={ACADEMIC_AREAS}
             academicCatalog={academicCatalog}
             SKILL_RATINGS={SKILL_RATINGS}
+            RATING_SCORE={RATING_SCORE}
             academicPct={academicPct}
             academicDisplay={academicDisplay}
             academicStatus={academicStatus}

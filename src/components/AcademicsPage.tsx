@@ -1,5 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { resolveStudentClassId } from './dashboardData'
+import {
+  buildLatestSessionRows,
+  buildOverallProgressRows,
+  buildStudentSubjectHistory,
+  flattenStudentScores,
+  type GradeStudent,
+  getGradeSessions,
+  getIncompleteBulkStudents,
+} from './academicsReviewUtils'
+import {
+  archiveRecord,
+  isArchivedRecord,
+  isDeletedRecord,
+  permanentlyDeleteRecord,
+  restoreArchivedRecord,
+} from '../utils/archiveRecord'
 
 type AcademicCatalogSkill = {
   id: string
@@ -238,6 +254,7 @@ export default function AcademicsPage({
   ACADEMIC_AREAS,
   academicCatalog,
   SKILL_RATINGS,
+  RATING_SCORE,
   academicPct,
   academicDisplay,
   academicStatus,
@@ -259,15 +276,20 @@ export default function AcademicsPage({
   const [teacherFilter, setTeacherFilter] = useState(role === 'teacher' || role === 'rebbe' ? (userName || 'all') : 'all')
   const [enteredByFilter, setEnteredByFilter] = useState('all')
   const [showAllScores, setShowAllScores] = useState(false)
+  const [reviewMode, setReviewMode] = useState<'latest' | 'overall' | 'all'>('latest')
+  const [sessionFilter, setSessionFilter] = useState('latest')
   const [gradeSearch, setGradeSearch] = useState('')
   const [addStudentId, setAddStudentId] = useState(null)
   const [showBulkEntry, setShowBulkEntry] = useState(false)
   const [bulkHeaderCollapsed, setBulkHeaderCollapsed] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
   const [selectedScore, setSelectedScore] = useState<Record<string, any> | null>(null)
+  const [selectedReviewStudent, setSelectedReviewStudent] = useState<{ student: GradeStudent; subject: string } | null>(null)
   const [showAddSingle, setShowAddSingle] = useState(false)
+  const [showScoreArchive, setShowScoreArchive] = useState(false)
   const [addSingleStudentId, setAddSingleStudentId] = useState<number | null>(null)
   const [bulkStudentStates, setBulkStudentStates] = useState({})
+  const [bulkCompletionMessage, setBulkCompletionMessage] = useState('')
   const [bulkForm, setBulkForm] = useState({
     teacher: loggedInTeacher,
     subject: 'Math',
@@ -455,7 +477,21 @@ export default function AcademicsPage({
       initialStates[student.id] = { mode: 'score', score: '' }
     })
     setBulkStudentStates(initialStates)
+    setBulkCompletionMessage('')
     setShowBulkEntry(true)
+  }
+
+  function closeBulkEntry() {
+    const incompleteStudents = getIncompleteBulkStudents(bulkVisibleStudents, bulkStudentStates, bulkForm.gradingMethod)
+    const hasStartedSession = bulkProgressCount > 0 || Boolean(bulkForm.assessmentName.trim())
+
+    if (hasStartedSession && incompleteStudents.length > 0) {
+      setBulkCompletionMessage(`${incompleteStudents.length} active student${incompleteStudents.length === 1 ? '' : 's'} still need a grade, Absent, or Missing result before leaving this grading session.`)
+      return
+    }
+
+    setShowBulkEntry(false)
+    setBulkCompletionMessage('')
   }
 
   function setStudentBulkMode(studentId, mode) {
@@ -514,20 +550,16 @@ export default function AcademicsPage({
       return
     }
 
+    const incompleteStudents = getIncompleteBulkStudents(bulkVisibleStudents, bulkStudentStates, bulkForm.gradingMethod)
+    if (incompleteStudents.length > 0) {
+      setBulkCompletionMessage(`${incompleteStudents.length} active student${incompleteStudents.length === 1 ? '' : 's'} still need a grade, Absent, or Missing result.`)
+      return
+    }
+
     const payload = []
 
     for (const student of bulkVisibleStudents) {
       const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
-
-      // Skip students without data (but allow missed/absent)
-      if (state.mode === 'score') {
-        if (effectiveScoreType === 'points' && (state.score === '' || state.score === null || state.score === undefined)) {
-          continue
-        }
-        if (effectiveScoreType === 'rating' && (state.score === '' || state.score === null || state.score === undefined)) {
-          continue
-        }
-      }
 
       const attemptStatus = state.mode === 'absent' ? 'absent' : state.mode === 'missed' ? 'missed' : 'scored'
       const statusNote = attemptStatus === 'absent' ? '[Absent on assessment date]' : attemptStatus === 'missed' ? '[Missed assessment]' : ''
@@ -619,6 +651,7 @@ export default function AcademicsPage({
 
   const allScores = visibleStudents
     .flatMap(s => (s.testScores || []).map(score => ({ ...score, studentId: s.id, studentName: s.name })))
+    .filter(score => !isArchivedRecord(score) && !isDeletedRecord(score))
     .filter(score =>
       (teacherFilter === 'all' || score.teacher === teacherFilter)
       && (subjectFilter === 'all' || score.subject === subjectFilter)
@@ -667,10 +700,7 @@ export default function AcademicsPage({
     ? 'All classes'
     : (CLASSES.find(c => c.id === classFilter)?.name || 'Selected class')
   const bulkProgressCount = bulkVisibleStudents.filter(student => {
-    const state = bulkStudentStates[student.id] || { mode: 'score', score: '' }
-    if (state.mode === 'absent' || state.mode === 'missed') return true
-    if (bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade') return true
-    return state.score !== '' && state.score !== null && state.score !== undefined
+    return !getIncompleteBulkStudents([student], bulkStudentStates, bulkForm.gradingMethod).length
   }).length
 
   function pctToLetterGrade(pct: number | null): string {
@@ -716,6 +746,42 @@ export default function AcademicsPage({
     return cls?.name || '—'
   }
 
+  function updateStudentScoreArchive(studentId, scoreId, updater) {
+    const student = students.find(item => Number(item.id) === Number(studentId))
+    if (!student) return
+
+    const nextScores = (student.testScores || []).map(score => (
+      String(score.id) === String(scoreId) ? updater(score) : score
+    ))
+    setStudents(prev => prev.map(item => Number(item.id) === Number(studentId) ? { ...item, testScores: nextScores } : item))
+    if (persistStudentFields) {
+      persistStudentFields(studentId, { testScores: nextScores })
+    }
+  }
+
+  function archiveSelectedScore() {
+    if (!selectedScore) return
+    if (!window.confirm('Are you sure you want to delete this?')) return
+    updateStudentScoreArchive(selectedScore.studentId, selectedScore.id, score => archiveRecord(score, userName || loggedInTeacher || 'Staff'))
+    setSelectedScore(null)
+  }
+
+  function restoreScore(studentId, scoreId) {
+    updateStudentScoreArchive(studentId, scoreId, score => restoreArchivedRecord(score))
+  }
+
+  function permanentlyDeleteScore(studentId, scoreId) {
+    if (!window.confirm('Are you sure you want to permanently delete this?')) return
+    updateStudentScoreArchive(studentId, scoreId, score => permanentlyDeleteRecord(score))
+  }
+
+  const archivedScores = visibleStudents.flatMap(student => (
+    (student.testScores || [])
+      .filter(score => isArchivedRecord(score) && !isDeletedRecord(score))
+      .map(score => ({ ...score, studentId: student.id, studentName: student.name }))
+  ))
+  const archivedScoreCount = archivedScores.length
+
   const sortedScores = (() => {
     const sorted = allScores.slice().sort((a, b) => b.date.localeCompare(a.date))
     if (showAllScores) return sorted
@@ -730,6 +796,37 @@ export default function AcademicsPage({
     .filter((subject: { active?: boolean }) => subject.active !== false)
     .map((subject: { label?: string }) => String(subject.label || ''))
   const allSubjectChips = ['all', ...Array.from(new Set(subjectLabels)).sort()]
+  const reviewSubject = subjectFilter === 'all' ? (allSubjectChips.find(subject => subject !== 'all') || '') : subjectFilter
+  const reviewScores = flattenStudentScores(visibleStudents)
+    .filter(score => (
+      (teacherFilter === 'all' || score.teacher === teacherFilter) &&
+      (enteredByFilter === 'all' || (score.enteredBy || 'Unknown') === enteredByFilter)
+    ))
+  const sessionOptions = getGradeSessions(reviewScores.filter(score => (
+    (subjectFilter === 'all' || score.subject === subjectFilter) &&
+    (skillFilter === 'all' || score.skill === skillFilter)
+  )))
+  const latestReview = buildLatestSessionRows({
+    students: visibleStudents,
+    scores: reviewScores,
+    classFilter,
+    subjectFilter,
+    skillFilter,
+    sessionKey: sessionFilter,
+  })
+  const overallRows = reviewSubject
+    ? buildOverallProgressRows({ students: visibleStudents, subject: reviewSubject, skillFilter, ratingScore: RATING_SCORE })
+    : []
+  const reviewHistory = selectedReviewStudent
+    ? buildStudentSubjectHistory(selectedReviewStudent.student, selectedReviewStudent.subject, skillFilter)
+    : []
+
+  useEffect(() => {
+    if (sessionFilter === 'latest') return
+    if (!sessionOptions.some(session => session.key === sessionFilter)) {
+      setSessionFilter('latest')
+    }
+  }, [sessionFilter, sessionOptions])
 
   return (
     <div>
@@ -741,6 +838,7 @@ export default function AcademicsPage({
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => alert('Import — coming soon')} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#334155', fontWeight: 600 }}>↑ Import</button>
+          <button onClick={() => setShowScoreArchive(true)} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#334155', fontWeight: 600 }}>Archive/Trash ({archivedScoreCount})</button>
           <button onClick={openBulkEntry} disabled={bulkVisibleStudents.length === 0} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 700, cursor: bulkVisibleStudents.length ? 'pointer' : 'default', opacity: bulkVisibleStudents.length ? 1 : 0.6 }}>✎ New Marks</button>
           <button onClick={() => setShowAddSingle(true)} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#0f172a', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Add Grade</button>
         </div>
@@ -819,6 +917,111 @@ export default function AcademicsPage({
         </div>
       )}
 
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        {[
+          { key: 'latest', label: 'Latest Results' },
+          { key: 'overall', label: 'Overall Progress' },
+          { key: 'all', label: 'All Entries' },
+        ].map(option => (
+          <button
+            key={option.key}
+            onClick={() => setReviewMode(option.key as 'latest' | 'overall' | 'all')}
+            style={{
+              padding: '7px 12px',
+              borderRadius: 8,
+              border: `1px solid ${reviewMode === option.key ? '#0f172a' : '#e2e8f0'}`,
+              background: reviewMode === option.key ? '#0f172a' : '#fff',
+              color: reviewMode === option.key ? '#fff' : '#334155',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
+        {reviewMode === 'latest' && sessionOptions.length > 0 && (
+          <select value={sessionFilter} onChange={event => setSessionFilter(event.target.value)} style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, background: '#fff', minWidth: 220 }}>
+            <option value="latest">Latest completed session</option>
+            {sessionOptions.map(session => <option key={session.key} value={session.key}>{session.label}</option>)}
+          </select>
+        )}
+      </div>
+
+      {reviewMode === 'latest' && (
+        <div style={{ ...S.card, padding: 0, overflow: 'hidden', marginBottom: 14 }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: '#0f172a' }}>Latest Results</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{latestReview.session?.label || 'No completed grading session found for these filters.'}</div>
+            </div>
+            <span style={S.badge('#475569', '#f1f5f9')}>{latestReview.rows.length} students</span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead><tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Student</th>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Class</th>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Result</th>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Topic</th>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Date</th>
+              </tr></thead>
+              <tbody>
+                {latestReview.rows.map(row => (
+                  <tr key={row.student.id} onClick={() => setSelectedReviewStudent({ student: row.student, subject: row.score?.subject || reviewSubject })} style={{ borderBottom: '1px solid #eef2f7', cursor: 'pointer' }}>
+                    <td style={{ padding: '11px 14px', fontWeight: 700 }}>{row.student.name}</td>
+                    <td style={{ padding: '11px 14px', color: '#64748b' }}>{getClassName(Number(row.student.id))}</td>
+                    <td style={{ padding: '11px 14px' }}>{row.score ? renderScoreBadge(row.score) : <span style={S.badge('#9f1239', '#fee2e2')}>Blank</span>}</td>
+                    <td style={{ padding: '11px 14px', color: '#334155' }}>{row.score?.skill || '—'}</td>
+                    <td style={{ padding: '11px 14px', color: '#64748b' }}>{row.score?.date || latestReview.session?.date || '—'}</td>
+                  </tr>
+                ))}
+                {latestReview.rows.length === 0 && <tr><td colSpan={5} style={{ padding: '2.2rem', textAlign: 'center', color: '#94a3b8' }}>No latest results match these filters.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {reviewMode === 'overall' && (
+        <div style={{ ...S.card, padding: 0, overflow: 'hidden', marginBottom: 14 }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: '#0f172a' }}>Overall Progress</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{reviewSubject ? `${reviewSubject} progress from previous valid marks. Absent/Missing entries are not counted as zero.` : 'Choose a subject to review progress.'}</div>
+            </div>
+            <span style={S.badge('#475569', '#f1f5f9')}>{overallRows.length} students</span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead><tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Student</th>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Class</th>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Average / Level</th>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Strong Areas</th>
+                <th style={{ textAlign: 'left', padding: '10px 14px' }}>Weaker Areas</th>
+                <th style={{ textAlign: 'right', padding: '10px 14px' }}>Assessments</th>
+              </tr></thead>
+              <tbody>
+                {overallRows.map(row => (
+                  <tr key={row.student.id} onClick={() => setSelectedReviewStudent({ student: row.student, subject: reviewSubject })} style={{ borderBottom: '1px solid #eef2f7', cursor: 'pointer' }}>
+                    <td style={{ padding: '11px 14px', fontWeight: 700 }}>{row.student.name}</td>
+                    <td style={{ padding: '11px 14px', color: '#64748b' }}>{getClassName(Number(row.student.id))}</td>
+                    <td style={{ padding: '11px 14px' }}><span style={{ fontWeight: 800 }}>{row.average === null ? '—' : `${row.average}%`}</span><span style={{ color: '#64748b' }}> · {row.currentLevel}</span></td>
+                    <td style={{ padding: '11px 14px', color: '#166534' }}>{row.strongAreas.join(', ') || '—'}</td>
+                    <td style={{ padding: '11px 14px', color: '#9a6a2a' }}>{row.weakerAreas.join(', ') || '—'}</td>
+                    <td style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 700 }}>{row.assessmentCount}</td>
+                  </tr>
+                ))}
+                {overallRows.length === 0 && <tr><td colSpan={6} style={{ padding: '2.2rem', textAlign: 'center', color: '#94a3b8' }}>Choose a subject to see overall progress.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {reviewMode === 'all' && (
+      <>
       {/* Toggle latest/all scores */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
         <button
@@ -888,6 +1091,68 @@ export default function AcademicsPage({
           </table>
         </div>
       </div>
+      </>
+      )}
+
+      {selectedReviewStudent && (
+        <>
+          <div onClick={() => setSelectedReviewStudent(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.28)', zIndex: 898 }} />
+          <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 420, maxWidth: '100vw', background: '#fff', boxShadow: '-4px 0 32px rgba(15,23,42,0.14)', zIndex: 900, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ background: '#0f172a', padding: '18px 20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>{selectedReviewStudent.student.name}</div>
+                <div style={{ fontSize: 12, opacity: 0.78, marginTop: 2 }}>{selectedReviewStudent.subject} history · newest first</div>
+              </div>
+              <button onClick={() => setSelectedReviewStudent(null)} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', fontWeight: 700, fontSize: 16 }}>×</button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'grid', gap: 8 }}>
+              {reviewHistory.map(score => (
+                <div key={score.id || `${score.date}-${score.skill}-${score.assessmentName}`} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', background: '#fbfdff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+                    <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>{score.assessmentName || score.assessmentType || 'Assessment'}</div>
+                    <div style={{ color: '#64748b', fontSize: 12 }}>{score.date || '—'}</div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                    <div style={{ color: '#475569', fontSize: 12 }}>{score.skill || 'General'}</div>
+                    {renderScoreBadge(score)}
+                  </div>
+                  {score.notes && <div style={{ marginTop: 7, color: '#64748b', fontSize: 12 }}>{score.notes}</div>}
+                </div>
+              ))}
+              {reviewHistory.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '2rem 1rem' }}>No previous marks for this subject yet.</div>}
+            </div>
+          </div>
+        </>
+      )}
+
+      {showScoreArchive && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 760, maxHeight: '84vh', overflow: 'hidden', boxShadow: '0 24px 80px rgba(15,23,42,0.28)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '16px 18px', borderBottom: '1px solid #eef2f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>Archive/Trash</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Archived scores can be restored. Admins can permanently delete after confirmation.</div>
+              </div>
+              <button onClick={() => setShowScoreArchive(false)} style={{ border: 'none', background: '#f4f5f8', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', fontWeight: 700 }}>×</button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: 14, display: 'grid', gap: 8 }}>
+              {archivedScores.map(score => (
+                <div key={`${score.studentId}-${score.id}`} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'center' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>{score.studentName} · {score.subject}</div>
+                    <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>{score.date} · {score.skill || 'General'} · {score.assessmentName || score.assessmentType || 'Assessment'}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button onClick={() => restoreScore(score.studentId, score.id)} style={{ ...S.btn('ghost'), padding: '6px 9px', fontSize: 11 }}>Restore</button>
+                    {role === 'admin' && <button onClick={() => permanentlyDeleteScore(score.studentId, score.id)} style={{ ...S.btn('danger'), padding: '6px 9px', fontSize: 11 }}>Delete Permanently</button>}
+                  </div>
+                </div>
+              ))}
+              {archivedScores.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '2rem 1rem' }}>No archived scores.</div>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Grade detail panel */}
       {selectedScore && (
@@ -930,20 +1195,10 @@ export default function AcademicsPage({
               </div>
             )}
             <button
-              onClick={() => {
-                const student = students.find(x => x.id === selectedScore.studentId)
-                if (student) {
-                  const updated = { ...student, testScores: (student.testScores || []).filter((s: Record<string, any>) => s.id !== selectedScore.id) }
-                  setStudents(prev => prev.map(st => st.id === student.id ? updated : st))
-                  if (persistStudentFields) {
-                    persistStudentFields(student.id, { testScores: updated.testScores })
-                  }
-                  setSelectedScore(null)
-                }
-              }}
+              onClick={archiveSelectedScore}
               style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #fecdd3', background: '#fff1f2', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#9f1239' }}
             >
-              🗑 Delete This Score
+              Archive This Score
             </button>
             <button
               onClick={() => { const s = students.find(x => x.id === selectedScore.studentId); if (s) { openStudent(s, 'testScores'); setSelectedScore(null) } }}
@@ -1001,7 +1256,7 @@ export default function AcademicsPage({
               <button onClick={() => setBulkHeaderCollapsed(prev => !prev)} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#475569', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', marginRight: 6 }}>
                 {bulkHeaderCollapsed ? '△ Show Form' : '▽ Collapse'}
               </button>
-              <button onClick={() => setShowBulkEntry(false)} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: '#475569', fontWeight: 700 }}>×</button>
+              <button onClick={closeBulkEntry} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: '#475569', fontWeight: 700 }}>×</button>
             </div>
 
             <div style={{ padding: 14, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, flexShrink: 0, maxHeight: bulkHeaderCollapsed ? 0 : '1000px', overflow: 'hidden', transition: 'max-height 0.25s ease-in-out', opacity: bulkHeaderCollapsed ? 0 : 1 }}>
@@ -1186,11 +1441,11 @@ export default function AcademicsPage({
             </div>
 
             <div style={{ padding: 14, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', flexShrink: 0 }}>
-              <div style={{ fontSize: 12, color: '#64748b' }}>
-                Missed and absent entries are saved in score history with status tags.
+              <div style={{ fontSize: 12, color: bulkCompletionMessage ? '#9f1239' : '#64748b', fontWeight: bulkCompletionMessage ? 800 : 400 }}>
+                {bulkCompletionMessage || 'Missed and absent entries are saved in score history with status tags.'}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setShowBulkEntry(false)} style={S.btn('ghost')} disabled={bulkSaving}>Cancel</button>
+                <button onClick={closeBulkEntry} style={S.btn('ghost')} disabled={bulkSaving}>Cancel</button>
                 <button onClick={saveBulkScores} style={S.btn('primary')} disabled={bulkSaving}>{bulkSaving ? 'Saving...' : 'Save Bulk Grades'}</button>
               </div>
             </div>
