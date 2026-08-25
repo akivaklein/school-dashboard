@@ -60,6 +60,7 @@ const KEYBOARD_ROWS = [
 ]
 
 type KeyboardField = 'name' | 'sku' | 'barcode' | 'emoji' | 'cost' | 'stock' | 'lowStockAt'
+type KeyboardTarget = { type: 'new' } | { type: 'existing'; itemId: number | string }
 
 const KEYBOARD_FIELD_LABELS: Array<{ key: KeyboardField; label: string }> = [
   { key: 'name', label: 'Item name' },
@@ -228,6 +229,7 @@ export default function TokenStorePage({
   const [photoStatus, setPhotoStatus] = useState('')
   const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [keyboardField, setKeyboardField] = useState<KeyboardField>('name')
+  const [keyboardTarget, setKeyboardTarget] = useState<KeyboardTarget>({ type: 'new' })
   const [keyboardShift, setKeyboardShift] = useState(false)
   const isCompactViewport = useCompactViewport()
   const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 96px'
@@ -270,19 +272,47 @@ export default function TokenStorePage({
     }
   }
 
-  function focusKeyboardField(field: KeyboardField) {
+  function focusKeyboardField(field: KeyboardField, target: KeyboardTarget = { type: 'new' }) {
     setKeyboardField(field)
+    setKeyboardTarget(target)
     setKeyboardOpen(true)
   }
 
   function typeKeyboardCharacter(character: string) {
     const next = keyboardShift ? character.toUpperCase() : character
-    setNewStoreItem(previous => ({ ...previous, [keyboardField]: `${String(previous[keyboardField] ?? '')}${next}` }))
+    if (keyboardTarget.type === 'existing') {
+      const item = storeItems.find(storeItem => storeItem.id === keyboardTarget.itemId)
+      updateStoreItem(keyboardTarget.itemId, keyboardField, `${String(item?.[keyboardField] ?? '')}${next}`)
+    } else {
+      setNewStoreItem(previous => ({ ...previous, [keyboardField]: `${String(previous[keyboardField] ?? '')}${next}` }))
+    }
     setKeyboardShift(false)
   }
 
   function backspaceKeyboardCharacter() {
-    setNewStoreItem(previous => ({ ...previous, [keyboardField]: String(previous[keyboardField] ?? '').slice(0, -1) }))
+    if (keyboardTarget.type === 'existing') {
+      const item = storeItems.find(storeItem => storeItem.id === keyboardTarget.itemId)
+      updateStoreItem(keyboardTarget.itemId, keyboardField, String(item?.[keyboardField] ?? '').slice(0, -1))
+    } else {
+      setNewStoreItem(previous => ({ ...previous, [keyboardField]: String(previous[keyboardField] ?? '').slice(0, -1) }))
+    }
+  }
+
+  function clearKeyboardField() {
+    if (keyboardTarget.type === 'existing') {
+      updateStoreItem(keyboardTarget.itemId, keyboardField, '')
+    } else {
+      setNewStoreItem(previous => ({ ...previous, [keyboardField]: '' }))
+    }
+  }
+
+  function getKeyboardFieldValue() {
+    if (keyboardTarget.type === 'existing') {
+      const item = storeItems.find(storeItem => storeItem.id === keyboardTarget.itemId)
+      return String(item?.[keyboardField] ?? '')
+    }
+
+    return String(newStoreItem[keyboardField] ?? '')
   }
 
   const redemptionReport = useMemo(() => {
@@ -384,16 +414,16 @@ export default function TokenStorePage({
 
                     {storeItems.map(item => (
                       <div key={item.id} style={{ display: 'grid', gridTemplateColumns: managerGridTemplate, gap: 8, alignItems: 'center', padding: '8px 4px', borderTop: '1px solid #eef2f7' }}>
-                    <input value={item.name} onChange={e => updateStoreItem(item.id, 'name', e.target.value)} spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input value={item.sku || ''} onChange={e => updateStoreItem(item.id, 'sku', e.target.value)} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
-                    <input value={item.barcode || ''} onChange={e => updateStoreItem(item.id, 'barcode', e.target.value)} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
-                    <input type="number" value={item.cost} onChange={e => updateStoreItem(item.id, 'cost', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={item.name} onChange={e => updateStoreItem(item.id, 'name', e.target.value)} onFocus={() => focusKeyboardField('name', { type: 'existing', itemId: item.id })} spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={item.sku || ''} onChange={e => updateStoreItem(item.id, 'sku', e.target.value)} onFocus={() => focusKeyboardField('sku', { type: 'existing', itemId: item.id })} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
+                    <input value={item.barcode || ''} onChange={e => updateStoreItem(item.id, 'barcode', e.target.value)} onFocus={() => focusKeyboardField('barcode', { type: 'existing', itemId: item.id })} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
+                    <input type="number" value={item.cost} onChange={e => updateStoreItem(item.id, 'cost', e.target.value)} onFocus={() => focusKeyboardField('cost', { type: 'existing', itemId: item.id })} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => adjustStoreStock(item.id, -1)} style={{ ...S.btn('ghost'), padding: '6px 8px' }}>−</button>
-                      <input type="number" value={item.stock} onChange={e => updateStoreItem(item.id, 'stock', e.target.value)} style={{ width: 52, padding: '8px 6px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, textAlign: 'center' }} />
+                      <input type="number" value={item.stock} onChange={e => updateStoreItem(item.id, 'stock', e.target.value)} onFocus={() => focusKeyboardField('stock', { type: 'existing', itemId: item.id })} style={{ width: 52, padding: '8px 6px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, textAlign: 'center' }} />
                       <button onClick={() => adjustStoreStock(item.id, 1)} style={{ ...S.btn('ghost'), padding: '6px 8px' }}>+</button>
                     </div>
-                    <input type="number" value={item.lowStockAt} onChange={e => updateStoreItem(item.id, 'lowStockAt', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input type="number" value={item.lowStockAt} onChange={e => updateStoreItem(item.id, 'lowStockAt', e.target.value)} onFocus={() => focusKeyboardField('lowStockAt', { type: 'existing', itemId: item.id })} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <select value={item.category || 'nosh'} onChange={e => updateStoreItem(item.id, 'category', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, background: '#fff' }}>
                       {STORE_CATEGORY_OPTIONS.filter(cat => cat.key !== 'all').map(cat => (
                         <option key={cat.key} value={cat.key}>{cat.label}</option>
@@ -465,7 +495,7 @@ export default function TokenStorePage({
                           </button>
                         ))}
                         <span style={{ fontSize: 11, color: '#475569', alignSelf: 'center' }}>
-                          Typing into: {KEYBOARD_FIELD_LABELS.find(field => field.key === keyboardField)?.label} — “{String(newStoreItem[keyboardField] ?? '') || 'empty'}”
+                          Typing into: {keyboardTarget.type === 'existing' ? 'Existing item ' : ''}{KEYBOARD_FIELD_LABELS.find(field => field.key === keyboardField)?.label} — “{getKeyboardFieldValue() || 'empty'}”
                         </span>
                       </div>
 
@@ -487,7 +517,7 @@ export default function TokenStorePage({
                         <button onClick={() => setKeyboardShift(shift => !shift)} style={{ ...S.btn(keyboardShift ? 'primary' : 'ghost'), minHeight: 42, padding: '8px 14px', fontSize: 12, fontWeight: 700 }}>Shift</button>
                         <button onClick={() => typeKeyboardCharacter(' ')} style={{ ...S.btn('ghost'), minHeight: 42, padding: '8px 40px', fontSize: 12, background: '#fff' }}>Space</button>
                         <button onClick={backspaceKeyboardCharacter} style={{ ...S.btn('ghost'), minHeight: 42, padding: '8px 14px', fontSize: 12, background: '#fff' }}>Backspace</button>
-                        <button onClick={() => setNewStoreItem(previous => ({ ...previous, [keyboardField]: '' }))} style={{ ...S.btn('ghost'), minHeight: 42, padding: '8px 14px', fontSize: 12, background: '#fff' }}>Clear</button>
+                        <button onClick={clearKeyboardField} style={{ ...S.btn('ghost'), minHeight: 42, padding: '8px 14px', fontSize: 12, background: '#fff' }}>Clear</button>
                         <button onClick={() => setKeyboardOpen(false)} style={{ ...S.btn('primary'), minHeight: 42, padding: '8px 18px', fontSize: 12 }}>Done</button>
                       </div>
                     </div>

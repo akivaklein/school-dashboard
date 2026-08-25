@@ -4499,7 +4499,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const visibleStudents = isStoreRole
     ? students.filter(student => student?.is_active !== false)
     : isTeacherRole
-      ? activeStudents.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
+      ? assignedTeacherStudentIds.length > 0
+        ? activeStudents.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
+        : assignedTeacherClassIds.length > 0
+          ? activeStudents.filter(s => assignedTeacherClassIds.includes(resolveStudentClassId(s)))
+          : teacherClassIds.length > 0
+            ? activeStudents.filter(s => teacherClassIds.includes(resolveStudentClassId(s)))
+            : []
       : effectiveRole === 'support_staff'
         ? divisionScopedStudents.filter(s => assignedStaffStudentSet.has(Number(s.id)) || Boolean(s.services?.length))
         : divisionScopedStudents

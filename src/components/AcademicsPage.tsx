@@ -299,7 +299,7 @@ export default function AcademicsPage({
       return visibleStudents
     }
 
-    return scopedStudents.filter(student => {
+    const assignedStudents = scopedStudents.filter(student => {
       const id = Number(student.id)
       if (!assignedIds.has(id)) return false
       if (classFilter !== 'all' && resolveStudentClassId(student) !== classFilter) {
@@ -307,6 +307,8 @@ export default function AcademicsPage({
       }
       return true
     })
+
+    return assignedStudents.length > 0 ? assignedStudents : visibleStudents
   }, [
     role,
     visibleStudents,
@@ -334,15 +336,18 @@ export default function AcademicsPage({
 
   const activeCatalogSubjects = (academicCatalog?.subjects || []).filter(subject => subject.active !== false)
   const selectedClassDivision = classFilter === 'all' ? null : (CLASS_DIVISION?.[classFilter] || null)
+  const effectiveTeacherForBulk = role === 'admin' ? bulkForm.teacher : loggedInTeacher
 
-  const bulkSubjectOptions = activeCatalogSubjects
+  const catalogBulkSubjectOptions = activeCatalogSubjects
     .filter(subject => {
-      const teacherMatch = !subject.teacherNames?.length || subject.teacherNames.includes(loggedInTeacher)
+      const teacherMatch = role === 'admin' ? true : !subject.teacherNames?.length || subject.teacherNames.includes(effectiveTeacherForBulk)
       const classMatch = classFilter === 'all' || !subject.classIds?.length || subject.classIds.includes(classFilter)
       const divisionMatch = !selectedClassDivision || !subject.divisionKeys?.length || subject.divisionKeys.includes(selectedClassDivision)
       return teacherMatch && classMatch && divisionMatch
     })
     .map(subject => subject.label)
+  const fallbackBulkSubjectOptions = Object.keys(getTeacherAcademicAreaMap(effectiveTeacherForBulk))
+  const bulkSubjectOptions = catalogBulkSubjectOptions.length > 0 ? catalogBulkSubjectOptions : fallbackBulkSubjectOptions
 
   const selectedCatalogSubject = activeCatalogSubjects.find(subject => subject.label === bulkForm.subject)
   const bulkSkillOptions = (selectedCatalogSubject?.skills || [])
@@ -351,18 +356,16 @@ export default function AcademicsPage({
 
   const effectiveBulkSkillOptions = bulkSkillOptions.length > 0
     ? bulkSkillOptions
-    : (getTeacherAcademicAreaMap(loggedInTeacher)[bulkForm.subject] || ['General'])
+    : (getTeacherAcademicAreaMap(effectiveTeacherForBulk)[bulkForm.subject] || ['General'])
 
   useEffect(() => {
     setBulkForm(prev => {
       const next = { ...prev }
-      if (next.teacher !== loggedInTeacher) {
+      if (role !== 'admin' && next.teacher !== loggedInTeacher) {
         next.teacher = loggedInTeacher
       }
 
-      if (!bulkSubjectOptions.length) return next
-
-      if (!bulkSubjectOptions.includes(next.subject)) {
+      if (bulkSubjectOptions.length > 0 && !bulkSubjectOptions.includes(next.subject)) {
         next.subject = bulkSubjectOptions[0]
       }
 
@@ -377,7 +380,7 @@ export default function AcademicsPage({
 
       return next
     })
-  }, [loggedInTeacher, bulkSubjectOptions, effectiveBulkSkillOptions])
+  }, [role, loggedInTeacher, bulkForm.teacher, bulkSubjectOptions, effectiveBulkSkillOptions])
 
   function scoreStatusValue(score) {
     if (score.attemptStatus === 'absent' || score.attemptStatus === 'missed') {
@@ -879,17 +882,26 @@ export default function AcademicsPage({
             </div>
 
             <div style={{ padding: 14, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, flexShrink: 0 }}>
-              <div style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
-                Teacher
-                <div style={{ padding: '9px 10px', border: '1px solid #d7dee7', borderRadius: 8, background: '#f8fafc', color: '#1e293b', fontSize: 13, fontWeight: 700 }}>
-                  {loggedInTeacher}
+              {role === 'admin' ? (
+                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                  Teacher
+                  <select value={bulkForm.teacher} onChange={e => updateBulkForm('teacher', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                    {teacherOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </label>
+              ) : (
+                <div style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                  Teacher
+                  <div style={{ padding: '9px 10px', border: '1px solid #d7dee7', borderRadius: 8, background: '#f8fafc', color: '#1e293b', fontSize: 13, fontWeight: 700 }}>
+                    {loggedInTeacher}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                 Subject
                 <select value={bulkForm.subject} onChange={e => updateBulkForm('subject', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
-                  {bulkSubjectOptions.map(option => <option key={option}>{option}</option>)}
+                  {bulkSubjectOptions.map(option => <option key={option} value={option}>{option}</option>)}
                 </select>
               </label>
 
@@ -943,7 +955,7 @@ export default function AcademicsPage({
                 <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                   Rating Scale
                   <select value={bulkForm.rating} onChange={e => updateBulkForm('rating', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
-                    {SKILL_RATINGS.map(rating => <option key={rating}>{rating}</option>)}
+                    {SKILL_RATINGS.map(rating => <option key={rating} value={rating}>{rating}</option>)}
                   </select>
                 </label>
               )}
