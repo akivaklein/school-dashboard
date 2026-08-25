@@ -238,6 +238,7 @@ export default function AcademicsPage({
   const [skillFilter, setSkillFilter] = useState('all')
   const [teacherFilter, setTeacherFilter] = useState(role === 'teacher' || role === 'rebbe' ? (userName || 'all') : 'all')
   const [enteredByFilter, setEnteredByFilter] = useState('all')
+  const [showAllScores, setShowAllScores] = useState(false)
   const [gradeSearch, setGradeSearch] = useState('')
   const [addStudentId, setAddStudentId] = useState(null)
   const [showBulkEntry, setShowBulkEntry] = useState(false)
@@ -643,11 +644,11 @@ export default function AcademicsPage({
     return '#dc2626'
   }
   function renderScoreBadge(score: Record<string, any>) {
-    if (score.attemptStatus === 'missed' || score.scoreType === 'status') {
-      return <span style={{ background: '#f1f5f9', color: '#64748b', borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 12 }}>Missed</span>
-    }
     if (score.attemptStatus === 'absent') {
       return <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 12 }}>Absent</span>
+    }
+    if (score.attemptStatus === 'missed' || score.scoreType === 'status') {
+      return <span style={{ background: '#f1f5f9', color: '#64748b', borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 12 }}>Missed</span>
     }
     if (score.scoreType === 'rating') {
       const colors: Record<string, string> = { Great: '#16a34a', Good: '#2563eb', Developing: '#ca8a04', Weak: '#dc2626' }
@@ -672,7 +673,16 @@ export default function AcademicsPage({
     return cls?.name || '—'
   }
 
-  const sortedScores = allScores.slice().sort((a, b) => b.date.localeCompare(a.date))
+  const sortedScores = (() => {
+    const sorted = allScores.slice().sort((a, b) => b.date.localeCompare(a.date))
+    if (showAllScores) return sorted
+    const seenStudents = new Set()
+    return sorted.filter(score => {
+      if (seenStudents.has(score.studentId)) return false
+      seenStudents.add(score.studentId)
+      return true
+    })
+  })()
   const subjectLabels: string[] = (academicCatalog?.subjects || [])
     .filter((subject: { active?: boolean }) => subject.active !== false)
     .map((subject: { label?: string }) => String(subject.label || ''))
@@ -736,6 +746,26 @@ export default function AcademicsPage({
             {subject === 'all' ? 'All' : subject}
           </button>
         ))}
+      </div>
+
+      {/* Toggle latest/all scores */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+        <button
+          onClick={() => setShowAllScores(!showAllScores)}
+          style={{
+            padding: '6px 12px',
+            borderRadius: 6,
+            border: '1px solid #e2e8f0',
+            background: showAllScores ? '#0f172a' : '#f8fafc',
+            color: showAllScores ? '#fff' : '#334155',
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          {showAllScores ? '✓ All Scores' : '◯ Latest Only'}
+        </button>
+        <span style={{ fontSize: 12, color: '#94a3b8' }}>Showing {sortedScores.length} of {allScores.length} grades</span>
       </div>
 
       {/* Grades table */}
@@ -829,8 +859,24 @@ export default function AcademicsPage({
               </div>
             )}
             <button
+              onClick={() => {
+                const student = students.find(x => x.id === selectedScore.studentId)
+                if (student) {
+                  const updated = { ...student, testScores: (student.testScores || []).filter((s: Record<string, any>) => s.id !== selectedScore.id) }
+                  setStudents(prev => prev.map(st => st.id === student.id ? updated : st))
+                  if (persistStudentFields) {
+                    persistStudentFields(student.id, { testScores: updated.testScores })
+                  }
+                  setSelectedScore(null)
+                }
+              }}
+              style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #fecdd3', background: '#fff1f2', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#9f1239' }}
+            >
+              🗑 Delete This Score
+            </button>
+            <button
               onClick={() => { const s = students.find(x => x.id === selectedScore.studentId); if (s) { openStudent(s, 'testScores'); setSelectedScore(null) } }}
-              style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#334155' }}
+              style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#334155', marginTop: 8 }}
             >
               Open Student Profile →
             </button>
