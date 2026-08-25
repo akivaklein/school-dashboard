@@ -542,6 +542,7 @@ export type AcademicCatalogSkill = {
   id: string
   label: string
   active: boolean
+  category?: string
 }
 
 export type AcademicCatalogSubject = {
@@ -580,6 +581,7 @@ function parseAcademicCatalog(raw: unknown): AcademicCatalogConfig | null {
                 id: String(skill.id || `skill-${Date.now()}`),
                 label: String(skill.label || '').trim(),
                 active: skill.active !== false,
+                category: String(skill.category || '').trim() || undefined,
               }))
           : [],
       })),
@@ -674,6 +676,7 @@ export async function saveAcademicCatalog(config: AcademicCatalogConfig): Promis
         id: String(skill.id),
         label: String(skill.label || '').trim(),
         active: skill.active !== false,
+        category: String(skill.category || '').trim() || undefined,
       })),
     })),
   }

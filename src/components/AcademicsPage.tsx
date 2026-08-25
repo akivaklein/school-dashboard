@@ -235,6 +235,7 @@ export default function AcademicsPage({
   const loggedInTeacher = (userName || '').trim() || initialTeacher
   const [classFilter, setClassFilter] = useState(role === 'teacher' && teacherClass ? teacherClass : 'all')
   const [subjectFilter, setSubjectFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [skillFilter, setSkillFilter] = useState('all')
   const [teacherFilter, setTeacherFilter] = useState(role === 'teacher' || role === 'rebbe' ? (userName || 'all') : 'all')
   const [enteredByFilter, setEnteredByFilter] = useState('all')
@@ -251,6 +252,7 @@ export default function AcademicsPage({
   const [bulkForm, setBulkForm] = useState({
     teacher: loggedInTeacher,
     subject: 'Math',
+    category: 'all',
     skill: '2-digit',
     assessmentName: '',
     assessmentType: 'Quiz',
@@ -352,8 +354,10 @@ export default function AcademicsPage({
   const bulkSubjectOptions = catalogBulkSubjectOptions.length > 0 ? catalogBulkSubjectOptions : fallbackBulkSubjectOptions
 
   const selectedCatalogSubject = activeCatalogSubjects.find(subject => subject.label === bulkForm.subject)
-  const bulkSkillOptions = (selectedCatalogSubject?.skills || [])
-    .filter(skill => skill.active !== false)
+  const bulkCategorySkills = (selectedCatalogSubject?.skills || []).filter(skill => skill.active !== false)
+  const bulkCategoryOptions = ['all', ...new Set(bulkCategorySkills.map(skill => skill.category).filter(Boolean))]
+  const bulkSkillOptions = bulkCategorySkills
+    .filter(skill => bulkForm.category === 'all' || (skill.category || '') === bulkForm.category)
     .map(skill => skill.label)
 
   const effectiveBulkSkillOptions = bulkSkillOptions.length > 0
@@ -401,11 +405,19 @@ export default function AcademicsPage({
     setBulkForm(prev => {
       const next = { ...prev, [key]: value }
       if (key === 'subject') {
+        next.category = 'all'
         const catalogSubject = activeCatalogSubjects.find(subject => subject.label === value)
         const activeSkills = (catalogSubject?.skills || []).filter(skill => skill.active !== false).map(skill => skill.label)
         const fallbackSkills = getTeacherAcademicAreaMap(loggedInTeacher)[value] || ['General']
         const nextSkills = activeSkills.length ? activeSkills : fallbackSkills
         next.skill = nextSkills[0]
+      }
+      if (key === 'category') {
+        const catalogSubject = activeCatalogSubjects.find(subject => subject.label === next.subject)
+        const categorySkills = (catalogSubject?.skills || [])
+          .filter(skill => skill.active !== false && (value === 'all' || (skill.category || '') === value))
+          .map(skill => skill.label)
+        if (categorySkills.length) next.skill = categorySkills[0]
       }
       if (key === 'gradingMethod' && value === 'percentage') {
         next.maxScore = '100'
@@ -615,12 +627,18 @@ export default function AcademicsPage({
   const ratingCounts = { Weak: 0, Developing: 0, Good: 0, Great: 0 }
   allScores.filter(x=>x.scoreType==='rating').forEach(x => { ratingCounts[x.rating] = (ratingCounts[x.rating] || 0) + 1 })
   const filterSubjectOptions = ['all', ...new Set((academicCatalog?.subjects || []).filter(subject => subject.active !== false).map(subject => subject.label))]
+  const activeFilterSubjectSkills = subjectFilter === 'all'
+    ? []
+    : (academicCatalog?.subjects || [])
+        .filter(subject => subject.active !== false && subject.label === subjectFilter)
+        .flatMap(subject => (subject.skills || []).filter(skill => skill.active !== false))
+  const filterCategories = ['all', ...new Set(activeFilterSubjectSkills.map(skill => skill.category).filter(Boolean))]
   const filterSkills = subjectFilter === 'all'
     ? ['all']
     : ['all', ...new Set(
-        (academicCatalog?.subjects || [])
-          .filter(subject => subject.active !== false && subject.label === subjectFilter)
-          .flatMap(subject => (subject.skills || []).filter(skill => skill.active !== false).map(skill => skill.label))
+        activeFilterSubjectSkills
+          .filter(skill => categoryFilter === 'all' || (skill.category || '') === categoryFilter)
+          .map(skill => skill.label)
       )]
   const teacherFilterOptions = role === 'admin' ? ['all', ...teacherOptions] : []
   const enteredByFilterOptions = ['all', ...new Set(
@@ -737,7 +755,7 @@ export default function AcademicsPage({
         {allSubjectChips.map(subject => (
           <button
             key={subject}
-            onClick={() => { setSubjectFilter(subject); setSkillFilter('all') }}
+            onClick={() => { setSubjectFilter(subject); setCategoryFilter('all'); setSkillFilter('all') }}
             style={{
               padding: '5px 14px',
               borderRadius: 99,
@@ -747,6 +765,26 @@ export default function AcademicsPage({
               fontSize: 13,
               fontWeight: subjectFilter === subject ? 700 : 400,
               cursor: 'pointer',
+            }}
+          >
+            {subject === 'all' ? 'All' : subject}
+          </button>
+        ))}
+      </div>
+
+      {/* Category dropdown — appears once a subject has categorized skills */}
+      {subjectFilter !== 'all' && filterCategories.length > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: -8 }}>
+          <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{subjectFilter} category:</span>
+          <select
+            value={categoryFilter}
+            onChange={e => { setCategoryFilter(e.target.value); setSkillFilter('all') }}
+            style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13, background: '#fff', minWidth: 180 }}
+          >
+            {filterCategories.map(category => <option key={category} value={category}>{category === 'all' ? 'All Categories' : category}</option>)}
+          </select>
+        </div>
+      )}
 
       {/* Skill/topic dropdown — appears once a specific subject is chosen */}
       {subjectFilter !== 'all' && filterSkills.length > 1 && (
@@ -761,12 +799,6 @@ export default function AcademicsPage({
           </select>
         </div>
       )}
-            }}
-          >
-            {subject === 'all' ? 'All' : subject}
-          </button>
-        ))}
-      </div>
 
       {/* Toggle latest/all scores */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
@@ -976,6 +1008,15 @@ export default function AcademicsPage({
                   {bulkSubjectOptions.map(option => <option key={option} value={option}>{option}</option>)}
                 </select>
               </label>
+
+              {bulkCategoryOptions.length > 1 && (
+                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                  Category
+                  <select value={bulkForm.category} onChange={e => updateBulkForm('category', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                    {bulkCategoryOptions.map(option => <option key={option} value={option}>{option === 'all' ? 'All Categories' : option}</option>)}
+                  </select>
+                </label>
+              )}
 
               <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                 Skill / Topic

@@ -16,6 +16,7 @@ export default function SetupTeachingConfigSection({
   const [newSubjectLabel, setNewSubjectLabel] = useState('')
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null)
   const [newSkillLabel, setNewSkillLabel] = useState('')
+  const [newSkillCategory, setNewSkillCategory] = useState('')
   const [catalogSaveStatus, setCatalogSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   const subjects = useMemo(
@@ -81,14 +82,16 @@ export default function SetupTeachingConfigSection({
       return
     }
 
+    const category = newSkillCategory.trim() || undefined
     updateCatalogSubject(selectedSubject.id, subject => ({
       ...subject,
       skills: [
         ...(subject.skills || []),
-        { id: `skill-${Date.now()}`, label, active: true },
+        { id: `skill-${Date.now()}`, label, active: true, category },
       ],
     }))
     setNewSkillLabel('')
+    setNewSkillCategory('')
   }
 
   async function saveCatalogNow() {
@@ -491,46 +494,88 @@ export default function SetupTeachingConfigSection({
                 </div>
 
                 <div style={{ borderTop: '1px solid #e7edf5', paddingTop: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: '#223046' }}>Topics / Subtopics</div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <input
-                        value={newSkillLabel}
-                        onChange={event => setNewSkillLabel(event.target.value)}
-                        placeholder="Add topic (e.g. Shachris - Ashrei)"
-                        spellCheck
-                        lang="en"
-                        style={{ padding: '8px 10px', border: '1px solid #dce4ed', borderRadius: 8, minWidth: 200 }}
-                      />
-                      <button onClick={addSkill} style={S.btn('primary')}>Add Skill</button>
-                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
+                    Optionally group topics under a category (e.g. category "Shachris" with topics "Ashrei", "Krias Shema"). Category is used to narrow the topic list when entering or viewing grades.
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <input
+                      value={newSkillCategory}
+                      onChange={event => setNewSkillCategory(event.target.value)}
+                      placeholder="Category (optional, e.g. Shachris)"
+                      list="skill-category-suggestions"
+                      spellCheck
+                      lang="en"
+                      style={{ padding: '8px 10px', border: '1px solid #dce4ed', borderRadius: 8, minWidth: 190 }}
+                    />
+                    <datalist id="skill-category-suggestions">
+                      {Array.from(new Set((selectedSubject.skills || []).map(skill => skill.category).filter(Boolean))).map(category => (
+                        <option key={category} value={category} />
+                      ))}
+                    </datalist>
+                    <input
+                      value={newSkillLabel}
+                      onChange={event => setNewSkillLabel(event.target.value)}
+                      placeholder="Add topic (e.g. Ashrei)"
+                      spellCheck
+                      lang="en"
+                      style={{ padding: '8px 10px', border: '1px solid #dce4ed', borderRadius: 8, minWidth: 200 }}
+                    />
+                    <button onClick={addSkill} style={S.btn('primary')}>Add Skill</button>
                   </div>
 
                   {(selectedSubject.skills || []).length === 0 ? (
                     <div style={{ fontSize: 12, color: '#94a3b8' }}>No skills/topics yet.</div>
                   ) : (
-                    <div style={{ display: 'grid', gap: 6 }}>
-                      {(selectedSubject.skills || []).map(skill => (
-                        <div key={skill.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 8px' }}>
-                          <input
-                            value={skill.label}
-                            onChange={event => updateCatalogSubject(selectedSubject.id, subject => ({
-                              ...subject,
-                              skills: (subject.skills || []).map(item => item.id === skill.id ? { ...item, label: event.target.value } : item),
-                            }))}
-                            spellCheck
-                            lang="en"
-                            style={{ padding: '7px 8px', border: '1px solid #dce4ed', borderRadius: 7 }}
-                          />
-                          <button
-                            onClick={() => updateCatalogSubject(selectedSubject.id, subject => ({
-                              ...subject,
-                              skills: (subject.skills || []).map(item => item.id === skill.id ? { ...item, active: !item.active } : item),
-                            }))}
-                            style={skill.active ? S.btn('ghost') : S.btn('success')}
-                          >
-                            {skill.active ? 'Archive' : 'Reactivate'}
-                          </button>
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      {Object.entries(
+                        (selectedSubject.skills || []).reduce((groups, skill) => {
+                          const key = skill.category || 'Uncategorized'
+                          groups[key] = groups[key] || []
+                          groups[key].push(skill)
+                          return groups
+                        }, {} as Record<string, typeof selectedSubject.skills>)
+                      ).map(([category, skills]) => (
+                        <div key={category}>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{category}</div>
+                          <div style={{ display: 'grid', gap: 6 }}>
+                            {skills.map(skill => (
+                              <div key={skill.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 140px) minmax(0, 1fr) auto', gap: 8, alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 8px' }}>
+                                <input
+                                  value={skill.category || ''}
+                                  onChange={event => updateCatalogSubject(selectedSubject.id, subject => ({
+                                    ...subject,
+                                    skills: (subject.skills || []).map(item => item.id === skill.id ? { ...item, category: event.target.value.trim() || undefined } : item),
+                                  }))}
+                                  placeholder="Category"
+                                  spellCheck
+                                  lang="en"
+                                  style={{ padding: '7px 8px', border: '1px solid #dce4ed', borderRadius: 7, fontSize: 12, color: '#64748b' }}
+                                />
+                                <input
+                                  value={skill.label}
+                                  onChange={event => updateCatalogSubject(selectedSubject.id, subject => ({
+                                    ...subject,
+                                    skills: (subject.skills || []).map(item => item.id === skill.id ? { ...item, label: event.target.value } : item),
+                                  }))}
+                                  spellCheck
+                                  lang="en"
+                                  style={{ padding: '7px 8px', border: '1px solid #dce4ed', borderRadius: 7 }}
+                                />
+                                <button
+                                  onClick={() => updateCatalogSubject(selectedSubject.id, subject => ({
+                                    ...subject,
+                                    skills: (subject.skills || []).map(item => item.id === skill.id ? { ...item, active: !item.active } : item),
+                                  }))}
+                                  style={skill.active ? S.btn('ghost') : S.btn('success')}
+                                >
+                                  {skill.active ? 'Archive' : 'Reactivate'}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </div>
