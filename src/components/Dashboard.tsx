@@ -2342,15 +2342,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     itemName: string
   }) {
     const activeRole = previewAs?.role || role
-    if (activeRole !== 'admin') throw new Error('Only admins can reverse store redemptions.')
+    if (activeRole !== 'admin' && activeRole !== 'register') throw new Error('Only admins or register staff can process returns.')
     if (!purchase.pointsEventId) throw new Error('This redemption has no linked points event.')
-    if (!window.confirm(`Reverse ${purchase.itemName} for ${purchase.studentName}? Points and stock will be restored.`)) return
+    if (!window.confirm(`Return ${purchase.itemName} for ${purchase.studentName}? Points and stock will be restored.`)) return
 
     await reverseStorePurchaseTx({
       targetPointsEventId: Number(purchase.pointsEventId),
       staffName: (previewAs?.name || userName || 'Admin').trim() || 'Admin',
       staffRole: activeRole,
-      note: `Reversed store redemption #${purchase.id}`,
+      note: `Return/exchange for redemption #${purchase.id}`,
       sourceContext: 'token-store-history',
     })
     await refreshStoreData()

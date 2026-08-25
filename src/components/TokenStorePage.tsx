@@ -137,7 +137,7 @@ type StyleBag = {
 
 type Props = {
   S: StyleBag
-  userAccess: { canManageStore: boolean }
+  userAccess: { canManageStore: boolean; canReturnPurchases?: boolean }
   showStoreManager: boolean
   setShowStoreManager: (value: boolean) => void
   storeItems: StoreItemLike[]
@@ -766,12 +766,12 @@ export default function TokenStorePage({
                               <span>{log.itemName}</span>
                               <span style={{ color: '#64748b' }}>{String(log.staff || 'Unknown register')}</span>
                               <span style={{ fontWeight: 700, color: '#7a633a', textAlign: 'right' }}>{log.cost} pts</span>
-                              {userAccess.canManageStore && log.pointsEventId && !log.reversedAt ? (
+                              {(userAccess.canManageStore || userAccess.canReturnPurchases) && log.pointsEventId && !log.reversedAt ? (
                                 <button
                                   onClick={() => onReverseStoreRedemption?.(log)}
-                                  title="Reverse this redemption"
+                                  title="Reverse this redemption (return/exchange)"
                                   style={{ ...S.btn('danger'), padding: '4px 7px', fontSize: 10, whiteSpace: 'nowrap' }}
-                                >Reverse</button>
+                                >Return</button>
                               ) : log.reversedAt ? (
                                 <span style={{ color: '#64748b', fontSize: 10 }}>Reversed</span>
                               ) : null}

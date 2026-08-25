@@ -847,14 +847,16 @@ export function getUserAccess(name, role) {
   if (role === 'teacher' || role === 'rebbe') {
     return {
       divisions: ['yeshiva_ketana'],
-      canManageStore: false
+      canManageStore: false,
+      canReturnPurchases: false
     }
   }
 
   if (role === 'support_staff') {
     return {
       divisions: ['yeshiva_ketana'],
-      canManageStore: false
+      canManageStore: false,
+      canReturnPurchases: false
     }
   }
 
@@ -862,12 +864,14 @@ export function getUserAccess(name, role) {
     return {
       divisions: ['yeshiva_ketana'],
       canManageStore: false,
+      canReturnPurchases: true,
     }
   }
 
   return {
     divisions: ['yeshiva_ketana'],
-    canManageStore: role === 'admin'
+    canManageStore: role === 'admin',
+    canReturnPurchases: role === 'admin'
   }
 }
 
