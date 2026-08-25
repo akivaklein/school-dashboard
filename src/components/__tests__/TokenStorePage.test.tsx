@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import TokenStorePage from '../TokenStorePage'
+import TokenStorePage, { findExactStoreCodeMatch, shouldIgnoreScannerTarget } from '../TokenStorePage'
 
 const baseProps = {
   S: {
@@ -93,5 +93,40 @@ describe('TokenStorePage', () => {
 
     expect(markup).toContain('Water Bottle')
     expect(markup).toContain('BAR 1234567890')
+  })
+
+  it('matches scanner input only by exact barcode or SKU', () => {
+    const items = [
+      { id: 1, name: 'Water Bottle', sku: 'WB-1', barcode: '1234567890' },
+      { id: 2, name: 'Chocolate Bar', sku: 'CB-2', barcode: '5555' },
+    ]
+
+    expect(findExactStoreCodeMatch(items, '1234567890')?.id).toBe(1)
+    expect(findExactStoreCodeMatch(items, 'wb-1')?.id).toBe(1)
+    expect(findExactStoreCodeMatch(items, '123')).toBeNull()
+  })
+
+  it('does not treat regular input fields as scanner targets', () => {
+    const originalHTMLElement = globalThis.HTMLElement
+    class FakeHTMLElement extends EventTarget {
+      tagName: string
+      isContentEditable = false
+
+      constructor(tagName: string) {
+        super()
+        this.tagName = tagName
+      }
+    }
+
+    Object.defineProperty(globalThis, 'HTMLElement', { value: FakeHTMLElement, configurable: true })
+
+    try {
+      expect(shouldIgnoreScannerTarget(new FakeHTMLElement('INPUT'))).toBe(true)
+      expect(shouldIgnoreScannerTarget(new FakeHTMLElement('TEXTAREA'))).toBe(true)
+      expect(shouldIgnoreScannerTarget(new FakeHTMLElement('SELECT'))).toBe(true)
+      expect(shouldIgnoreScannerTarget(new FakeHTMLElement('BUTTON'))).toBe(false)
+    } finally {
+      Object.defineProperty(globalThis, 'HTMLElement', { value: originalHTMLElement, configurable: true })
+    }
   })
 })

@@ -1340,6 +1340,34 @@ function readDashboardLayoutMode(): 'two-level' | 'legacy' {
   }
 }
 
+function readRequestedStartPage(): string | null {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const requestedPage = String(params.get('page') || '').trim().toLowerCase()
+    const requestedApp = String(params.get('app') || '').trim().toLowerCase()
+
+    if (requestedPage === 'store' || requestedApp === 'token-store' || requestedApp === 'register') return 'store'
+    return null
+  } catch {
+    return null
+  }
+}
+
+function getDefaultPageForRole(role: string): string {
+  const navConfig = getRoleNavConfig(role)
+  const requestedStartPage = readRequestedStartPage()
+
+  if (
+    requestedStartPage &&
+    navConfig.topAreas.some(area => area.pages.includes(requestedStartPage)) &&
+    canAccessDashboardPage(role, requestedStartPage)
+  ) {
+    return requestedStartPage
+  }
+
+  return navConfig.topAreas[0]?.defaultPage || 'dashboard'
+}
+
 export default function Dashboard({ teacherUser, onTeacherSessionLogout }: DashboardProps) {
   const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
@@ -3470,7 +3498,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     setStoredAuthUser(r, name)
     setDivisionView(defaultDivisionView(access))
     setLoggedIn(true)
-    setPage(getRoleNavConfig(r).topAreas[0]?.defaultPage || 'dashboard')
+    setPage(getDefaultPageForRole(r))
     if (r === 'teacher' || r === 'rebbe') {
       const classIds = teacherAssignedClassIdsByName.get(normalizeStaffName(name)) || []
       setTeacherClassIds(classIds)
@@ -3675,14 +3703,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       0,
       Number(originalStudent.reminders || 0) + Number(reminderDelta || 0)
     )
-    const nextBehaviorLog = [
-      {
-        label: reason,
-        points: pointsDelta,
-        date: new Date().toISOString().slice(0, 10),
-      },
-      ...(originalStudent.behaviorLog || []),
-    ].slice(0, 30)
+    const shouldRecordBehaviorLog = category === 'behavior' || Number(reminderDelta || 0) !== 0
+    const nextBehaviorLog = shouldRecordBehaviorLog
+      ? [
+          {
+            label: reason,
+            points: pointsDelta,
+            date: new Date().toISOString().slice(0, 10),
+          },
+          ...(originalStudent.behaviorLog || []),
+        ].slice(0, 30)
+      : (originalStudent.behaviorLog || [])
 
     setStudents(prev => prev.map(student =>
       Number(student.id) !== Number(studentId)
@@ -3690,6 +3721,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         : {
             ...student,
             points: nextPoints,
+            token_balance: nextPoints,
             reminders: nextReminders,
             behaviorLog: nextBehaviorLog,
           }

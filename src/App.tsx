@@ -28,6 +28,18 @@ function readAppUrl() {
   return configured.replace(/\/$/, '')
 }
 
+function isTokenStoreLaunch() {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const requestedPage = String(params.get('page') || '').trim().toLowerCase()
+    const requestedApp = String(params.get('app') || '').trim().toLowerCase()
+
+    return requestedPage === 'store' || requestedApp === 'token-store' || requestedApp === 'register'
+  } catch {
+    return false
+  }
+}
+
 function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(true)
   const [authMode, setAuthMode] = useState<AuthMode>(() => getRecoveryModeFromUrl({ pathname: window.location.pathname, search: window.location.search, hash: window.location.hash }))
@@ -36,7 +48,7 @@ function App() {
   const [authError, setAuthError] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isRegisterLogin, setIsRegisterLogin] = useState(false)
+  const [isRegisterLogin, setIsRegisterLogin] = useState(() => isTokenStoreLaunch())
   const [authMessage, setAuthMessage] = useState('')
   const [authActionBusy, setAuthActionBusy] = useState(false)
   const [resetCooldownUntil, setResetCooldownUntil] = useState<number>(0)

@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, CSSProperties, Dispatch, SetStateAction } from 'react'
 import { getStoreSyncUiState } from '../services/storeService'
 
@@ -51,6 +51,8 @@ type NewStoreItemState = {
 
 const MAX_STORE_ITEM_IMAGE_BYTES = 750 * 1024
 const COMPRESS_START_DIMENSION = 1000
+const SCANNER_MAX_KEY_INTERVAL_MS = 55
+const SCANNER_MIN_CODE_LENGTH = 3
 
 const KEYBOARD_ROWS = [
   ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
@@ -71,6 +73,25 @@ const KEYBOARD_FIELD_LABELS: Array<{ key: KeyboardField; label: string }> = [
   { key: 'stock', label: 'Stock' },
   { key: 'lowStockAt', label: 'Low At' },
 ]
+
+export function shouldIgnoreScannerTarget(target: EventTarget | null) {
+  if (typeof HTMLElement === 'undefined') return false
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+
+  const tagName = target.tagName.toLowerCase()
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select'
+}
+
+export function findExactStoreCodeMatch(items: StoreItemLike[], rawCode: string) {
+  const scanValue = String(rawCode || '').trim().toLowerCase()
+  if (!scanValue) return null
+
+  return items.find(item => (
+    String(item.barcode || '').trim().toLowerCase() === scanValue ||
+    String(item.sku || '').trim().toLowerCase() === scanValue
+  )) || null
+}
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -233,6 +254,9 @@ export default function TokenStorePage({
   const [keyboardField, setKeyboardField] = useState<KeyboardField>('name')
   const [keyboardTarget, setKeyboardTarget] = useState<KeyboardTarget>({ type: 'new' })
   const [keyboardShift, setKeyboardShift] = useState(false)
+  const [scannerMessage, setScannerMessage] = useState('Ready for barcode scanner input')
+  const scannerBufferRef = useRef('')
+  const scannerLastKeyAtRef = useRef(0)
   const isCompactViewport = useCompactViewport()
   const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 96px'
   const addItemGridTemplate = isCompactViewport
@@ -249,6 +273,70 @@ export default function TokenStorePage({
   })
 
   const lastErrorText = storeLastLoadError || 'none'
+  const selectedStoreStudent = storeStudent ? students.find(student => student.id === storeStudent) : null
+
+  function getStoreUnavailableReason(item: StoreItemLike) {
+    if (!selectedStoreStudent) return 'Select a student first'
+    if ((item.stock || 0) <= 0) return 'Out of stock'
+    if (isStoreItemRestrictedForStudent(selectedStoreStudent, item)) return 'Restricted'
+    if (item.vip && !isVIP(selectedStoreStudent)) return 'VIP only'
+    if ((selectedStoreStudent.points || 0) < (item.cost || 0)) return 'Need more points'
+    return ''
+  }
+
+  function redeemExactCode(rawCode: string) {
+    const scannedItem = findExactStoreCodeMatch(storeItems, rawCode)
+    const displayCode = String(rawCode || '').trim()
+
+    if (!scannedItem) {
+      setScannerMessage(`Unknown barcode/SKU: ${displayCode}`)
+      return
+    }
+
+    if (!selectedStoreStudent) {
+      setScannerMessage(`Scanned ${scannedItem.name || displayCode}. Select a student first.`)
+      return
+    }
+
+    const unavailableReason = getStoreUnavailableReason(scannedItem)
+    if (unavailableReason) {
+      setScannerMessage(`${scannedItem.name || displayCode}: ${unavailableReason}`)
+      return
+    }
+
+    setScannerMessage(`Scanned ${scannedItem.name || displayCode}. Completing checkout...`)
+    buyItem(Number(selectedStoreStudent.id), scannedItem)
+  }
+
+  useEffect(() => {
+    function handleScannerKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey) return
+      if (shouldIgnoreScannerTarget(event.target)) return
+
+      const now = Date.now()
+      if (now - scannerLastKeyAtRef.current > SCANNER_MAX_KEY_INTERVAL_MS) {
+        scannerBufferRef.current = ''
+      }
+      scannerLastKeyAtRef.current = now
+
+      if (event.key === 'Enter') {
+        const code = scannerBufferRef.current.trim()
+        scannerBufferRef.current = ''
+        if (code.length >= SCANNER_MIN_CODE_LENGTH) {
+          event.preventDefault()
+          redeemExactCode(code)
+        }
+        return
+      }
+
+      if (event.key.length === 1) {
+        scannerBufferRef.current += event.key
+      }
+    }
+
+    window.addEventListener('keydown', handleScannerKeyDown, true)
+    return () => window.removeEventListener('keydown', handleScannerKeyDown, true)
+  }, [storeItems, selectedStoreStudent, isVIP, isStoreItemRestrictedForStudent, buyItem])
 
   const studentGroups = useMemo(() => {
     const query = deferredStudentSearch.trim().toLowerCase()
@@ -402,7 +490,7 @@ export default function TokenStorePage({
                   Last load error: {lastErrorText}
                 </span>
                 <span style={{ fontSize: 11, color: '#334155', fontWeight: 600 }}>
-                  Scanner-ready: search by SKU or barcode
+                  Scanner: {scannerMessage}
                 </span>
                 {!storePersistenceReady && storeSyncState !== 'loading' && (
                   <>
@@ -606,16 +694,8 @@ export default function TokenStorePage({
       </div>
 
       {(() => {
-        const s = storeStudent ? students.find(x => x.id === storeStudent) : null
+        const s = selectedStoreStudent
         const vip = s && isVIP(s)
-        const getStoreUnavailableReason = (item: any) => {
-          if (!s) return ''
-          if ((item.stock || 0) <= 0) return 'Out of stock'
-          if (isStoreItemRestrictedForStudent(s, item)) return 'Restricted'
-          if (item.vip && !vip) return 'VIP only'
-          if (s.points < item.cost) return 'Need more points'
-          return ''
-        }
         const visibleStoreItems = storeItems.filter(item => {
           const matchesCategory = storeCategoryFilter === 'all' || (item.category || 'nosh') === storeCategoryFilter
           const q = storeItemSearch.trim().toLowerCase()
@@ -647,17 +727,21 @@ export default function TokenStorePage({
                     if (event.key !== 'Enter') return
                     const scanValue = storeItemSearch.trim().toLowerCase()
                     if (!scanValue || !s) return
-                    const scannedItem = storeItems.find(item => (
-                      String(item.barcode || '').trim().toLowerCase() === scanValue ||
-                      String(item.sku || '').trim().toLowerCase() === scanValue
-                    ))
-                    if (!scannedItem) return
+                    const scannedItem = findExactStoreCodeMatch(storeItems, scanValue)
+                    if (!scannedItem) {
+                      setScannerMessage(`Unknown barcode/SKU: ${storeItemSearch.trim()}`)
+                      return
+                    }
                     event.preventDefault()
                     const unavailableReason = getStoreUnavailableReason(scannedItem)
-                    if (unavailableReason) return
+                    if (unavailableReason) {
+                      setScannerMessage(`${scannedItem.name || scanValue}: ${unavailableReason}`)
+                      return
+                    }
                     const confirmed = window.confirm(`Redeem ${scannedItem.name} for ${scannedItem.cost} points from ${s.name}?`)
                     if (!confirmed) return
                     buyItem(storeStudent as number, scannedItem)
+                    setScannerMessage(`Scanned ${scannedItem.name || scanValue}. Completing checkout...`)
                     setStoreItemSearch('')
                   }}
                   placeholder="Search name, SKU, or barcode..."

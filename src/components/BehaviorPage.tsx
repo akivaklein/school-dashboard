@@ -19,6 +19,35 @@ const BEHAVIORS_NEGATIVE = [
   { id: 'n6', label: 'Physical aggression', points: -3 },
 ]
 
+const MANUAL_POINT_REASONS = ['Daily entries', 'Fixing', 'Random', 'Other']
+
+export function resolveManualPointReason(reason, customReason) {
+  return reason === 'Other' ? customReason.trim() : reason
+}
+
+export function buildManualPointAdjustmentPayload({
+  studentId,
+  pointsDelta,
+  reason,
+  reasonType,
+  sourceContext,
+  metadata = {},
+}) {
+  return {
+    studentId,
+    pointsDelta,
+    reminderDelta: 0,
+    reason,
+    eventType: 'adjustment',
+    category: 'manual',
+    sourceContext,
+    metadata: {
+      ...metadata,
+      reasonType,
+    },
+  }
+}
+
 export default function BehaviorPage({
   students,
   searchedStudents,
@@ -35,7 +64,10 @@ export default function BehaviorPage({
   const [behaviorTab, setBehaviorTab] = useState('positive')
   const [bulkSelectedIds, setBulkSelectedIds] = useState([])
   const [bulkPointAmount, setBulkPointAmount] = useState(1)
-  const [bulkReason, setBulkReason] = useState('Bulk points')
+  const [manualReason, setManualReason] = useState('Daily entries')
+  const [manualCustomReason, setManualCustomReason] = useState('')
+  const [manualPointDrafts, setManualPointDrafts] = useState({})
+  const [bulkExpanded, setBulkExpanded] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkMessage, setBulkMessage] = useState('')
 
@@ -54,30 +86,59 @@ export default function BehaviorPage({
     setBulkMessage('')
   }
 
+  function getManualReason() {
+    return resolveManualPointReason(manualReason, manualCustomReason)
+  }
+
+  async function applyManualPoints(studentId, amount = manualPointDrafts[studentId]) {
+    const pointsDelta = Number(amount || 0)
+    const reason = getManualReason()
+    if (!Number.isFinite(pointsDelta) || pointsDelta === 0) return
+    if (!reason) {
+      alert('Choose or enter a reason for this point adjustment.')
+      return
+    }
+
+    playSound(pointsDelta > 0 ? 'positive' : 'negative')
+    const ok = await onAdjustPoints(buildManualPointAdjustmentPayload({
+      studentId,
+      pointsDelta,
+      reason,
+      sourceContext: 'points-page-manual-adjustment',
+      reasonType: manualReason,
+    }))
+
+    if (ok !== false) {
+      setManualPointDrafts(previous => ({ ...previous, [studentId]: '' }))
+    }
+  }
+
   async function applyBulkPoints(amount = bulkPointAmount) {
     const pointsDelta = Number(amount || 0)
-    if (bulkSelectedIds.length === 0 || !Number.isFinite(pointsDelta) || pointsDelta <= 0) return
+    const reason = getManualReason()
+    if (bulkSelectedIds.length === 0 || !Number.isFinite(pointsDelta) || pointsDelta === 0) return
+    if (!reason) {
+      alert('Choose or enter a reason for this bulk point adjustment.')
+      return
+    }
 
     setBulkSaving(true)
     setBulkMessage('')
-    playSound('positive')
+    playSound(pointsDelta > 0 ? 'positive' : 'negative')
 
-    const reason = bulkReason.trim() || `Bulk +${pointsDelta} pts`
     const results = await Promise.all(
       bulkSelectedIds.map(async studentId => {
         try {
-          return await onAdjustPoints({
+          return await onAdjustPoints(buildManualPointAdjustmentPayload({
             studentId,
             pointsDelta,
-            reminderDelta: 0,
             reason,
-            eventType: 'award',
-            category: 'behavior',
-            sourceContext: 'behavior-page-bulk-award',
+            sourceContext: 'points-page-bulk-manual-adjustment',
+            reasonType: manualReason,
             metadata: {
               bulkSelectionSize: bulkSelectedIds.length,
             },
-          })
+          }))
         } catch (error) {
           console.error('Failed to save behavior bulk points:', error)
           return false
@@ -91,7 +152,7 @@ export default function BehaviorPage({
     if (failedCount > 0) {
       setBulkMessage(`Saved ${savedCount} of ${bulkSelectedIds.length}. ${failedCount} did not save.`)
     } else {
-      setBulkMessage(`Added ${pointsDelta} point${pointsDelta === 1 ? '' : 's'} to ${savedCount} student${savedCount === 1 ? '' : 's'}.`)
+      setBulkMessage(`${pointsDelta > 0 ? 'Added' : 'Subtracted'} ${Math.abs(pointsDelta)} point${Math.abs(pointsDelta) === 1 ? '' : 's'} ${pointsDelta > 0 ? 'to' : 'from'} ${savedCount} student${savedCount === 1 ? '' : 's'}.`)
       setBulkSelectedIds([])
     }
 
@@ -99,15 +160,20 @@ export default function BehaviorPage({
   }
 
   function addPoints(id, amount) {
+    const reason = getManualReason()
+    if (!reason) {
+      alert('Choose or enter a reason for this point adjustment.')
+      return
+    }
+
     playSound(amount > 0 ? 'positive' : 'negative')
-    onAdjustPoints({
+    onAdjustPoints(buildManualPointAdjustmentPayload({
       studentId: id,
       pointsDelta: amount,
-      reason: amount > 0 ? `+${amount} pts` : `${amount} pts`,
-      eventType: amount > 0 ? 'award' : 'deduction',
-      category: 'behavior',
-      sourceContext: 'behavior-page-adjustment',
-    })
+      reason,
+      sourceContext: 'points-page-detail-manual-adjustment',
+      reasonType: manualReason,
+    }))
   }
 
   function addReminder(id) {
@@ -194,16 +260,44 @@ export default function BehaviorPage({
         </div>
       ) : (
         <>
-          <div style={{ ...S.card, marginBottom: 14, display: 'grid', gap: 12 }}>
+          <div style={{ ...S.card, marginBottom: 14, display: 'grid', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#223046' }}>Fast Manual Points</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>Enter signed values beside each student. Example: 37 adds points, -20 subtracts points.</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <select value={manualReason} onChange={event => setManualReason(event.target.value)} style={{ minHeight: 38, padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', background: '#fff', fontSize: 12, fontWeight: 700 }}>
+                  {MANUAL_POINT_REASONS.map(reason => <option key={reason} value={reason}>{reason}</option>)}
+                </select>
+                {manualReason === 'Other' && (
+                  <input
+                    value={manualCustomReason}
+                    onChange={event => setManualCustomReason(event.target.value)}
+                    placeholder="Custom reason"
+                    spellCheck
+                    lang="en"
+                    style={{ minHeight: 38, padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ ...S.card, marginBottom: 14, display: 'grid', gap: bulkExpanded ? 12 : 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#223046' }}>Bulk Points</div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
-                  Select students from this roster and add points once.
+                  Select students from this roster and apply one signed adjustment.
                 </div>
               </div>
+              <button onClick={() => setBulkExpanded(open => !open)} style={S.btn(bulkExpanded ? 'primary' : 'ghost')}>
+                {bulkExpanded ? 'Hide Bulk Points' : 'Show Bulk Points'}
+              </button>
             </div>
 
+            {bulkExpanded && (
             <div style={{ border: '1px solid #dce4ed', borderRadius: 12, padding: 12, background: '#f8fbff', display: 'grid', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>
@@ -229,7 +323,7 @@ export default function BehaviorPage({
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
-                {[1, 2, 3, 5, 10].map(amount => (
+                {[1, 2, 3, 5, 10, -1, -5].map(amount => (
                   <button
                     key={amount}
                     disabled={bulkSaving || bulkSelectedIds.length === 0}
@@ -239,7 +333,7 @@ export default function BehaviorPage({
                       opacity: bulkSaving || bulkSelectedIds.length === 0 ? 0.55 : 1,
                     }}
                   >
-                    +{amount}
+                    {amount > 0 ? '+' : ''}{amount}
                   </button>
                 ))}
               </div>
@@ -247,28 +341,20 @@ export default function BehaviorPage({
               <div style={{ display: 'grid', gridTemplateColumns: '120px minmax(180px, 1fr) auto', gap: 8, alignItems: 'center' }}>
                 <input
                   type="number"
-                  min="1"
                   value={bulkPointAmount}
                   onChange={event => setBulkPointAmount(Number(event.target.value))}
                   style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
                 />
-                <input
-                  value={bulkReason}
-                  onChange={event => setBulkReason(event.target.value)}
-                  placeholder="Reason shown in behavior log"
-                  spellCheck
-                  lang="en"
-                  style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed' }}
-                />
+                <div style={{ fontSize: 12, color: '#475569', fontWeight: 700 }}>Reason: {getManualReason() || 'required'}</div>
                 <button
-                  disabled={bulkSaving || bulkSelectedIds.length === 0 || Number(bulkPointAmount || 0) <= 0}
+                  disabled={bulkSaving || bulkSelectedIds.length === 0 || Number(bulkPointAmount || 0) === 0 || !getManualReason()}
                   onClick={() => applyBulkPoints()}
                   style={{
                     ...S.btn('primary'),
-                    opacity: bulkSaving || bulkSelectedIds.length === 0 || Number(bulkPointAmount || 0) <= 0 ? 0.55 : 1,
+                    opacity: bulkSaving || bulkSelectedIds.length === 0 || Number(bulkPointAmount || 0) === 0 || !getManualReason() ? 0.55 : 1,
                   }}
                 >
-                  {bulkSaving ? 'Saving...' : 'Add Custom'}
+                  {bulkSaving ? 'Saving...' : 'Apply Custom'}
                 </button>
               </div>
 
@@ -278,9 +364,10 @@ export default function BehaviorPage({
                 </div>
               )}
             </div>
+            )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
           {sortedSearchedStudents.map((s, i) => {
             const vip = isVIP(s)
             return (
@@ -290,7 +377,8 @@ export default function BehaviorPage({
                 style={{
                   ...S.card,
                   cursor: 'pointer',
-                  display: 'flex',
+                  display: 'grid',
+                  gridTemplateColumns: '36px minmax(0, 1fr)',
                   alignItems: 'center',
                   gap: 10,
                   padding: '12px 14px',
@@ -306,6 +394,27 @@ export default function BehaviorPage({
                     <span style={S.badge('#92400e', '#fef3c7')}>{s.points} pts</span>
                     {s.reminders > 0 && <span style={S.badge('#9f1239', '#fee2e2')}>⚠️ {s.reminders}</span>}
                   </div>
+                </div>
+                <div onClick={event => event.stopPropagation()} style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'minmax(72px, 1fr) auto', gap: 6, marginTop: 2 }}>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={manualPointDrafts[s.id] || ''}
+                    onChange={event => setManualPointDrafts(previous => ({ ...previous, [s.id]: event.target.value }))}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter') applyManualPoints(s.id)
+                    }}
+                    placeholder="+/- pts"
+                    aria-label={`Manual point adjustment for ${s.name}`}
+                    style={{ minHeight: 38, padding: '8px 9px', border: '1px solid #dce4ed', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', width: '100%' }}
+                  />
+                  <button
+                    onClick={() => applyManualPoints(s.id)}
+                    disabled={!manualPointDrafts[s.id] || !getManualReason()}
+                    style={{ ...S.btn('primary'), minHeight: 38, padding: '8px 10px', opacity: !manualPointDrafts[s.id] || !getManualReason() ? 0.55 : 1 }}
+                  >
+                    Apply
+                  </button>
                 </div>
               </div>
             )
