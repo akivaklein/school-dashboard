@@ -59,13 +59,16 @@ const KEYBOARD_ROWS = [
   ['z', 'x', 'c', 'v', 'b', 'n', 'm', '-', "'"],
 ]
 
-type KeyboardField = 'name' | 'sku' | 'barcode' | 'emoji'
+type KeyboardField = 'name' | 'sku' | 'barcode' | 'emoji' | 'cost' | 'stock' | 'lowStockAt'
 
 const KEYBOARD_FIELD_LABELS: Array<{ key: KeyboardField; label: string }> = [
   { key: 'name', label: 'Item name' },
   { key: 'sku', label: 'SKU' },
   { key: 'barcode', label: 'Barcode' },
   { key: 'emoji', label: 'Icon' },
+  { key: 'cost', label: 'Cost' },
+  { key: 'stock', label: 'Stock' },
+  { key: 'lowStockAt', label: 'Low At' },
 ]
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -267,6 +270,11 @@ export default function TokenStorePage({
     }
   }
 
+  function focusKeyboardField(field: KeyboardField) {
+    setKeyboardField(field)
+    setKeyboardOpen(true)
+  }
+
   function typeKeyboardCharacter(character: string) {
     const next = keyboardShift ? character.toUpperCase() : character
     setNewStoreItem(previous => ({ ...previous, [keyboardField]: `${String(previous[keyboardField] ?? '')}${next}` }))
@@ -401,13 +409,13 @@ export default function TokenStorePage({
                 <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 14, paddingTop: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Add Store Item</div>
                   <div style={{ display: 'grid', gridTemplateColumns: addItemGridTemplate, gap: 8, alignItems: 'center' }}>
-                    <input value={newStoreItem.emoji} onChange={e => setNewStoreItem(prev => ({ ...prev, emoji: e.target.value }))} onFocus={() => setKeyboardField('emoji')} placeholder="Icon" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input value={newStoreItem.name} onChange={e => setNewStoreItem(prev => ({ ...prev, name: e.target.value }))} onFocus={() => setKeyboardField('name')} placeholder="Item name" spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input value={newStoreItem.sku} onChange={e => setNewStoreItem(prev => ({ ...prev, sku: e.target.value }))} onFocus={() => setKeyboardField('sku')} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input value={newStoreItem.barcode} onChange={e => setNewStoreItem(prev => ({ ...prev, barcode: e.target.value }))} onFocus={() => setKeyboardField('barcode')} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input type="number" value={newStoreItem.cost} onChange={e => setNewStoreItem(prev => ({ ...prev, cost: e.target.value }))} placeholder="Cost" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input type="number" value={newStoreItem.stock} onChange={e => setNewStoreItem(prev => ({ ...prev, stock: e.target.value }))} placeholder="Stock" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input type="number" value={newStoreItem.lowStockAt} onChange={e => setNewStoreItem(prev => ({ ...prev, lowStockAt: e.target.value }))} placeholder="Low at" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.emoji} onChange={e => setNewStoreItem(prev => ({ ...prev, emoji: e.target.value }))} onFocus={() => focusKeyboardField('emoji')} placeholder="Icon" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.name} onChange={e => setNewStoreItem(prev => ({ ...prev, name: e.target.value }))} onFocus={() => focusKeyboardField('name')} placeholder="Item name" spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.sku} onChange={e => setNewStoreItem(prev => ({ ...prev, sku: e.target.value }))} onFocus={() => focusKeyboardField('sku')} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.barcode} onChange={e => setNewStoreItem(prev => ({ ...prev, barcode: e.target.value }))} onFocus={() => focusKeyboardField('barcode')} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input type="number" value={newStoreItem.cost} onChange={e => setNewStoreItem(prev => ({ ...prev, cost: e.target.value }))} onFocus={() => focusKeyboardField('cost')} placeholder="Cost" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input type="number" value={newStoreItem.stock} onChange={e => setNewStoreItem(prev => ({ ...prev, stock: e.target.value }))} onFocus={() => focusKeyboardField('stock')} placeholder="Stock" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input type="number" value={newStoreItem.lowStockAt} onChange={e => setNewStoreItem(prev => ({ ...prev, lowStockAt: e.target.value }))} onFocus={() => focusKeyboardField('lowStockAt')} placeholder="Low at" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <select value={newStoreItem.category || 'nosh'} onChange={e => setNewStoreItem(prev => ({ ...prev, category: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, background: '#fff' }}>
                       {STORE_CATEGORY_OPTIONS.filter(cat => cat.key !== 'all').map(cat => (
                         <option key={cat.key} value={cat.key}>{cat.label}</option>
