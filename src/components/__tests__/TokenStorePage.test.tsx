@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import TokenStorePage, { findExactStoreCodeMatch, shouldIgnoreScannerTarget } from '../TokenStorePage'
+import TokenStorePage, { findExactStoreCodeMatch, getStoreUnavailableReasonForStudent, shouldIgnoreScannerTarget } from '../TokenStorePage'
 
 const baseProps = {
   S: {
@@ -128,5 +128,17 @@ describe('TokenStorePage', () => {
     } finally {
       Object.defineProperty(globalThis, 'HTMLElement', { value: originalHTMLElement, configurable: true })
     }
+  })
+
+  it('reports checkout restrictions for VIP, insufficient points, stock, and eligibility', () => {
+    const student = { id: 1, name: 'Avi', points: 25 }
+    const item = { id: 1, name: 'Chocolate', cost: 20, stock: 3, vip: false }
+
+    expect(getStoreUnavailableReasonForStudent(null, item, false, false)).toBe('Select a student first')
+    expect(getStoreUnavailableReasonForStudent(student, { ...item, stock: 0 }, false, false)).toBe('Out of stock')
+    expect(getStoreUnavailableReasonForStudent(student, item, false, true)).toBe('Restricted')
+    expect(getStoreUnavailableReasonForStudent(student, { ...item, vip: true }, false, false)).toBe('VIP only')
+    expect(getStoreUnavailableReasonForStudent(student, { ...item, cost: 30 }, false, false)).toBe('Need more points')
+    expect(getStoreUnavailableReasonForStudent(student, { ...item, vip: true }, true, false)).toBe('')
   })
 })

@@ -93,6 +93,20 @@ export function findExactStoreCodeMatch(items: StoreItemLike[], rawCode: string)
   )) || null
 }
 
+export function getStoreUnavailableReasonForStudent(
+  student: StudentLike | null | undefined,
+  item: StoreItemLike,
+  isStudentVip: boolean,
+  isRestricted: boolean,
+) {
+  if (!student) return 'Select a student first'
+  if ((item.stock || 0) <= 0) return 'Out of stock'
+  if (isRestricted) return 'Restricted'
+  if (item.vip && !isStudentVip) return 'VIP only'
+  if ((student.points || 0) < (item.cost || 0)) return 'Need more points'
+  return ''
+}
+
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -276,12 +290,12 @@ export default function TokenStorePage({
   const selectedStoreStudent = storeStudent ? students.find(student => student.id === storeStudent) : null
 
   function getStoreUnavailableReason(item: StoreItemLike) {
-    if (!selectedStoreStudent) return 'Select a student first'
-    if ((item.stock || 0) <= 0) return 'Out of stock'
-    if (isStoreItemRestrictedForStudent(selectedStoreStudent, item)) return 'Restricted'
-    if (item.vip && !isVIP(selectedStoreStudent)) return 'VIP only'
-    if ((selectedStoreStudent.points || 0) < (item.cost || 0)) return 'Need more points'
-    return ''
+    return getStoreUnavailableReasonForStudent(
+      selectedStoreStudent,
+      item,
+      Boolean(selectedStoreStudent && isVIP(selectedStoreStudent)),
+      Boolean(selectedStoreStudent && isStoreItemRestrictedForStudent(selectedStoreStudent, item)),
+    )
   }
 
   function redeemExactCode(rawCode: string) {
