@@ -882,10 +882,10 @@ export default function AcademicsPage({
               <button onClick={() => setBulkHeaderCollapsed(prev => !prev)} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#475569', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', marginRight: 6 }}>
                 {bulkHeaderCollapsed ? '△ Show Form' : '▽ Collapse'}
               </button>
-              <button onClick={() => setShowBulkEntry(false)} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, width: 32, height: 32, cursor: 'po, maxHeight: bulkHeaderCollapsed ? 0 : '1000px', overflow: 'hidden', transition: 'max-height 0.25s ease-in-out', opacity: bulkHeaderCollapsed ? 0 : 1inter', color: '#475569', fontWeight: 700 }}>×</button>
+              <button onClick={() => setShowBulkEntry(false)} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: '#475569', fontWeight: 700 }}>×</button>
             </div>
 
-            <div style={{ padding: 14, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, flexShrink: 0 }}>
+            <div style={{ padding: 14, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, flexShrink: 0, maxHeight: bulkHeaderCollapsed ? 0 : '1000px', overflow: 'hidden', transition: 'max-height 0.25s ease-in-out', opacity: bulkHeaderCollapsed ? 0 : 1 }}>
               {role === 'admin' ? (
                 <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                   Teacher
@@ -955,15 +955,6 @@ export default function AcademicsPage({
                 </select>
               </label>
 
-              {bulkForm.gradingMethod === 'rating-scale' && (
-                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
-                  Rating Scale
-                  <select value={bulkForm.rating} onChange={e => updateBulkForm('rating', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
-                    {SKILL_RATINGS.map(rating => <option key={rating} value={rating}>{rating}</option>)}
-                  </select>
-                </label>
-              )}
-
               {bulkForm.gradingMethod === 'letter-grade' && (
                 <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                   Letter Grade
@@ -977,10 +968,12 @@ export default function AcademicsPage({
                 </label>
               )}
 
-              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
-                Maximum Score
-                <input value={bulkForm.maxScore} onChange={e => updateBulkForm('maxScore', e.target.value)} disabled={bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade'} placeholder="100" style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: bulkForm.gradingMethod === 'rating-scale' || bulkForm.gradingMethod === 'letter-grade' ? '#f8fafc' : '#fff' }} />
-              </label>
+              {bulkForm.gradingMethod !== 'rating-scale' && (
+                <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                  Maximum Score
+                  <input value={bulkForm.maxScore} onChange={e => updateBulkForm('maxScore', e.target.value)} disabled={bulkForm.gradingMethod === 'letter-grade'} placeholder="100" style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: bulkForm.gradingMethod === 'letter-grade' ? '#f8fafc' : '#fff' }} />
+                </label>
+              )}
 
               <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700, gridColumn: '1 / -1' }}>
                 Optional Note
@@ -1015,10 +1008,20 @@ export default function AcademicsPage({
 
                     {bulkForm.gradingMethod === 'points' || bulkForm.gradingMethod === 'percentage' ? (
                       <input value={state.score || ''} onChange={e => setStudentBulkScore(student.id, e.target.value)} disabled={!isScoreActive} placeholder={isScoreActive ? 'Score' : '—'} style={{ width: '100%', padding: 8, border: '1px solid #d7dee7', borderRadius: 8, background: !isScoreActive ? '#f8fafc' : '#fff' }} />
+                    ) : bulkForm.gradingMethod === 'rating-scale' ? (
+                      <select value={state.score || ''} onChange={e => setStudentBulkScore(student.id, e.target.value)} disabled={!isScoreActive} style={{ width: '100%', padding: 8, border: '1px solid #d7dee7', borderRadius: 8, background: !isScoreActive ? '#f8fafc' : '#fff', fontSize: 13, fontWeight: 600 }}>
+                        <option value="">Choose rating</option>
+                        {SKILL_RATINGS.map(rating => <option key={rating} value={rating}>{rating}</option>)}
+                      </select>
                     ) : (
-                      <div style={{ fontSize: 12, color: isScoreActive ? '#334155' : '#94a3b8', fontWeight: 700, padding: '8px 6px' }}>
-                        {!isScoreActive ? '—' : bulkForm.gradingMethod === 'letter-grade' ? bulkForm.letterGrade : bulkForm.rating}
-                      </div>
+                      <select value={state.score || ''} onChange={e => setStudentBulkScore(student.id, e.target.value)} disabled={!isScoreActive} style={{ width: '100%', padding: 8, border: '1px solid #d7dee7', borderRadius: 8, background: !isScoreActive ? '#f8fafc' : '#fff', fontSize: 13, fontWeight: 600 }}>
+                        <option value="">Choose grade</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="F">F</option>
+                      </select>
                     )}
 
                     <div style={{ display: 'inline-flex', gap: 5, alignItems: 'center', flexWrap: 'nowrap' }}>
