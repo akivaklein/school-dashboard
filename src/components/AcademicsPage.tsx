@@ -615,7 +615,13 @@ export default function AcademicsPage({
   const ratingCounts = { Weak: 0, Developing: 0, Good: 0, Great: 0 }
   allScores.filter(x=>x.scoreType==='rating').forEach(x => { ratingCounts[x.rating] = (ratingCounts[x.rating] || 0) + 1 })
   const filterSubjectOptions = ['all', ...new Set((academicCatalog?.subjects || []).filter(subject => subject.active !== false).map(subject => subject.label))]
-  const filterSkills = ['all', ...new Set((academicCatalog?.subjects || []).flatMap(subject => (subject.skills || []).filter(skill => skill.active !== false).map(skill => skill.label)))]
+  const filterSkills = subjectFilter === 'all'
+    ? ['all']
+    : ['all', ...new Set(
+        (academicCatalog?.subjects || [])
+          .filter(subject => subject.active !== false && subject.label === subjectFilter)
+          .flatMap(subject => (subject.skills || []).filter(skill => skill.active !== false).map(skill => skill.label))
+      )]
   const teacherFilterOptions = role === 'admin' ? ['all', ...teacherOptions] : []
   const enteredByFilterOptions = ['all', ...new Set(
     visibleStudents.flatMap(student => (student.testScores || []).map(score => score.enteredBy || 'Unknown'))
@@ -741,6 +747,20 @@ export default function AcademicsPage({
               fontSize: 13,
               fontWeight: subjectFilter === subject ? 700 : 400,
               cursor: 'pointer',
+
+      {/* Skill/topic dropdown — appears once a specific subject is chosen */}
+      {subjectFilter !== 'all' && filterSkills.length > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, marginTop: -8 }}>
+          <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{subjectFilter} skill:</span>
+          <select
+            value={skillFilter}
+            onChange={e => setSkillFilter(e.target.value)}
+            style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13, background: '#fff', minWidth: 180 }}
+          >
+            {filterSkills.map(skill => <option key={skill} value={skill}>{skill === 'all' ? 'All Skills' : skill}</option>)}
+          </select>
+        </div>
+      )}
             }}
           >
             {subject === 'all' ? 'All' : subject}
