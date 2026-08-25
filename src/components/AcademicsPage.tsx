@@ -241,6 +241,7 @@ export default function AcademicsPage({
   const [gradeSearch, setGradeSearch] = useState('')
   const [addStudentId, setAddStudentId] = useState(null)
   const [showBulkEntry, setShowBulkEntry] = useState(false)
+  const [bulkHeaderCollapsed, setBulkHeaderCollapsed] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
   const [selectedScore, setSelectedScore] = useState<Record<string, any> | null>(null)
   const [showAddSingle, setShowAddSingle] = useState(false)
@@ -872,13 +873,16 @@ export default function AcademicsPage({
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.48)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 1040, height: 'min(92vh, 760px)', overflow: 'hidden', boxShadow: '0 24px 80px rgba(15,23,42,0.28)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 800, fontSize: 18, color: '#12263f' }}>Bulk Grade Entry</div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
                   {classScopeLabel} · {bulkVisibleStudents.length} students · {bulkProgressCount}/{bulkVisibleStudents.length} ready
                 </div>
               </div>
-              <button onClick={() => setShowBulkEntry(false)} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: '#475569', fontWeight: 700 }}>×</button>
+              <button onClick={() => setBulkHeaderCollapsed(prev => !prev)} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#475569', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', marginRight: 6 }}>
+                {bulkHeaderCollapsed ? '△ Show Form' : '▽ Collapse'}
+              </button>
+              <button onClick={() => setShowBulkEntry(false)} style={{ border: '1px solid #d9e2ec', background: '#f8fafc', borderRadius: 8, width: 32, height: 32, cursor: 'po, maxHeight: bulkHeaderCollapsed ? 0 : '1000px', overflow: 'hidden', transition: 'max-height 0.25s ease-in-out', opacity: bulkHeaderCollapsed ? 0 : 1inter', color: '#475569', fontWeight: 700 }}>×</button>
             </div>
 
             <div style={{ padding: 14, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, flexShrink: 0 }}>
