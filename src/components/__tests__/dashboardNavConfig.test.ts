@@ -6,7 +6,7 @@ describe('getRoleNavConfig', () => {
     const config = getRoleNavConfig('admin')
 
     const areaIds = config.topAreas.map(area => area.id)
-    expect(areaIds).toEqual(['dashboard', 'students', 'classes', 'points', 'school-day', 'store', 'staff', 'settings'])
+    expect(areaIds).toEqual(['dashboard', 'students', 'classes', 'points', 'store', 'staff', 'settings'])
     expect(config.submenuByArea.points?.[0]?.id).toBe('behavior')
     expect(config.submenuByArea.settings?.[0]?.id).toBe('setup')
   })
