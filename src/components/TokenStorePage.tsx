@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent, CSSProperties, Dispatch, SetStateAction } from 'react'
 import { getStoreSyncUiState } from '../services/storeService'
 
@@ -226,6 +226,8 @@ export default function TokenStorePage({
 }: Props) {
   const [reportRange, setReportRange] = useState<'today' | 'week'>('today')
   const [studentSearch, setStudentSearch] = useState('')
+  // Re-render of the (potentially large) student roster trails a frame behind typing so the input never blocks.
+  const deferredStudentSearch = useDeferredValue(studentSearch)
   const [photoStatus, setPhotoStatus] = useState('')
   const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [keyboardField, setKeyboardField] = useState<KeyboardField>('name')
@@ -247,6 +249,27 @@ export default function TokenStorePage({
   })
 
   const lastErrorText = storeLastLoadError || 'none'
+
+  const studentGroups = useMemo(() => {
+    const query = deferredStudentSearch.trim().toLowerCase()
+    return [
+      { label: 'A–F', from: 'A', to: 'F' },
+      { label: 'G–M', from: 'G', to: 'M' },
+      { label: 'N–P', from: 'N', to: 'P' },
+      { label: 'Q–Z', from: 'Q', to: 'Z' },
+    ]
+      .map(group => {
+        const groupStudents = visibleStudents
+          .filter(s => {
+            const firstLetter = (s.name || '').trim().charAt(0).toUpperCase()
+            const matchesName = !query || String(s.name || '').toLowerCase().includes(query)
+            return firstLetter >= group.from && firstLetter <= group.to && matchesName
+          })
+          .sort((a, b) => a.name.localeCompare(b.name))
+        return { ...group, students: groupStudents }
+      })
+      .filter(group => group.students.length > 0)
+  }, [visibleStudents, deferredStudentSearch])
 
   async function handleNewItemPhoto(event: ChangeEvent<HTMLInputElement>) {
     const input = event.target
@@ -558,21 +581,7 @@ export default function TokenStorePage({
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: studentGridTemplate, gap: 8 }}>
-          {[
-            { label: 'A–F', from: 'A', to: 'F' },
-            { label: 'G–M', from: 'G', to: 'M' },
-            { label: 'N–P', from: 'N', to: 'P' },
-            { label: 'Q–Z', from: 'Q', to: 'Z' },
-          ].map(group => {
-            const groupStudents = visibleStudents
-              .filter(s => {
-                const firstLetter = (s.name || '').trim().charAt(0).toUpperCase()
-                const matchesName = !studentSearch.trim() || String(s.name || '').toLowerCase().includes(studentSearch.trim().toLowerCase())
-                return firstLetter >= group.from && firstLetter <= group.to && matchesName
-              })
-              .sort((a, b) => a.name.localeCompare(b.name))
-            return { ...group, students: groupStudents }
-          }).filter(group => group.students.length > 0).map(group => (
+          {studentGroups.map(group => (
             <div key={group.label} style={{ ...S.card, padding: 8, boxShadow: '0 4px 12px rgba(15,23,42,0.02)', borderRadius: 11 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: '#334155' }}>{group.label}</div>
