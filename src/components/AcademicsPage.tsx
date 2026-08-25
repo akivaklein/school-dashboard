@@ -1,6 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
 import { resolveStudentClassId } from './dashboardData'
 
+type AcademicCatalogSkill = {
+  id: string
+  label: string
+  active?: boolean
+  category?: string
+}
+
+type AcademicCatalogSubject = {
+  id: string
+  label: string
+  active?: boolean
+  divisionKeys?: string[]
+  classIds?: string[]
+  teacherNames?: string[]
+  skills?: AcademicCatalogSkill[]
+}
+
+const isNonEmptyString = (value: string | null | undefined): value is string => Boolean(value)
+
 export function StudentScoresTab({
   student,
   students,
@@ -338,7 +357,7 @@ export default function AcademicsPage({
     return ACADEMIC_AREAS[teacherName] || ACADEMIC_AREAS[teacherOptions[0]] || ACADEMIC_AREAS[academicTeacherOptions?.[0]] || ACADEMIC_AREAS['Rabbi Abowitz'] || {}
   }
 
-  const activeCatalogSubjects = (academicCatalog?.subjects || []).filter(subject => subject.active !== false)
+  const activeCatalogSubjects = ((academicCatalog?.subjects || []) as AcademicCatalogSubject[]).filter(subject => subject.active !== false)
   const selectedClassDivision = classFilter === 'all' ? null : (CLASS_DIVISION?.[classFilter] || null)
   const effectiveTeacherForBulk = role === 'admin' ? bulkForm.teacher : loggedInTeacher
 
@@ -355,7 +374,7 @@ export default function AcademicsPage({
 
   const selectedCatalogSubject = activeCatalogSubjects.find(subject => subject.label === bulkForm.subject)
   const bulkCategorySkills = (selectedCatalogSubject?.skills || []).filter(skill => skill.active !== false)
-  const bulkCategoryOptions = ['all', ...new Set(bulkCategorySkills.map(skill => skill.category).filter(Boolean))]
+  const bulkCategoryOptions = ['all', ...new Set(bulkCategorySkills.map(skill => skill.category).filter(isNonEmptyString))]
   const bulkSkillOptions = bulkCategorySkills
     .filter(skill => bulkForm.category === 'all' || (skill.category || '') === bulkForm.category)
     .map(skill => skill.label)
@@ -626,13 +645,13 @@ export default function AcademicsPage({
   latestByStudent.forEach(row => { statusCounts[row.status] = (statusCounts[row.status] || 0) + 1 })
   const ratingCounts = { Weak: 0, Developing: 0, Good: 0, Great: 0 }
   allScores.filter(x=>x.scoreType==='rating').forEach(x => { ratingCounts[x.rating] = (ratingCounts[x.rating] || 0) + 1 })
-  const filterSubjectOptions = ['all', ...new Set((academicCatalog?.subjects || []).filter(subject => subject.active !== false).map(subject => subject.label))]
+  const filterSubjectOptions = ['all', ...new Set(((academicCatalog?.subjects || []) as AcademicCatalogSubject[]).filter(subject => subject.active !== false).map(subject => subject.label))]
   const activeFilterSubjectSkills = subjectFilter === 'all'
     ? []
-    : (academicCatalog?.subjects || [])
+    : ((academicCatalog?.subjects || []) as AcademicCatalogSubject[])
         .filter(subject => subject.active !== false && subject.label === subjectFilter)
         .flatMap(subject => (subject.skills || []).filter(skill => skill.active !== false))
-  const filterCategories = ['all', ...new Set(activeFilterSubjectSkills.map(skill => skill.category).filter(Boolean))]
+  const filterCategories = ['all', ...new Set(activeFilterSubjectSkills.map(skill => skill.category).filter(isNonEmptyString))]
   const filterSkills = subjectFilter === 'all'
     ? ['all']
     : ['all', ...new Set(

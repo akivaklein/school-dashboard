@@ -1,6 +1,25 @@
 import { useMemo, useState } from 'react'
 import { createTeachingAction, deleteTeachingAction, saveAcademicCatalog } from '../services/setupCenterService'
 
+type AcademicCatalogSkill = {
+  id: string
+  label: string
+  active?: boolean
+  category?: string
+}
+
+type AcademicCatalogSubject = {
+  id: string
+  label: string
+  active?: boolean
+  divisionKeys?: string[]
+  classIds?: string[]
+  teacherNames?: string[]
+  skills?: AcademicCatalogSkill[]
+}
+
+const isNonEmptyString = (value: string | null | undefined): value is string => Boolean(value)
+
 export default function SetupTeachingConfigSection({
   setupActionDraft,
   setSetupActionDraft,
@@ -19,8 +38,8 @@ export default function SetupTeachingConfigSection({
   const [newSkillCategory, setNewSkillCategory] = useState('')
   const [catalogSaveStatus, setCatalogSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-  const subjects = useMemo(
-    () => (academicCatalog?.subjects || []).slice().sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''))),
+  const subjects = useMemo<AcademicCatalogSubject[]>(
+    () => ((academicCatalog?.subjects || []) as AcademicCatalogSubject[]).slice().sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''))),
     [academicCatalog],
   )
 
@@ -511,7 +530,7 @@ export default function SetupTeachingConfigSection({
                       style={{ padding: '8px 10px', border: '1px solid #dce4ed', borderRadius: 8, minWidth: 190 }}
                     />
                     <datalist id="skill-category-suggestions">
-                      {Array.from(new Set((selectedSubject.skills || []).map(skill => skill.category).filter(Boolean))).map(category => (
+                      {Array.from(new Set((selectedSubject.skills || []).map(skill => skill.category).filter(isNonEmptyString))).map(category => (
                         <option key={category} value={category} />
                       ))}
                     </datalist>
@@ -536,7 +555,7 @@ export default function SetupTeachingConfigSection({
                           groups[key] = groups[key] || []
                           groups[key].push(skill)
                           return groups
-                        }, {} as Record<string, typeof selectedSubject.skills>)
+                        }, {} as Record<string, AcademicCatalogSkill[]>)
                       ).map(([category, skills]) => (
                         <div key={category}>
                           <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{category}</div>
