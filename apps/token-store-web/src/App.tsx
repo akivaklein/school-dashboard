@@ -1,5 +1,18 @@
-import { useMemo, useState } from 'react'
-import { listProducts, listRedemptions, listStudents, redeemStorePurchaseTx, reverseStorePurchaseTx } from './storeApi'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  applyPointsAdjustmentTx,
+  getCurrentRole,
+  getCurrentSession,
+  listProducts,
+  listRedemptions,
+  listStudents,
+  redeemStorePurchaseTx,
+  reverseStorePurchaseTx,
+  signInWithPassword,
+  signOut,
+} from './storeApi'
+import { registerAccountEmail } from './registerIdentity'
+import { supabaseConfigError } from './supabaseClient'
 import type { CheckoutCartItem, StoreProduct, StoreRedemption, StoreStudent } from './types'
 
 function createAttemptKey() {
@@ -8,6 +21,14 @@ function createAttemptKey() {
 }
 
 export default function App() {
+  const [sessionReady, setSessionReady] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [currentRole, setCurrentRole] = useState('')
+  const [currentName, setCurrentName] = useState('')
+  const [isRegisterLogin, setIsRegisterLogin] = useState(true)
+  const [loginIdentity, setLoginIdentity] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+
   const [students, setStudents] = useState<StoreStudent[]>([])
   const [products, setProducts] = useState<StoreProduct[]>([])
   const [redemptions, setRedemptions] = useState<StoreRedemption[]>([])
@@ -18,6 +39,19 @@ export default function App() {
   const [cart, setCart] = useState<CheckoutCartItem[]>([])
   const [status, setStatus] = useState('Load students/products from Supabase to start.')
   const [busy, setBusy] = useState(false)
+  const [adjustmentAmount, setAdjustmentAmount] = useState('')
+  const [adjustmentReason, setAdjustmentReason] = useState('Manual register adjustment')
+
+  useEffect(() => {
+    if (supabaseConfigError) {
+      setStatus(supabaseConfigError)
+      setSessionReady(true)
+      setIsAuthenticated(false)
+      return
+    }
+
+    void initializeSession()
+  }, [])
 
   const selectedStudent = students.find(student => student.id === selectedStudentId) || null
 
@@ -44,6 +78,69 @@ export default function App() {
     if (!selectedStudent) return []
     return redemptions.filter(redemption => !redemption.reversedAt && redemption.studentId === selectedStudent.id).slice(0, 10)
   }, [redemptions, selectedStudent])
+
+  async function initializeSession() {
+    try {
+      const session = await getCurrentSession()
+      if (!session?.user?.id) {
+        setIsAuthenticated(false)
+        setSessionReady(true)
+        return
+      }
+
+      const role = await getCurrentRole(session.user.id)
+      if (!role || (role !== 'admin' && role !== 'register')) {
+        await signOut()
+        setIsAuthenticated(false)
+        setStatus('Access denied. Store requires admin or register role.')
+        setSessionReady(true)
+        return
+      }
+
+      setIsAuthenticated(true)
+      setCurrentRole(role)
+      setCurrentName((session.user.user_metadata?.display_name as string) || (session.user.email || 'Staff'))
+      setSessionReady(true)
+      await refreshStoreData()
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Unable to initialize session.')
+      setSessionReady(true)
+    }
+  }
+
+  async function handleLogin() {
+    setBusy(true)
+    try {
+      const email = isRegisterLogin ? registerAccountEmail(loginIdentity) : loginIdentity.trim()
+      await signInWithPassword(email, loginPassword)
+      setLoginPassword('')
+      await initializeSession()
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Sign in failed.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleLogout() {
+    setBusy(true)
+    try {
+      await signOut()
+      setIsAuthenticated(false)
+      setCurrentRole('')
+      setCurrentName('')
+      setStudents([])
+      setProducts([])
+      setRedemptions([])
+      setSelectedStudentId(null)
+      setCart([])
+      setStatus('Signed out.')
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Unable to sign out.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   function addToCart(product: StoreProduct) {
     if (!selectedStudent) {
@@ -150,12 +247,79 @@ export default function App() {
     }
   }
 
+  async function applyPointsAdjustment() {
+    if (!selectedStudent) {
+      setStatus('Select a student before adjusting points.')
+      return
+    }
+    const value = Number(adjustmentAmount)
+    if (!Number.isFinite(value) || value === 0) {
+      setStatus('Enter a non-zero points adjustment amount.')
+      return
+    }
+
+    setBusy(true)
+    try {
+      await applyPointsAdjustmentTx({
+        studentId: selectedStudent.id,
+        studentName: selectedStudent.name,
+        staffName: currentName || 'Web Register',
+        staffRole: currentRole || 'register',
+        pointsDelta: Math.round(value),
+        reason: adjustmentReason || 'Manual register adjustment',
+      })
+      setAdjustmentAmount('')
+      await refreshStoreData()
+      setStatus('Points adjusted successfully.')
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Unable to adjust points.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!sessionReady) {
+    return <div className="auth-shell">Checking session...</div>
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="auth-shell">
+        <div className="auth-card">
+          <h1>Token Store Sign In</h1>
+          <p className="status">{isRegisterLogin ? 'Register sign in (name + PIN)' : 'Staff sign in (email + password)'}</p>
+          <div className="auth-toggle">
+            <button className={isRegisterLogin ? 'chip active' : 'chip'} onClick={() => setIsRegisterLogin(true)}>Register</button>
+            <button className={!isRegisterLogin ? 'chip active' : 'chip'} onClick={() => setIsRegisterLogin(false)}>Staff</button>
+          </div>
+          <input
+            value={loginIdentity}
+            onChange={event => setLoginIdentity(event.target.value)}
+            placeholder={isRegisterLogin ? 'Register name' : 'Email'}
+          />
+          <input
+            value={loginPassword}
+            onChange={event => setLoginPassword(event.target.value)}
+            type="password"
+            inputMode={isRegisterLogin ? 'numeric' : undefined}
+            maxLength={isRegisterLogin ? 4 : undefined}
+            placeholder={isRegisterLogin ? '4-digit PIN' : 'Password'}
+          />
+          <button onClick={handleLogin} disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
+          <p className="status">{status}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
         <h1>Token Store</h1>
         <div className="topbar-actions">
+          <span className="role-pill">{currentRole}: {currentName}</span>
           <button onClick={refreshStoreData} disabled={busy}>{busy ? 'Working...' : 'Refresh'}</button>
+          <button onClick={handleLogout} disabled={busy}>Sign out</button>
         </div>
       </header>
 
@@ -228,6 +392,11 @@ export default function App() {
           </div>
           <div className="totals">Total: {cartTotal} pts</div>
           <button className="checkout" disabled={busy || !selectedStudent || cart.length === 0} onClick={checkout}>Checkout</button>
+
+          <h3>Point Adjustment</h3>
+          <input value={adjustmentAmount} onChange={event => setAdjustmentAmount(event.target.value)} placeholder="e.g. 10 or -5" />
+          <input value={adjustmentReason} onChange={event => setAdjustmentReason(event.target.value)} placeholder="Reason" />
+          <button className="checkout" disabled={busy || !selectedStudent} onClick={applyPointsAdjustment}>Apply Points</button>
 
           <h3>Return / Exchange</h3>
           <div className="list">

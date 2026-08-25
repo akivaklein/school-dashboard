@@ -50,6 +50,78 @@ type NewStoreItemState = {
 }
 
 const MAX_STORE_ITEM_IMAGE_BYTES = 750 * 1024
+const COMPRESS_START_DIMENSION = 1000
+
+const KEYBOARD_ROWS = [
+  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+  ['z', 'x', 'c', 'v', 'b', 'n', 'm', '-', "'"],
+]
+
+type KeyboardField = 'name' | 'sku' | 'barcode' | 'emoji'
+
+const KEYBOARD_FIELD_LABELS: Array<{ key: KeyboardField; label: string }> = [
+  { key: 'name', label: 'Item name' },
+  { key: 'sku', label: 'SKU' },
+  { key: 'barcode', label: 'Barcode' },
+  { key: 'emoji', label: 'Icon' },
+]
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('read-failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function loadImage(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('decode-failed'))
+    image.src = dataUrl
+  })
+}
+
+function estimateDataUrlBytes(dataUrl: string) {
+  const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
+  return Math.round((base64.length * 3) / 4)
+}
+
+function drawScaledJpeg(image: HTMLImageElement, maxDimension: number, quality: number) {
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth || 1, image.naturalHeight || 1))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round((image.naturalWidth || 1) * scale))
+  canvas.height = Math.max(1, Math.round((image.naturalHeight || 1) * scale))
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('canvas-unavailable')
+  context.fillStyle = '#ffffff'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.drawImage(image, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/jpeg', quality)
+}
+
+// Tablet photos are usually far above the store image limit, so shrink instead of rejecting.
+async function buildStoreItemImageDataUrl(file: File, maxBytes: number) {
+  const originalDataUrl = await readFileAsDataUrl(file)
+  if (file.size <= maxBytes) return originalDataUrl
+
+  const image = await loadImage(originalDataUrl)
+  let maxDimension = COMPRESS_START_DIMENSION
+  let quality = 0.82
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const candidate = drawScaledJpeg(image, maxDimension, quality)
+    if (estimateDataUrlBytes(candidate) <= maxBytes) return candidate
+    if (quality > 0.4) quality -= 0.12
+    else maxDimension = Math.round(maxDimension * 0.75)
+  }
+
+  throw new Error('too-large')
+}
 
 type StyleBag = {
   btn: (variant: string) => CSSProperties
@@ -150,6 +222,10 @@ export default function TokenStorePage({
 }: Props) {
   const [reportRange, setReportRange] = useState<'today' | 'week'>('today')
   const [studentSearch, setStudentSearch] = useState('')
+  const [photoStatus, setPhotoStatus] = useState('')
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
+  const [keyboardField, setKeyboardField] = useState<KeyboardField>('name')
+  const [keyboardShift, setKeyboardShift] = useState(false)
   const isCompactViewport = useCompactViewport()
   const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 96px'
   const addItemGridTemplate = isCompactViewport
@@ -167,28 +243,38 @@ export default function TokenStorePage({
 
   const lastErrorText = storeLastLoadError || 'none'
 
-  function handleNewItemPhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
+  async function handleNewItemPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target
+    const file = input.files?.[0]
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
       alert('Choose an image file.')
-      event.target.value = ''
+      input.value = ''
       return
     }
 
-    if (file.size > MAX_STORE_ITEM_IMAGE_BYTES) {
-      alert('Choose a photo that is 750 KB or smaller.')
-      event.target.value = ''
-      return
+    setPhotoStatus('Preparing photo...')
+    try {
+      const dataUrl = await buildStoreItemImageDataUrl(file, MAX_STORE_ITEM_IMAGE_BYTES)
+      setNewStoreItem(previous => ({ ...previous, imageUrl: dataUrl }))
+      setPhotoStatus(file.size > MAX_STORE_ITEM_IMAGE_BYTES ? 'Photo resized to fit.' : 'Photo ready.')
+    } catch {
+      setPhotoStatus('')
+      alert('Unable to use that photo. Please try another image.')
+    } finally {
+      input.value = ''
     }
+  }
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      setNewStoreItem(previous => ({ ...previous, imageUrl: String(reader.result || '') }))
-    }
-    reader.onerror = () => alert('Unable to read that photo. Please try another image.')
-    reader.readAsDataURL(file)
+  function typeKeyboardCharacter(character: string) {
+    const next = keyboardShift ? character.toUpperCase() : character
+    setNewStoreItem(previous => ({ ...previous, [keyboardField]: `${String(previous[keyboardField] ?? '')}${next}` }))
+    setKeyboardShift(false)
+  }
+
+  function backspaceKeyboardCharacter() {
+    setNewStoreItem(previous => ({ ...previous, [keyboardField]: String(previous[keyboardField] ?? '').slice(0, -1) }))
   }
 
   const redemptionReport = useMemo(() => {
@@ -315,10 +401,10 @@ export default function TokenStorePage({
                 <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 14, paddingTop: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Add Store Item</div>
                   <div style={{ display: 'grid', gridTemplateColumns: addItemGridTemplate, gap: 8, alignItems: 'center' }}>
-                    <input value={newStoreItem.emoji} onChange={e => setNewStoreItem(prev => ({ ...prev, emoji: e.target.value }))} placeholder="Icon" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input value={newStoreItem.name} onChange={e => setNewStoreItem(prev => ({ ...prev, name: e.target.value }))} placeholder="Item name" spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input value={newStoreItem.sku} onChange={e => setNewStoreItem(prev => ({ ...prev, sku: e.target.value }))} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input value={newStoreItem.barcode} onChange={e => setNewStoreItem(prev => ({ ...prev, barcode: e.target.value }))} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.emoji} onChange={e => setNewStoreItem(prev => ({ ...prev, emoji: e.target.value }))} onFocus={() => setKeyboardField('emoji')} placeholder="Icon" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.name} onChange={e => setNewStoreItem(prev => ({ ...prev, name: e.target.value }))} onFocus={() => setKeyboardField('name')} placeholder="Item name" spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.sku} onChange={e => setNewStoreItem(prev => ({ ...prev, sku: e.target.value }))} onFocus={() => setKeyboardField('sku')} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={newStoreItem.barcode} onChange={e => setNewStoreItem(prev => ({ ...prev, barcode: e.target.value }))} onFocus={() => setKeyboardField('barcode')} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.cost} onChange={e => setNewStoreItem(prev => ({ ...prev, cost: e.target.value }))} placeholder="Cost" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.stock} onChange={e => setNewStoreItem(prev => ({ ...prev, stock: e.target.value }))} placeholder="Stock" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
                     <input type="number" value={newStoreItem.lowStockAt} onChange={e => setNewStoreItem(prev => ({ ...prev, lowStockAt: e.target.value }))} placeholder="Low at" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
@@ -332,17 +418,72 @@ export default function TokenStorePage({
                   </div>
                   <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <label style={{ ...S.btn('ghost'), cursor: 'pointer' }}>
-                      Add Photo
+                      Take Photo
                       <input type="file" accept="image/*" capture="environment" onChange={handleNewItemPhoto} style={{ display: 'none' }} />
                     </label>
-                    <span style={{ fontSize: 11, color: '#64748b' }}>Up to 750 KB</span>
+                    <label style={{ ...S.btn('ghost'), cursor: 'pointer' }}>
+                      Choose From Gallery
+                      <input type="file" accept="image/*" onChange={handleNewItemPhoto} style={{ display: 'none' }} />
+                    </label>
+                    <span style={{ fontSize: 11, color: '#64748b' }}>Large photos are resized automatically</span>
+                    {photoStatus && <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>{photoStatus}</span>}
                     {newStoreItem.imageUrl && (
                       <>
                         <img src={newStoreItem.imageUrl} alt="New item preview" style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 6, border: '1px solid #d8dee9' }} />
-                        <button onClick={() => setNewStoreItem(previous => ({ ...previous, imageUrl: '' }))} style={{ ...S.btn('ghost'), padding: '5px 8px', fontSize: 11 }}>Remove Photo</button>
+                        <button onClick={() => { setNewStoreItem(previous => ({ ...previous, imageUrl: '' })); setPhotoStatus('') }} style={{ ...S.btn('ghost'), padding: '5px 8px', fontSize: 11 }}>Remove Photo</button>
                       </>
                     )}
                   </div>
+
+                  <div style={{ marginTop: 10 }}>
+                    <button onClick={() => setKeyboardOpen(open => !open)} style={{ ...S.btn(keyboardOpen ? 'primary' : 'ghost'), padding: '6px 10px', fontSize: 12 }}>
+                      {keyboardOpen ? 'Hide On-Screen Keyboard' : 'On-Screen Keyboard'}
+                    </button>
+                    <span style={{ fontSize: 11, color: '#64748b', marginLeft: 8 }}>
+                      Use this when a barcode scanner is plugged in and the tablet keyboard stays hidden.
+                    </span>
+                  </div>
+
+                  {keyboardOpen && (
+                    <div style={{ marginTop: 10, padding: 10, border: '1px solid #d8dee9', borderRadius: 10, background: '#f8fafc' }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                        {KEYBOARD_FIELD_LABELS.map(field => (
+                          <button
+                            key={field.key}
+                            onClick={() => setKeyboardField(field.key)}
+                            style={{ ...S.btn(keyboardField === field.key ? 'primary' : 'ghost'), padding: '5px 9px', fontSize: 11 }}
+                          >
+                            {field.label}
+                          </button>
+                        ))}
+                        <span style={{ fontSize: 11, color: '#475569', alignSelf: 'center' }}>
+                          Typing into: {KEYBOARD_FIELD_LABELS.find(field => field.key === keyboardField)?.label} — “{String(newStoreItem[keyboardField] ?? '') || 'empty'}”
+                        </span>
+                      </div>
+
+                      {KEYBOARD_ROWS.map((row, rowIndex) => (
+                        <div key={rowIndex} style={{ display: 'flex', gap: 5, marginBottom: 5, flexWrap: 'wrap' }}>
+                          {row.map(character => (
+                            <button
+                              key={character}
+                              onClick={() => typeKeyboardCharacter(character)}
+                              style={{ ...S.btn('ghost'), minWidth: 40, minHeight: 42, padding: '8px 0', fontSize: 15, fontWeight: 700, background: '#fff' }}
+                            >
+                              {keyboardShift ? character.toUpperCase() : character}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                        <button onClick={() => setKeyboardShift(shift => !shift)} style={{ ...S.btn(keyboardShift ? 'primary' : 'ghost'), minHeight: 42, padding: '8px 14px', fontSize: 12, fontWeight: 700 }}>Shift</button>
+                        <button onClick={() => typeKeyboardCharacter(' ')} style={{ ...S.btn('ghost'), minHeight: 42, padding: '8px 40px', fontSize: 12, background: '#fff' }}>Space</button>
+                        <button onClick={backspaceKeyboardCharacter} style={{ ...S.btn('ghost'), minHeight: 42, padding: '8px 14px', fontSize: 12, background: '#fff' }}>Backspace</button>
+                        <button onClick={() => setNewStoreItem(previous => ({ ...previous, [keyboardField]: '' }))} style={{ ...S.btn('ghost'), minHeight: 42, padding: '8px 14px', fontSize: 12, background: '#fff' }}>Clear</button>
+                        <button onClick={() => setKeyboardOpen(false)} style={{ ...S.btn('primary'), minHeight: 42, padding: '8px 18px', fontSize: 12 }}>Done</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

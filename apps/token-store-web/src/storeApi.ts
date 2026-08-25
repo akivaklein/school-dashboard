@@ -23,6 +23,34 @@ export async function listStudents(): Promise<StoreStudent[]> {
   })).filter(student => student.isActive)
 }
 
+export async function signInWithPassword(email: string, password: string) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) throw error
+}
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut()
+  if (error) throw error
+}
+
+export async function getCurrentSession() {
+  const { data, error } = await supabase.auth.getSession()
+  if (error) throw error
+  return data.session
+}
+
+export async function getCurrentRole(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role, is_active')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (error) throw error
+  return data?.role ? String(data.role) : null
+}
+
 export async function listProducts(): Promise<StoreProduct[]> {
   const { data, error } = await supabase
     .from('store_items')
@@ -107,6 +135,36 @@ export async function reverseStorePurchaseTx(input: {
     p_staff_role: input.staffRole,
     p_note: 'Web return/exchange',
     p_source_context: 'token-store-web',
+  })
+
+  if (error) throw error
+  return data
+}
+
+export async function applyPointsAdjustmentTx(input: {
+  studentId: number
+  studentName: string
+  staffName: string
+  staffRole: string
+  pointsDelta: number
+  reason: string
+}) {
+  const { data, error } = await supabase.rpc('apply_points_event_tx', {
+    p_student_id: input.studentId,
+    p_student_name: input.studentName,
+    p_staff_id: null,
+    p_staff_name: input.staffName,
+    p_staff_role: input.staffRole,
+    p_points_delta: input.pointsDelta,
+    p_reminder_delta: 0,
+    p_event_type: 'manual-adjustment',
+    p_category: 'store',
+    p_reason: input.reason,
+    p_note: 'Standalone store adjustment',
+    p_source_page: 'store',
+    p_source_context: 'token-store-web-adjustment',
+    p_related_event_id: null,
+    p_metadata: { source: 'token-store-web' },
   })
 
   if (error) throw error

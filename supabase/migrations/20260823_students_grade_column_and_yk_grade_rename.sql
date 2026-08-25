@@ -1,118 +1,29 @@
-begin;
+Please pause additional APK builds for now. Continue improving and testing the computer web preview while we wait for Meshimer. Import the complete student and product data, make the checkout and inventory design closely resemble the existing Vercel Token Store, support product pictures, optimize it for the Galaxy Tab E’s smaller screen, add an easy return/exchange workflow, and ensure successful checkout returns to the student list. Keep Android fully offline and do not add internet synchronization. After I approve the computer preview, build one updated universal APK.Please pause additional APK builds for now. Continue improving and testing the computer web preview while we wait for Meshimer. Import the complete student and product data, make the checkout and inventory design closely resemble the existing Vercel Token Store, support product pictures, optimize it for the Galaxy Tab E’s smaller screen, add an easy return/exchange workflow, and ensure successful checkout returns to the student list. Keep Android fully offline and do not add internet synchronization. After I approve the computer preview, build one updated universal APK.Please pause additional APK builds for now. Continue improving and testing the computer web preview while we wait for Meshimer. Import the complete student and product data, make the checkout and inventory design closely resemble the existing Vercel Token Store, support product pictures, optimize it for the Galaxy Tab E’s smaller screen, add an easy return/exchange workflow, and ensure successful checkout returns to the student list. Keep Android fully offline and do not add internet synchronization. After I approve the computer preview, build one updated universal APK.Both Codespaces secrets are added and I restarted the Codespace:
 
-------------------------------------------------------------
--- 1) Add the students.grade column the secure admin writer needs.
---    Fixes: "Could not find the 'grade' column of 'students'
---    in the schema cache."
-------------------------------------------------------------
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY
 
-alter table public.students add column if not exists grade text;
+Please verify they are available without printing their values. Remove or stop using any local placeholder such as [SENSITIVE] or example.invalid, but do not expose the real values.
 
-------------------------------------------------------------
--- 2) Backfill grade from the legacy Yeshiva Ketana class names.
---    Alef -> 8th Grade, Beis -> 7th Grade.
---    Only fills rows that do not already carry a usable grade.
-------------------------------------------------------------
+Restart the standalone Token Store server on port 4173. Confirm through the browser/network request that it connects to the real Supabase project—not example.invalid—and then tell me the next step for creating or using my first staff-admin login.Both Codespaces secrets are added and I restarted the Codespace:
 
-update public.students
-set grade = case
-  when lower(coalesce(class_name, '')) like '%alef%' then '8'
-  when lower(coalesce(class_name, '')) like '%beis%' then '7'
-  when lower(coalesce(class_name, '')) like '%beit%' then '7'
-  when lower(coalesce(class_name, '')) like '%8%' then '8'
-  when lower(coalesce(class_name, '')) like '%7%' then '7'
-  else grade
-end
-where coalesce(nullif(trim(grade), ''), '') not in ('7', '8');
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY
 
--- Normalize any pre-existing free-text grade values to '7' / '8'.
-update public.students
-set grade = case
-  when lower(trim(grade)) in ('7', '7th', '7th grade', 'grade 7') then '7'
-  when lower(trim(grade)) in ('8', '8th', '8th grade', 'grade 8') then '8'
-  else grade
-end
-where coalesce(nullif(trim(grade), ''), '') not in ('7', '8');
+Please verify they are available without printing their values. Remove or stop using any local placeholder such as [SENSITIVE] or example.invalid, but do not expose the real values.
 
-alter table public.students
-  alter column grade set default '';
+Restart the standalone Token Store server on port 4173. Confirm through the browser/network request that it connects to the real Supabase project—not example.invalid—and then tell me the next step for creating or using my first staff-admin login.Both Codespaces secrets are added and I restarted the Codespace:
 
-update public.students set grade = coalesce(grade, '') where grade is null;
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY
 
-create index if not exists students_grade_idx on public.students(grade);
+Please verify they are available without printing their values. Remove or stop using any local placeholder such as [SENSITIVE] or example.invalid, but do not expose the real values.
 
-------------------------------------------------------------
--- 3) Rename the displayed class names.
---    "Yeshiva Ketana Alef" -> "8th Grade"
---    "Yeshiva Ketana Beis" -> "7th Grade"
---    Student assignments are preserved: only the label changes.
-------------------------------------------------------------
+Restart the standalone Token Store server on port 4173. Confirm through the browser/network request that it connects to the real Supabase project—not example.invalid—and then tell me the next step for creating or using my first staff-admin login.Both Codespaces secrets are added and I restarted the Codespace:
 
-update public.students
-set class_name = '8th Grade'
-where lower(coalesce(class_name, '')) like '%alef%';
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY
 
-update public.students
-set class_name = '7th Grade'
-where lower(coalesce(class_name, '')) like '%beis%'
-   or lower(coalesce(class_name, '')) like '%beit%';
+Please verify they are available without printing their values. Remove or stop using any local placeholder such as [SENSITIVE] or example.invalid, but do not expose the real values.
 
--- Keep class_name and grade in sync for every remaining row that has a grade.
-update public.students
-set class_name = case grade when '8' then '8th Grade' when '7' then '7th Grade' else class_name end
-where grade in ('7', '8')
-  and class_name is distinct from (case grade when '8' then '8th Grade' else '7th Grade' end);
-
-------------------------------------------------------------
--- 4) Rename the same labels in dependent tables, when present.
-------------------------------------------------------------
-
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'teacher_rebbe_assignments' and column_name = 'class_name'
-  ) then
-    execute $sql$
-      update public.teacher_rebbe_assignments
-      set class_name = case
-        when lower(coalesce(class_name, '')) like '%alef%' then '8th Grade'
-        when lower(coalesce(class_name, '')) like '%beis%' then '7th Grade'
-        when lower(coalesce(class_name, '')) like '%beit%' then '7th Grade'
-        else class_name
-      end
-      where lower(coalesce(class_name, '')) similar to '%(alef|beis|beit)%'
-    $sql$;
-  end if;
-
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'student_class_assignments' and column_name = 'class_name'
-  ) then
-    execute $sql$
-      update public.student_class_assignments
-      set class_name = case
-        when lower(coalesce(class_name, '')) like '%alef%' then '8th Grade'
-        when lower(coalesce(class_name, '')) like '%beis%' then '7th Grade'
-        when lower(coalesce(class_name, '')) like '%beit%' then '7th Grade'
-        else class_name
-      end
-      where lower(coalesce(class_name, '')) similar to '%(alef|beis|beit)%'
-    $sql$;
-  end if;
-end
-$$;
-
-commit;
-
-------------------------------------------------------------
--- Verification (run separately, read-only):
---
---   select grade, class_name, count(*)
---   from public.students
---   where is_active is true
---   group by grade, class_name
---   order by grade;
---
--- Expect only ('7','7th Grade') and ('8','8th Grade') rows.
-------------------------------------------------------------
+Restart the standalone Token Store server on port 4173. Confirm through the browser/network request that it connects to the real Supabase project—not example.invalid—and then tell me the next step for creating or using my first staff-admin login.
