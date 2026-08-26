@@ -5,12 +5,6 @@ alter table public.user_roles
   add column if not exists invited_at timestamptz,
   add column if not exists invited_by uuid references auth.users(id) on delete set null;
 
-update public.user_roles
-set display_name = 'Rabbi Klein',
-    updated_at = timezone('utc', now())
-where role = 'admin'
-  and display_name = 'Yeshiva Ketana Admin';
-
 create or replace function public.dashboard_default_permissions(p_role text)
 returns jsonb
 language sql
@@ -25,11 +19,6 @@ as $$
     else '{"students":"none","attendance":"none","grades":"none","behavior":"none","store":"none","reports":"none","setup":"none","users":"none"}'::jsonb
   end
 $$;
-
-update public.user_roles
-set permissions = public.dashboard_default_permissions(role) || coalesce(permissions, '{}'::jsonb)
-where permissions = '{}'::jsonb
-   or permissions is null;
 
 create or replace function public.dashboard_current_permissions()
 returns jsonb

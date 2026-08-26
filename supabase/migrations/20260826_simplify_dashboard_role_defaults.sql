@@ -15,11 +15,6 @@ as $$
   end
 $$;
 
-update public.user_roles
-set permissions = public.dashboard_default_permissions(role),
-    updated_at = timezone('utc', now())
-where role in ('admin', 'teacher', 'rebbe', 'support_staff', 'register');
-
 grant execute on function public.dashboard_default_permissions(text) to authenticated;
 
 commit;
