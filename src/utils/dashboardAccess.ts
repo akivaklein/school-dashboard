@@ -37,7 +37,7 @@ export function resolveDashboardAccess(rows: UserRoleRecord[] | null | undefined
   }
 
   const [record] = usable
-  const fallbackName = record.normalizedRole === 'admin' ? 'Yeshiva Ketana Admin' : record.normalizedRole === 'register' ? 'Store Register' : 'Staff User'
+  const fallbackName = record.normalizedRole === 'admin' ? 'Rabbi Klein' : record.normalizedRole === 'register' ? 'Store Register' : 'Staff User'
 
   return {
     status: 'granted',

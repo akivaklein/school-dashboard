@@ -197,6 +197,7 @@ function App() {
   }), [])
 
   async function handleSignIn() {
+    if (authActionBusy) return
     setAuthActionBusy(true)
     setAuthError('')
     setAuthMessage('')
@@ -293,7 +294,14 @@ function App() {
 
   return (
     <div style={appShellStyle}>
-      <div style={{ width: '100%', maxWidth: 460, background: '#fff', border: '1px solid #d8e1ec', borderRadius: 18, boxShadow: '0 18px 38px rgba(15,23,42,0.09)', padding: 26 }}>
+      <form
+        onSubmit={event => {
+          event.preventDefault()
+          if (authMode === 'sign-in') void handleSignIn()
+          else void handleSendResetEmail()
+        }}
+        style={{ width: '100%', maxWidth: 460, background: '#fff', border: '1px solid #d8e1ec', borderRadius: 18, boxShadow: '0 18px 38px rgba(15,23,42,0.09)', padding: 26 }}
+      >
         <div style={{ fontSize: 22, fontWeight: 800, color: '#172033', marginBottom: 6 }}>Yeshiva Ketana Secure Login</div>
         <div style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>{isRegisterLogin ? 'Canteen register sign in' : 'Sign in with your Supabase Auth email and password.'}</div>
 
@@ -341,7 +349,7 @@ function App() {
             </div>
 
             <button
-              onClick={handleSignIn}
+              type="submit"
               disabled={authActionBusy}
               style={{ width: '100%', border: 'none', borderRadius: 10, background: '#1e3a5f', color: '#fff', fontWeight: 800, padding: '11px 12px', cursor: authActionBusy ? 'not-allowed' : 'pointer' }}
             >
@@ -368,7 +376,7 @@ function App() {
         {authMode === 'forgot-password' && (
           <>
             <button
-              onClick={handleSendResetEmail}
+              type="submit"
               disabled={authActionBusy || resetCooldownActive}
               style={{ width: '100%', border: 'none', borderRadius: 10, background: '#1e3a5f', color: '#fff', fontWeight: 800, padding: '11px 12px', cursor: (authActionBusy || resetCooldownActive) ? 'not-allowed' : 'pointer', opacity: resetCooldownActive ? 0.65 : 1 }}
             >
@@ -406,7 +414,7 @@ function App() {
             Log Out
           </button>
         )}
-      </div>
+      </form>
     </div>
   )
 }

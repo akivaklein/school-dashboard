@@ -16,7 +16,7 @@ describe('resolveDashboardAccess', () => {
   it('falls back to a default display name when none is stored', () => {
     const result = resolveDashboardAccess([{ role: 'ADMIN ', display_name: null, is_active: null }])
 
-    expect(result).toEqual({ status: 'granted', user: { role: 'admin', name: 'Yeshiva Ketana Admin' } })
+    expect(result).toEqual({ status: 'granted', user: { role: 'admin', name: 'Rabbi Klein' } })
   })
 
   it('grants restricted register access with a register display name', () => {

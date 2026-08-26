@@ -119,6 +119,7 @@ const LoginActivityView = lazy(() => import('./LoginActivityView'))
 import { getLookupValue } from './dashboardUtils'
 import { getRoleNavConfig } from './dashboardNavConfig'
 import { canAccessDashboardPage, canAccessStudentForRole } from './dashboardData'
+import { mergePermissionsForRole, type PermissionMatrix } from '../utils/permissions'
 
 import {
   STORE_CATEGORY_OPTIONS,
@@ -1366,6 +1367,10 @@ function getDefaultPageForRole(role: string): string {
   }
 
   return navConfig.topAreas[0]?.defaultPage || 'dashboard'
+}
+
+function canAccessSecurePage(role: string, page: string, permissions?: PermissionMatrix) {
+  return canAccessDashboardPage(role, page)
 }
 
 export default function Dashboard({ teacherUser, onTeacherSessionLogout }: DashboardProps) {
@@ -4300,7 +4305,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const effectiveRole = previewAs?.role || role
   const effectiveUserName = previewAs?.name || userName
 
-  const roleNavConfig = getRoleNavConfig(effectiveRole)
+  const baseRoleNavConfig = getRoleNavConfig(effectiveRole)
+  const roleNavConfig = {
+    topAreas: baseRoleNavConfig.topAreas.map(area => ({
+      ...area,
+      pages: area.pages.filter(pageId => canAccessDashboardPage(effectiveRole, pageId)),
+    })).filter(area => area.pages.length > 0),
+    submenuByArea: Object.fromEntries(Object.entries(baseRoleNavConfig.submenuByArea).map(([areaId, items]) => [
+      areaId,
+      items.filter(item => canAccessDashboardPage(effectiveRole, item.id)),
+    ])),
+  }
 
   const topAreas = roleNavConfig.topAreas
   const allowedPagesForRole = useMemo(() => new Set(topAreas.flatMap(area => area.pages)), [topAreas])

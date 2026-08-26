@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getRoleNavConfig } from '../dashboardNavConfig'
 import { deduplicateStudentIds } from '../teachingModeUtils'
 
 function buildScopedRoster(scopeType: string, selectedClass: string | null, selectedTeacher: string, selectedGrade: string, selectedPeriod: string, students: Array<{ id: number; name: string }>, studentClasses: Record<string, string>, classes: Array<{ id: string; teacher: string; grade: string }>, assignmentPeriods: Record<string, number[]>) {
@@ -37,6 +38,16 @@ function buildScopedRoster(scopeType: string, selectedClass: string | null, sele
 describe('teaching mode roster scoping', () => {
   it('deduplicates student ids across period buckets', () => {
     expect(deduplicateStudentIds([1, 2, 2, 3, 1, 4])).toEqual([1, 2, 3, 4])
+  })
+
+  it('includes teaching mode in teacher navigation for the secure dashboard', () => {
+    const teacherConfig = getRoleNavConfig('teacher')
+    const adminConfig = getRoleNavConfig('admin')
+
+    expect(teacherConfig.topAreas.some(area => area.id === 'school-day')).toBe(true)
+    expect(teacherConfig.submenuByArea['school-day']?.some(item => item.id === 'teaching-mode')).toBe(true)
+    expect(adminConfig.topAreas.some(area => area.id === 'school-day')).toBe(true)
+    expect(adminConfig.submenuByArea['school-day']?.some(item => item.id === 'teaching-mode')).toBe(true)
   })
 
   it('filters a teacher roster by class and preserves a clear classroom view', () => {
