@@ -4623,8 +4623,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     return order[a.type] - order[b.type]
   })
 
-  const isSetupCenterPage = page === 'setup' && effectiveRole === 'admin'
-  const showGlobalTopControls = effectiveRole === 'admin' && !showStaffPanel
+  const isSetupCenterPage = page === 'setup' && effectiveRole !== 'register'
+  const showGlobalTopControls = effectiveRole !== 'register' && !showStaffPanel
   const setupNavItems = [
     { id: 'staff-directory', label: 'Staff Directory', icon: '👥', group: 'People & Staff' },
     { id: 'assignments', label: 'Staff Assignments', icon: '🧑‍🏫', group: 'People & Staff' },
@@ -4994,7 +4994,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         {page === 'dashboard' && (effectiveRole === 'teacher' || effectiveRole === 'rebbe') && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} />}
         {page === 'dashboard' && effectiveRole === 'support_staff' && <TherapistDashboard students={visibleStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s, 'therapy')} staffMembers={staffMembers} therapySchedule={THERAPY_SCHEDULE_STATE} />}
 
-        {page === 'setup' && effectiveRole === 'admin' && (
+        {page === 'setup' && effectiveRole !== 'register' && (
           <Suspense fallback={<PageLoadingFallback />}>
           <SetupCenterPage
             S={S}
@@ -5114,7 +5114,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           </Suspense>
         )}
 
-        {page === 'dashboard' && effectiveRole === 'admin' && (
+        {page === 'dashboard' && effectiveRole !== 'register' && effectiveRole !== 'teacher' && effectiveRole !== 'rebbe' && effectiveRole !== 'support_staff' && (
           <Suspense fallback={<PageLoadingFallback />}>
           <AdminMainDashboard
             S={S}
@@ -5189,7 +5189,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           </Suspense>
         )}
 
-        {page === 'staff-directory' && effectiveRole !== 'teacher' && effectiveRole !== 'rebbe' && (
+        {page === 'staff-directory' && effectiveRole !== 'register' && (
           <StaffDirectoryPage
             S={S}
             staffMembers={staffMembers}

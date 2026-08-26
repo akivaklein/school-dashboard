@@ -8,11 +8,14 @@ describe('role access helpers', () => {
     expect(canAccessDashboardPage('support_staff', 'intake')).toBe(false)
   })
 
-  it('blocks teachers from setup and leadership pages', () => {
-    expect(canAccessDashboardPage('teacher', 'setup')).toBe(false)
-    expect(canAccessDashboardPage('teacher', 'calls')).toBe(false)
+  it('allows normal staff through the secure site while keeping Register restricted', () => {
+    expect(canAccessDashboardPage('teacher', 'setup')).toBe(true)
+    expect(canAccessDashboardPage('teacher', 'staff-directory')).toBe(true)
+    expect(canAccessDashboardPage('teacher', 'teaching-mode')).toBe(true)
     expect(canAccessDashboardPage('teacher', 'students')).toBe(true)
     expect(canAccessDashboardPage('teacher', 'store')).toBe(true)
+    expect(canAccessDashboardPage('register', 'setup')).toBe(false)
+    expect(canAccessDashboardPage('register', 'store')).toBe(true)
   })
 
   it('restricts teachers to assigned students', () => {
@@ -48,8 +51,9 @@ describe('role access helpers', () => {
     ).toBe(false)
   })
 
-  it('scopes support staff to focused points/store pages', () => {
-    expect(canAccessDashboardPage('support_staff', 'support')).toBe(false)
+  it('allows support staff through the secure site', () => {
+    expect(canAccessDashboardPage('support_staff', 'setup')).toBe(true)
+    expect(canAccessDashboardPage('support_staff', 'staff-directory')).toBe(true)
     expect(canAccessDashboardPage('support_staff', 'behavior')).toBe(true)
     expect(canAccessDashboardPage('support_staff', 'store')).toBe(true)
   })

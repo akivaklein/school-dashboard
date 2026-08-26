@@ -12,9 +12,9 @@ const permissionSections = ['students', 'attendance', 'grades', 'behavior', 'sto
 
 const defaultPermissionsByRole: Record<string, Record<string, string>> = {
   admin: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'view', setup: 'delete', users: 'delete' },
-  teacher: { students: 'view', attendance: 'edit', grades: 'edit', behavior: 'add', store: 'view', reports: 'none', setup: 'none', users: 'none' },
-  rebbe: { students: 'view', attendance: 'edit', grades: 'edit', behavior: 'add', store: 'view', reports: 'none', setup: 'none', users: 'none' },
-  support_staff: { students: 'view', attendance: 'view', grades: 'view', behavior: 'add', store: 'view', reports: 'none', setup: 'none', users: 'none' },
+  teacher: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
+  rebbe: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
+  support_staff: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
   register: { students: 'none', attendance: 'none', grades: 'none', behavior: 'none', store: 'add', reports: 'none', setup: 'none', users: 'none' },
 }
 
@@ -38,11 +38,6 @@ function normalizePermissions(role: string, permissions: unknown) {
   for (const section of permissionSections) {
     const value = String((permissions as Record<string, unknown>)[section] || '').trim().toLowerCase()
     if (permissionLevels.has(value)) base[section] = value
-  }
-
-  if (role !== 'admin') {
-    base.users = 'none'
-    base.setup = base.setup === 'delete' ? 'edit' : base.setup
   }
 
   return base

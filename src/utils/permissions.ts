@@ -17,9 +17,9 @@ export const PERMISSION_SECTIONS = [
 
 const DEFAULT_PERMISSIONS: Record<string, PermissionMatrix> = {
   admin: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'view', setup: 'delete', users: 'delete' },
-  teacher: { students: 'view', attendance: 'edit', grades: 'edit', behavior: 'add', store: 'view', reports: 'none', setup: 'none', users: 'none' },
-  rebbe: { students: 'view', attendance: 'edit', grades: 'edit', behavior: 'add', store: 'view', reports: 'none', setup: 'none', users: 'none' },
-  support_staff: { students: 'view', attendance: 'view', grades: 'view', behavior: 'add', store: 'view', reports: 'none', setup: 'none', users: 'none' },
+  teacher: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
+  rebbe: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
+  support_staff: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
   register: { students: 'none', attendance: 'none', grades: 'none', behavior: 'none', store: 'add', reports: 'none', setup: 'none', users: 'none' },
 }
 
@@ -36,11 +36,6 @@ export function mergePermissionsForRole(role: string, permissions?: unknown): Pe
     if (typeof value === 'string' && PERMISSION_LEVELS.includes(value as PermissionLevel)) {
       merged[section.key] = value as PermissionLevel
     }
-  }
-
-  if (role !== 'admin') {
-    merged.users = 'none'
-    if (merged.setup === 'delete') merged.setup = 'edit'
   }
 
   return merged

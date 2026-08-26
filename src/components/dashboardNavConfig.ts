@@ -112,11 +112,8 @@ const DEFAULT_NAV_CONFIG: RoleNavConfig = {
 }
 
 export function getRoleNavConfig(role: string): RoleNavConfig {
-  if (role === 'admin') return ADMIN_NAV_CONFIG
-  if (role === 'teacher' || role === 'rebbe') return TEACHER_NAV_CONFIG
+  if (role === 'register') return REGISTER_NAV_CONFIG
   if (role === 'therapist') return THERAPIST_NAV_CONFIG
   if (role === 'store' || role === 'canteen') return STORE_NAV_CONFIG
-  if (role === 'register') return REGISTER_NAV_CONFIG
-  if (role === 'support_staff') return SUPPORT_STAFF_NAV_CONFIG
-  return DEFAULT_NAV_CONFIG
+  return ADMIN_NAV_CONFIG
 }

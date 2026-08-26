@@ -18,9 +18,9 @@ stable
 as $$
   select case lower(coalesce(p_role, ''))
     when 'admin' then '{"students":"delete","attendance":"delete","grades":"delete","behavior":"delete","store":"delete","reports":"view","setup":"delete","users":"delete"}'::jsonb
-    when 'teacher' then '{"students":"view","attendance":"edit","grades":"edit","behavior":"add","store":"view","reports":"none","setup":"none","users":"none"}'::jsonb
-    when 'rebbe' then '{"students":"view","attendance":"edit","grades":"edit","behavior":"add","store":"view","reports":"none","setup":"none","users":"none"}'::jsonb
-    when 'support_staff' then '{"students":"view","attendance":"view","grades":"view","behavior":"add","store":"view","reports":"none","setup":"none","users":"none"}'::jsonb
+    when 'teacher' then '{"students":"delete","attendance":"delete","grades":"delete","behavior":"delete","store":"delete","reports":"delete","setup":"delete","users":"delete"}'::jsonb
+    when 'rebbe' then '{"students":"delete","attendance":"delete","grades":"delete","behavior":"delete","store":"delete","reports":"delete","setup":"delete","users":"delete"}'::jsonb
+    when 'support_staff' then '{"students":"delete","attendance":"delete","grades":"delete","behavior":"delete","store":"delete","reports":"delete","setup":"delete","users":"delete"}'::jsonb
     when 'register' then '{"students":"none","attendance":"none","grades":"none","behavior":"none","store":"add","reports":"none","setup":"none","users":"none"}'::jsonb
     else '{"students":"none","attendance":"none","grades":"none","behavior":"none","store":"none","reports":"none","setup":"none","users":"none"}'::jsonb
   end

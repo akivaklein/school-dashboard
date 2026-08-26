@@ -884,21 +884,8 @@ export function divisionLabel(key) {
 }
 
 export function canAccessDashboardPage(role, page) {
-  if (role === 'teacher' || role === 'rebbe') {
-    return ['students', 'behavior', 'store'].includes(page)
-  }
-
-  if (role === 'support_staff') {
-    return ['students', 'behavior', 'store'].includes(page)
-  }
-
   if (role === 'register') return ['store'].includes(page)
-
-  if (role === 'admin') {
-    return ['dashboard', 'students', 'academics', 'setup', 'behavior', 'store', 'staff-directory'].includes(page)
-  }
-
-  return ['students', 'behavior', 'store'].includes(page)
+  return ['dashboard', 'students', 'academics', 'setup', 'behavior', 'store', 'staff-directory', 'teaching-mode'].includes(page)
 }
 
 type StudentAccessContext = {
