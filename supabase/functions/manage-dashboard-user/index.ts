@@ -10,6 +10,8 @@ const allowedRoles = new Set(['admin', 'teacher', 'rebbe', 'support_staff', 'reg
 const permissionLevels = new Set(['none', 'view', 'add', 'edit', 'delete'])
 const permissionSections = ['students', 'attendance', 'grades', 'behavior', 'store', 'reports', 'setup', 'users']
 
+const FALLBACK_APP_URL = 'https://yeshiva-ketana-secure.vercel.app'
+
 const defaultPermissionsByRole: Record<string, Record<string, string>> = {
   admin: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'view', setup: 'delete', users: 'delete' },
   teacher: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
@@ -23,6 +25,16 @@ function jsonResponse(body: unknown, status = 200) {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     status,
   })
+}
+
+function resolveAppUrl(...candidates: (string | undefined | null)[]) {
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim().replace(/\/$/, '')
+    if (!/^https:\/\//i.test(value)) continue
+    if (/^https:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(value)) continue
+    return value
+  }
+  return FALLBACK_APP_URL
 }
 
 function normalizeRole(role: unknown) {
@@ -71,7 +83,7 @@ Deno.serve(async request => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
-    const appUrl = (Deno.env.get('APP_URL') || Deno.env.get('SITE_URL') || 'https://yeshiva-ketana-secure.vercel.app').replace(/\/$/, '')
+    const appUrl = resolveAppUrl(Deno.env.get('APP_URL'), Deno.env.get('SITE_URL'))
     if (!supabaseUrl || !serviceRoleKey || !anonKey) throw new Error('Server configuration is incomplete.')
 
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } })
