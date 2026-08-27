@@ -17,10 +17,18 @@ export const PERMISSION_SECTIONS = [
 
 const DEFAULT_PERMISSIONS: Record<string, PermissionMatrix> = {
   admin: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'view', setup: 'delete', users: 'delete' },
+  principal: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'view', setup: 'delete', users: 'delete' },
   teacher: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
   rebbe: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
   support_staff: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
   register: { students: 'none', attendance: 'none', grades: 'none', behavior: 'none', store: 'add', reports: 'none', setup: 'none', users: 'none' },
+}
+
+export const LEADERSHIP_ROLES = ['admin', 'principal']
+
+// Leadership sees and edits the whole school, regardless of teacher/student assignment.
+export function isLeadershipRole(role?: string | null): boolean {
+  return LEADERSHIP_ROLES.includes(String(role || '').trim().toLowerCase())
 }
 
 export function defaultPermissionsForRole(role: string): PermissionMatrix {

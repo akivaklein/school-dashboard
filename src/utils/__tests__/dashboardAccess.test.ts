@@ -29,11 +29,11 @@ describe('resolveDashboardAccess', () => {
     expect(resolveDashboardAccess(null)).toEqual({ status: 'denied', message: NO_PROFILE_MESSAGE })
   })
 
-  it('denies inactive or unknown roles instead of crashing', () => {
+  it('accepts leadership roles with school-wide access', () => {
     expect(resolveDashboardAccess([{ role: 'admin', display_name: 'X', is_active: false }]))
       .toEqual({ status: 'denied', message: NO_ACTIVE_ROLE_MESSAGE })
-    expect(resolveDashboardAccess([{ role: 'principal', display_name: 'X', is_active: true }]))
-      .toEqual({ status: 'denied', message: NO_ACTIVE_ROLE_MESSAGE })
+    expect(resolveDashboardAccess([{ role: 'principal', display_name: 'Principal', is_active: true }]))
+      .toEqual({ status: 'granted', user: { role: 'principal', name: 'Principal' } })
   })
 
   it('does not escalate privileges when duplicate conflicting rows exist', () => {

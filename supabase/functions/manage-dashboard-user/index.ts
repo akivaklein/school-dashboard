@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const allowedRoles = new Set(['admin', 'teacher', 'rebbe', 'support_staff', 'register'])
+const allowedRoles = new Set(['admin', 'principal', 'teacher', 'rebbe', 'support_staff', 'register'])
 const permissionLevels = new Set(['none', 'view', 'add', 'edit', 'delete'])
 const permissionSections = ['students', 'attendance', 'grades', 'behavior', 'store', 'reports', 'setup', 'users']
 
@@ -14,6 +14,7 @@ const FALLBACK_APP_URL = 'https://yeshiva-ketana-secure.vercel.app'
 
 const defaultPermissionsByRole: Record<string, Record<string, string>> = {
   admin: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'view', setup: 'delete', users: 'delete' },
+  principal: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'view', setup: 'delete', users: 'delete' },
   teacher: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
   rebbe: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
   support_staff: { students: 'delete', attendance: 'delete', grades: 'delete', behavior: 'delete', store: 'delete', reports: 'delete', setup: 'delete', users: 'delete' },
@@ -92,7 +93,8 @@ async function assertAdmin(adminClient: ReturnType<typeof createClient>, userId:
     .eq('is_active', true)
     .maybeSingle()
 
-  if (error || data?.role !== 'admin') throw new Error('Only administrators can manage dashboard users.')
+  const role = String(data?.role || '').trim().toLowerCase()
+  if (error || !['admin', 'principal'].includes(role)) throw new Error('Only administrators can manage dashboard users.')
 }
 
 async function findAuthUserByEmail(adminClient: ReturnType<typeof createClient>, email: string) {

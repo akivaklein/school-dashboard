@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { isLeadershipRole } from '../utils/permissions'
 import { resolveStudentClassId } from './dashboardData'
 import {
   buildLatestSessionRows,

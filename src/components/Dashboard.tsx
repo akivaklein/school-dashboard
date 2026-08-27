@@ -119,7 +119,7 @@ const LoginActivityView = lazy(() => import('./LoginActivityView'))
 import { getLookupValue } from './dashboardUtils'
 import { getRoleNavConfig } from './dashboardNavConfig'
 import { canAccessDashboardPage, canAccessStudentForRole } from './dashboardData'
-import { mergePermissionsForRole, type PermissionMatrix } from '../utils/permissions'
+import { isLeadershipRole, mergePermissionsForRole, type PermissionMatrix } from '../utils/permissions'
 
 import {
   STORE_CATEGORY_OPTIONS,
@@ -2234,8 +2234,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     family?: Record<string, string>
   }) {
     const activeRole = previewAs?.role || role
-    if (activeRole !== 'admin') {
-      throw new Error('Only admins can add students.')
+    if (!isLeadershipRole(activeRole)) {
+      throw new Error('Only admins and principals can add students.')
     }
 
     const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
@@ -2269,8 +2269,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     family?: Record<string, string>
   }) {
     const activeRole = previewAs?.role || role
-    if (activeRole !== 'admin') {
-      throw new Error('Only admins can edit students.')
+    if (!isLeadershipRole(activeRole)) {
+      throw new Error('Only admins and principals can edit students.')
     }
 
     const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
@@ -2291,8 +2291,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   async function archiveStudentFromAdmin(student: StudentLike) {
     const activeRole = previewAs?.role || role
-    if (activeRole !== 'admin') {
-      throw new Error('Only admins can archive students.')
+    if (!isLeadershipRole(activeRole)) {
+      throw new Error('Only admins and principals can archive students.')
     }
 
     const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
@@ -2303,8 +2303,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   async function restoreStudentFromAdmin(student: StudentLike) {
     const activeRole = previewAs?.role || role
-    if (activeRole !== 'admin') {
-      throw new Error('Only admins can restore students.')
+    if (!isLeadershipRole(activeRole)) {
+      throw new Error('Only admins and principals can restore students.')
     }
 
     const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
@@ -2319,8 +2319,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   async function deleteStudentFromAdmin(student: StudentLike) {
     const activeRole = previewAs?.role || role
-    if (activeRole !== 'admin') {
-      throw new Error('Only admins can permanently delete students.')
+    if (!isLeadershipRole(activeRole)) {
+      throw new Error('Only admins and principals can permanently delete students.')
     }
 
     if (student?.is_active !== false) {
@@ -2338,7 +2338,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStoreLastLoadError('')
 
       let loadedItems = await listStoreItems()
-      if (loadedItems.length === 0 && role === 'admin') {
+      if (loadedItems.length === 0 && isLeadershipRole(role)) {
         await seedStoreItems(STORE_ITEMS)
         loadedItems = await listStoreItems()
       }
@@ -4490,7 +4490,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     ? assignedTeacherStudentIdsForMode
     : getTeacherAssignedStudentIds(effectiveUserName, setupAssignments)
   const assignedStaffStudentSetForMode = new Set(assignedStaffStudentIdsForMode)
-  const isLeadershipRoleForMode = effectiveRole === 'admin'
+  const isLeadershipRoleForMode = isLeadershipRole(effectiveRole)
   const assignedTeacherStudentSetForMode = new Set(assignedTeacherStudentIdsForMode)
   const studentsForCurrentRole = isStoreRoleForMode
     ? students.filter(student => student?.is_active !== false)
@@ -4513,7 +4513,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         allStudents={activeStudents}
         setStudents={setStudents}
         onExit={closeTeachingModeToSchoolDay}
-        isAdmin={effectiveRole === 'admin'}
+        isAdmin={isLeadershipRole(effectiveRole)}
         role={effectiveRole}
         userName={effectiveUserName}
         initialClass={assignedTeacherClassIdsForMode[0] || null}
@@ -4528,7 +4528,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         persistStudentFields={persistStudentFields}
         persistStudentFieldsBulk={persistStudentFieldsBulk}
         recordStudentPointsAction={recordStudentPointsAction}
-        canViewEntireSchool={effectiveRole === 'admin'}
+        canViewEntireSchool={isLeadershipRole(effectiveRole)}
         assignedStudentIds={assignedStaffStudentIdsForMode}
         assignmentPeriods={teacherAssignmentPeriodBuckets?.[normalizedEffectiveUserName]?.periods || {}}
         teachingAssignments={teacherAssignmentPeriodBuckets}
@@ -4565,7 +4565,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             : []
       : effectiveRole === 'support_staff'
         ? divisionScopedStudents.filter(s => assignedStaffStudentSet.has(Number(s.id)) || Boolean(s.services?.length))
-        : divisionScopedStudents
+        : isLeadershipRole(effectiveRole)
+          ? activeStudents
+          : divisionScopedStudents
   const divisionOptions = userAccess.divisions.length > 1 ? ['all', ...userAccess.divisions] : userAccess.divisions
   const present = visibleStudents.filter(s => isInSchool(s)).length
   const absent = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'absent').length
@@ -4638,7 +4640,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   ]
 
   const normalizedSearch = String(search || '').trim().toLowerCase()
-  const studentsForStudentsPageBase = effectiveRole === 'admin'
+  const studentsForStudentsPageBase = isLeadershipRole(effectiveRole)
     ? students.filter(isYeshivaKetanaStudent)
     : visibleStudents
   const studentsForStudentsPage = normalizedSearch
@@ -4884,7 +4886,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {effectiveRole === 'admin' && !showStaffPanel && (
+              {isLeadershipRole(effectiveRole) && !showStaffPanel && (
                 <button
                   onClick={() => setShowStaffPanel(true)}
                   style={{
@@ -4902,7 +4904,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                   Logged In Staff
                 </button>
               )}
-              {effectiveRole === 'admin' && (
+              {isLeadershipRole(effectiveRole) && (
                 <button
                   onClick={() => setDashboardLayoutMode(prev => prev === 'two-level' ? 'legacy' : 'two-level')}
                   style={{
@@ -5195,7 +5197,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             staffMembers={staffMembers}
             initials={initials}
             onStaffChanged={refreshStaffMembers}
-            canManageStaff={effectiveRole === 'admin'}
+            canManageStaff={isLeadershipRole(effectiveRole)}
           />
         )}
 
@@ -5463,7 +5465,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       )}
       
       {/* Staff Login Panel */}
-      {role === 'admin' && showStaffPanel && (
+      {isLeadershipRole(role) && showStaffPanel && (
         <Suspense fallback={<PageLoadingFallback />}>
         <StaffLoginPanel 
           loggedInStaff={loggedInStaff.flatMap(staff => (
@@ -5482,14 +5484,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       
       
       {/* Staff Management Modal */}
-      {role === 'admin' && showStaffManagement && (
+      {isLeadershipRole(role) && showStaffManagement && (
         <Suspense fallback={<PageLoadingFallback />}>
         <StaffManagementModal onClose={() => setShowStaffManagement(false)} />
         </Suspense>
       )}
       
       {/* Login Activity Modal */}
-      {role === 'admin' && showLoginActivity && (
+      {isLeadershipRole(role) && showLoginActivity && (
         <Suspense fallback={<PageLoadingFallback />}>
         <LoginActivityView onClose={() => setShowLoginActivity(false)} />
         </Suspense>

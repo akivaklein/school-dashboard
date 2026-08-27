@@ -868,10 +868,11 @@ export function getUserAccess(name, role) {
     }
   }
 
+  const isLeadership = role === 'admin' || role === 'principal'
   return {
     divisions: ['yeshiva_ketana'],
-    canManageStore: role === 'admin',
-    canReturnPurchases: role === 'admin'
+    canManageStore: isLeadership,
+    canReturnPurchases: isLeadership
   }
 }
 

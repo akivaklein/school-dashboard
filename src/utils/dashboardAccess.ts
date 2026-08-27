@@ -1,4 +1,4 @@
-export const ALLOWED_DASHBOARD_ROLES = ['admin', 'teacher', 'rebbe', 'support_staff', 'register'] as const
+export const ALLOWED_DASHBOARD_ROLES = ['admin', 'principal', 'teacher', 'rebbe', 'support_staff', 'register'] as const
 
 export const NO_PROFILE_MESSAGE = 'Your account is active, but no staff profile is assigned. Contact an administrator.'
 export const NO_ACTIVE_ROLE_MESSAGE = 'Access denied. This account is missing a permitted active role.'
@@ -37,7 +37,11 @@ export function resolveDashboardAccess(rows: UserRoleRecord[] | null | undefined
   }
 
   const [record] = usable
-  const fallbackName = record.normalizedRole === 'admin' ? 'Rabbi Klein' : record.normalizedRole === 'register' ? 'Store Register' : 'Staff User'
+  const fallbackName = record.normalizedRole === 'admin'
+    ? 'Rabbi Klein'
+    : record.normalizedRole === 'principal'
+      ? 'Principal'
+      : record.normalizedRole === 'register' ? 'Store Register' : 'Staff User'
 
   return {
     status: 'granted',
