@@ -37,6 +37,10 @@ function resolveAppUrl(...candidates: (string | undefined | null)[]) {
   return FALLBACK_APP_URL
 }
 
+function hasCompletedSetup(user: { email_confirmed_at?: string | null; confirmed_at?: string | null; last_sign_in_at?: string | null }) {
+  return Boolean(user.last_sign_in_at || user.email_confirmed_at || user.confirmed_at)
+}
+
 function normalizeRole(role: unknown) {
   const value = String(role || '').trim().toLowerCase()
   if (!allowedRoles.has(value)) throw new Error('Choose a valid base role.')
@@ -91,6 +95,7 @@ Deno.serve(async request => {
     if (authError || !authData.user) throw new Error('Authentication required.')
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey)
+    const anonClient = createClient(supabaseUrl, anonKey)
     await assertAdmin(adminClient, authData.user.id)
 
     const body = await request.json()
@@ -127,14 +132,32 @@ Deno.serve(async request => {
       if (!displayName) throw new Error('Name is required.')
       if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('A valid email is required.')
 
+      const redirectTo = `${appUrl}/reset-password`
+      const inviteOptions = { data: { display_name: displayName, invited_role: role }, redirectTo }
+
       let user = await findAuthUserByEmail(adminClient, email)
+      let emailSent = false
+      let message = ''
+
       if (!user) {
-        const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-          data: { display_name: displayName, invited_role: role },
-          redirectTo: `${appUrl}/reset-password`,
-        })
+        const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, inviteOptions)
         if (inviteError || !invited.user) throw new Error(inviteError?.message || 'Unable to send invite email.')
         user = invited.user
+        emailSent = true
+        message = `Invite sent to ${email}.`
+      } else if (hasCompletedSetup(user)) {
+        message = `${email} has already completed account setup, so no new invite email was sent. Their access was updated.`
+      } else {
+        const { error: resendError } = await adminClient.auth.admin.inviteUserByEmail(email, inviteOptions)
+        if (!resendError) {
+          emailSent = true
+        } else {
+          // Some GoTrue versions reject re-inviting an existing row; a recovery email lands on the same setup page.
+          const { error: recoveryError } = await anonClient.auth.resetPasswordForEmail(email, { redirectTo })
+          if (recoveryError) throw new Error(recoveryError.message || 'Unable to resend the invite email.')
+          emailSent = true
+        }
+        message = `A fresh setup email was sent to ${email}.`
       }
 
       const { error: roleError } = await adminClient.from('user_roles').upsert({
@@ -143,12 +166,11 @@ Deno.serve(async request => {
         display_name: displayName,
         is_active: true,
         permissions,
-        invited_at: new Date().toISOString(),
-        invited_by: authData.user.id,
+        ...(emailSent ? { invited_at: new Date().toISOString(), invited_by: authData.user.id } : {}),
       }, { onConflict: 'user_id' })
       if (roleError) throw new Error(roleError.message || 'Unable to assign user access.')
 
-      return jsonResponse({ id: user.id, email, displayName, role, permissions }, user.created_at ? 200 : 201)
+      return jsonResponse({ id: user.id, email, displayName, role, permissions, emailSent, message }, user.created_at ? 200 : 201)
     }
 
     if (action === 'update') {

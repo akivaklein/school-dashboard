@@ -41,7 +41,7 @@ export async function inviteDashboardUser(input: {
   email: string
   role: string
   permissions: PermissionMatrix
-}) {
+}): Promise<{ emailSent: boolean; message: string }> {
   const role = input.role
   const { data, error } = await supabase.functions.invoke('manage-dashboard-user', {
     body: {
@@ -55,7 +55,10 @@ export async function inviteDashboardUser(input: {
 
   if (error) await throwFunctionError(error, 'Unable to invite user.')
   if (data?.error) throw new Error(String(data.error))
-  return data
+  return {
+    emailSent: data?.emailSent !== false,
+    message: String(data?.message || `Invite sent to ${input.email.trim()}.`),
+  }
 }
 
 export async function updateDashboardUser(input: {

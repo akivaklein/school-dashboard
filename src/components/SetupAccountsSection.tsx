@@ -109,13 +109,13 @@ export default function SetupAccountsSection({
   async function handleInviteUser() {
     setInviteBanner(null)
     try {
-      await inviteDashboardUser({
+      const result = await inviteDashboardUser({
         displayName: inviteDraft.displayName.trim(),
         email: inviteDraft.email.trim(),
         role: inviteDraft.role,
         permissions: inviteDraft.permissions,
       })
-      setInviteBanner({ tone: 'success', text: `Invite sent to ${inviteDraft.email.trim()}.` })
+      setInviteBanner({ tone: result.emailSent ? 'success' : 'error', text: result.message })
       setInviteDraft({ displayName: '', email: '', role: 'teacher', permissions: defaultPermissionsForRole('teacher') })
       await loadManagedUsers()
     } catch (error) {
@@ -160,7 +160,7 @@ export default function SetupAccountsSection({
     }
 
     try {
-      await inviteDashboardUser({
+      const result = await inviteDashboardUser({
         displayName: person.name,
         email,
         role: person.role || 'teacher',
@@ -180,7 +180,7 @@ export default function SetupAccountsSection({
           }),
         }
       }))
-      setInviteBanner({ tone: 'success', text: `Invite sent to ${email}.` })
+      setInviteBanner({ tone: result.emailSent ? 'success' : 'error', text: result.message })
       await loadManagedUsers()
     } catch (error) {
       setInviteBanner({ tone: 'error', text: error instanceof Error ? error.message : 'Unable to send invite.' })
