@@ -36,16 +36,19 @@ export async function listDashboardUsers(): Promise<ManagedDashboardUser[]> {
   return Array.isArray(data) ? data : []
 }
 
+export type InviteEmailResult = { emailSent: boolean; method: string; message: string }
+
 export async function inviteDashboardUser(input: {
   displayName: string
   email: string
   role: string
   permissions: PermissionMatrix
-}): Promise<{ emailSent: boolean; message: string }> {
+  resend?: boolean
+}): Promise<InviteEmailResult> {
   const role = input.role
   const { data, error } = await supabase.functions.invoke('manage-dashboard-user', {
     body: {
-      action: 'invite',
+      action: input.resend ? 'resend' : 'invite',
       displayName: input.displayName,
       email: input.email,
       role,
@@ -56,8 +59,9 @@ export async function inviteDashboardUser(input: {
   if (error) await throwFunctionError(error, 'Unable to invite user.')
   if (data?.error) throw new Error(String(data.error))
   return {
-    emailSent: data?.emailSent !== false,
-    message: String(data?.message || `Invite sent to ${input.email.trim()}.`),
+    emailSent: data?.emailSent === true,
+    method: String(data?.method || 'unknown'),
+    message: String(data?.message || `Invite processed for ${input.email.trim()}.`),
   }
 }
 

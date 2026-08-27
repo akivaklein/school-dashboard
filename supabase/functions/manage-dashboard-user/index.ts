@@ -37,8 +37,33 @@ function resolveAppUrl(...candidates: (string | undefined | null)[]) {
   return FALLBACK_APP_URL
 }
 
-function hasCompletedSetup(user: { email_confirmed_at?: string | null; confirmed_at?: string | null; last_sign_in_at?: string | null }) {
-  return Boolean(user.last_sign_in_at || user.email_confirmed_at || user.confirmed_at)
+function describeEmailError(message: string) {
+  const normalized = String(message || '').toLowerCase()
+  if (normalized.includes('rate') || normalized.includes('too many') || normalized.includes('over_email_send')) {
+    return `Supabase refused to send the email because of its email rate limit: ${message}`
+  }
+  return message
+}
+
+// Invite-link clicks confirm the address even when no password was ever set, so confirmation
+// timestamps cannot tell us whether setup finished. Resend is therefore an explicit admin action.
+async function sendSetupEmail(
+  adminClient: ReturnType<typeof createClient>,
+  anonClient: ReturnType<typeof createClient>,
+  email: string,
+  inviteOptions: Record<string, unknown>,
+  redirectTo: string,
+) {
+  const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, inviteOptions)
+  if (!inviteError) return { method: 'invite', error: '' }
+
+  const { error: recoveryError } = await anonClient.auth.resetPasswordForEmail(email, { redirectTo })
+  if (!recoveryError) return { method: 'recovery', error: '' }
+
+  return {
+    method: 'failed',
+    error: describeEmailError(recoveryError.message || inviteError.message || 'Unknown email error.'),
+  }
 }
 
 function normalizeRole(role: unknown) {
@@ -124,7 +149,7 @@ Deno.serve(async request => {
       }))
     }
 
-    if (action === 'invite') {
+    if (action === 'invite' || action === 'resend') {
       const displayName = String(body.displayName || '').trim()
       const email = String(body.email || '').trim().toLowerCase()
       const role = normalizeRole(body.role)
@@ -137,27 +162,25 @@ Deno.serve(async request => {
 
       let user = await findAuthUserByEmail(adminClient, email)
       let emailSent = false
+      let method = 'none'
       let message = ''
 
       if (!user) {
         const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, inviteOptions)
-        if (inviteError || !invited.user) throw new Error(inviteError?.message || 'Unable to send invite email.')
+        if (inviteError || !invited.user) throw new Error(describeEmailError(inviteError?.message || 'Unable to send invite email.'))
         user = invited.user
         emailSent = true
-        message = `Invite sent to ${email}.`
-      } else if (hasCompletedSetup(user)) {
-        message = `${email} has already completed account setup, so no new invite email was sent. Their access was updated.`
+        method = 'invite'
+        message = `New invite email sent to ${email}.`
+      } else if (action === 'resend') {
+        const result = await sendSetupEmail(adminClient, anonClient, email, inviteOptions, redirectTo)
+        method = result.method
+        if (result.error) throw new Error(`Unable to resend the setup email to ${email}. ${result.error}`)
+        emailSent = true
+        message = `New invite email sent to ${email}.`
       } else {
-        const { error: resendError } = await adminClient.auth.admin.inviteUserByEmail(email, inviteOptions)
-        if (!resendError) {
-          emailSent = true
-        } else {
-          // Some GoTrue versions reject re-inviting an existing row; a recovery email lands on the same setup page.
-          const { error: recoveryError } = await anonClient.auth.resetPasswordForEmail(email, { redirectTo })
-          if (recoveryError) throw new Error(recoveryError.message || 'Unable to resend the invite email.')
-          emailSent = true
-        }
-        message = `A fresh setup email was sent to ${email}.`
+        method = 'skipped-existing'
+        message = `${email} already has an account, so no email was sent. Use Resend Invite to send a fresh setup link.`
       }
 
       const { error: roleError } = await adminClient.from('user_roles').upsert({
@@ -170,7 +193,7 @@ Deno.serve(async request => {
       }, { onConflict: 'user_id' })
       if (roleError) throw new Error(roleError.message || 'Unable to assign user access.')
 
-      return jsonResponse({ id: user.id, email, displayName, role, permissions, emailSent, message }, user.created_at ? 200 : 201)
+      return jsonResponse({ id: user.id, email, displayName, role, permissions, emailSent, method, message }, user.created_at ? 200 : 201)
     }
 
     if (action === 'update') {

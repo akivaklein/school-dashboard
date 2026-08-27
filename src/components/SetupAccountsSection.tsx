@@ -151,7 +151,7 @@ export default function SetupAccountsSection({
     )))
   }
 
-  async function sendInvite(person) {
+  async function sendInvite(person, options?: { resend?: boolean }) {
     const account = setupAccounts[person.name]
     const email = (inviteEmail[person.name] || account?.email || '').trim()
     if (!email) {
@@ -165,6 +165,7 @@ export default function SetupAccountsSection({
         email,
         role: person.role || 'teacher',
         permissions: defaultPermissionsForRole(person.role || 'teacher'),
+        resend: options?.resend,
       })
       setSetupAccounts(previous => ({
         ...previous,
@@ -366,7 +367,7 @@ export default function SetupAccountsSection({
                                     </button>
                                   ) : accountStatus === 'pending-invitation' ? (
                                     <button
-                                      onClick={e => { e.stopPropagation(); sendInvite(person) }}
+                                      onClick={e => { e.stopPropagation(); sendInvite(person, { resend: true }) }}
                                       style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
                                     >
                                       Resend Invite
@@ -454,7 +455,7 @@ export default function SetupAccountsSection({
                                         </button>
                                       )}
                                       <button
-                                        onClick={e => { e.stopPropagation(); sendInvite(person) }}
+                                        onClick={e => { e.stopPropagation(); sendInvite(person, { resend: accountStatus === 'pending-invitation' }) }}
                                         style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}
                                         title="Send invitation email"
                                       >
