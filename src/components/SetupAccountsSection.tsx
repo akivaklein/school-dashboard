@@ -242,6 +242,7 @@ export default function SetupAccountsSection({
                           <input value={inviteDraft.email} onChange={event => setInviteDraft(previous => ({ ...previous, email: event.target.value }))} placeholder="Email" spellCheck={false} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }} />
                           <select value={inviteDraft.role} onChange={event => updateInviteDraftRole(event.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12, background: '#fff' }}>
                             <option value="admin">Admin</option>
+                            <option value="principal">Principal</option>
                             <option value="teacher">Teacher</option>
                             <option value="rebbe">Rebbe</option>
                             <option value="support_staff">Support staff</option>
@@ -274,6 +275,7 @@ export default function SetupAccountsSection({
                                 <div style={{ fontSize: 12, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email || 'No email'}</div>
                                 <select value={user.role} onChange={event => patchManagedUser(user.id, { role: event.target.value, permissions: defaultPermissionsForRole(event.target.value) })} style={{ padding: '7px 9px', borderRadius: 7, border: '1px solid #dce4ed', fontSize: 12, background: '#fff' }}>
                                   <option value="admin">Admin</option>
+                                  <option value="principal">Principal</option>
                                   <option value="teacher">Teacher</option>
                                   <option value="rebbe">Rebbe</option>
                                   <option value="support_staff">Support staff</option>

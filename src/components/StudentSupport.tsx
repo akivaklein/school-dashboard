@@ -1,6 +1,7 @@
 import { useState, type Dispatch, type SetStateAction, type ComponentType, type CSSProperties } from 'react'
 import SupportSessions from './support/SupportSessions'
 import { resolveActorName } from './dashboardData'
+import { isLeadershipRole } from '../utils/permissions'
 
 type StudentLike = {
   id: number | string
@@ -92,7 +93,7 @@ export default function StudentSupport({
 
   const currentStaffName = resolveActorName(userName, role)
   const currentStaffRole =
-    role === 'admin'
+    isLeadershipRole(role)
       ? 'Administration'
       : role === 'teacher'
         ? 'Teacher'

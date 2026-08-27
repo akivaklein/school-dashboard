@@ -382,11 +382,11 @@ export default function AcademicsPage({
 
   const activeCatalogSubjects = ((academicCatalog?.subjects || []) as AcademicCatalogSubject[]).filter(subject => subject.active !== false)
   const selectedClassDivision = classFilter === 'all' ? null : (CLASS_DIVISION?.[classFilter] || null)
-  const effectiveTeacherForBulk = role === 'admin' ? bulkForm.teacher : loggedInTeacher
+  const effectiveTeacherForBulk = isLeadershipRole(role) ? bulkForm.teacher : loggedInTeacher
 
   const catalogBulkSubjectOptions = activeCatalogSubjects
     .filter(subject => {
-      const teacherMatch = role === 'admin' ? true : !subject.teacherNames?.length || subject.teacherNames.includes(effectiveTeacherForBulk)
+      const teacherMatch = isLeadershipRole(role) ? true : !subject.teacherNames?.length || subject.teacherNames.includes(effectiveTeacherForBulk)
       const classMatch = classFilter === 'all' || !subject.classIds?.length || subject.classIds.includes(classFilter)
       const divisionMatch = !selectedClassDivision || !subject.divisionKeys?.length || subject.divisionKeys.includes(selectedClassDivision)
       return teacherMatch && classMatch && divisionMatch
@@ -409,7 +409,7 @@ export default function AcademicsPage({
   useEffect(() => {
     setBulkForm(prev => {
       const next = { ...prev }
-      if (role !== 'admin' && next.teacher !== loggedInTeacher) {
+      if (!isLeadershipRole(role) && next.teacher !== loggedInTeacher) {
         next.teacher = loggedInTeacher
       }
 
@@ -693,7 +693,7 @@ export default function AcademicsPage({
           .filter(skill => categoryFilter === 'all' || (skill.category || '') === categoryFilter)
           .map(skill => skill.label)
       )]
-  const teacherFilterOptions = role === 'admin' ? ['all', ...teacherOptions] : []
+  const teacherFilterOptions = isLeadershipRole(role) ? ['all', ...teacherOptions] : []
   const enteredByFilterOptions = ['all', ...new Set(
     visibleStudents.flatMap(student => (student.testScores || []).map(score => score.enteredBy || 'Unknown'))
   )]
@@ -854,13 +854,13 @@ export default function AcademicsPage({
           spellCheck={false}
           style={{ flex: '1 1 220px', padding: '9px 12px', borderRadius: 9, border: '1px solid #e2e8f0', fontSize: 13 }}
         />
-        {role === 'admin' && (
+        {isLeadershipRole(role) && (
           <select value={teacherFilter} onChange={e => setTeacherFilter(e.target.value)} style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid #e2e8f0', fontSize: 13, background: '#fff', minWidth: 140 }}>
             <option value="all">All</option>
             {teacherOptions.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         )}
-        {role === 'admin' && (
+        {isLeadershipRole(role) && (
           <select value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid #e2e8f0', fontSize: 13, background: '#fff', minWidth: 140 }}>
             <option value="all">All Classes</option>
             {CLASSES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -1145,7 +1145,7 @@ export default function AcademicsPage({
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     <button onClick={() => restoreScore(score.studentId, score.id)} style={{ ...S.btn('ghost'), padding: '6px 9px', fontSize: 11 }}>Restore</button>
-                    {role === 'admin' && <button onClick={() => permanentlyDeleteScore(score.studentId, score.id)} style={{ ...S.btn('danger'), padding: '6px 9px', fontSize: 11 }}>Delete Permanently</button>}
+                    {isLeadershipRole(role) && <button onClick={() => permanentlyDeleteScore(score.studentId, score.id)} style={{ ...S.btn('danger'), padding: '6px 9px', fontSize: 11 }}>Delete Permanently</button>}
                   </div>
                 </div>
               ))}
@@ -1261,7 +1261,7 @@ export default function AcademicsPage({
             </div>
 
             <div style={{ padding: 14, borderBottom: '1px solid #e5e7eb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, flexShrink: 0, maxHeight: bulkHeaderCollapsed ? 0 : '1000px', overflow: 'hidden', transition: 'max-height 0.25s ease-in-out', opacity: bulkHeaderCollapsed ? 0 : 1 }}>
-              {role === 'admin' ? (
+              {isLeadershipRole(role) ? (
                 <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
                   Teacher
                   <select value={bulkForm.teacher} onChange={e => updateBulkForm('teacher', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>

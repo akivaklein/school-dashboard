@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient'
+import { isLeadershipRole } from '../utils/permissions'
 
 export type StudentNoteRecord = {
   id: number
@@ -187,7 +188,7 @@ export function canManageStudentNote(params: {
   actorUserId: string | null
   noteCreatedByUserId: string | null
 }) {
-  if (params.role === 'admin') return true
+  if (isLeadershipRole(params.role)) return true
   if (!params.actorUserId || !params.noteCreatedByUserId) return false
   return params.actorUserId === params.noteCreatedByUserId
 }

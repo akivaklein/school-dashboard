@@ -195,6 +195,10 @@ Deno.serve(async request => {
       }, { onConflict: 'user_id' })
       if (roleError) throw new Error(roleError.message || 'Unable to assign user access.')
 
+      await adminClient.auth.admin.updateUserById(user.id, {
+        user_metadata: { display_name: displayName, role, invited_role: role },
+      })
+
       return jsonResponse({ id: user.id, email, displayName, role, permissions, emailSent, method, message }, user.created_at ? 200 : 201)
     }
 
@@ -207,16 +211,19 @@ Deno.serve(async request => {
       if (!userId) throw new Error('User is required.')
       if (!displayName) throw new Error('Name is required.')
 
-      const { error: updateError } = await adminClient.from('user_roles').update({
+      const { error: updateError } = await adminClient.from('user_roles').upsert({
+        user_id: userId,
         role,
         display_name: displayName,
         is_active: active,
         permissions,
         updated_at: new Date().toISOString(),
-      }).eq('user_id', userId)
+      }, { onConflict: 'user_id' })
       if (updateError) throw new Error(updateError.message || 'Unable to update user access.')
 
-      await adminClient.auth.admin.updateUserById(userId, { user_metadata: { display_name: displayName } })
+      await adminClient.auth.admin.updateUserById(userId, {
+        user_metadata: { display_name: displayName, role, invited_role: role },
+      })
       return jsonResponse({ id: userId, displayName, role, active, permissions })
     }
 

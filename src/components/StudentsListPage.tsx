@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { buildStudentListViewModel } from './studentListUtils'
 import { CLASS_ID_BY_GRADE, GRADE_LABELS, normalizeGradeValue, resolveStudentGrade } from './dashboardData'
+import { isLeadershipRole } from '../utils/permissions'
 
 const GRADE_OPTIONS = ['8', '7']
 
@@ -90,7 +91,7 @@ export default function StudentsListPage({
   const [formError, setFormError] = useState('')
   const [formState, setFormState] = useState(defaultStudentForm)
 
-  const isAdmin = role === 'admin'
+  const isAdmin = isLeadershipRole(role)
   const pageSize = 12
 
   const activeStudents = useMemo(

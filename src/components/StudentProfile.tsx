@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import StudentNotes from './StudentNotes'
 import { resolveActorName } from './dashboardData'
+import { isLeadershipRole } from '../utils/permissions'
 import { buildStudentNavigationList, getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
 
 export default function StudentProfile({
@@ -419,7 +420,7 @@ export default function StudentProfile({
                   {s.family?.address && <div style={{ fontSize: 13, color: '#334155' }}>🏠 {s.family.address}</div>}
                   {s.family?.emergencyContact && <div style={{ fontSize: 13, color: '#9f1239', fontWeight: 600 }}>🚨 Emergency: {s.family.emergencyContact} · {s.family.emergencyPhone}</div>}
                 </div>
-                {role === 'admin' && (
+                {isLeadershipRole(role) && (
                   <div style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
                     <FamilyEditorPopup s={s} setStudents={setStudents} userName={userName} />
                   </div>
@@ -433,7 +434,7 @@ export default function StudentProfile({
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6, textTransform: 'uppercase' }}>💊 Medications</div>
                     {s.medical.medications.map((m, i) => (
-                      <div key={i} style={{ background: '#f0f9ff', borderRadius: 6, padding: '8px 12px', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div key={i} style={{ background: '#f0f0ff', borderRadius: 6, padding: '8px 12px', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <span style={{ fontWeight: 700, fontSize: 13 }}>{m.name}</span>
                           <span style={{ fontSize: 12, color: '#64748b', marginLeft: 8 }}>{m.dosage}</span>
@@ -456,7 +457,7 @@ export default function StudentProfile({
                   {s.medical?.lastPhysical && <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}><div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>LAST PHYSICAL</div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.medical.lastPhysical}</div></div>}
                 </div>
                 {s.medical?.notes && <div style={{ marginTop: 10, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>📝 {s.medical.notes}</div>}
-                {role === 'admin' && (
+                {isLeadershipRole(role) && (
                   <div style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
                     <MedicalEditorPopup s={s} setStudents={setStudents} userName={userName} />
                   </div>

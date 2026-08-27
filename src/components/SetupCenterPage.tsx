@@ -10,6 +10,7 @@ import StaffDirectoryPage from './StaffDirectoryPage'
 import RegisterAccountsSection from './RegisterAccountsSection'
 import { getSetupSectionMeta } from './setupCenterUtils'
 import { STUDENT_CLASSES } from './dashboardData'
+import { isLeadershipRole } from '../utils/permissions'
 
 export default function SetupCenterPage({
   S,
@@ -209,7 +210,7 @@ export default function SetupCenterPage({
               staffMembers={staffMembers}
               initials={initials}
               onStaffChanged={refreshStaffMembers}
-              canManageStaff={role === 'admin'}
+              canManageStaff={isLeadershipRole(role)}
             />
           )}
 

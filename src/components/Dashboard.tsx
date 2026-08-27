@@ -1742,7 +1742,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         reminders: Number(databaseStudent.reminders || 0),
       }))
 
-      setStudents(studentsFromDb as StudentLike[])
+      setStudents(prev => {
+        const existingById = new Map((prev || []).map(s => [Number(s.id), s.testScores || []]))
+        return (studentsFromDb as StudentLike[]).map(student => {
+          const id = Number(student.id)
+          const existingScores = existingById.get(id) || []
+          if (!existingScores.length) return student
+          const dbIds = new Set((student.testScores || []).map((s: any) => s.id))
+          const merged = [...(student.testScores || []), ...existingScores.filter((s: any) => !dbIds.has(s.id))]
+          return { ...student, testScores: merged }
+        })
+      })
       setStudentsLoaded(true)
     }
 
@@ -2590,6 +2600,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   // Load grade_entries from Supabase and subscribe to realtime changes
   useEffect(() => {
     let active = true
+    if (!studentsLoaded) return
+
     loadGradeEntries().then(rows => {
       if (!active || !rows.length) return
       setStudents(prev => {
@@ -2634,7 +2646,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       .subscribe()
 
     return () => { active = false; supabase.removeChannel(channel) }
-  }, [])
+  }, [studentsLoaded])
 
   const [setupTab, setSetupTab] = useState('assignments')
   const [setupAssignmentError, setSetupAssignmentError] = useState<string | null>(null)
@@ -4739,7 +4751,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         <div style={{ padding: '8px 8px 10px', marginBottom: 6 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#0f2942' }}>Yeshiva Ketana</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-            {effectiveRole === 'admin'
+            {isLeadershipRole(effectiveRole)
                 ? 'Principal Portal'
                 : effectiveRole === 'teacher' || effectiveRole === 'rebbe'
                   ? 'Teacher Portal'
@@ -4783,7 +4795,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         <div style={{ marginTop: 14, padding: '12px 8px 0', borderTop: '1px solid #dbe5f0' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#0f2942', marginBottom: 2 }}>{userName || 'Signed in user'}</div>
           <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 8 }}>{buildLoginAccountRoleLabel(role)}</div>
-          {effectiveRole === 'admin' && (
+          {isLeadershipRole(effectiveRole) && (
             <button
               onClick={() => setShowLoginActivity(true)}
               style={{ width: '100%', textAlign: 'left', border: '1px solid #dbe5f0', background: '#ffffff', color: '#334155', borderRadius: 7, padding: '7px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 6 }}
