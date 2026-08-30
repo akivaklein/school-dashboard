@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { buildStaffAccountData, getStaffAccountStatus } from '../services/staffService'
+import { buildStaffAccountData, getStaffAccountStatus, normalizeStaffRoles } from '../services/staffService'
 import { inviteDashboardUser, listDashboardUsers, updateDashboardUser, type ManagedDashboardUser } from '../services/userManagementService'
 import { defaultPermissionsForRole, mergePermissionsForRole, PERMISSION_LEVELS, PERMISSION_SECTIONS, type PermissionMatrix } from '../utils/permissions'
 
@@ -39,6 +39,27 @@ export default function SetupAccountsSection({
     return status
   }
 
+  // Real login role lives in user_roles (managedUsers); staff directory/specialty is only a fallback label.
+  const managedUserByName = useMemo(() => {
+    const map = new Map<string, ManagedDashboardUser>()
+    managedUsers.forEach(user => {
+      const key = String(user.displayName || '').trim().toLowerCase()
+      if (key) map.set(key, user)
+    })
+    return map
+  }, [managedUsers])
+
+  function getEffectiveRole(person): string {
+    const managedUser = managedUserByName.get(String(person?.name || '').trim().toLowerCase())
+    if (managedUser && managedUser.active) return managedUser.role
+    const account = setupAccounts[person?.name]
+    if (account?.role) return String(account.role).trim().toLowerCase()
+    const fallbackRole = normalizeStaffRoles(person?.specialty)[0] || 'teacher'
+    if (fallbackRole === 'principal' || fallbackRole === 'admin' || /menahel|mashgiach|sgan/.test(fallbackRole)) return 'admin'
+    if (fallbackRole === 'teacher' || fallbackRole === 'rebbe') return fallbackRole
+    return 'support_staff'
+  }
+
   const activeCount = people.filter(person => normalizeStatus(getStaffAccountStatus(setupAccounts[person.name])) === 'active-account').length
   const pendingCount = managedUsers.filter(user => user.active && !user.lastSignInAt).length
   const disabledCount = people.filter(person => {
@@ -49,7 +70,8 @@ export default function SetupAccountsSection({
   const filteredPeople = useMemo(() => {
     const normalized = search.trim().toLowerCase()
     return people.filter(person => {
-      const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })
+      const effectiveRole = getEffectiveRole(person)
+      const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: effectiveRole, roles: [effectiveRole], active: true }, { divisions: 'both', accountState: 'missing' })
       const state = normalizeStatus(getStaffAccountStatus(account))
       const active = state === 'active-account'
       const divisions = account.divisions || 'both'
@@ -57,7 +79,7 @@ export default function SetupAccountsSection({
       const matchesSearch = !normalized
         || String(person.name || '').toLowerCase().includes(normalized)
         || String(person.specialty || '').toLowerCase().includes(normalized)
-        || String(person.role || '').toLowerCase().includes(normalized)
+        || String(effectiveRole || '').toLowerCase().includes(normalized)
 
       const matchesStatus = statusFilter === 'all'
         || (statusFilter === 'active' && active)
@@ -70,7 +92,7 @@ export default function SetupAccountsSection({
 
       return matchesSearch && matchesStatus && matchesDivision
     })
-  }, [people, setupAccounts, search, statusFilter, divisionFilter])
+  }, [people, setupAccounts, managedUserByName, search, statusFilter, divisionFilter])
 
   function withAttribution(baseAccount, overrides = {}) {
     return {
@@ -154,6 +176,7 @@ export default function SetupAccountsSection({
   async function sendInvite(person, options?: { resend?: boolean }) {
     const account = setupAccounts[person.name]
     const email = (inviteEmail[person.name] || account?.email || '').trim()
+    const role = getEffectiveRole(person)
     if (!email) {
       setInviteBanner({ tone: 'error', text: 'Enter an email address before sending an invite.' })
       return
@@ -163,14 +186,14 @@ export default function SetupAccountsSection({
       const result = await inviteDashboardUser({
         displayName: person.name,
         email,
-        role: person.role || 'teacher',
-        permissions: defaultPermissionsForRole(person.role || 'teacher'),
+        role,
+        permissions: defaultPermissionsForRole(role),
         resend: options?.resend,
       })
       setSetupAccounts(previous => ({
         ...previous,
         [person.name]: {
-          ...(previous[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })),
+          ...(previous[person.name] || buildStaffAccountData({ name: person.name, role, roles: [role], active: true }, { divisions: 'both', accountState: 'missing' })),
           ...withAttribution(previous[person.name] || {}, {
             active: true,
             accountState: 'pending',
@@ -325,12 +348,13 @@ export default function SetupAccountsSection({
                           </div>
                         )}
                         {filteredPeople.map(person => {
-                          const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: person.role, roles: [person.role], active: true }, { divisions: 'both', accountState: 'missing' })
+                          const effectiveRole = getEffectiveRole(person)
+                          const account = setupAccounts[person.name] || buildStaffAccountData({ name: person.name, role: effectiveRole, roles: [effectiveRole], active: true }, { divisions: 'both', accountState: 'missing' })
                           const accountStatus = normalizeStatus(getStaffAccountStatus(account))
                           const statusCfg = STATUS_CONFIG[accountStatus] || STATUS_CONFIG['missing']
                           const isExpanded = expandedRow === person.name
                           const isInactive = accountStatus === 'inactive-account' || accountStatus === 'missing'
-                          const leadership = isLeadership(person.role)
+                          const leadership = isLeadership(effectiveRole)
 
                           return (
                             <div key={`account-${person.name}`} style={{ border: '1px solid #dbe5f0', borderRadius: 10, background: '#fff', overflow: 'hidden' }}>
@@ -392,7 +416,7 @@ export default function SetupAccountsSection({
                                   <div style={{ display: 'grid', gap: 8 }}>
                                     <div>
                                       <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 3 }}>Role</div>
-                                      <div style={{ fontSize: 12, color: '#334155' }}>{person.role || '—'}</div>
+                                      <div style={{ fontSize: 12, color: '#334155' }}>{effectiveRole || '—'}</div>
                                     </div>
                                     <div>
                                       <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 3 }}>Email / Username</div>
@@ -465,7 +489,10 @@ export default function SetupAccountsSection({
                                       </button>
                                       {typeof onPreviewAs === 'function' && (
                                         <button
-                                          onClick={e => { e.stopPropagation(); onPreviewAs(person.name, person.role || 'teacher') }}
+                                          onClick={e => {
+                                            e.stopPropagation()
+                                            onPreviewAs(person.name, effectiveRole)
+                                          }}
                                           style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #c7d2fe', background: '#eef2ff', color: '#3730a3', fontSize: 11, cursor: 'pointer' }}
                                         >
                                           👁 Preview Access

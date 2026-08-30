@@ -904,6 +904,8 @@ export function canAccessStudentForRole(student, context: StudentAccessContext =
 
   if (role === 'register') return false
 
+  if (role === 'admin' || role === 'principal') return true
+
   if (role === 'teacher' || role === 'rebbe') {
     const targetStudentId = Number(student.id)
     const providedAssignedIds = Array.isArray(assignedStudentIds)

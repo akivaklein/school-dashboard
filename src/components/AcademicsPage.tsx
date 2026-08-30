@@ -306,21 +306,23 @@ export default function AcademicsPage({
     notes: '',
     fillAllScore: '',
   })
-  const scopedStudents = (role === 'teacher' || role === 'rebbe')
-    ? (
-        teacherAssignedStudentIds?.length
-          ? students.filter(s => teacherAssignedStudentIds.includes(Number(s.id)))
-          : teacherAssignedClassIds?.length
-            ? students.filter(s => teacherAssignedClassIds.includes(resolveStudentClassId(s)))
-            : teacherClass
-              ? students.filter(s => resolveStudentClassId(s) === teacherClass)
-              : []
-      )
-    : students
+  const scopedStudents = isLeadershipRole(role)
+    ? students
+    : (role === 'teacher' || role === 'rebbe')
+      ? (
+          teacherAssignedStudentIds?.length
+            ? students.filter(s => teacherAssignedStudentIds.includes(Number(s.id)))
+            : teacherAssignedClassIds?.length
+              ? students.filter(s => teacherAssignedClassIds.includes(resolveStudentClassId(s)))
+              : teacherClass
+                ? students.filter(s => resolveStudentClassId(s) === teacherClass)
+                : []
+        )
+      : students
   const visibleStudents = scopedStudents.filter(s => classFilter === 'all' || resolveStudentClassId(s) === classFilter)
 
   const bulkVisibleStudents = useMemo(() => {
-    if (role === 'teacher' || role === 'rebbe') {
+    if (isLeadershipRole(role) || role === 'teacher' || role === 'rebbe') {
       return visibleStudents
     }
 

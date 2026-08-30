@@ -21,11 +21,15 @@ export function getLastName(name: string) {
 
 export function getLoginRoleKey(role: string) {
   const normalized = String(role || '').trim().toLowerCase()
-  if (normalized === 'teacher' || normalized === 'rebbe') return 'teacher'
+  if (!normalized) return 'admin'
+
+  if (normalized === 'principal') return 'principal'
+  if (normalized === 'admin' || ['menahel', 'sgan', 'mashgiach', 'office', 'leadership'].includes(normalized)) return 'admin'
+  if (normalized === 'teacher' || normalized === 'rebbe' || normalized === 'yeshiva ketana rebbe') return 'teacher'
   if (normalized === 'store' || normalized === 'canteen') return 'store'
   if (normalized === 'register' || normalized === 'cashier') return 'register'
-  if (normalized === 'support_staff' || normalized === 'therapist' || normalized === 'speech' || normalized === 'ot' || normalized === 'pt' || normalized === 'bcba' || normalized === 'social-counseling' || normalized === 'bt') return 'support_staff'
-  return 'admin'
+  if (['support_staff', 'therapist', 'speech', 'ot', 'pt', 'bcba', 'social-counseling', 'social counseling', 'bt', 'support', 'staff'].includes(normalized)) return 'support_staff'
+  return normalized
 }
 
 export function buildLoginAccountRoleLabel(role: string) {
@@ -35,8 +39,12 @@ export function buildLoginAccountRoleLabel(role: string) {
   if (normalized === 'therapist') return 'Therapist'
 
   const key = getLoginRoleKey(role)
+  if (key === 'principal') return 'Principal'
+  if (key === 'admin') return 'Admin'
   if (key === 'teacher') return 'Teacher'
   if (key === 'support_staff') return 'Support Staff'
+  if (key === 'store') return 'Canteen'
+  if (key === 'register') return 'Register'
   return 'Admin'
 }
 

@@ -33,4 +33,10 @@ describe('login user search', () => {
     expect(getLoginRoleKey('canteen')).toBe('store')
     expect(buildLoginAccountRoleLabel('canteen')).toBe('Canteen')
   })
+
+  it('keeps principal and admin roles distinct in preview access', () => {
+    expect(getLoginRoleKey('principal')).toBe('principal')
+    expect(buildLoginAccountRoleLabel('principal')).toBe('Principal')
+    expect(createLoginAccounts([{ name: 'Rabbi Klein', role: 'principal' }])[0].roleLabel).toBe('Principal')
+  })
 })

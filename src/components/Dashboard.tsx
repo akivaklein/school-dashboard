@@ -1629,11 +1629,19 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       const byName = new Map()
 
       STAFF.forEach(person => {
-        if (staffMatchesAnyRole(person, /teacher|rebbe|menahel|sgan|mashgiach/i)) {
+        const roleText = String(person.role || '').trim().toLowerCase()
+        const normalizedRole = /teacher|rebbe/.test(roleText)
+          ? 'teacher'
+          : /admin|menahel|sgan|mashgiach|principal/.test(roleText)
+            ? 'admin'
+            : 'teacher'
+
+        if (staffMatchesAnyRole(person, /teacher|rebbe|menahel|sgan|mashgiach|principal|admin/i)) {
           byName.set(person.name, {
             id: person.id,
             name: person.name,
-            type: 'teacher',
+            role: normalizedRole,
+            type: normalizedRole === 'admin' ? 'admin' : 'teacher',
             specialty: person.role,
           })
         }
@@ -1645,6 +1653,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         byName.set(person.name, {
           id: `support-${index + 1}`,
           name: person.name,
+          role: 'support_staff',
           type: 'support',
           specialty: person.staffType,
           service: person.service,
@@ -2140,11 +2149,13 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     const activeRole = previewAs?.role || role
     const activeUserName = previewAs?.name || userName
     const normalizedActiveName = normalizeStaffName(activeUserName)
-    const assignedIdsForAccess = (activeRole === 'teacher' || activeRole === 'rebbe'
-      ? Array.from(activeTeacherAssignmentIdsByName.get(normalizedActiveName) || new Set<number>())
-      : getTeacherAssignedStudentIds(activeUserName, setupAssignments))
-      .map(id => Number(id))
-      .filter(Number.isFinite)
+    const assignedIdsForAccess = isLeadershipRole(activeRole)
+      ? []
+      : (activeRole === 'teacher' || activeRole === 'rebbe'
+        ? Array.from(activeTeacherAssignmentIdsByName.get(normalizedActiveName) || new Set<number>())
+        : getTeacherAssignedStudentIds(activeUserName, setupAssignments))
+        .map(id => Number(id))
+        .filter(Number.isFinite)
 
     if (!canAccessStudentForRole(student, {
       role: activeRole,
@@ -4405,7 +4416,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       const allowedPages = new Set(
         topAreas
           .flatMap(area => area.pages)
-          .filter(pageId => canAccessDashboardPage(role, pageId))
+          .filter(pageId => canAccessDashboardPage(effectiveRole, pageId))
       )
 
       if (stored.currentPage && allowedPages.has(stored.currentPage)) {
