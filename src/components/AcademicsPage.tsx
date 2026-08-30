@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isLeadershipRole } from '../utils/permissions'
-import { resolveStudentClassId } from './dashboardData'
+import { resolveStudentClassId, resolveStudentClassIds } from './dashboardData'
 import {
   buildLatestSessionRows,
   buildOverallProgressRows,
@@ -55,13 +55,18 @@ export function StudentScoresTab({
   academicStatusColor,
   persistStudentFields,
   onSaveGradeEntry = null,
+  CLASSES = [],
+  additionalClassIdsByStudent = {},
 }) {
   const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS || {})].filter(Boolean)))
   const initialTeacher = userName && teacherOptions.includes(userName) ? userName : teacherOptions[0] || DEFAULT_ACADEMIC_TEACHER
   const [showAdd, setShowAdd] = useState(false)
   const [selectedScore, setSelectedScore] = useState(null)
-  const [form, setForm] = useState({ teacher: initialTeacher, subject: 'Math', skill: '2-digit', assessmentName: '', date: new Date().toISOString().slice(0,10), scoreType: 'points', score: '', maxScore: '100', rating: 'Good', notes: '' })
   const s = students.find(x => x.id === student.id) || student
+  const studentClassOptions = resolveStudentClassIds(s, additionalClassIdsByStudent)
+    .map(classId => CLASSES.find(cls => cls.id === classId))
+    .filter(Boolean)
+  const [form, setForm] = useState({ teacher: initialTeacher, subject: 'Math', skill: '2-digit', assessmentName: '', date: new Date().toISOString().slice(0,10), scoreType: 'points', score: '', maxScore: '100', rating: 'Good', notes: '', classId: studentClassOptions[0]?.id || '' })
   const scores = s.testScores || []
   const numeric = scores.filter(x => x.scoreType !== 'rating' && x.maxScore)
   const avg = numeric.length ? Math.round(numeric.reduce((acc, x) => acc + academicPct(x), 0) / numeric.length) : null
@@ -108,6 +113,8 @@ export function StudentScoresTab({
       score: form.scoreType === 'points' ? Number(form.score) : null,
       maxScore: form.scoreType === 'points' ? Number(form.maxScore) : null,
       rating: form.scoreType === 'rating' ? form.rating : null,
+      classId: form.classId || '',
+      className: CLASSES.find(cls => cls.id === form.classId)?.name || '',
       notes: form.notes,
       enteredBy: userName || 'Staff',
       enteredAt: new Date().toISOString(),
@@ -226,6 +233,11 @@ export function StudentScoresTab({
               <input type="date" value={form.date} onChange={e=>updateForm('date', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
               <select value={form.subject} onChange={e=>updateForm('subject', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{subjectOptions.map(x=><option key={x}>{x}</option>)}</select>
               <select value={form.skill} onChange={e=>updateForm('skill', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{skillOptions.map(x=><option key={x}>{x}</option>)}</select>
+              {studentClassOptions.length > 0 && (
+                <select value={form.classId} onChange={e=>updateForm('classId', e.target.value)} style={{ gridColumn: '1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                  {studentClassOptions.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
+                </select>
+              )}
               <input placeholder="Assessment name" value={form.assessmentName} onChange={e=>updateForm('assessmentName', e.target.value)} style={{ gridColumn:'1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />
               <select value={form.scoreType} onChange={e=>updateForm('scoreType', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}><option value="points">Number score</option><option value="rating">Skill rating</option></select>
               {form.scoreType === 'rating' ? <select value={form.rating} onChange={e=>updateForm('rating', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>{SKILL_RATINGS.map(x=><option key={x}>{x}</option>)}</select> : <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}><input placeholder="Score" value={form.score} onChange={e=>updateForm('score', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} /><input placeholder="Max" value={form.maxScore} onChange={e=>updateForm('maxScore', e.target.value)} style={{ padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} /></div>}
@@ -264,6 +276,7 @@ export default function AcademicsPage({
   setupAssignments = {},
   onSaveGradeEntry = null,
   onSaveGradeEntries = null,
+  additionalClassIdsByStudent = {},
 }) {
   const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS)]))
   const initialTeacher = role === 'teacher' && userName && teacherOptions.includes(userName)
@@ -305,6 +318,7 @@ export default function AcademicsPage({
     letterGrade: 'B',
     notes: '',
     fillAllScore: '',
+    classId: '',
   })
   const scopedStudents = isLeadershipRole(role)
     ? students
@@ -319,7 +333,7 @@ export default function AcademicsPage({
                 : []
         )
       : students
-  const visibleStudents = scopedStudents.filter(s => classFilter === 'all' || resolveStudentClassId(s) === classFilter)
+  const visibleStudents = scopedStudents.filter(s => classFilter === 'all' || resolveStudentClassIds(s, additionalClassIdsByStudent).includes(classFilter))
 
   const bulkVisibleStudents = useMemo(() => {
     if (isLeadershipRole(role) || role === 'teacher' || role === 'rebbe') {
@@ -481,6 +495,7 @@ export default function AcademicsPage({
     })
     setBulkStudentStates(initialStates)
     setBulkCompletionMessage('')
+    setBulkForm(prev => ({ ...prev, classId: classFilter !== 'all' ? classFilter : prev.classId }))
     setShowBulkEntry(true)
   }
 
@@ -585,6 +600,8 @@ export default function AcademicsPage({
         assessmentType: bulkForm.assessmentType,
         gradingMethod: bulkForm.gradingMethod,
         date: bulkForm.date,
+        classId: bulkForm.classId || '',
+        className: CLASSES.find(cls => cls.id === bulkForm.classId)?.name || '',
         scoreType: attemptStatus === 'scored' ? effectiveScoreType : 'status',
         score: attemptStatus === 'scored' && effectiveScoreType === 'points' ? Number(state.score) : null,
         maxScore: attemptStatus === 'scored' && effectiveScoreType === 'points' ? numericMaxScore : null,
@@ -1306,6 +1323,14 @@ export default function AcademicsPage({
                 Class
                 <select value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
                   <option value="all">All classes</option>
+                  {CLASSES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </label>
+
+              <label style={{ display: 'grid', gap: 4, fontSize: 11, color: '#475569', fontWeight: 700 }}>
+                Record grade for class
+                <select value={bulkForm.classId} onChange={e => updateBulkForm('classId', e.target.value)} style={{ padding: 9, border: '1px solid #d7dee7', borderRadius: 8, background: '#fff' }}>
+                  <option value="">Not specified</option>
                   {CLASSES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </label>

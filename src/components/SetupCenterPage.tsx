@@ -8,6 +8,7 @@ import SetupAccountsSection from './SetupAccountsSection'
 import SetupSchoolStructureSection from './SetupSchoolStructureSection'
 import StaffDirectoryPage from './StaffDirectoryPage'
 import RegisterAccountsSection from './RegisterAccountsSection'
+import DataCleanupSection from './DataCleanupSection'
 import { getSetupSectionMeta } from './setupCenterUtils'
 import { STUDENT_CLASSES } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
@@ -82,6 +83,12 @@ export default function SetupCenterPage({
   studentClassOverrides = {},
   onSaveStudentClassAssignment,
   onSaveStudentClassAssignmentBatch,
+  additionalClassIdsByStudent = {},
+  onAddStudentToClass,
+  onRemoveStudentFromClass,
+  onBulkAddStudentsToClass,
+  onClearGradesHistory,
+  onClearPointsHistory,
 }) {
   const safeSetupNavItems = Array.isArray(setupNavItems) ? setupNavItems : []
   const safeDivisions = DIVISIONS || {}
@@ -285,6 +292,10 @@ export default function SetupCenterPage({
               studentClassOverrides={studentClassOverrides}
               onSaveAssignment={onSaveStudentClassAssignment}
               onSaveAssignmentBatch={onSaveStudentClassAssignmentBatch}
+              additionalClassIdsByStudent={additionalClassIdsByStudent}
+              onAddStudentToClass={onAddStudentToClass}
+              onRemoveStudentFromClass={onRemoveStudentFromClass}
+              onBulkAddStudentsToClass={onBulkAddStudentsToClass}
             />
           )}
 
@@ -309,6 +320,14 @@ export default function SetupCenterPage({
                 </div>
               </div>
             </div>
+          )}
+
+          {setupTab === 'data-cleanup' && (
+            <DataCleanupSection
+              S={S}
+              onClearGradesHistory={onClearGradesHistory}
+              onClearPointsHistory={onClearPointsHistory}
+            />
           )}
 
           {setupTab === 'vip' && (

@@ -77,6 +77,12 @@ const baseProps = {
   onSetTeacherRebbeAssignmentStatus: async () => {},
   onSaveStudentClassAssignment: async () => {},
   onSaveStudentClassAssignmentBatch: async () => {},
+  additionalClassIdsByStudent: {},
+  onAddStudentToClass: async () => true,
+  onRemoveStudentFromClass: async () => true,
+  onBulkAddStudentsToClass: async () => true,
+  onClearGradesHistory: async () => ({ success: true }),
+  onClearPointsHistory: async () => ({ success: true }),
 }
 
 describe('SetupCenterPage', () => {

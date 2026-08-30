@@ -34,6 +34,17 @@ import {
   type GradeEntry,
 } from '../services/gradeEntriesService'
 import {
+  loadAdditionalClassMemberships,
+  addStudentToClass,
+  removeStudentFromClass,
+  addStudentsToClassBulk,
+  type StudentAdditionalClass,
+} from '../services/classMembershipService'
+import {
+  clearGradesHistory,
+  clearPointsHistory,
+} from '../services/adminCleanupService'
+import {
   listStudentFlags,
   replaceStudentFlags,
 } from '../services/studentFlagsService'
@@ -2608,6 +2619,34 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     return () => { active = false; supabase.removeChannel(channel) }
   }, [])
 
+  // Load additional (non-primary) class memberships and subscribe to realtime changes
+  useEffect(() => {
+    let active = true
+    loadAdditionalClassMemberships().then(rows => {
+      if (!active) return
+      setAdditionalClassMemberships(rows)
+    })
+
+    const channel = supabase
+      .channel('student-additional-classes-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_additional_classes' }, payload => {
+        if (!active) return
+        if (payload.eventType === 'DELETE') {
+          const removedId = (payload.old as any)?.id
+          setAdditionalClassMemberships(prev => prev.filter(row => row.id !== removedId))
+          return
+        }
+        const row = payload.new as StudentAdditionalClass
+        setAdditionalClassMemberships(prev => {
+          const withoutCurrent = prev.filter(item => item.id !== row.id)
+          return [...withoutCurrent, row]
+        })
+      })
+      .subscribe()
+
+    return () => { active = false; supabase.removeChannel(channel) }
+  }, [])
+
   // Load grade_entries from Supabase and subscribe to realtime changes
   useEffect(() => {
     let active = true
@@ -2986,6 +3025,59 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   // student_class_assignments from Supabase — keyed by student_id
   const [studentClassOverrides, setStudentClassOverrides] = useState<Record<number, { classId: string; divisionKey: string }>>({})
+
+  // student_additional_classes from Supabase — a student's classes on top of their primary/homeroom class
+  const [additionalClassMemberships, setAdditionalClassMemberships] = useState<StudentAdditionalClass[]>([])
+
+  const additionalClassIdsByStudent = useMemo(() => {
+    const map: Record<number, string[]> = {}
+    additionalClassMemberships.forEach(row => {
+      const studentId = Number(row.student_id)
+      if (!map[studentId]) map[studentId] = []
+      if (!map[studentId].includes(row.class_id)) map[studentId].push(row.class_id)
+    })
+    return map
+  }, [additionalClassMemberships])
+
+  const effectiveActorName = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
+
+  async function handleAddStudentToClass(studentId: number, classId: string, className: string) {
+    setAdditionalClassMemberships(prev => {
+      if (prev.some(row => Number(row.student_id) === studentId && row.class_id === classId)) return prev
+      return [...prev, {
+        id: `pending-${studentId}-${classId}`,
+        student_id: studentId,
+        class_id: classId,
+        class_name: className,
+        added_at: new Date().toISOString(),
+        added_by: effectiveActorName,
+      }]
+    })
+    return addStudentToClass(studentId, classId, className, effectiveActorName)
+  }
+
+  async function handleRemoveStudentFromClass(studentId: number, classId: string) {
+    setAdditionalClassMemberships(prev => prev.filter(row => !(Number(row.student_id) === studentId && row.class_id === classId)))
+    return removeStudentFromClass(studentId, classId)
+  }
+
+  async function handleBulkAddStudentsToClass(studentIds: number[], classId: string, className: string) {
+    setAdditionalClassMemberships(prev => {
+      const existingKeys = new Set(prev.map(row => `${row.student_id}:${row.class_id}`))
+      const additions = studentIds
+        .filter(studentId => !existingKeys.has(`${studentId}:${classId}`))
+        .map(studentId => ({
+          id: `pending-${studentId}-${classId}`,
+          student_id: studentId,
+          class_id: classId,
+          class_name: className,
+          added_at: new Date().toISOString(),
+          added_by: effectiveActorName,
+        }))
+      return [...prev, ...additions]
+    })
+    return addStudentsToClassBulk(studentIds, classId, className, effectiveActorName)
+  }
 
   const [THERAPY_SCHEDULE_STATE, setTHERAPY_SCHEDULE] = useState(THERAPY_SCHEDULE)
 
@@ -4660,6 +4752,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'teaching', label: 'Behavior & Testing Options', icon: '📝', group: 'Rules & Options' },
     { id: 'vip', label: 'VIP Rules', icon: '⭐', group: 'Rules & Options' },
     { id: 'store', label: 'Store Sales', icon: '🏷️', group: 'Rules & Options' },
+    { id: 'data-cleanup', label: 'Data Cleanup', icon: '🧹', group: 'Rules & Options' },
   ]
 
   const normalizedSearch = String(search || '').trim().toLowerCase()
@@ -5135,6 +5228,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               })
               await upsertStudentClassAssignmentBatch(batch.map(b => ({ ...b, updatedBy: effectiveUserName || 'Admin' })))
             }}
+            additionalClassIdsByStudent={additionalClassIdsByStudent}
+            onAddStudentToClass={handleAddStudentToClass}
+            onRemoveStudentFromClass={handleRemoveStudentFromClass}
+            onBulkAddStudentsToClass={handleBulkAddStudentsToClass}
+            onClearGradesHistory={() => clearGradesHistory(effectiveUserName || 'Admin')}
+            onClearPointsHistory={() => clearPointsHistory(effectiveUserName || 'Admin')}
           />
           </Suspense>
         )}
@@ -5280,6 +5379,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             setupAssignments={setupAssignments}
             onSaveGradeEntry={recordGradeEntry}
             onSaveGradeEntries={recordGradeEntries}
+            additionalClassIdsByStudent={additionalClassIdsByStudent}
           />
         )}
 
@@ -5314,6 +5414,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
             onAdjustPoints={recordStudentPointsAction}
+            CLASSES={CLASSES}
+            additionalClassIdsByStudent={additionalClassIdsByStudent}
           />
           </Suspense>
         )}
@@ -5478,6 +5580,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             academicStatusColor={academicStatusColor}
             persistStudentFields={persistStudentFields}
             onSaveGradeEntry={recordGradeEntry}
+            CLASSES={CLASSES}
+            additionalClassIdsByStudent={additionalClassIdsByStudent}
           />
         )}
         FamilyEditorPopup={FamilyEditorPopup}

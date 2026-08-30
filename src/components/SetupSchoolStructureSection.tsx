@@ -21,6 +21,10 @@ export default function SetupSchoolStructureSection({
   studentClassOverrides = {},
   onSaveAssignment = null as ((studentId: number, classId: string, divisionKey: string) => Promise<void>) | null,
   onSaveAssignmentBatch = null as ((batch: Array<{ studentId: number; classId: string; divisionKey: string }>) => Promise<void>) | null,
+  additionalClassIdsByStudent = {} as Record<number, string[]>,
+  onAddStudentToClass = null as ((studentId: number, classId: string, className: string) => Promise<boolean>) | null,
+  onRemoveStudentFromClass = null as ((studentId: number, classId: string) => Promise<boolean>) | null,
+  onBulkAddStudentsToClass = null as ((studentIds: number[], classId: string, className: string) => Promise<boolean>) | null,
 }) {
   const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>(() =>
     CLASSES.map(cls => ({
@@ -76,6 +80,7 @@ export default function SetupSchoolStructureSection({
   const [studentClassMap, setStudentClassMap] = useState<Record<number, string>>(() => ({ ...STUDENT_CLASSES_MAP }))
   const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set())
   const [moveToClass, setMoveToClass] = useState('')
+  const [addToClass, setAddToClass] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
   const [classViewFilter, setClassViewFilter] = useState('all')
 
@@ -136,6 +141,14 @@ export default function SetupSchoolStructureSection({
     if (onSaveAssignmentBatch) onSaveAssignmentBatch(batch)
     setSelectedStudents(new Set())
     setMoveToClass('')
+  }
+
+  function addSelectedToClass() {
+    if (!addToClass || selectedStudents.size === 0 || !onBulkAddStudentsToClass) return
+    const targetClass = schoolClasses.find(c => c.id === addToClass)
+    onBulkAddStudentsToClass(Array.from(selectedStudents), addToClass, targetClass?.name || addToClass)
+    setSelectedStudents(new Set())
+    setAddToClass('')
   }
 
   const resetClassForm = () => {
@@ -393,7 +406,7 @@ export default function SetupSchoolStructureSection({
         <div style={S.card}>
           <div style={{ fontSize: 17, fontWeight: 900, color: '#223046', marginBottom: 6 }}>Student Class Assignments</div>
           <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
-            View and bulk-move students between classes. Changes apply immediately across the application.
+            The dropdown on each row switches a student's primary/homeroom class. Use "Add to class" below to place students in additional classes (Gemara level, Math group, Reading group, etc.) without removing their homeroom or other classes.
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -418,6 +431,16 @@ export default function SetupSchoolStructureSection({
                 {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <button onClick={moveSelected} disabled={!moveToClass} style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: moveToClass ? '#1d4ed8' : '#e2e8f0', color: moveToClass ? '#fff' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: moveToClass ? 'pointer' : 'default' }}>Move</button>
+              {onBulkAddStudentsToClass && (
+                <>
+                  <span style={{ fontSize: 11, color: '#94a3b8' }}>or</span>
+                  <select value={addToClass} onChange={e => setAddToClass(e.target.value)} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid #bbf7d0', fontSize: 12 }}>
+                    <option value="">Add to class...</option>
+                    {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <button onClick={addSelectedToClass} disabled={!addToClass} style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: addToClass ? '#16a34a' : '#e2e8f0', color: addToClass ? '#fff' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: addToClass ? 'pointer' : 'default' }}>+ Add (keep existing)</button>
+                </>
+              )}
               <button onClick={() => setSelectedStudents(new Set())} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid #bfdbfe', background: '#fff', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Clear</button>
             </div>
           )}
@@ -450,6 +473,27 @@ export default function SetupSchoolStructureSection({
                     <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
                       {cls?.name || '—'}{div ? ` · ${div.shortLabel}` : ''}
                     </div>
+                    {(additionalClassIdsByStudent[student.id] || []).length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
+                        {(additionalClassIdsByStudent[student.id] || []).map(extraClassId => {
+                          const extraClass = schoolClasses.find(c => c.id === extraClassId)
+                          return (
+                            <span key={extraClassId} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9.5, fontWeight: 700, color: '#166534', background: '#dcfce7', borderRadius: 999, padding: '1px 6px 1px 7px' }}>
+                              {extraClass?.name || extraClassId}
+                              {onRemoveStudentFromClass && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); onRemoveStudentFromClass(student.id, extraClassId) }}
+                                  title={`Remove from ${extraClass?.name || extraClassId}`}
+                                  style={{ border: 'none', background: 'transparent', color: '#166534', cursor: 'pointer', fontSize: 11, fontWeight: 900, lineHeight: 1, padding: 0 }}
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                   <select
                     value={classId}

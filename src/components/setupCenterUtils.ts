@@ -35,6 +35,10 @@ const SECTION_META_BY_TAB: Record<string, { sectionSubtitle: string; primaryActi
     sectionSubtitle: 'Review scheduling snapshots and structure guidance.',
     primaryActionLabel: 'Review Schedule Setup',
   },
+  'data-cleanup': {
+    sectionSubtitle: 'Admin-only bulk cleanup of test data. Real students are never removed.',
+    primaryActionLabel: 'Review Data Cleanup',
+  },
 }
 
 export function getSetupSectionMeta(setupTab: string, safeSetupNavItems: Array<{ id: string; label: string }> = []) {

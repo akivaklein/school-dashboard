@@ -4,7 +4,9 @@ import {
   isYeshivaKetanaStudent,
   normalizeGradeValue,
   resolveStudentClassId,
+  resolveStudentClassIds,
   resolveStudentGrade,
+  studentBelongsToClass,
 } from '../dashboardData'
 
 describe('Yeshiva Ketana grade mapping', () => {
@@ -36,5 +38,20 @@ describe('Yeshiva Ketana grade mapping', () => {
     expect(isYeshivaKetanaStudent({ id: 905, grade: '8' })).toBe(true)
     expect(isYeshivaKetanaStudent({ id: 906, class_name: '7th Grade' })).toBe(true)
     expect(isYeshivaKetanaStudent({ id: 907, class_name: 'Some Other Class' })).toBe(false)
+  })
+
+  it('combines primary class with additional class memberships without duplicates', () => {
+    const student = { id: 908, grade: '8' }
+    expect(resolveStudentClassIds(student)).toEqual(['yk-a'])
+    expect(resolveStudentClassIds(student, { 908: ['gemara-level-2', 'yk-a'] })).toEqual(['yk-a', 'gemara-level-2'])
+  })
+
+  it('reports whether a student belongs to a given class across primary + additional memberships', () => {
+    const student = { id: 909, grade: '7' }
+    const additional = { 909: ['math-group-b'] }
+    expect(studentBelongsToClass(student, 'all', additional)).toBe(true)
+    expect(studentBelongsToClass(student, 'yk-b', additional)).toBe(true)
+    expect(studentBelongsToClass(student, 'math-group-b', additional)).toBe(true)
+    expect(studentBelongsToClass(student, 'yk-a', additional)).toBe(false)
   })
 })

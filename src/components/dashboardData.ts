@@ -785,6 +785,26 @@ export function isYeshivaKetanaStudent(student) {
   return grade === '7' || grade === '8'
 }
 
+// All classes a student belongs to: their primary/homeroom class plus any
+// additional classes (Gemara level, Math group, Reading group, etc.).
+// additionalClassIdsByStudent is keyed by student id -> array of class ids.
+export function resolveStudentClassIds(student, additionalClassIdsByStudent: Record<string | number, string[]> = {}) {
+  const ids = new Set<string>()
+
+  const primary = resolveStudentClassId(student)
+  if (primary) ids.add(primary)
+
+  const extra = additionalClassIdsByStudent[Number(student.id)] || additionalClassIdsByStudent[student.id] || []
+  extra.forEach(classId => { if (classId) ids.add(classId) })
+
+  return Array.from(ids)
+}
+
+export function studentBelongsToClass(student, classId, additionalClassIdsByStudent: Record<string | number, string[]> = {}) {
+  if (!classId || classId === 'all') return true
+  return resolveStudentClassIds(student, additionalClassIdsByStudent).includes(classId)
+}
+
 function collectAssignmentStudentIds(assignment) {
   const studentIds = new Set()
 

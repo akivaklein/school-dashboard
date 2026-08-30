@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import playSound from '../utils/playSound'
+import { studentBelongsToClass } from './dashboardData'
 
 const BEHAVIORS_POSITIVE = [
   { id: 'p1', label: 'Appropriate appearance', points: 1 },
@@ -59,9 +60,12 @@ export default function BehaviorPage({
   statusEmoji,
   statusLabel,
   onAdjustPoints,
+  CLASSES = [],
+  additionalClassIdsByStudent = {},
 }) {
   const [behaviorStudent, setBehaviorStudent] = useState(null)
   const [behaviorTab, setBehaviorTab] = useState('positive')
+  const [classFilter, setClassFilter] = useState('all')
   const [bulkSelectedIds, setBulkSelectedIds] = useState([])
   const [bulkPointAmount, setBulkPointAmount] = useState(1)
   const [manualReason, setManualReason] = useState('Daily entries')
@@ -72,6 +76,7 @@ export default function BehaviorPage({
   const [bulkMessage, setBulkMessage] = useState('')
 
   const sortedSearchedStudents = [...searchedStudents].sort((firstStudent, secondStudent) => secondStudent.points - firstStudent.points)
+  const classFilteredStudents = sortedSearchedStudents.filter(student => studentBelongsToClass(student, classFilter, additionalClassIdsByStudent))
 
   function toggleBulkStudent(studentId) {
     setBulkSelectedIds(previous => previous.includes(studentId)
@@ -82,7 +87,7 @@ export default function BehaviorPage({
   }
 
   function selectAllVisibleStudents() {
-    setBulkSelectedIds(sortedSearchedStudents.map(student => student.id))
+    setBulkSelectedIds(classFilteredStudents.map(student => student.id))
     setBulkMessage('')
   }
 
@@ -310,7 +315,7 @@ export default function BehaviorPage({
               </div>
 
               <div style={{ border: '1px solid #dce4ed', borderRadius: 9, background: '#ffffff', maxHeight: 260, overflowY: 'auto' }}>
-                {sortedSearchedStudents.map(student => {
+                {classFilteredStudents.map(student => {
                   const isSelected = bulkSelectedIds.includes(student.id)
                   return (
                     <label key={student.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderBottom: '1px solid #edf2f7', cursor: 'pointer', background: isSelected ? '#f3f7ff' : '#ffffff' }}>
@@ -367,8 +372,16 @@ export default function BehaviorPage({
             )}
           </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Class:</span>
+            <select value={classFilter} onChange={event => setClassFilter(event.target.value)} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #dce4ed', background: '#fff', fontSize: 12, fontWeight: 700, minWidth: 160 }}>
+              <option value="all">All Students</option>
+              {CLASSES.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
+            </select>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
-          {sortedSearchedStudents.map((s, i) => {
+          {classFilteredStudents.map((s, i) => {
             const vip = isVIP(s)
             return (
               <div

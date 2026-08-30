@@ -6,6 +6,8 @@ export type GradeEntry = {
   teacher: string
   subject: string
   skill: string
+  class_id: string
+  class_name: string
   assessment_name: string
   assessment_type: string
   date: string
@@ -103,6 +105,8 @@ export function testScoreToGradeEntry(
     teacher: score.teacher || '',
     subject: score.subject || '',
     skill: score.skill || '',
+    class_id: score.classId || score.class_id || '',
+    class_name: score.className || score.class_name || '',
     assessment_name: score.assessmentName || score.assessment_name || '',
     assessment_type: score.assessmentType || score.assessment_type || 'Quiz',
     date: score.date || new Date().toISOString().slice(0, 10),
@@ -127,6 +131,8 @@ export function gradeEntryToTestScore(row: GradeEntry): Record<string, any> {
     teacher: row.teacher,
     subject: row.subject,
     skill: row.skill,
+    classId: row.class_id,
+    className: row.class_name,
     assessmentName: row.assessment_name,
     assessmentType: row.assessment_type,
     date: row.date,
