@@ -89,6 +89,8 @@ export default function SetupCenterPage({
   onBulkAddStudentsToClass,
   onClearGradesHistory,
   onClearPointsHistory,
+  persistedClasses = [],
+  onSaveClass,
 }) {
   const safeSetupNavItems = Array.isArray(setupNavItems) ? setupNavItems : []
   const safeDivisions = DIVISIONS || {}
@@ -296,6 +298,8 @@ export default function SetupCenterPage({
               onAddStudentToClass={onAddStudentToClass}
               onRemoveStudentFromClass={onRemoveStudentFromClass}
               onBulkAddStudentsToClass={onBulkAddStudentsToClass}
+              persistedClasses={persistedClasses}
+              onSaveClass={onSaveClass}
             />
           )}
 

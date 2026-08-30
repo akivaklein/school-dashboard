@@ -25,6 +25,8 @@ export default function SetupSchoolStructureSection({
   onAddStudentToClass = null as ((studentId: number, classId: string, className: string) => Promise<boolean>) | null,
   onRemoveStudentFromClass = null as ((studentId: number, classId: string) => Promise<boolean>) | null,
   onBulkAddStudentsToClass = null as ((studentIds: number[], classId: string, className: string) => Promise<boolean>) | null,
+  persistedClasses = [] as Array<{ id: string; name: string; grade: string; teacher: string; division_key: string }>,
+  onSaveClass = null as ((cls: { id: string; name: string; grade: string; teacher: string; divisionKey: string }) => Promise<boolean>) | null,
 }) {
   const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>(() =>
     CLASSES.map(cls => ({
@@ -73,6 +75,18 @@ export default function SetupSchoolStructureSection({
       CLASS_DIVISION[cls.id] = divisionKey
     })
   }, [schoolClasses, schoolDivisions])
+
+  // Merge classes persisted in Supabase in (survives refresh/logout/another device)
+  useEffect(() => {
+    if (!persistedClasses.length) return
+    setSchoolClasses(previous => {
+      const byId = new Map(previous.map(cls => [cls.id, cls]))
+      persistedClasses.forEach(row => {
+        byId.set(row.id, { id: row.id, name: row.name, grade: row.grade, teacher: row.teacher, divisionKey: row.division_key })
+      })
+      return Array.from(byId.values())
+    })
+  }, [persistedClasses])
 
   const defaultDivisionKey = Object.keys(schoolDivisions)[0] || 'yeshiva_ketana'
 
@@ -183,6 +197,8 @@ export default function SetupSchoolStructureSection({
 
     if (!name || !grade) return
 
+    const classId = editingClassId || `class-${Date.now()}`
+
     if (editingClassId) {
       setSchoolClasses(previous =>
         previous.map(item =>
@@ -195,7 +211,7 @@ export default function SetupSchoolStructureSection({
       setSchoolClasses(previous => [
         ...previous,
         {
-          id: `class-${Date.now()}`,
+          id: classId,
           name,
           grade,
           teacher,
@@ -203,6 +219,8 @@ export default function SetupSchoolStructureSection({
         },
       ])
     }
+
+    if (onSaveClass) onSaveClass({ id: classId, name, grade, teacher, divisionKey })
 
     setShowClassEditor(false)
     setEditingClassId(null)
@@ -424,30 +442,45 @@ export default function SetupSchoolStructureSection({
           </div>
 
           {selectedStudents.size > 0 && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, padding: '10px 12px', background: '#eff6ff', borderRadius: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>{selectedStudents.size} selected</span>
-              <select value={moveToClass} onChange={e => setMoveToClass(e.target.value)} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid #bfdbfe', fontSize: 12 }}>
-                <option value="">Move to class...</option>
-                {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <button onClick={moveSelected} disabled={!moveToClass} style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: moveToClass ? '#1d4ed8' : '#e2e8f0', color: moveToClass ? '#fff' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: moveToClass ? 'pointer' : 'default' }}>Move</button>
-              {onBulkAddStudentsToClass && (
-                <>
-                  <span style={{ fontSize: 11, color: '#94a3b8' }}>or</span>
-                  <select value={addToClass} onChange={e => setAddToClass(e.target.value)} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid #bbf7d0', fontSize: 12 }}>
-                    <option value="">Add to class...</option>
+            <div style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', background: '#eff6ff', borderRadius: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#1d4ed8' }}>{selectedStudents.size} student{selectedStudents.size === 1 ? '' : 's'} selected</span>
+                <button onClick={() => setSelectedStudents(new Set())} style={{ padding: '5px 10px', borderRadius: 7, border: '1px solid #bfdbfe', background: '#fff', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Clear selection</button>
+              </div>
+
+              <div style={{ padding: '10px 12px', border: '1px solid #dbe4ed', borderRadius: 10, background: '#fff' }}>
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: '#334155', marginBottom: 2 }}>Switch homeroom class</div>
+                <div style={{ fontSize: 10.5, color: '#94a3b8', marginBottom: 8 }}>Replaces each selected student's primary/homeroom class.</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <select value={moveToClass} onChange={e => setMoveToClass(e.target.value)} style={{ flex: '1 1 160px', padding: '7px 10px', borderRadius: 7, border: '1px solid #bfdbfe', fontSize: 12 }}>
+                    <option value="">Choose a class...</option>
                     {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
-                  <button onClick={addSelectedToClass} disabled={!addToClass} style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: addToClass ? '#16a34a' : '#e2e8f0', color: addToClass ? '#fff' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: addToClass ? 'pointer' : 'default' }}>+ Add (keep existing)</button>
-                </>
+                  <button onClick={moveSelected} disabled={!moveToClass} style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: moveToClass ? '#1d4ed8' : '#e2e8f0', color: moveToClass ? '#fff' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: moveToClass ? 'pointer' : 'default' }}>Switch Homeroom</button>
+                </div>
+              </div>
+
+              {onBulkAddStudentsToClass && (
+                <div style={{ padding: '10px 12px', border: '1px solid #bbf7d0', borderRadius: 10, background: '#f0fdf4' }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, color: '#166534', marginBottom: 2 }}>+ Add to another class</div>
+                  <div style={{ fontSize: 10.5, color: '#4d7c62', marginBottom: 8 }}>Adds an additional class on top of each student's homeroom and any other classes — nothing is removed.</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <select value={addToClass} onChange={e => setAddToClass(e.target.value)} style={{ flex: '1 1 160px', padding: '7px 10px', borderRadius: 7, border: '1px solid #bbf7d0', fontSize: 12 }}>
+                      <option value="">Choose a class...</option>
+                      {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <button onClick={addSelectedToClass} disabled={!addToClass} style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: addToClass ? '#16a34a' : '#e2e8f0', color: addToClass ? '#fff' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: addToClass ? 'pointer' : 'default' }}>+ Add to Class (keep existing)</button>
+                  </div>
+                </div>
               )}
-              <button onClick={() => setSelectedStudents(new Set())} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid #bfdbfe', background: '#fff', color: '#64748b', fontSize: 11, cursor: 'pointer' }}>Clear</button>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={selectAll} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #dce4ed', background: '#f8fafc', color: '#475569', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>Select All</button>
-            {selectedStudents.size > 0 && <span style={{ fontSize: 11, color: '#64748b' }}>{selectedStudents.size} of {filteredStudents.length} selected</span>}
+            {selectedStudents.size > 0
+              ? <span style={{ fontSize: 11, color: '#64748b' }}>{selectedStudents.size} of {filteredStudents.length} selected</span>
+              : <span style={{ fontSize: 11, color: '#94a3b8' }}>Check students below to switch their homeroom or add them to another class.</span>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 6, maxHeight: 400, overflowY: 'auto' }}>

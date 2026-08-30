@@ -45,6 +45,11 @@ import {
   clearPointsHistory,
 } from '../services/adminCleanupService'
 import {
+  loadClasses,
+  upsertClass,
+  type PersistedClass,
+} from '../services/schoolStructureService'
+import {
   listStudentFlags,
   replaceStudentFlags,
 } from '../services/studentFlagsService'
@@ -2589,6 +2594,50 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     }
   }, [])
 
+  // Load persisted classes from Supabase and subscribe to realtime changes so
+  // classes created in Setup survive refresh, logout, and other devices.
+  useEffect(() => {
+    let active = true
+
+    function applyClassRow(row: PersistedClass) {
+      const existingIndex = CLASSES.findIndex((cls: { id: string }) => cls.id === row.id)
+      const mapped = { id: row.id, name: row.name, grade: row.grade, teacher: row.teacher, divisionKey: row.division_key }
+      if (existingIndex >= 0) {
+        CLASSES[existingIndex] = mapped
+      } else {
+        CLASSES.push(mapped)
+      }
+      CLASS_DIVISION[row.id] = row.division_key
+    }
+
+    loadClasses().then(rows => {
+      if (!active || !rows.length) return
+      rows.forEach(applyClassRow)
+      setPersistedClasses(rows)
+    })
+
+    const channel = supabase
+      .channel('classes-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'classes' }, payload => {
+        if (!active) return
+        if (payload.eventType === 'DELETE') {
+          const removedId = (payload.old as any)?.id
+          setPersistedClasses(prev => prev.filter(row => row.id !== removedId))
+          return
+        }
+        const row = payload.new as PersistedClass
+        if (!row?.id) return
+        applyClassRow(row)
+        setPersistedClasses(prev => {
+          const without = prev.filter(item => item.id !== row.id)
+          return [...without, row]
+        })
+      })
+      .subscribe()
+
+    return () => { active = false; supabase.removeChannel(channel) }
+  }, [])
+
   // Load student class assignments from Supabase and subscribe to realtime changes
   useEffect(() => {
     let active = true
@@ -3025,6 +3074,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   // student_class_assignments from Supabase — keyed by student_id
   const [studentClassOverrides, setStudentClassOverrides] = useState<Record<number, { classId: string; divisionKey: string }>>({})
+
+  // Persisted class definitions from Supabase (Setup > Classes & Divisions)
+  const [persistedClasses, setPersistedClasses] = useState<PersistedClass[]>([])
 
   // student_additional_classes from Supabase — a student's classes on top of their primary/homeroom class
   const [additionalClassMemberships, setAdditionalClassMemberships] = useState<StudentAdditionalClass[]>([])
@@ -5234,6 +5286,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             onBulkAddStudentsToClass={handleBulkAddStudentsToClass}
             onClearGradesHistory={() => clearGradesHistory(effectiveUserName || 'Admin')}
             onClearPointsHistory={() => clearPointsHistory(effectiveUserName || 'Admin')}
+            persistedClasses={persistedClasses}
+            onSaveClass={(cls: { id: string; name: string; grade: string; teacher: string; divisionKey: string }) => upsertClass(cls)}
           />
           </Suspense>
         )}

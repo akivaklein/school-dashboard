@@ -83,6 +83,8 @@ const baseProps = {
   onBulkAddStudentsToClass: async () => true,
   onClearGradesHistory: async () => ({ success: true }),
   onClearPointsHistory: async () => ({ success: true }),
+  persistedClasses: [],
+  onSaveClass: async () => true,
 }
 
 describe('SetupCenterPage', () => {
