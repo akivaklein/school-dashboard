@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import playSound from '../utils/playSound'
-import { resolveActorName, resolveStudentClassId } from './dashboardData'
+import { getStaffNameOptions, resolveActorName, resolveStudentClassIds, studentBelongsToClass } from './dashboardData'
 import {
   buildLateToClassFields,
   buildTeachingModeWriteFailureMessage,
@@ -68,6 +68,8 @@ export default function TeachingMode({
   assignedStudentIds = [],
   assignmentPeriods = {},
   teachingAssignments = {},
+  persistedClasses = [],
+  additionalClassIdsByStudent = {},
 }) {
 
   const isStudentInClass = student => isInClassroom(student)
@@ -142,20 +144,37 @@ export default function TeachingMode({
 
   const hasAssignedStudents = assignedStudents.length > 0
 
+  // Real classes/groups persisted in Supabase (Setup > Classes & Divisions) take
+  // precedence over the static fallback list, and any class only defined there
+  // (Advanced, Gemara level groups, Math/Reading groups, etc.) is included too.
+  const effectiveClasses = useMemo(() => {
+    const merged = new Map()
+    ;(CLASSES || []).forEach(cls => merged.set(cls.id, cls))
+    ;(persistedClasses || []).forEach(cls => merged.set(cls.id, {
+      id: cls.id,
+      name: cls.name,
+      grade: cls.grade,
+      teacher: cls.teacher,
+    }))
+    return Array.from(merged.values())
+  }, [CLASSES, persistedClasses])
+
   const classOptions = useMemo(() => {
-    const classIdsInScope = new Set(
-      scopeBaseStudents
-        .map(student => resolveStudentClassId(student))
-        .filter(Boolean),
-    )
+    const classIdsInScope = new Set()
+    scopeBaseStudents.forEach(student => {
+      resolveStudentClassIds(student, additionalClassIdsByStudent).forEach(id => classIdsInScope.add(id))
+    })
 
-    return CLASSES.filter(cls => classIdsInScope.has(cls.id))
-  }, [scopeBaseStudents, CLASSES])
+    return effectiveClasses.filter(cls => classIdsInScope.has(cls.id))
+  }, [scopeBaseStudents, effectiveClasses, additionalClassIdsByStudent])
 
-  const teacherOptions = useMemo(
-    () => classOptions.map(cls => cls.teacher).filter((value, index, arr) => arr.indexOf(value) === index),
-    [classOptions],
-  )
+  // Every teacher/rebbe on staff should be selectable, not only whoever
+  // happens to own a homeroom class represented in the current scope.
+  const teacherOptions = useMemo(() => {
+    const fromStaff = getStaffNameOptions(STAFF, roleValue => /teacher|rebbe/i.test(roleValue))
+    const fromClasses = effectiveClasses.map(cls => cls.teacher).filter(Boolean)
+    return Array.from(new Set([...fromStaff, ...fromClasses])).sort()
+  }, [STAFF, effectiveClasses])
 
   const gradeOptions = useMemo(
     () => classOptions.map(cls => cls.grade).filter((value, index, arr) => arr.indexOf(value) === index),
@@ -410,24 +429,23 @@ export default function TeachingMode({
 
   const scopeOptions = [
     ...(canViewEntireSchool ? [{ value: 'entire', label: 'Entire School' }] : []),
+    { value: 'class', label: 'Class' },
     { value: 'teacher', label: 'Teacher' },
-    { value: 'class', label: 'Grade' },
+    { value: 'grade', label: 'Grade' },
     { value: 'period', label: 'Period' },
     ...(hasAssignedStudents ? [{ value: 'assigned', label: 'My Assigned Students' }] : []),
   ]
 
   const scopedStudents = useMemo(() => {
-    const byClass = (student, classId) => resolveStudentClassId(student) === classId
-    const byTeacher = (student, teacherName) => {
-      const classId = resolveStudentClassId(student)
-      const cls = CLASSES.find(item => item.id === classId)
+    const byClass = (student, classId) => studentBelongsToClass(student, classId, additionalClassIdsByStudent)
+    const byTeacher = (student, teacherName) => resolveStudentClassIds(student, additionalClassIdsByStudent).some(classId => {
+      const cls = effectiveClasses.find(item => item.id === classId)
       return cls?.teacher === teacherName
-    }
-    const byGrade = (student, gradeName) => {
-      const classId = resolveStudentClassId(student)
-      const cls = CLASSES.find(item => item.id === classId)
+    })
+    const byGrade = (student, gradeName) => resolveStudentClassIds(student, additionalClassIdsByStudent).some(classId => {
+      const cls = effectiveClasses.find(item => item.id === classId)
       return cls?.grade === gradeName
-    }
+    })
 
     if (scopeType === 'entire') {
       return canViewEntireSchool ? schoolStudents : scopeBaseStudents
@@ -472,7 +490,8 @@ export default function TeachingMode({
     selectedGrade,
     selectedPeriod,
     periodBuckets,
-    CLASSES,
+    effectiveClasses,
+    additionalClassIdsByStudent,
   ])
 
   const classStudents = scopedStudents

@@ -2211,7 +2211,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         databaseStudent.daily_status ||
         databaseStudent.dailyStatus ||
         databaseStudent.status ||
-        'present',
+        'not-arrived',
       ),
       withStaff: typeof databaseStudent.with_staff === 'string' || typeof databaseStudent.with_staff === 'number'
         ? databaseStudent.with_staff
@@ -4699,6 +4699,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         assignedStudentIds={assignedStaffStudentIdsForMode}
         assignmentPeriods={teacherAssignmentPeriodBuckets?.[normalizedEffectiveUserName]?.periods || {}}
         teachingAssignments={teacherAssignmentPeriodBuckets}
+        persistedClasses={persistedClasses}
+        additionalClassIdsByStudent={additionalClassIdsByStudent}
       />
     </Suspense>
   )
