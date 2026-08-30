@@ -531,37 +531,7 @@ export default function TokenStorePage({
                   </div>
                 </div>
 
-                <div style={{ overflowX: 'auto' }}>
-                  <div style={{ minWidth: 790 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: managerGridTemplate, gap: 8, padding: '0 4px 8px', fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <div>Item</div><div>SKU</div><div>Barcode</div><div>Cost</div><div>Stock</div><div>Low At</div><div>Category</div><div>VIP</div><div></div>
-                    </div>
-
-                    {storeItems.map(item => (
-                      <div key={item.id} style={{ display: 'grid', gridTemplateColumns: managerGridTemplate, gap: 8, alignItems: 'center', padding: '8px 4px', borderTop: '1px solid #eef2f7' }}>
-                    <input value={item.name} onChange={e => updateStoreItem(item.id, 'name', e.target.value)} onFocus={() => focusKeyboardField('name', { type: 'existing', itemId: item.id })} spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <input value={item.sku || ''} onChange={e => updateStoreItem(item.id, 'sku', e.target.value)} onFocus={() => focusKeyboardField('sku', { type: 'existing', itemId: item.id })} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
-                    <input value={item.barcode || ''} onChange={e => updateStoreItem(item.id, 'barcode', e.target.value)} onFocus={() => focusKeyboardField('barcode', { type: 'existing', itemId: item.id })} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
-                    <input type="number" value={item.cost} onChange={e => updateStoreItem(item.id, 'cost', e.target.value)} onFocus={() => focusKeyboardField('cost', { type: 'existing', itemId: item.id })} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => adjustStoreStock(item.id, -1)} style={{ ...S.btn('ghost'), padding: '6px 8px' }}>−</button>
-                      <input type="number" value={item.stock} onChange={e => updateStoreItem(item.id, 'stock', e.target.value)} onFocus={() => focusKeyboardField('stock', { type: 'existing', itemId: item.id })} style={{ width: 52, padding: '8px 6px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, textAlign: 'center' }} />
-                      <button onClick={() => adjustStoreStock(item.id, 1)} style={{ ...S.btn('ghost'), padding: '6px 8px' }}>+</button>
-                    </div>
-                    <input type="number" value={item.lowStockAt} onChange={e => updateStoreItem(item.id, 'lowStockAt', e.target.value)} onFocus={() => focusKeyboardField('lowStockAt', { type: 'existing', itemId: item.id })} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
-                    <select value={item.category || 'nosh'} onChange={e => updateStoreItem(item.id, 'category', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, background: '#fff' }}>
-                      {STORE_CATEGORY_OPTIONS.filter(cat => cat.key !== 'all').map(cat => (
-                        <option key={cat.key} value={cat.key}>{cat.label}</option>
-                      ))}
-                    </select>
-                    <input type="checkbox" checked={item.vip} onChange={e => updateStoreItem(item.id, 'vip', e.target.checked)} />
-                    <button onClick={() => removeStoreItem(item.id)} style={{ ...S.btn('ghost'), color: '#9f1239' }}>Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 14, paddingTop: 14 }}>
+                <div style={{ borderBottom: '1px solid #e2e8f0', marginBottom: 14, paddingBottom: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Add Store Item</div>
                   <div style={{ display: 'grid', gridTemplateColumns: addItemGridTemplate, gap: 8, alignItems: 'center' }}>
                     <input value={newStoreItem.emoji} onChange={e => setNewStoreItem(prev => ({ ...prev, emoji: e.target.value }))} onFocus={() => focusKeyboardField('emoji')} placeholder="Icon" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
@@ -647,6 +617,36 @@ export default function TokenStorePage({
                       </div>
                     </div>
                   )}
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ minWidth: 790 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: managerGridTemplate, gap: 8, padding: '0 4px 8px', fontSize: 11, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <div>Item</div><div>SKU</div><div>Barcode</div><div>Cost</div><div>Stock</div><div>Low At</div><div>Category</div><div>VIP</div><div></div>
+                    </div>
+
+                    {storeItems.map(item => (
+                      <div key={item.id} style={{ display: 'grid', gridTemplateColumns: managerGridTemplate, gap: 8, alignItems: 'center', padding: '8px 4px', borderTop: '1px solid #eef2f7' }}>
+                    <input value={item.name} onChange={e => updateStoreItem(item.id, 'name', e.target.value)} onFocus={() => focusKeyboardField('name', { type: 'existing', itemId: item.id })} spellCheck lang="en" style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <input value={item.sku || ''} onChange={e => updateStoreItem(item.id, 'sku', e.target.value)} onFocus={() => focusKeyboardField('sku', { type: 'existing', itemId: item.id })} placeholder="SKU" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
+                    <input value={item.barcode || ''} onChange={e => updateStoreItem(item.id, 'barcode', e.target.value)} onFocus={() => focusKeyboardField('barcode', { type: 'existing', itemId: item.id })} placeholder="Barcode" spellCheck={false} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 12 }} />
+                    <input type="number" value={item.cost} onChange={e => updateStoreItem(item.id, 'cost', e.target.value)} onFocus={() => focusKeyboardField('cost', { type: 'existing', itemId: item.id })} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button onClick={() => adjustStoreStock(item.id, -1)} style={{ ...S.btn('ghost'), padding: '6px 8px' }}>−</button>
+                      <input type="number" value={item.stock} onChange={e => updateStoreItem(item.id, 'stock', e.target.value)} onFocus={() => focusKeyboardField('stock', { type: 'existing', itemId: item.id })} style={{ width: 52, padding: '8px 6px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, textAlign: 'center' }} />
+                      <button onClick={() => adjustStoreStock(item.id, 1)} style={{ ...S.btn('ghost'), padding: '6px 8px' }}>+</button>
+                    </div>
+                    <input type="number" value={item.lowStockAt} onChange={e => updateStoreItem(item.id, 'lowStockAt', e.target.value)} onFocus={() => focusKeyboardField('lowStockAt', { type: 'existing', itemId: item.id })} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13 }} />
+                    <select value={item.category || 'nosh'} onChange={e => updateStoreItem(item.id, 'category', e.target.value)} style={{ padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, background: '#fff' }}>
+                      {STORE_CATEGORY_OPTIONS.filter(cat => cat.key !== 'all').map(cat => (
+                        <option key={cat.key} value={cat.key}>{cat.label}</option>
+                      ))}
+                    </select>
+                    <input type="checkbox" checked={item.vip} onChange={e => updateStoreItem(item.id, 'vip', e.target.checked)} />
+                    <button onClick={() => removeStoreItem(item.id)} style={{ ...S.btn('ghost'), color: '#9f1239' }}>Remove</button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
