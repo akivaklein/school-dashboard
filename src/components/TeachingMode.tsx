@@ -89,6 +89,7 @@ export default function TeachingMode({
   const [selectedClass, setSelectedClass] = useState(initialClass)
   const [scopeType, setScopeType] = useState(canViewEntireSchool ? 'entire' : 'assigned')
   const [selectedTeacher, setSelectedTeacher] = useState('')
+  const [selectedTeacherClass, setSelectedTeacherClass] = useState('')
   const [selectedGrade, setSelectedGrade] = useState('')
   const [selectedPeriod, setSelectedPeriod] = useState('')
   const [lateClassPopup, setLateClassPopup] = useState(null) // studentId
@@ -175,6 +176,13 @@ export default function TeachingMode({
     const fromClasses = effectiveClasses.map(cls => cls.teacher).filter(Boolean)
     return Array.from(new Set([...fromStaff, ...fromClasses])).sort()
   }, [STAFF, effectiveClasses])
+
+  // A teacher can teach more than one class/group (homeroom, Gemara level,
+  // Math/Reading group, etc.), so Teacher scope needs a second selector.
+  const teacherClassOptions = useMemo(
+    () => (selectedTeacher ? classOptions.filter(cls => cls.teacher === selectedTeacher) : []),
+    [classOptions, selectedTeacher],
+  )
 
   const gradeOptions = useMemo(
     () => classOptions.map(cls => cls.grade).filter((value, index, arr) => arr.indexOf(value) === index),
@@ -300,6 +308,10 @@ export default function TeachingMode({
 
     setScopeType('class')
   }, [scopeType, allowedScopeValues, canViewEntireSchool, hasAssignedStudents, isStoreRole])
+
+  useEffect(() => {
+    setSelectedTeacherClass(prev => (prev && teacherClassOptions.some(cls => cls.id === prev) ? prev : ''))
+  }, [selectedTeacher, teacherClassOptions])
 
   useEffect(() => {
     const selectedScopeValue =
@@ -462,7 +474,9 @@ export default function TeachingMode({
 
     if (scopeType === 'teacher') {
       if (!selectedTeacher) return scopeBaseStudents
-      return scopeBaseStudents.filter(student => byTeacher(student, selectedTeacher))
+      const teacherStudents = scopeBaseStudents.filter(student => byTeacher(student, selectedTeacher))
+      if (!selectedTeacherClass) return teacherStudents
+      return teacherStudents.filter(student => byClass(student, selectedTeacherClass))
     }
 
     if (scopeType === 'grade') {
@@ -487,6 +501,7 @@ export default function TeachingMode({
     assignedStudents,
     selectedClass,
     selectedTeacher,
+    selectedTeacherClass,
     selectedGrade,
     selectedPeriod,
     periodBuckets,
@@ -1598,6 +1613,28 @@ export default function TeachingMode({
                   <option value="">All Teachers</option>
                   {teacherOptions.map(name => (
                     <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              )}
+
+              {scopeType === 'teacher' && selectedTeacher && teacherClassOptions.length > 0 && (
+                <select
+                  value={selectedTeacherClass}
+                  onChange={event => setSelectedTeacherClass(event.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 9,
+                    border: '1px solid #d6e0ec',
+                    background: '#ffffff',
+                    color: '#233952',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    minWidth: 170,
+                  }}
+                >
+                  <option value="">All Classes/Groups</option>
+                  {teacherClassOptions.map(cls => (
+                    <option key={cls.id} value={cls.id}>{cls.name}</option>
                   ))}
                 </select>
               )}

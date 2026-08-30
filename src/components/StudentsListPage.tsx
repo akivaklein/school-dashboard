@@ -221,7 +221,6 @@ export default function StudentsListPage({
       className: gradeClassName(safeGrade),
       classId: gradeClassId(safeGrade),
       grade: safeGrade,
-      status: 'present',
       isActive: formState.isActive !== false,
       teacherAssignments: splitCsv(formState.teacherAssignmentsText),
       supportAssignments: splitCsv(formState.supportAssignmentsText),

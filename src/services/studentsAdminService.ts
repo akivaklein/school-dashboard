@@ -90,8 +90,8 @@ export async function createStudentRecord(payload: StudentMutationPayload, actor
   const row = {
     name: String(payload.name || '').trim(),
     class_name: className,
-    status: String(payload.status || 'present'),
-    daily_status: String(payload.status || 'present'),
+    status: String(payload.status || 'not-arrived'),
+    daily_status: String(payload.status || 'not-arrived'),
     division: 'yeshiva-ketana',
     token_balance: 0,
     reminders: 0,
@@ -147,11 +147,12 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
     ...supportAssignments.map(name => ({ role: 'support_staff', staffName: name })),
   ]
 
+  // Attendance/session state (status, daily_status) is owned by Attendance and
+  // Teaching Mode. A general profile edit here must never reset a student back
+  // to "present"/in-class regardless of their real current attendance state.
   const patch = {
     name: String(payload.name || '').trim(),
     class_name: className,
-    status: String(payload.status || 'present'),
-    daily_status: String(payload.status || 'present'),
     family,
     services,
     assigned_therapist: String(payload.assignedTherapist || '').trim(),
