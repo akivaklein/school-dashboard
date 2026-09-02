@@ -47,11 +47,13 @@ describe('adminCleanupService', () => {
     )
   })
 
-  it('clears points_events and resets token_balance/reminders/behavior_log so balances stay consistent', async () => {
+  it('clears points_events, unlinks store_redemptions FKs, and resets token_balance/reminders/behavior_log', async () => {
+    const storeRedemptionsTable = tableMock({})
     const pointsEventsTable = tableMock({})
     const studentsTable = tableMock({})
     const auditLogsTable = tableMock({})
     fromMock.mockImplementation((table: string) => {
+      if (table === 'store_redemptions') return storeRedemptionsTable
       if (table === 'points_events') return pointsEventsTable
       if (table === 'students') return studentsTable
       if (table === 'audit_logs') return auditLogsTable
@@ -61,6 +63,8 @@ describe('adminCleanupService', () => {
     const result = await clearPointsHistory('Admin User')
 
     expect(result.success).toBe(true)
+    expect(storeRedemptionsTable.update).toHaveBeenCalledWith({ points_event_id: null, reversal_event_id: null })
+    expect(pointsEventsTable.update).toHaveBeenCalledWith({ related_event_id: null })
     expect(pointsEventsTable.delete).toHaveBeenCalled()
     expect(studentsTable.update).toHaveBeenCalledWith({ token_balance: 0, reminders: 0, behavior_log: [] })
     expect(auditLogsTable.insert).toHaveBeenCalledWith(
