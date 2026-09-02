@@ -177,6 +177,7 @@ type Props = {
   setShowStoreManager: (value: boolean) => void
   storeItems: StoreItemLike[]
   updateStoreItem: (id: number | string, field: string, value: unknown) => void
+  saveStoreItemEdits: (id: number | string, updates: Partial<StoreItemLike>) => Promise<void>
   adjustStoreStock: (id: number | string, amount: number) => void
   removeStoreItem: (id: number | string) => void
   newStoreItem: NewStoreItemState
@@ -235,6 +236,7 @@ export default function TokenStorePage({
   setShowStoreManager,
   storeItems,
   updateStoreItem,
+  saveStoreItemEdits,
   adjustStoreStock,
   removeStoreItem,
   newStoreItem,
@@ -264,6 +266,10 @@ export default function TokenStorePage({
   // Re-render of the (potentially large) student roster trails a frame behind typing so the input never blocks.
   const deferredStudentSearch = useDeferredValue(studentSearch)
   const [photoStatus, setPhotoStatus] = useState('')
+  const [editingItemId, setEditingItemId] = useState<number | string | null>(null)
+  const [editForm, setEditForm] = useState<NewStoreItemState | null>(null)
+  const [editPhotoStatus, setEditPhotoStatus] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [keyboardField, setKeyboardField] = useState<KeyboardField>('name')
   const [keyboardTarget, setKeyboardTarget] = useState<KeyboardTarget>({ type: 'new' })
@@ -272,7 +278,7 @@ export default function TokenStorePage({
   const scannerBufferRef = useRef('')
   const scannerLastKeyAtRef = useRef(0)
   const isCompactViewport = useCompactViewport()
-  const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 96px'
+  const managerGridTemplate = 'minmax(180px, 1.2fr) 120px 130px 80px 110px 90px 110px 70px 150px'
   const addItemGridTemplate = isCompactViewport
     ? 'repeat(auto-fit, minmax(140px, 1fr))'
     : 'minmax(80px, 90px) minmax(160px, 1.3fr) minmax(110px, 130px) minmax(130px, 150px) repeat(4, minmax(90px, 120px)) minmax(90px, 100px) minmax(110px, 130px)'
@@ -394,6 +400,99 @@ export default function TokenStorePage({
       alert('Unable to use that photo. Please try another image.')
     } finally {
       input.value = ''
+    }
+  }
+
+  function openEditItem(item: StoreItemLike) {
+    setEditingItemId(item.id ?? null)
+    setEditForm({
+      emoji: String(item.emoji || ''),
+      imageUrl: String(item.imageUrl || ''),
+      name: String(item.name || ''),
+      sku: String(item.sku || ''),
+      barcode: String(item.barcode || ''),
+      cost: item.cost ?? '',
+      stock: item.stock ?? '',
+      lowStockAt: item.lowStockAt ?? '',
+      category: String(item.category || 'nosh'),
+      vip: Boolean(item.vip),
+    })
+    setEditPhotoStatus('')
+  }
+
+  function closeEditItem() {
+    setEditingItemId(null)
+    setEditForm(null)
+    setEditPhotoStatus('')
+    setEditSaving(false)
+  }
+
+  async function handleEditItemPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target
+    const file = input.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('Choose an image file.')
+      input.value = ''
+      return
+    }
+
+    setEditPhotoStatus('Preparing photo...')
+    try {
+      const dataUrl = await buildStoreItemImageDataUrl(file, MAX_STORE_ITEM_IMAGE_BYTES)
+      setEditForm(previous => (previous ? { ...previous, imageUrl: dataUrl } : previous))
+      setEditPhotoStatus(file.size > MAX_STORE_ITEM_IMAGE_BYTES ? 'Photo resized to fit.' : 'Photo ready.')
+    } catch {
+      setEditPhotoStatus('')
+      alert('Unable to use that photo. Please try another image.')
+    } finally {
+      input.value = ''
+    }
+  }
+
+  async function handleExistingItemImageUpload(itemId: number | string, event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target
+    const file = input.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('Choose an image file.')
+      input.value = ''
+      return
+    }
+
+    try {
+      const dataUrl = await buildStoreItemImageDataUrl(file, MAX_STORE_ITEM_IMAGE_BYTES)
+      await saveStoreItemEdits(itemId, { imageUrl: dataUrl })
+    } catch {
+      alert('Unable to update that item image. Please try another photo.')
+    } finally {
+      input.value = ''
+    }
+  }
+
+  async function saveEditItem() {
+    if (editingItemId === null || !editForm) return
+    if (!String(editForm.name).trim()) { alert('Item name is required.'); return }
+
+    setEditSaving(true)
+    try {
+      await saveStoreItemEdits(editingItemId, {
+        name: editForm.name,
+        sku: editForm.sku,
+        barcode: editForm.barcode,
+        cost: Number(editForm.cost) || 0,
+        stock: Number(editForm.stock) || 0,
+        lowStockAt: Number(editForm.lowStockAt) || 0,
+        category: editForm.category,
+        vip: editForm.vip,
+        emoji: editForm.emoji,
+        imageUrl: editForm.imageUrl,
+      })
+      closeEditItem()
+    } catch {
+      setEditSaving(false)
     }
   }
 
@@ -643,7 +742,17 @@ export default function TokenStorePage({
                       ))}
                     </select>
                     <input type="checkbox" checked={item.vip} onChange={e => updateStoreItem(item.id, 'vip', e.target.checked)} />
-                    <button onClick={() => removeStoreItem(item.id)} style={{ ...S.btn('ghost'), color: '#9f1239' }}>Remove</button>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <label style={{ ...S.btn('ghost'), padding: '6px 10px', cursor: 'pointer', fontSize: 11 }}>
+                        Change Picture
+                        <input type="file" accept="image/*" capture="environment" onChange={event => handleExistingItemImageUpload(item.id, event)} style={{ display: 'none' }} />
+                      </label>
+                      <label style={{ ...S.btn('ghost'), padding: '6px 10px', cursor: 'pointer', fontSize: 11 }}>
+                        Gallery
+                        <input type="file" accept="image/*" onChange={event => handleExistingItemImageUpload(item.id, event)} style={{ display: 'none' }} />
+                      </label>
+                      <button onClick={() => removeStoreItem(item.id)} style={{ ...S.btn('ghost'), color: '#9f1239' }}>Remove</button>
+                    </div>
                       </div>
                     ))}
                   </div>
@@ -933,6 +1042,100 @@ export default function TokenStorePage({
           </div>
         )
       })()}
+
+      {editingItemId !== null && editForm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}
+          onClick={() => !editSaving && closeEditItem()}
+        >
+          <div
+            style={{ ...S.card, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}
+            onClick={event => event.stopPropagation()}
+          >
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Edit Store Item</div>
+
+            <div style={{ display: 'grid', gap: 10 }}>
+              <label style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                Item name
+                <input value={editForm.name} onChange={e => setEditForm(prev => (prev ? { ...prev, name: e.target.value } : prev))} spellCheck lang="en" style={{ width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <label style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                  SKU
+                  <input value={editForm.sku} onChange={e => setEditForm(prev => (prev ? { ...prev, sku: e.target.value } : prev))} spellCheck={false} style={{ width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+                </label>
+                <label style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                  Barcode
+                  <input value={editForm.barcode} onChange={e => setEditForm(prev => (prev ? { ...prev, barcode: e.target.value } : prev))} spellCheck={false} style={{ width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <label style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                  Price (cost)
+                  <input type="number" value={editForm.cost} onChange={e => setEditForm(prev => (prev ? { ...prev, cost: e.target.value } : prev))} style={{ width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+                </label>
+                <label style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                  Stock
+                  <input type="number" value={editForm.stock} onChange={e => setEditForm(prev => (prev ? { ...prev, stock: e.target.value } : prev))} style={{ width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+                </label>
+                <label style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                  Low stock at
+                  <input type="number" value={editForm.lowStockAt} onChange={e => setEditForm(prev => (prev ? { ...prev, lowStockAt: e.target.value } : prev))} style={{ width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+                <label style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                  Category
+                  <select value={editForm.category || 'nosh'} onChange={e => setEditForm(prev => (prev ? { ...prev, category: e.target.value } : prev))} style={{ width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, background: '#fff', boxSizing: 'border-box' }}>
+                    {STORE_CATEGORY_OPTIONS.filter(cat => cat.key !== 'all').map(cat => (
+                      <option key={cat.key} value={cat.key}>{cat.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ fontSize: 12, color: '#475569', fontWeight: 600, display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 8 }}>
+                  <input type="checkbox" checked={editForm.vip} onChange={e => setEditForm(prev => (prev ? { ...prev, vip: e.target.checked } : prev))} /> VIP
+                </label>
+              </div>
+
+              <label style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                Icon
+                <input value={editForm.emoji} onChange={e => setEditForm(prev => (prev ? { ...prev, emoji: e.target.value } : prev))} style={{ width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #d8dee9', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+              </label>
+
+              <div>
+                <div style={{ fontSize: 12, color: '#475569', fontWeight: 600, marginBottom: 6 }}>Image</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <label style={{ ...S.btn('ghost'), cursor: 'pointer' }}>
+                    Take Photo
+                    <input type="file" accept="image/*" capture="environment" onChange={handleEditItemPhoto} style={{ display: 'none' }} />
+                  </label>
+                  <label style={{ ...S.btn('ghost'), cursor: 'pointer' }}>
+                    Choose From Gallery
+                    <input type="file" accept="image/*" onChange={handleEditItemPhoto} style={{ display: 'none' }} />
+                  </label>
+                  {editPhotoStatus && <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>{editPhotoStatus}</span>}
+                  {editForm.imageUrl && (
+                    <>
+                      <img src={editForm.imageUrl} alt="Item preview" style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 6, border: '1px solid #d8dee9' }} />
+                      <button onClick={() => { setEditForm(prev => (prev ? { ...prev, imageUrl: '' } : prev)); setEditPhotoStatus('') }} style={{ ...S.btn('ghost'), padding: '5px 8px', fontSize: 11 }}>Remove Photo</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button onClick={closeEditItem} disabled={editSaving} style={S.btn('ghost')}>Cancel</button>
+              <button onClick={saveEditItem} disabled={editSaving} style={S.btn('primary')}>{editSaving ? 'Saving...' : 'Save Changes'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

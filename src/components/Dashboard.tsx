@@ -4308,6 +4308,75 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       })
   }
 
+  function saveStoreItemEdits(id: number | string, updates: Partial<StoreItemLike>) {
+    if (!storePersistenceReady) {
+      alert('Token Store is not synced to Supabase yet.')
+      return Promise.reject(new Error('Token Store is not synced to Supabase yet.'))
+    }
+
+    let previousItem: StoreItemLike | null = null
+    let nextItem: StoreItemLike | null = null
+
+    setStoreSyncState('pending-sync')
+
+    setStoreItems(prev => prev.map(item => {
+      if (Number(item.id) !== Number(id)) return item
+      previousItem = item
+      nextItem = { ...item, ...updates }
+      return nextItem
+    }))
+
+    if (!nextItem) {
+      setStoreSyncState('ready')
+      return Promise.resolve()
+    }
+
+    const normalizedItem = normalizeStoreItemInput({ ...nextItem, id: Number(nextItem.id) })
+    const persistedItem: StoreItem = {
+      ...nextItem,
+      ...normalizedItem,
+      id: Number(nextItem.id),
+      cost: normalizedItem.cost,
+      stock: normalizedItem.stock,
+      lowStockAt: normalizedItem.lowStockAt,
+      emoji: normalizedItem.emoji,
+      vip: normalizedItem.vip,
+      category: normalizedItem.category,
+      name: normalizedItem.name,
+      barcode: normalizedItem.barcode,
+      imageUrl: normalizedItem.imageUrl,
+      active: nextItem.active !== false,
+      updatedBy: normalizedItem.updatedBy,
+      createdAt: String(nextItem.createdAt || new Date().toISOString()),
+      updatedAt: String(nextItem.updatedAt || new Date().toISOString()),
+    }
+
+    return saveStoreItem(persistedItem, userName || 'Store Manager')
+      .then(savedItem => {
+        setStoreSyncState('ready')
+        setStoreItems(prev => prev.map(item => (
+          Number(item.id) === Number(savedItem.id)
+            ? { ...item, ...savedItem }
+            : item
+        )))
+      })
+      .catch(error => {
+        setStoreSyncState('error')
+        console.error('Unable to save store item:', error)
+
+        if (previousItem) {
+          setStoreItems(prev => prev.map(item => (
+            Number(item.id) === Number(previousItem!.id)
+              ? previousItem!
+              : item
+          )))
+        }
+
+        alert('Unable to save store item changes.')
+        throw error
+      })
+  }
+
   function adjustStoreStock(id: number | string, amount: number | string) {
     if (!storePersistenceReady) {
       alert('Token Store is not synced to Supabase yet.')
@@ -5485,6 +5554,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             setShowStoreManager={setShowStoreManager}
             storeItems={storeItems}
             updateStoreItem={updateStoreItem}
+            saveStoreItemEdits={saveStoreItemEdits}
             adjustStoreStock={adjustStoreStock}
             removeStoreItem={removeStoreItem}
             newStoreItem={newStoreItem}

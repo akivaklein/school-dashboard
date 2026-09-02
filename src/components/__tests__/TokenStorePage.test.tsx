@@ -14,6 +14,7 @@ const baseProps = {
   setShowStoreManager: () => {},
   storeItems: [],
   updateStoreItem: () => {},
+  saveStoreItemEdits: async () => {},
   adjustStoreStock: () => {},
   removeStoreItem: () => {},
   newStoreItem: {
@@ -63,6 +64,32 @@ describe('TokenStorePage', () => {
 
     expect(markup).toContain('Pending sync')
     expect(markup).toContain('Local changes pending')
+  })
+
+  it('offers a dedicated image replacement action for each inventory row', () => {
+    const markup = renderToStaticMarkup(
+      <TokenStorePage
+        {...baseProps}
+        storeItems={[
+          {
+            id: 1,
+            name: 'Water Bottle',
+            sku: 'WB-1',
+            barcode: '1234567890',
+            cost: 8,
+            stock: 3,
+            lowStockAt: 1,
+            category: 'drinks',
+            vip: false,
+            emoji: '💧',
+            imageUrl: '',
+          },
+        ]}
+      />,
+    )
+
+    expect(markup).toContain('Change Picture')
+    expect(markup).toContain('Gallery')
   })
 
   it('finds store items by barcode in the redemption search box', () => {
