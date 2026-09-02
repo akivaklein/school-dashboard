@@ -70,6 +70,8 @@ describe('TokenStorePage', () => {
     const markup = renderToStaticMarkup(
       <TokenStorePage
         {...baseProps}
+        userAccess={{ ...baseProps.userAccess, canManageStore: true }}
+        showStoreManager={true}
         storeItems={[
           {
             id: 1,
@@ -90,6 +92,52 @@ describe('TokenStorePage', () => {
 
     expect(markup).toContain('Change Picture')
     expect(markup).toContain('Gallery')
+  })
+
+  it('shows the current item thumbnail and falls back to the emoji when no image exists', () => {
+    const withImageMarkup = renderToStaticMarkup(
+      <TokenStorePage
+        {...baseProps}
+        storeItems={[
+          {
+            id: 1,
+            name: 'Water Bottle',
+            sku: 'WB-1',
+            barcode: '1234567890',
+            cost: 8,
+            stock: 3,
+            lowStockAt: 1,
+            category: 'drinks',
+            vip: false,
+            emoji: '💧',
+            imageUrl: 'data:image/png;base64,abc123',
+          },
+        ]}
+      />,
+    )
+    const withoutImageMarkup = renderToStaticMarkup(
+      <TokenStorePage
+        {...baseProps}
+        storeItems={[
+          {
+            id: 2,
+            name: 'Snack',
+            sku: 'SN-2',
+            barcode: '2222',
+            cost: 5,
+            stock: 10,
+            lowStockAt: 2,
+            category: 'nosh',
+            vip: false,
+            emoji: '🥨',
+            imageUrl: '',
+          },
+        ]}
+      />,
+    )
+
+    expect(withImageMarkup).toContain('data:image/png;base64,abc123')
+    expect(withoutImageMarkup).toContain('🥨')
   })
 
   it('finds store items by barcode in the redemption search box', () => {

@@ -742,16 +742,25 @@ export default function TokenStorePage({
                       ))}
                     </select>
                     <input type="checkbox" checked={item.vip} onChange={e => updateStoreItem(item.id, 'vip', e.target.checked)} />
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <label style={{ ...S.btn('ghost'), padding: '6px 10px', cursor: 'pointer', fontSize: 11 }}>
-                        Change Picture
-                        <input type="file" accept="image/*" capture="environment" onChange={event => handleExistingItemImageUpload(item.id, event)} style={{ display: 'none' }} />
-                      </label>
-                      <label style={{ ...S.btn('ghost'), padding: '6px 10px', cursor: 'pointer', fontSize: 11 }}>
-                        Gallery
-                        <input type="file" accept="image/*" onChange={event => handleExistingItemImageUpload(item.id, event)} style={{ display: 'none' }} />
-                      </label>
-                      <button onClick={() => removeStoreItem(item.id)} style={{ ...S.btn('ghost'), color: '#9f1239' }}>Remove</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 8, border: '1px solid #d8dee9', background: '#f8fafc', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name || 'Store item'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontSize: 18, lineHeight: 1 }}>{item.emoji || '🛍️'}</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <label style={{ ...S.btn('ghost'), padding: '6px 10px', cursor: 'pointer', fontSize: 11 }}>
+                          Change Picture
+                          <input type="file" accept="image/*" capture="environment" onChange={event => handleExistingItemImageUpload(item.id, event)} style={{ display: 'none' }} />
+                        </label>
+                        <label style={{ ...S.btn('ghost'), padding: '6px 10px', cursor: 'pointer', fontSize: 11 }}>
+                          Gallery
+                          <input type="file" accept="image/*" onChange={event => handleExistingItemImageUpload(item.id, event)} style={{ display: 'none' }} />
+                        </label>
+                        <button onClick={() => removeStoreItem(item.id)} style={{ ...S.btn('ghost'), color: '#9f1239' }}>Remove</button>
+                      </div>
                     </div>
                       </div>
                     ))}
