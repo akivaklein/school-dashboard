@@ -36,13 +36,15 @@ begin
   where related_event_id is not null;
 
   -- 3) Delete all points_events rows
-  delete from public.points_events;
+  delete from public.points_events
+  where id is not null;
 
   -- 4) Reset student point balances, reminder counts, and behavior logs
   update public.students
   set token_balance = 0,
       reminders = 0,
-      behavior_log = '[]'::jsonb;
+      behavior_log = '[]'::jsonb
+  where id is not null;
 
   -- 5) Record audit log
   insert into public.audit_logs (
