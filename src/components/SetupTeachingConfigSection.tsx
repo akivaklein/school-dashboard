@@ -95,13 +95,16 @@ export default function SetupTeachingConfigSection({
     const label = newSkillLabel.trim()
     if (!label) return
 
-    const exists = (selectedSubject.skills || []).some(skill => skill.label.toLowerCase() === label.toLowerCase())
+    const category = newSkillCategory.trim() || undefined
+    const exists = (selectedSubject.skills || []).some(skill => (
+      skill.label.toLowerCase() === label.toLowerCase() &&
+      (skill.category || '').toLowerCase() === (category || '').toLowerCase()
+    ))
     if (exists) {
-      alert('That skill/topic already exists for this subject.')
+      alert('That skill/topic already exists for this category.')
       return
     }
 
-    const category = newSkillCategory.trim() || undefined
     updateCatalogSubject(selectedSubject.id, subject => ({
       ...subject,
       skills: [

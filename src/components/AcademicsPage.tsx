@@ -414,9 +414,11 @@ export default function AcademicsPage({
   const selectedCatalogSubject = activeCatalogSubjects.find(subject => subject.label === bulkForm.subject)
   const bulkCategorySkills = (selectedCatalogSubject?.skills || []).filter(skill => skill.active !== false)
   const bulkCategoryOptions = ['all', ...new Set(bulkCategorySkills.map(skill => skill.category).filter(isNonEmptyString))]
-  const bulkSkillOptions = bulkCategorySkills
-    .filter(skill => bulkForm.category === 'all' || (skill.category || '') === bulkForm.category)
-    .map(skill => skill.label)
+  const bulkSkillOptions = Array.from(new Set(
+    bulkCategorySkills
+      .filter(skill => bulkForm.category === 'all' || (skill.category || '') === bulkForm.category)
+      .map(skill => skill.label)
+  ))
 
   const effectiveBulkSkillOptions = bulkSkillOptions.length > 0
     ? bulkSkillOptions
@@ -669,12 +671,30 @@ export default function AcademicsPage({
     setBulkForm(prev => ({ ...prev, assessmentName: '', notes: '', fillAllScore: '' }))
   }
 
+  const activeFilterSubjectSkills = useMemo(() => (
+    subjectFilter === 'all'
+      ? []
+      : ((academicCatalog?.subjects || []) as AcademicCatalogSubject[])
+          .filter(subject => subject.active !== false && subject.label === subjectFilter)
+          .flatMap(subject => (subject.skills || []).filter(skill => skill.active !== false))
+  ), [academicCatalog, subjectFilter])
+
+  const categorySkillSet = useMemo(() => {
+    if (subjectFilter === 'all' || categoryFilter === 'all') return null
+    return new Set(
+      activeFilterSubjectSkills
+        .filter(skill => (skill.category || '') === categoryFilter)
+        .map(skill => skill.label)
+    )
+  }, [subjectFilter, categoryFilter, activeFilterSubjectSkills])
+
   const allScores = visibleStudents
     .flatMap(s => (s.testScores || []).map(score => ({ ...score, studentId: s.id, studentName: s.name })))
     .filter(score => !isArchivedRecord(score) && !isDeletedRecord(score))
     .filter(score =>
       (teacherFilter === 'all' || score.teacher === teacherFilter)
       && (subjectFilter === 'all' || score.subject === subjectFilter)
+      && (categoryFilter === 'all' || !categorySkillSet || categorySkillSet.has(score.skill))
       && (skillFilter === 'all' || score.skill === skillFilter)
       && (enteredByFilter === 'all' || (score.enteredBy || 'Unknown') === enteredByFilter)
     )
@@ -688,7 +708,7 @@ export default function AcademicsPage({
   const numericScores = allScores.filter(x => x.scoreType !== 'rating' && x.maxScore && x.attemptStatus !== 'absent' && x.attemptStatus !== 'missed')
   const classAvg = numericScores.length ? Math.round(numericScores.reduce((acc, x) => acc + academicPct(x), 0) / numericScores.length) : null
   const latestByStudent = visibleStudents.map(st => {
-    const scores = (st.testScores || []).filter(score => (teacherFilter === 'all' || score.teacher === teacherFilter) && (subjectFilter === 'all' || score.subject === subjectFilter) && (skillFilter === 'all' || score.skill === skillFilter)).sort((a,b)=>b.date.localeCompare(a.date))
+    const scores = (st.testScores || []).filter(score => (teacherFilter === 'all' || score.teacher === teacherFilter) && (subjectFilter === 'all' || score.subject === subjectFilter) && (categoryFilter === 'all' || !categorySkillSet || categorySkillSet.has(score.skill)) && (skillFilter === 'all' || score.skill === skillFilter)).sort((a,b)=>b.date.localeCompare(a.date))
     const nums = scores.filter(x=>x.scoreType !== 'rating' && x.maxScore && x.attemptStatus !== 'absent' && x.attemptStatus !== 'missed')
     const avg = nums.length ? Math.round(nums.reduce((acc,x)=>acc+academicPct(x),0)/nums.length) : null
     const latest = scores[0]
@@ -699,11 +719,6 @@ export default function AcademicsPage({
   const ratingCounts = { Weak: 0, Developing: 0, Good: 0, Great: 0 }
   allScores.filter(x=>x.scoreType==='rating').forEach(x => { ratingCounts[x.rating] = (ratingCounts[x.rating] || 0) + 1 })
   const filterSubjectOptions = ['all', ...new Set(((academicCatalog?.subjects || []) as AcademicCatalogSubject[]).filter(subject => subject.active !== false).map(subject => subject.label))]
-  const activeFilterSubjectSkills = subjectFilter === 'all'
-    ? []
-    : ((academicCatalog?.subjects || []) as AcademicCatalogSubject[])
-        .filter(subject => subject.active !== false && subject.label === subjectFilter)
-        .flatMap(subject => (subject.skills || []).filter(skill => skill.active !== false))
   const filterCategories = ['all', ...new Set(activeFilterSubjectSkills.map(skill => skill.category).filter(isNonEmptyString))]
   const filterSkills = subjectFilter === 'all'
     ? ['all']
