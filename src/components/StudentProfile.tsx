@@ -4,6 +4,7 @@ import { resolveActorName } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
 import { buildStudentNavigationList, getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
 import { getCurrentLocationStatus, getDailyAttendanceStatus } from '../utils/attendancePresence'
+import { removeParentCall } from '../utils/parentCallUtils'
 
 export default function StudentProfile({
   student,
@@ -110,10 +111,16 @@ export default function StudentProfile({
     if (!callNotes.trim()) return
     const resolvedCaller = resolveActorName(callStaff || userName, role).trim()
     const newCall = {
+      id: `call-${Date.now()}`,
       date: new Date().toISOString().slice(0,10),
+      time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
       staff: resolvedCaller,
       notes: callNotes,
       duration: callDuration,
+      outcome: 'Logged',
+      completed: true,
+      completedAt: new Date().toISOString(),
+      completedBy: resolvedCaller,
     }
     setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: [...(Array.isArray(x.parentCalls) ? x.parentCalls : []), newCall] } : x))
     
@@ -128,7 +135,7 @@ export default function StudentProfile({
   }
 
   function deleteCall(idx: number) {
-    const updatedCalls = parentCalls.filter((_, i) => i !== idx)
+    const updatedCalls = removeParentCall(parentCalls, idx)
     setStudents(prev => prev.map(x => x.id === s.id ? { ...x, parentCalls: updatedCalls } : x))
     if (persistStudentFields) persistStudentFields(s.id, { parentCalls: updatedCalls })
     setConfirmDeleteCallIdx(null)
@@ -369,9 +376,9 @@ export default function StudentProfile({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
                     <div>
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{c.staff}</span>
-                      <span style={{ color: '#94a3b8', fontSize: 12, marginLeft: 8 }}>{c.date}{c.duration ? ` · ${c.duration}` : ''}</span>
+                      <span style={{ color: '#94a3b8', fontSize: 12, marginLeft: 8 }}>{c.date}{c.time ? ` · ${c.time}` : ''}{c.duration ? ` · ${c.duration}` : ''}</span>
                     </div>
-                    {role !== 'therapist' && role !== 'store' && (
+                    {isLeadershipRole(role) && (
                       confirmDeleteCallIdx === i ? (
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                           <button onClick={() => deleteCall(i)} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>Delete</button>
@@ -382,7 +389,7 @@ export default function StudentProfile({
                       )
                     )}
                   </div>
-                  <div style={{ fontSize: 13, color: '#334155' }}>{c.notes}</div>
+                  <div style={{ fontSize: 13, color: '#334155' }}>{c.reason && <div>Reason: {c.reason}</div>}<div>{c.notes}</div>{c.outcome && <div style={{ color: '#587261', fontSize: 11, fontWeight: 700, marginTop: 4 }}>Outcome: {c.outcome}</div>}{c.completedBy && <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>Completed by {c.completedBy}</div>}</div>
                 </div>
               ))}
               {role !== 'therapist' && role !== 'store' && (

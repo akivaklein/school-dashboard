@@ -6,6 +6,7 @@ import { createStudentNote, listStudentNotes, type StudentNoteRecord } from '../
 import { createStudentGoal, listStudentGoals, updateStudentGoal, type StudentGoal } from '../services/studentGoalsService'
 import { createTodo, updateTodo, type Todo } from '../services/todosService'
 import { persistParentCalls } from '../services/studentPersistenceService'
+import { getCompletedParentCalls, getOpenParentCalls, removeParentCall } from '../utils/parentCallUtils'
 
 type StudentLike = {
   id: number | string
@@ -214,13 +215,11 @@ export default function StudentSupport({
   const visibleFlags = activeFlags.filter(flag => !selectedStudentId || Number(flag.studentId) === selectedStudentId)
   const visibleResolvedFlags = flags.filter(flag => Boolean(flag.completed) && (!selectedStudentId || Number(flag.studentId) === selectedStudentId))
   const callsNeeded = students
-    .flatMap(student => (student.parentCalls || []).map((call, index) => ({ student, call, index })))
-    .filter(entry => entry.call.completed !== true && (
-      entry.call.outcome === 'Call Needed' ||
-      entry.call.callNeeded === true ||
-      entry.call.status === 'needed'
-    ))
+    .flatMap(student => getOpenParentCalls(Array.isArray(student.parentCalls) ? student.parentCalls : []).map(call => ({ student, call, index: (student.parentCalls || []).indexOf(call) })))
   const visibleCallsNeeded = callsNeeded.filter(entry => !selectedStudentId || Number(entry.student.id) === selectedStudentId)
+  const callHistory = students
+    .flatMap(student => getCompletedParentCalls(Array.isArray(student.parentCalls) ? student.parentCalls : []).map(call => ({ student, call, index: (student.parentCalls || []).indexOf(call) })))
+    .filter(entry => !selectedStudentId || Number(entry.student.id) === selectedStudentId)
   const openTodos = todos.filter(todo => !todo.done && (!selectedStudentId || Number(todo.student_id) === selectedStudentId))
   const completedTodayTodos = todos.filter(todo => {
     const updatedDate = String(todo.updated_at || todo.date || '').slice(0, 10)
@@ -544,6 +543,17 @@ export default function StudentSupport({
     setCallOutcome('Spoke')
   }
 
+  async function deleteCall(student: StudentLike, callIndex: number) {
+    if (!isLeadershipRole(role)) return
+    if (!window.confirm('Delete this parent call record? This cannot be undone.')) return
+
+    const parentCalls = Array.isArray(student.parentCalls) ? student.parentCalls : []
+    const nextCalls = removeParentCall(parentCalls, callIndex)
+    setStudents(previous => previous.map(entry => Number(entry.id) === Number(student.id) ? { ...entry, parentCalls: nextCalls } : entry))
+    const saved = await persistParentCalls(student.id, nextCalls)
+    if (!saved) alert('Unable to delete parent call.')
+  }
+
   async function addTodo() {
     if (!setTodos || !todoText.trim()) return
 
@@ -766,8 +776,15 @@ export default function StudentSupport({
           <div style={cardStyle}>
             <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 12 }}>Open Parent Calls</div>
             <div style={{ display: 'grid', gap: 10 }}>
-              {visibleCallsNeeded.map(({ student, call, index }) => <div key={`${student.id}-${index}`} style={{ border: '1px solid #e1e6ea', borderRadius: 10, padding: 11, background: '#fff' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><b style={{ color: '#34465a', fontSize: 13 }}>{student.name}</b><span style={{ color: '#778493', fontSize: 11 }}>{String(call.date || '')} {String(call.time || '')}</span></div><div style={{ color: '#526274', fontSize: 12, marginTop: 5 }}>{String(call.reason || call.notes || 'Call needed')}</div>{call.assignedTo && <div style={{ color: '#778493', fontSize: 11, marginTop: 4 }}>Assigned to {String(call.assignedTo)}</div>}<div style={{ display: 'grid', gridTemplateColumns: '150px 1fr auto', gap: 8, marginTop: 10 }}><select value={callOutcome} onChange={event => setCallOutcome(event.target.value)} style={inputStyle()}><option>Spoke</option><option>No Answer</option><option>Left Message</option></select><input value={callNote} onChange={event => setCallNote(event.target.value)} placeholder="Short note" style={inputStyle()} spellCheck lang="en" /><button onClick={() => completeCall(student, index)} style={S.btn('success')}>Complete</button></div></div>)}
+              {visibleCallsNeeded.map(({ student, call, index }) => <div key={`${student.id}-${index}`} style={{ border: '1px solid #e1e6ea', borderRadius: 10, padding: 11, background: '#fff' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><b style={{ color: '#34465a', fontSize: 13 }}>{student.name}</b><span style={{ color: '#778493', fontSize: 11 }}>{String(call.date || '')} {String(call.time || '')}</span></div><div style={{ color: '#526274', fontSize: 12, marginTop: 5 }}>{String(call.reason || call.notes || 'Call needed')}</div>{call.assignedTo && <div style={{ color: '#778493', fontSize: 11, marginTop: 4 }}>Assigned to {String(call.assignedTo)}</div>}<div style={{ display: 'grid', gridTemplateColumns: '150px 1fr auto', gap: 8, marginTop: 10 }}><select value={callOutcome} onChange={event => setCallOutcome(event.target.value)} style={inputStyle()}><option>Spoke</option><option>No Answer</option><option>Left Message</option></select><input value={callNote} onChange={event => setCallNote(event.target.value)} placeholder="Short note" style={inputStyle()} spellCheck lang="en" /><button onClick={() => completeCall(student, index)} style={S.btn('success')}>Complete</button>{isLeadershipRole(role) && <button onClick={() => deleteCall(student, index)} style={S.btn('ghost')}>Delete</button>}</div></div>)}
               {visibleCallsNeeded.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No open parent calls.</div>}
+            </div>
+          </div>
+          <div style={cardStyle}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 12 }}>Completed Calls / Call History</div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {callHistory.map(({ student, call, index }) => <div key={`${student.id}-${index}`} style={{ border: '1px solid #e1e6ea', borderRadius: 10, padding: 11, background: '#f7f8f8' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><b style={{ color: '#34465a', fontSize: 13 }}>{student.name}</b><span style={{ color: '#778493', fontSize: 11 }}>{String(call.completedAt || call.date || '')} {String(call.time || '')}</span></div><div style={{ color: '#526274', fontSize: 12, marginTop: 5 }}>Reason: {String(call.reason || 'Parent call')}</div><div style={{ color: '#526274', fontSize: 12, marginTop: 4 }}>Outcome: {String(call.outcome || 'Completed')}</div>{call.notes && <div style={{ color: '#526274', fontSize: 12, marginTop: 4 }}>Note: {String(call.notes)}</div>}<div style={{ color: '#778493', fontSize: 11, marginTop: 5 }}>Logged by {String(call.staff || 'Staff')}{call.completedBy ? ` · Completed by ${String(call.completedBy)}` : ''}</div>{isLeadershipRole(role) && <button onClick={() => deleteCall(student, index)} style={{ ...S.btn('ghost'), marginTop: 8 }}>Delete</button>}</div>)}
+              {callHistory.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No completed calls yet.</div>}
             </div>
           </div>
         </div>
