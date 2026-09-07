@@ -6,7 +6,6 @@ import {
   isInSchool,
   isLocationUnknown,
   isOutOfSchool,
-  resolveClassroomStatusAfterAttendanceUpdate,
 } from '../utils/attendancePresence'
 
 type AttendanceStudent = { id: number | string; [key: string]: unknown }
@@ -44,7 +43,12 @@ export default function AttendancePage({
   const [lateTime, setLateTime] = useState('')
   const [lateReason, setLateReason] = useState('no-reason')
   const [lateNote, setLateNote] = useState('')
+  const [departurePopup, setDeparturePopup] = useState(null)
+  const [departureTime, setDepartureTime] = useState('')
+  const [departureReason, setDepartureReason] = useState('dismissed')
+  const [departureNote, setDepartureNote] = useState('')
   const actingStaffName = resolveActorName(userName, role)
+  const dailyAttendanceStudents = students.filter(s => s?.is_active !== false)
 
   function buildClassLogEntry(type, note, extra: { staffId?: number | string | null } = {}) {
     return {
@@ -61,12 +65,6 @@ export default function AttendancePage({
     }
   }
 
-  async function saveStudentField(id, field, value) {
-    const success = await persistStudentFields(id, { [field]: value })
-    if (!success) alert('Unable to save student status to Supabase.')
-    return success
-  }
-
   async function saveStudentFields(id, fields) {
     const success = await persistStudentFields(id, fields)
     if (!success) alert('Unable to save student status to Supabase.')
@@ -77,20 +75,14 @@ export default function AttendancePage({
     const original = students.find(s => Number(s.id) === Number(id))
     if (!original) return
 
-    const nextClassroomStatus = resolveClassroomStatusAfterAttendanceUpdate(
-      original.status,
-      status,
-    )
-
     setUndoStack(u => [
       ...u.slice(-19),
       {
         type: 'single',
         id,
         dailyStatus: getDailyAttendanceStatus(original),
-        status: original.status || 'present',
         lateDetails: original.lateDetails || null,
-        withStaff: original.withStaff || null,
+        departureDetails: original.departureDetails || null,
         classLog: original.classLog || []
       }
     ])
@@ -107,8 +99,6 @@ export default function AttendancePage({
           ? {
               ...s,
               dailyStatus: status,
-              status: nextClassroomStatus,
-              withStaff: nextClassroomStatus === 'present' ? null : s.withStaff,
               classLog: updatedClassLog
             }
           : s
@@ -120,11 +110,15 @@ export default function AttendancePage({
       setLateTime('')
       setLateReason('no-reason')
       setLateNote('')
+    } else if (status === 'left-early') {
+      setDeparturePopup(id)
+      setDepartureTime('')
+      setDepartureReason('dismissed')
+      setDepartureNote('')
     }
 
     const success = await saveStudentFields(id, {
       dailyStatus: status,
-      status: nextClassroomStatus,
       classLog: updatedClassLog
     })
 
@@ -135,9 +129,8 @@ export default function AttendancePage({
             ? {
                 ...s,
                 dailyStatus: original.dailyStatus,
-                status: original.status,
                 lateDetails: original.lateDetails,
-                withStaff: original.withStaff,
+                departureDetails: original.departureDetails,
                 classLog: original.classLog || []
               }
             : s
@@ -157,8 +150,7 @@ export default function AttendancePage({
               ...s,
               dailyStatus: saved.dailyStatus,
               lateDetails: saved.lateDetails,
-              status: saved.status,
-              withStaff: saved.withStaff,
+              departureDetails: saved.departureDetails,
               classLog: saved.classLog,
             }
           : s
@@ -169,8 +161,7 @@ export default function AttendancePage({
           fields: {
             dailyStatus: saved.dailyStatus,
             lateDetails: saved.lateDetails,
-            status: saved.status,
-            withStaff: saved.withStaff,
+            departureDetails: saved.departureDetails,
             classLog: saved.classLog,
           }
         }))
@@ -181,15 +172,13 @@ export default function AttendancePage({
         ...s,
         dailyStatus: last.dailyStatus,
         lateDetails: last.lateDetails,
-        status: last.status,
-        withStaff: last.withStaff,
+        departureDetails: last.departureDetails,
         classLog: last.classLog,
       } : s))
       await saveStudentFields(last.id, {
         dailyStatus: last.dailyStatus,
         lateDetails: last.lateDetails,
-        status: last.status,
-        withStaff: last.withStaff,
+        departureDetails: last.departureDetails,
         classLog: last.classLog,
       })
     }
@@ -245,6 +234,57 @@ export default function AttendancePage({
     }
 
     setLatePopup(null)
+  }
+
+  async function confirmDeparture() {
+    const studentId = departurePopup
+    if (!studentId) return
+
+    const original = students.find(s => s.id === studentId)
+    if (!original) return
+
+    const departureDetails = {
+      timeDeparted: departureTime,
+      reason: departureReason,
+      note: departureNote,
+      markedBy: actingStaffName,
+      markedAt: new Date().toISOString(),
+    }
+
+    const classLogEntry = buildClassLogEntry(
+      'departure-details',
+      `Departure details saved by ${actingStaffName}`
+    )
+    const updatedClassLog = [...(original.classLog || []), classLogEntry]
+
+    setStudents(prev =>
+      prev.map(s =>
+        s.id === studentId
+          ? { ...s, departureDetails, classLog: updatedClassLog }
+          : s
+      )
+    )
+
+    const success = await saveStudentFields(studentId, {
+      departureDetails,
+      classLog: updatedClassLog,
+    })
+
+    if (!success) {
+      setStudents(prev =>
+        prev.map(s =>
+          s.id === studentId
+            ? {
+                ...s,
+                departureDetails: original.departureDetails,
+                classLog: original.classLog,
+              }
+            : s
+        )
+      )
+    }
+
+    setDeparturePopup(null)
   }
 
   const filteredStaff = leaveStaffSearch.length > 0
@@ -532,6 +572,42 @@ export default function AttendancePage({
         </div>
       )}
 
+      {departurePopup && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: 'min(94vw, 420px)', boxShadow: '0 24px 70px rgba(15,23,42,0.22)', overflow: 'hidden' }}>
+            <div style={{ background: '#6d28d9', padding: '14px 20px', color: '#fff' }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{students.find(s => s.id === departurePopup)?.name} - Left Early Details</div>
+              <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Optional - fill in what you know</div>
+            </div>
+            <div style={{ padding: 18 }}>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Time Departed</div>
+                <input type="time" value={departureTime} onChange={e => setDepartureTime(e.target.value)} style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8 }}>Reason</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[['dismissed','Dismissed'],['appointment','Appointment'],['sick','Sick / not feeling well'],['parent-pickup','Parent pickup'],['other','Other']].map(([val, label]) => (
+                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, border: `2px solid ${departureReason === val ? '#6d28d9' : '#e5e7eb'}`, cursor: 'pointer', background: departureReason === val ? '#f5f3ff' : '#fff' }}>
+                      <input type="radio" name="departureReason" value={val} checked={departureReason === val} onChange={() => setDepartureReason(val)} />
+                      <span style={{ fontWeight: departureReason === val ? 700 : 400, fontSize: 13 }}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 }}>Note (optional)</div>
+                <input value={departureNote} onChange={e => setDepartureNote(e.target.value)} placeholder="e.g. Parent picked up after lunch..." spellCheck lang="en" style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setDeparturePopup(null)} style={{ ...S.btn('ghost'), flex: 1 }}>Skip</button>
+                <button onClick={confirmDeparture} style={{ ...S.btn('primary'), flex: 1 }}>Save Details</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, gap: 10, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: '#16243a' }}>School Day</h1>
@@ -549,13 +625,13 @@ export default function AttendancePage({
         <div style={S.card}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
             {[
-              ['Present', students.filter(s => getDailyAttendanceStatus(s) === 'present').length, '#56765f', 'present'],
-              ['Absent', students.filter(s => getDailyAttendanceStatus(s) === 'absent').length, '#9f1239', 'absent'],
-              ['Late', students.filter(s => getDailyAttendanceStatus(s) === 'late').length, '#9a6a2a', 'late'],
-              ['Left Early', students.filter(s => getDailyAttendanceStatus(s) === 'left-early').length, '#6d28d9', 'left-early'],
-              ['Not Arrived / Unconfirmed', students.filter(s => ['not-arrived', 'unconfirmed'].includes(getDailyAttendanceStatus(s))).length, '#64748b', 'unconfirmed'],
+              ['Present', dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === 'present').length, '#56765f', 'present'],
+              ['Absent', dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === 'absent').length, '#9f1239', 'absent'],
+              ['Late', dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === 'late').length, '#9a6a2a', 'late'],
+              ['Left Early', dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === 'left-early').length, '#6d28d9', 'left-early'],
+              ['Not Arrived / Unconfirmed', dailyAttendanceStudents.filter(s => ['not-arrived', 'unconfirmed'].includes(getDailyAttendanceStatus(s))).length, '#64748b', 'unconfirmed'],
             ].map(([label, val, color, status]) => (
-              <div key={label} onClick={() => { const filtered = students.filter(s => getDailyAttendanceStatus(s) === status || (status === 'unconfirmed' && ['not-arrived', 'unconfirmed'].includes(getDailyAttendanceStatus(s)))); if (filtered.length > 0) { } }} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px', cursor: 'pointer', border: '2px solid transparent' }}
+              <div key={label} onClick={() => { const filtered = dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === status || (status === 'unconfirmed' && ['not-arrived', 'unconfirmed'].includes(getDailyAttendanceStatus(s)))); if (filtered.length > 0) { } }} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px', cursor: 'pointer', border: '2px solid transparent' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.border = `2px solid ${color}` }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.border = '2px solid transparent' }}>
                 <div style={{ fontSize: 28, fontWeight: 700, color }}>{val}</div>
@@ -570,7 +646,7 @@ export default function AttendancePage({
               {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>Undo</button>}
               <button onClick={() => setCollapsed(c => !c)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>{collapsed ? 'Expand All' : 'Collapse All'}</button>
               <button onClick={async () => {
-                const targetIds = new Set(filteredStudents.map(s => Number(s.id)))
+                const targetIds = new Set(dailyAttendanceStudents.map(s => Number(s.id)))
                 if (targetIds.size === 0) return
 
                 const snapshot = students
@@ -579,25 +655,23 @@ export default function AttendancePage({
                     id: s.id,
                     dailyStatus: getDailyAttendanceStatus(s),
                     lateDetails: s.lateDetails || null,
-                    status: s.status || 'present',
-                    withStaff: s.withStaff || null,
+                    departureDetails: s.departureDetails || null,
                     classLog: s.classLog || [],
                   }))
 
                 setUndoStack(u => [...u.slice(-9), { type: 'bulk', snapshot }])
                 setStudents(prev => prev.map(s => (
                   targetIds.has(Number(s.id))
-                    ? { ...s, dailyStatus: 'present', lateDetails: null, status: 'present', withStaff: null }
+                    ? { ...s, dailyStatus: 'present', lateDetails: null, departureDetails: null }
                     : s
                 )))
                 const success = await persistStudentFieldsBulk(
-                  filteredStudents.map(s => ({
+                  dailyAttendanceStudents.map(s => ({
                     id: s.id,
                     fields: {
                       dailyStatus: 'present',
                       lateDetails: null,
-                      status: 'present',
-                      withStaff: null,
+                      departureDetails: null,
                     }
                   }))
                 )
@@ -610,8 +684,7 @@ export default function AttendancePage({
                           ...s,
                           dailyStatus: saved.dailyStatus,
                           lateDetails: saved.lateDetails,
-                          status: saved.status,
-                          withStaff: saved.withStaff,
+                          departureDetails: saved.departureDetails,
                           classLog: saved.classLog,
                         }
                       : s
@@ -622,7 +695,7 @@ export default function AttendancePage({
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: collapsed ? 'repeat(auto-fit, minmax(180px, 1fr))' : 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-            {students.map((s, i) => {
+            {dailyAttendanceStudents.map((s, i) => {
               const daily = getDailyAttendanceStatus(s)
               const colors = { present: '#56765f', absent: '#9f1239', late: '#9a6a2a', 'left-early': '#6d28d9', 'not-arrived': '#64748b', unconfirmed: '#94a3b8' }
               const labels = { present: 'Present', absent: 'Absent', late: 'Late', 'left-early': 'Left Early', 'not-arrived': 'Not Arrived', unconfirmed: 'Unconfirmed' }
@@ -634,13 +707,16 @@ export default function AttendancePage({
                       <div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}</div>
                       <div style={{ fontSize: 11, color: colors[daily] || '#94a3b8', fontWeight: 600 }}>{labels[daily] || 'Unconfirmed'}</div>
                       {daily === 'late' && s.lateDetails?.timeArrived && (
-                        <div style={{ fontSize: 10, color: '#64748b' }}>⏰ {s.lateDetails.timeArrived}{s.lateDetails.note ? ` · ${s.lateDetails.note}` : ''}</div>
+                        <div style={{ fontSize: 10, color: '#64748b' }}>{s.lateDetails.timeArrived}{s.lateDetails.note ? ` · ${s.lateDetails.note}` : ''}</div>
+                      )}
+                      {daily === 'left-early' && s.departureDetails?.timeDeparted && (
+                        <div style={{ fontSize: 10, color: '#64748b' }}>{s.departureDetails.timeDeparted}{s.departureDetails.note ? ` · ${s.departureDetails.note}` : ''}</div>
                       )}
                     </div>
                   </div>
                   {!collapsed && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                      {[['present','Present'],['absent','Absent'],['late','Late'],['left-early','Left Early']].map(([val, label]) => (
+                      {[['present','Present'],['absent','Absent'],['late','Late'],['left-early','Left Early'],['not-arrived','Not Arrived']].map(([val, label]) => (
                         <button key={val} onClick={() => updateDailyStatus(s.id, val)}
                           style={{ padding: '4px 6px', borderRadius: 5, border: `1px solid ${daily === val ? colors[val] : '#e5e7eb'}`, background: daily === val ? colors[val] + '20' : '#fff', color: daily === val ? colors[val] : '#64748b', fontSize: 10, fontWeight: daily === val ? 700 : 400, cursor: 'pointer' }}>
                           {label}

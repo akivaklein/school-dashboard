@@ -37,6 +37,10 @@ export async function persistStudentFields(id, fields, options = {}) {
     mappedFields.with_staff = mappedFields.withStaff
     delete mappedFields.withStaff
   }
+  if ('departureDetails' in mappedFields) {
+    mappedFields.departure_details = mappedFields.departureDetails
+    delete mappedFields.departureDetails
+  }
   if ('therapyAssignments' in mappedFields) {
     mappedFields.therapy_assignments = mappedFields.therapyAssignments
     delete mappedFields.therapyAssignments

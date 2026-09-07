@@ -120,4 +120,24 @@ describe('persistStudentFields', () => {
     expect(alertSpy).toHaveBeenCalledWith('Unable to save student changes. Please try again.')
     expect(consoleErrorSpy).toHaveBeenCalled()
   })
+
+  it('maps daily attendance detail fields to student table column names', async () => {
+    const eqMock = vi.fn().mockResolvedValue({ error: null })
+    const updateMock = vi.fn().mockReturnValue({ eq: eqMock })
+    fromMock.mockReturnValue({ update: updateMock })
+
+    const result = await persistStudentFields(15, {
+      dailyStatus: 'left-early',
+      lateDetails: { timeArrived: '09:30' },
+      departureDetails: { timeDeparted: '12:15' },
+    })
+
+    expect(result).toBe(true)
+    expect(updateMock).toHaveBeenCalledWith({
+      daily_status: 'left-early',
+      late_details: { timeArrived: '09:30' },
+      departure_details: { timeDeparted: '12:15' },
+    })
+    expect(eqMock).toHaveBeenCalledWith('id', 15)
+  })
 })

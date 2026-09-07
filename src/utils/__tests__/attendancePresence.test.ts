@@ -9,13 +9,14 @@ import {
 } from '../attendancePresence'
 
 describe('resolveClassroomStatusAfterAttendanceUpdate', () => {
-  it('keeps students in class when attendance is restored to present', () => {
-    expect(resolveClassroomStatusAfterAttendanceUpdate('therapy', 'present')).toBe('present')
+  it('preserves live classroom status when daily attendance changes', () => {
+    expect(resolveClassroomStatusAfterAttendanceUpdate('therapy', 'present')).toBe('therapy')
+    expect(resolveClassroomStatusAfterAttendanceUpdate('present', 'absent')).toBe('present')
+    expect(resolveClassroomStatusAfterAttendanceUpdate('with-bt', 'left-early')).toBe('with-bt')
   })
 
-  it('preserves left-early and absent transitions as out-of-class states', () => {
-    expect(resolveClassroomStatusAfterAttendanceUpdate('present', 'left-early')).toBe('left-early')
-    expect(resolveClassroomStatusAfterAttendanceUpdate('present', 'absent')).toBe('not-arrived')
+  it('falls back to unknown when no live classroom status exists yet', () => {
+    expect(resolveClassroomStatusAfterAttendanceUpdate(null, 'present')).toBe('unknown')
   })
 })
 

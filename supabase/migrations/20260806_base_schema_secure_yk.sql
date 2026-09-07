@@ -19,6 +19,7 @@ create table if not exists public.students (
   status text not null default 'present',
   daily_status text,
   late_details jsonb,
+  departure_details jsonb,
   with_staff text,
   token_balance integer not null default 0,
   reminders integer not null default 0,

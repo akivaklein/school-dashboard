@@ -50,14 +50,6 @@ export function resolveClassroomStatusAfterAttendanceUpdate(
   currentStatus: string | null | undefined,
   nextDailyStatus: string,
 ): string {
-  if (nextDailyStatus === 'absent') return 'not-arrived'
-  if (nextDailyStatus === 'left-early') return 'left-early'
-
-  if (nextDailyStatus === 'present') return 'present'
-
-  if (currentStatus === 'not-arrived' || currentStatus === 'left-early' || currentStatus === 'absent') {
-    return 'present'
-  }
-
-  return String(currentStatus || 'present')
+  void nextDailyStatus
+  return String(currentStatus || 'unknown')
 }

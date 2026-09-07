@@ -11,6 +11,7 @@ describe('applyDailyAttendanceReset', () => {
         status: 'present',
         withStaff: 'Ms. Cohen',
         lateDetails: { reason: 'Traffic' },
+        departureDetails: { reason: 'Appointment' },
         classLog: [{ note: 'Earlier' }],
       },
     ]
@@ -21,6 +22,7 @@ describe('applyDailyAttendanceReset', () => {
     expect(reset[0].status).toBe('not-arrived')
     expect(reset[0].withStaff).toBeNull()
     expect(reset[0].lateDetails).toBeNull()
+    expect(reset[0].departureDetails).toBeNull()
     expect(reset[0].classLog.at(-1)).toMatchObject({
       type: 'day-reset',
       note: 'Daily attendance reset for 2026-07-27',

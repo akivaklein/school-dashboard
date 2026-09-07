@@ -6,6 +6,7 @@ begin;
 alter table public.students
   add column if not exists daily_status text,
   add column if not exists late_details jsonb,
+  add column if not exists departure_details jsonb,
   add column if not exists with_staff text;
 
 -- Backfill daily_status from existing status where possible.

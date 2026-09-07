@@ -202,6 +202,7 @@ export type StudentLike = {
   token_balance?: number
   att?: string[]
   lateDetails?: { timeArrived?: string; reason?: string; note?: string }
+  departureDetails?: { timeDeparted?: string; reason?: string; note?: string }
   classLog?: Array<{ type: string; time: string; note?: string; staffId?: number | string }>
   points?: number
   reminders?: number
@@ -1473,6 +1474,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       dailyStatus: row.daily_status ?? row.dailyStatus,
       withStaff: row.with_staff ?? row.withStaff,
       lateDetails: row.late_details ?? row.lateDetails,
+      departureDetails: row.departure_details ?? row.departureDetails,
       behaviorLog: row.behavior_log ?? row.behaviorLog,
       parentCalls: row.parent_calls ?? row.parentCalls,
       testScores: row.test_scores ?? row.testScores,
@@ -1516,6 +1518,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         testScores: [],
         classLog: [],
         lateDetails: null,
+        departureDetails: null,
         family: {},
         medical: {},
       }
@@ -1727,6 +1730,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         lateDetails:
           databaseStudent.late_details ??
           databaseStudent.lateDetails ??
+          null,
+        departureDetails:
+          databaseStudent.departure_details ??
+          databaseStudent.departureDetails ??
           null,
         points: resolveLiveStudentPoints(databaseStudent.token_balance),
         att: Array.isArray(databaseStudent.attendance)
@@ -2219,6 +2226,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       lateDetails:
         databaseStudent.late_details ??
         databaseStudent.lateDetails ??
+        null,
+      departureDetails:
+        databaseStudent.departure_details ??
+        databaseStudent.departureDetails ??
         null,
       points: resolveLiveStudentPoints(databaseStudent.token_balance),
       att: Array.isArray(databaseStudent.attendance)

@@ -19,6 +19,7 @@ export function applyDailyAttendanceReset(studentsList: Array<Record<string, any
       status: 'not-arrived',
       withStaff: null,
       lateDetails: null,
+      departureDetails: null,
       classLog: [...(student.classLog || []), resetLogEntry],
     }
   })
