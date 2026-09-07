@@ -5240,7 +5240,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               setFlags={setStudentFlags}
               initialSection={supportInitialSection}
               staff={STAFF}
-              FlagsPanel={StudentFlagsPanel}
               S={S}
               initials={initials}
               todos={todos}

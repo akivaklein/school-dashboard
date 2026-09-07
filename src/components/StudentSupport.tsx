@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType, type CSSProperties, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useState, type CSSProperties, type Dispatch, type SetStateAction } from 'react'
 import SupportSessions from './support/SupportSessions'
 import { resolveActorName } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
@@ -24,6 +24,7 @@ type StudentFlagLike = {
   goal?: string
   endDate?: string
   observations?: Array<Record<string, unknown>>
+  updates?: Array<Record<string, unknown>>
   [key: string]: unknown
 }
 
@@ -67,16 +68,17 @@ type StudentSupportProps = {
   }
   initials: (name: string) => string
   staff: Array<{ id: string | number; name?: string; role?: string; [key: string]: unknown }>
-  FlagsPanel: ComponentType<{
-    students: StudentLike[]
-    flags: StudentFlagLike[]
-    setFlags: Dispatch<SetStateAction<StudentFlagLike[]>>
-    currentStaffName: string
-  }>
 }
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function localDateValue(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function timeLabel() {
@@ -133,7 +135,6 @@ export default function StudentSupport({
   S,
   initials,
   staff,
-  FlagsPanel,
 }: StudentSupportProps) {
   const [section, setSection] = useState(initialSection)
   const [studentFilter, setStudentFilter] = useState('all')
@@ -159,6 +160,9 @@ export default function StudentSupport({
   const [flagStudentId, setFlagStudentId] = useState(students[0]?.id || '')
   const [flagReason, setFlagReason] = useState('')
   const [flagPriority, setFlagPriority] = useState('normal')
+  const [flagUpdateId, setFlagUpdateId] = useState<string | number | null>(null)
+  const [flagUpdateNote, setFlagUpdateNote] = useState('')
+  const [flagUpdateProgress, setFlagUpdateProgress] = useState('Logged')
 
   const [callStudentId, setCallStudentId] = useState(students[0]?.id || '')
   const [callReason, setCallReason] = useState('')
@@ -195,6 +199,7 @@ export default function StudentSupport({
   const updateStudentGoals = activeGoals.filter(goal => Number(goal.studentId) === Number(observationSaveStudentId))
   const activeFlags = flags.filter(flag => !flag.completed && (!flag.endDate || flag.endDate >= todayIso()))
   const visibleFlags = activeFlags.filter(flag => !selectedStudentId || Number(flag.studentId) === selectedStudentId)
+  const visibleResolvedFlags = flags.filter(flag => Boolean(flag.completed) && (!selectedStudentId || Number(flag.studentId) === selectedStudentId))
   const callsNeeded = students
     .flatMap(student => (student.parentCalls || []).map((call, index) => ({ student, call, index })))
     .filter(entry => entry.call.completed !== true && (
@@ -398,6 +403,7 @@ export default function StudentSupport({
         createdAt: todayIso(),
         completed: false,
         observations: [],
+        updates: [],
       },
       ...previous,
     ])
@@ -406,8 +412,31 @@ export default function StudentSupport({
     setStudentFilter(String(flagStudentId))
   }
 
-  function resolveSupportFlag(flagId: string | number) {
-    setFlags(previous => previous.map(flag => flag.id === flagId ? { ...flag, completed: true, resolvedAt: new Date().toISOString() } : flag))
+  function addFlagUpdate(flagId: string | number) {
+    if (!flagUpdateNote.trim()) return
+
+    const now = new Date()
+    const update = {
+      id: `flag-update-${Date.now()}`,
+      note: flagUpdateNote.trim(),
+      progress: flagUpdateProgress,
+      author: currentStaffName,
+      date: localDateValue(now),
+      time: now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+      createdAt: now.toISOString(),
+    }
+    setFlags(previous => previous.map(flag => flag.id === flagId
+      ? { ...flag, updates: [update, ...(flag.updates || [])] }
+      : flag))
+    setFlagUpdateNote('')
+    setFlagUpdateProgress('Logged')
+    setFlagUpdateId(null)
+  }
+
+  function setFlagResolved(flagId: string | number, completed: boolean) {
+    setFlags(previous => previous.map(flag => flag.id === flagId
+      ? { ...flag, completed, resolvedAt: completed ? new Date().toISOString() : undefined }
+      : flag))
   }
 
   async function markCallNeeded() {
@@ -619,14 +648,36 @@ export default function StudentSupport({
               <button onClick={addSupportFlag} style={S.btn('primary')}>Create Flag</button>
             </div>
             <div style={cardStyle}>
-              <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 12 }}>Open Flags</div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 12 }}>Ongoing Concerns</div>
               <div style={{ display: 'grid', gap: 8 }}>
-                {visibleFlags.map(flag => <div key={flag.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', border: '1px solid #e1e6ea', borderRadius: 10, padding: 10 }}><div><b style={{ color: '#34465a', fontSize: 12 }}>{studentName(flag.studentId)}</b><div style={{ color: '#526274', fontSize: 12 }}>{flag.reason || flag.goal}</div><div style={{ color: '#778493', fontSize: 10 }}>{flag.priority || 'normal'} priority</div></div><button onClick={() => resolveSupportFlag(flag.id)} style={S.btn('ghost')}>Resolve</button></div>)}
+                {visibleFlags.map(flag => {
+                  const updates = Array.isArray(flag.updates) ? flag.updates : []
+                  const isAddingUpdate = flagUpdateId === flag.id
+                  return <div key={flag.id} style={{ border: '1px solid #e1e6ea', borderRadius: 10, padding: 11, background: '#fff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+                      <div><b style={{ color: '#34465a', fontSize: 12 }}>{studentName(flag.studentId)}</b><div style={{ color: '#526274', fontSize: 13, fontWeight: 800, marginTop: 3 }}>{flag.reason || flag.goal}</div><div style={{ color: '#778493', fontSize: 10, marginTop: 4 }}>{flag.priority || 'normal'} priority · Created by {String(flag.createdBy || 'Staff')}</div></div>
+                      <button onClick={() => setFlagResolved(flag.id, true)} style={S.btn('ghost')}>Resolve</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
+                      <button onClick={() => setFlagUpdateId(isAddingUpdate ? null : flag.id)} style={S.btn('primary')}>Add Update</button>
+                      <span style={{ color: '#778493', fontSize: 11, alignSelf: 'center' }}>{updates.length} update{updates.length === 1 ? '' : 's'}</span>
+                    </div>
+                    {isAddingUpdate && <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px auto', gap: 8, marginTop: 10, padding: 10, borderRadius: 9, background: '#f7f8f8' }}>
+                      <input value={flagUpdateNote} onChange={event => setFlagUpdateNote(event.target.value)} placeholder="What happened?" style={inputStyle()} spellCheck lang="en" />
+                      <select value={flagUpdateProgress} onChange={event => setFlagUpdateProgress(event.target.value)} style={inputStyle()}><option>Logged</option><option>Improving</option><option>Unchanged</option><option>Worsening</option><option>Parent contacted</option></select>
+                      <button onClick={() => addFlagUpdate(flag.id)} style={S.btn('success')}>Save</button>
+                    </div>}
+                    <div style={{ display: 'grid', gap: 7, marginTop: 11 }}>
+                      {updates.map(update => <div key={String(update.id)} style={{ borderLeft: '3px solid #9bb4c8', padding: '7px 9px', background: '#f7f8f8' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#778493', fontSize: 10 }}><span>{String(update.author || 'Staff')}</span><span>{String(update.date || '')} {String(update.time || '')}</span></div><div style={{ color: '#526274', fontSize: 12, marginTop: 4 }}>{String(update.note || update.text || '')}</div>{update.progress && <div style={{ color: '#587261', fontSize: 10, fontWeight: 800, marginTop: 4 }}>{String(update.progress)}</div>}</div>)}
+                    </div>
+                  </div>
+                })}
+                {visibleResolvedFlags.map(flag => <div key={flag.id} style={{ border: '1px solid #e1e6ea', borderRadius: 10, padding: 11, background: '#f7f8f8', opacity: 0.82 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}><div><b style={{ color: '#34465a', fontSize: 12 }}>{studentName(flag.studentId)}</b><div style={{ color: '#526274', fontSize: 12, fontWeight: 800, marginTop: 3 }}>{flag.reason || flag.goal}</div><div style={{ color: '#778493', fontSize: 10, marginTop: 4 }}>Resolved {String(flag.resolvedAt || '')}</div></div><button onClick={() => setFlagResolved(flag.id, false)} style={S.btn('ghost')}>Reopen</button></div>{Array.isArray(flag.updates) && flag.updates.length > 0 && <div style={{ display: 'grid', gap: 7, marginTop: 10 }}>{flag.updates.map(update => <div key={String(update.id)} style={{ borderLeft: '3px solid #b8c3cc', padding: '7px 9px', background: '#fff' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#778493', fontSize: 10 }}><span>{String(update.author || 'Staff')}</span><span>{String(update.date || '')} {String(update.time || '')}</span></div><div style={{ color: '#526274', fontSize: 12, marginTop: 4 }}>{String(update.note || update.text || '')}</div>{update.progress && <div style={{ color: '#587261', fontSize: 10, fontWeight: 800, marginTop: 4 }}>{String(update.progress)}</div>}</div>)}</div>}</div>)}
                 {visibleFlags.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No open flags.</div>}
+                {visibleResolvedFlags.length > 0 && <div style={{ color: '#778493', fontSize: 11, marginTop: 5 }}>Resolved concerns</div>}
               </div>
             </div>
           </div>
-          <FlagsPanel students={students} flags={flags} setFlags={setFlags} currentStaffName={currentStaffName} />
         </div>
       )}
 
