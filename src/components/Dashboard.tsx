@@ -125,6 +125,7 @@ import {
   getDailyAttendanceStatus,
   isInClassroom,
   isInSchool,
+  resolveDailyAttendanceStatusForDate,
 } from '../utils/attendancePresence'
 const DrillDown = lazy(() => import('./dashboard/DrillDown'))
 import { buildLoginAccountRoleLabel, getLoginRoleKey } from './dashboard/loginUserSearch'
@@ -1718,11 +1719,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           databaseStudent.classId ||
           null,
         is_active: databaseStudent.is_active !== false,
-        dailyStatus:
-          databaseStudent.daily_status ||
-          databaseStudent.dailyStatus ||
-          databaseStudent.status ||
-          'present',
+        dailyStatus: resolveDailyAttendanceStatusForDate({
+          dailyStatus: databaseStudent.daily_status ?? databaseStudent.dailyStatus,
+          classLog: Array.isArray(databaseStudent.class_log)
+            ? databaseStudent.class_log
+            : (Array.isArray(databaseStudent.classLog) ? databaseStudent.classLog : []),
+        }),
         withStaff:
           databaseStudent.with_staff ??
           databaseStudent.withStaff ??
@@ -2214,12 +2216,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         ? databaseStudent.grade
         : resolveStudentGrade(databaseStudent),
       is_active: databaseStudent.is_active !== false,
-      dailyStatus: String(
-        databaseStudent.daily_status ||
-        databaseStudent.dailyStatus ||
-        databaseStudent.status ||
-        'not-arrived',
-      ),
+      dailyStatus: resolveDailyAttendanceStatusForDate({
+        dailyStatus: databaseStudent.daily_status ?? databaseStudent.dailyStatus,
+        classLog: Array.isArray(databaseStudent.class_log)
+          ? databaseStudent.class_log
+          : (Array.isArray(databaseStudent.classLog) ? databaseStudent.classLog : []),
+      }),
       withStaff: typeof databaseStudent.with_staff === 'string' || typeof databaseStudent.with_staff === 'number'
         ? databaseStudent.with_staff
         : (typeof databaseStudent.withStaff === 'string' || typeof databaseStudent.withStaff === 'number' ? databaseStudent.withStaff : null),

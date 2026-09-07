@@ -1,10 +1,12 @@
 type StudentAttendanceLike = {
   dailyStatus?: string | null
   status?: string | null
+  classLog?: Array<{ type?: unknown; recordedAt?: unknown }> | null
 }
 
 const ARRIVAL_DAILY_STATUSES = new Set(['present', 'late', 'left-early'])
 const ON_CAMPUS_STATUSES = new Set(['present', 'late', 'therapy', 'with-bt'])
+const DAILY_ATTENDANCE_LOG_TYPES = new Set(['attendance-update', 'late-details', 'departure-details', 'day-reset'])
 
 function normalizeStatus(value: string | null | undefined): string {
   return String(value || '').trim().toLowerCase()
@@ -16,6 +18,34 @@ export function getDailyAttendanceStatus(student: StudentAttendanceLike): string
   if (ARRIVAL_DAILY_STATUSES.has(value)) return value
   if (value === 'not-arrived' || value === 'absent' || value === 'unknown') return value
   return 'unconfirmed'
+}
+
+function getDateKey(value: Date): string {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export function hasDailyAttendanceRecordForDate(student: StudentAttendanceLike, date: Date = new Date()): boolean {
+  const targetDate = getDateKey(date)
+  const classLog = Array.isArray(student?.classLog) ? student.classLog : []
+
+  return classLog.some(entry => {
+    const recordedAt = String(entry?.recordedAt || '')
+    if (!recordedAt) return false
+
+    const recordedDate = new Date(recordedAt)
+    if (Number.isNaN(recordedDate.getTime())) return false
+
+    return getDateKey(recordedDate) === targetDate && DAILY_ATTENDANCE_LOG_TYPES.has(String(entry?.type || ''))
+  })
+}
+
+export function resolveDailyAttendanceStatusForDate(student: StudentAttendanceLike, date: Date = new Date()): string {
+  const dailyStatus = getDailyAttendanceStatus(student)
+  if (dailyStatus === 'not-arrived' || dailyStatus === 'unconfirmed') return dailyStatus
+  return hasDailyAttendanceRecordForDate(student, date) ? dailyStatus : 'not-arrived'
 }
 
 export function hasConfirmedArrival(student: StudentAttendanceLike): boolean {

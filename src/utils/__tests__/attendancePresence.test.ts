@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   cameToSchoolToday,
   getDailyAttendanceStatus,
+  hasDailyAttendanceRecordForDate,
   isInClassroom,
   isInSchool,
   isCurrentlyOnCampus,
   resolveClassroomStatusAfterAttendanceUpdate,
+  resolveDailyAttendanceStatusForDate,
 } from '../attendancePresence'
 
 describe('resolveClassroomStatusAfterAttendanceUpdate', () => {
@@ -66,5 +68,26 @@ describe('attendancePresence shared rules', () => {
     expect(cameToday).toBe(3)
     expect(inSchoolNow).toBe(3)
     expect(inClassrooms).toBe(1)
+  })
+
+  it('does not treat stale dailyStatus as today attendance', () => {
+    const today = new Date('2026-09-07T10:00:00')
+
+    expect(resolveDailyAttendanceStatusForDate({ dailyStatus: 'present', status: 'present', classLog: [] }, today)).toBe('not-arrived')
+    expect(resolveDailyAttendanceStatusForDate({ dailyStatus: 'present', status: 'therapy' }, today)).toBe('not-arrived')
+  })
+
+  it('accepts same-day daily attendance records without consulting live location status', () => {
+    const today = new Date('2026-09-07T10:00:00')
+    const student = {
+      dailyStatus: 'present',
+      status: 'therapy',
+      classLog: [
+        { type: 'attendance-update', recordedAt: '2026-09-07T09:05:00' },
+      ],
+    }
+
+    expect(hasDailyAttendanceRecordForDate(student, today)).toBe(true)
+    expect(resolveDailyAttendanceStatusForDate(student, today)).toBe('present')
   })
 })

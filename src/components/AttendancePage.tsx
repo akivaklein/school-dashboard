@@ -49,6 +49,30 @@ export default function AttendancePage({
   const [departureNote, setDepartureNote] = useState('')
   const actingStaffName = resolveActorName(userName, role)
   const dailyAttendanceStudents = students.filter(s => s?.is_active !== false)
+  const [selectedDailyStudentIds, setSelectedDailyStudentIds] = useState<Set<string>>(() => new Set())
+  const selectedDailyCount = dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))).length
+  const allDailyStudentsSelected = dailyAttendanceStudents.length > 0 && selectedDailyCount === dailyAttendanceStudents.length
+
+  function toggleDailyStudentSelection(id) {
+    const key = String(id)
+    setSelectedDailyStudentIds(previous => {
+      const next = new Set(previous)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
+  function setAllDailyStudentsSelected(selected) {
+    setSelectedDailyStudentIds(
+      selected
+        ? new Set(dailyAttendanceStudents.map(student => String(student.id)))
+        : new Set(),
+    )
+  }
 
   function buildClassLogEntry(type, note, extra: { staffId?: number | string | null } = {}) {
     return {
@@ -69,6 +93,71 @@ export default function AttendancePage({
     const success = await persistStudentFields(id, fields)
     if (!success) alert('Unable to save student status to Supabase.')
     return success
+  }
+
+  async function applyDailyStatusToStudents(targetStudents, status, options = {}) {
+    if (targetStudents.length === 0) return
+
+    const targetIds = new Set(targetStudents.map(student => String(student.id)))
+    const snapshot = students
+      .filter(student => targetIds.has(String(student.id)))
+      .map(student => ({
+        id: student.id,
+        dailyStatus: getDailyAttendanceStatus(student),
+        lateDetails: student.lateDetails || null,
+        departureDetails: student.departureDetails || null,
+        classLog: student.classLog || [],
+      }))
+
+    const updatesById = {}
+    targetStudents.forEach(student => {
+      const classLogEntry = buildClassLogEntry(
+        'attendance-update',
+        `Attendance marked ${status} by ${actingStaffName}`
+      )
+
+      updatesById[String(student.id)] = {
+        dailyStatus: status,
+        lateDetails: null,
+        departureDetails: null,
+        classLog: [...(student.classLog || []), classLogEntry],
+      }
+    })
+
+    setUndoStack(previous => [...previous.slice(-9), { type: 'bulk', snapshot }])
+    setStudents(previous => previous.map(student => {
+      const update = updatesById[String(student.id)]
+      return update ? { ...student, ...update } : student
+    }))
+
+    const success = await persistStudentFieldsBulk(
+      targetStudents.map(student => ({
+        id: student.id,
+        fields: updatesById[String(student.id)],
+      }))
+    )
+
+    if (!success) {
+      setStudents(previous => previous.map(student => {
+        if (!targetIds.has(String(student.id))) return student
+        const saved = snapshot.find(entry => String(entry.id) === String(student.id))
+        return saved
+          ? {
+              ...student,
+              dailyStatus: saved.dailyStatus,
+              lateDetails: saved.lateDetails,
+              departureDetails: saved.departureDetails,
+              classLog: saved.classLog,
+            }
+          : student
+      }))
+      alert('Unable to save all attendance statuses to Supabase.')
+      return
+    }
+
+    if (options.clearSelection) {
+      setSelectedDailyStudentIds(new Set())
+    }
   }
 
   async function updateDailyStatus(id, status) {
@@ -645,63 +734,33 @@ export default function AttendancePage({
             <div style={{ display: 'flex', gap: 8 }}>
               {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>Undo</button>}
               <button onClick={() => setCollapsed(c => !c)} style={{ ...S.btn('ghost'), padding: '5px 12px', fontSize: 12 }}>{collapsed ? 'Expand All' : 'Collapse All'}</button>
-              <button onClick={async () => {
-                const targetIds = new Set(dailyAttendanceStudents.map(s => Number(s.id)))
-                if (targetIds.size === 0) return
-
-                const snapshot = students
-                  .filter(s => targetIds.has(Number(s.id)))
-                  .map(s => ({
-                    id: s.id,
-                    dailyStatus: getDailyAttendanceStatus(s),
-                    lateDetails: s.lateDetails || null,
-                    departureDetails: s.departureDetails || null,
-                    classLog: s.classLog || [],
-                  }))
-
-                setUndoStack(u => [...u.slice(-9), { type: 'bulk', snapshot }])
-                setStudents(prev => prev.map(s => (
-                  targetIds.has(Number(s.id))
-                    ? { ...s, dailyStatus: 'present', lateDetails: null, departureDetails: null }
-                    : s
-                )))
-                const success = await persistStudentFieldsBulk(
-                  dailyAttendanceStudents.map(s => ({
-                    id: s.id,
-                    fields: {
-                      dailyStatus: 'present',
-                      lateDetails: null,
-                      departureDetails: null,
-                    }
-                  }))
-                )
-                if (!success) {
-                  setStudents(prev => prev.map(s => {
-                    if (!targetIds.has(Number(s.id))) return s
-                    const saved = snapshot.find(x => x.id === s.id)
-                    return saved
-                      ? {
-                          ...s,
-                          dailyStatus: saved.dailyStatus,
-                          lateDetails: saved.lateDetails,
-                          departureDetails: saved.departureDetails,
-                          classLog: saved.classLog,
-                        }
-                      : s
-                  }))
-                  alert('Unable to save all attendance statuses to Supabase.')
-                }
-              }} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>Mark All Present</button>
+              <button onClick={() => applyDailyStatusToStudents(dailyAttendanceStudents, 'present', { clearSelection: true })} style={{ ...S.btn('success'), padding: '5px 12px', fontSize: 12 }}>Mark All Present</button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14, padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#f8fafc' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
+              <input type="checkbox" checked={allDailyStudentsSelected} onChange={event => setAllDailyStudentsSelected(event.target.checked)} />
+              <span>Select All</span>
+              <span style={{ color: '#64748b', fontWeight: 600 }}>({selectedDailyCount} selected)</span>
+            </label>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button disabled={selectedDailyCount === 0} onClick={() => applyDailyStatusToStudents(dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))), 'present', { clearSelection: true })} style={{ ...S.btn(selectedDailyCount === 0 ? 'ghost' : 'success'), padding: '5px 10px', fontSize: 11, opacity: selectedDailyCount === 0 ? 0.55 : 1 }}>Selected Present</button>
+              <button disabled={selectedDailyCount === 0} onClick={() => applyDailyStatusToStudents(dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))), 'absent', { clearSelection: true })} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11, opacity: selectedDailyCount === 0 ? 0.55 : 1 }}>Selected Absent</button>
+              <button disabled={selectedDailyCount === 0} onClick={() => applyDailyStatusToStudents(dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))), 'late', { clearSelection: true })} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11, opacity: selectedDailyCount === 0 ? 0.55 : 1 }}>Selected Late</button>
+              <button disabled={selectedDailyCount === 0} onClick={() => applyDailyStatusToStudents(dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))), 'left-early', { clearSelection: true })} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11, opacity: selectedDailyCount === 0 ? 0.55 : 1 }}>Selected Left Early</button>
+              <button disabled={selectedDailyCount === 0} onClick={() => applyDailyStatusToStudents(dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))), 'not-arrived', { clearSelection: true })} style={{ ...S.btn('ghost'), padding: '5px 10px', fontSize: 11, opacity: selectedDailyCount === 0 ? 0.55 : 1 }}>Selected Not Arrived</button>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: collapsed ? 'repeat(auto-fit, minmax(180px, 1fr))' : 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
             {dailyAttendanceStudents.map((s, i) => {
               const daily = getDailyAttendanceStatus(s)
+              const isSelected = selectedDailyStudentIds.has(String(s.id))
               const colors = { present: '#56765f', absent: '#9f1239', late: '#9a6a2a', 'left-early': '#6d28d9', 'not-arrived': '#64748b', unconfirmed: '#94a3b8' }
               const labels = { present: 'Present', absent: 'Absent', late: 'Late', 'left-early': 'Left Early', 'not-arrived': 'Not Arrived', unconfirmed: 'Unconfirmed' }
               return (
                 <div key={s.id} style={{ background: '#ffffff', border: `1px solid ${daily !== 'present' ? `${colors[daily] || '#94a3b8'}40` : '#e2e8f0'}`, borderLeft: `4px solid ${colors[daily] || '#94a3b8'}`, borderRadius: 10, padding: collapsed ? '10px 12px' : '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: collapsed ? 0 : 8 }}>
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleDailyStudentSelection(s.id)} aria-label={`Select ${s.name}`} />
                     <div style={S.avatar(i, 30)}>{initials(s.name)}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}</div>
