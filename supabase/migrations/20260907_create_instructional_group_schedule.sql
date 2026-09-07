@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS public.instructional_groups (
 
 CREATE TABLE IF NOT EXISTS public.instructional_group_memberships (
   group_id TEXT NOT NULL REFERENCES public.instructional_groups(id) ON DELETE CASCADE,
-  student_id INTEGER NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  student_id BIGINT NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   added_by TEXT NOT NULL DEFAULT 'System',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (group_id, student_id)
@@ -54,7 +54,12 @@ DECLARE table_name TEXT;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY['instructional_periods', 'physical_rooms', 'instructional_groups', 'instructional_group_memberships'] LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I_portal ON public.%I', table_name, table_name);
-    EXECUTE format('CREATE POLICY %I_portal ON public.%I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true)', table_name, table_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I_read_school ON public.%I', table_name, table_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I_write_leadership ON public.%I', table_name, table_name);
+    EXECUTE format('CREATE POLICY %I_read_school ON public.%I FOR SELECT TO authenticated USING (public.dashboard_current_role() IN (''admin'', ''principal'', ''teacher'', ''rebbe'', ''therapist'', ''support_staff''))', table_name, table_name);
+    EXECUTE format('CREATE POLICY %I_write_leadership ON public.%I FOR ALL TO authenticated USING (public.dashboard_is_leadership()) WITH CHECK (public.dashboard_is_leadership())', table_name, table_name);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon', table_name);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO authenticated', table_name);
   END LOOP;
 END $$;
 
