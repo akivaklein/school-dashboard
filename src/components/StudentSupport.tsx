@@ -191,7 +191,8 @@ export default function StudentSupport({
   const visibleGoals = goals.filter(goal => !selectedStudentId || Number(goal.studentId) === selectedStudentId)
   const visibleUpdates = supportUpdates.filter(update => !selectedStudentId || update.studentId === selectedStudentId)
   const selectedObservation = supportUpdates.find(update => update.id === selectedObservationId) || null
-  const updateStudentGoals = activeGoals.filter(goal => Number(goal.studentId) === Number(updateStudentId))
+  const observationSaveStudentId = selectedStudentId || Number(updateStudentId)
+  const updateStudentGoals = activeGoals.filter(goal => Number(goal.studentId) === Number(observationSaveStudentId))
   const activeFlags = flags.filter(flag => !flag.completed && (!flag.endDate || flag.endDate >= todayIso()))
   const visibleFlags = activeFlags.filter(flag => !selectedStudentId || Number(flag.studentId) === selectedStudentId)
   const callsNeeded = students
@@ -218,6 +219,13 @@ export default function StudentSupport({
     if (!flagStudentId) setFlagStudentId(students[0].id)
     if (!callStudentId) setCallStudentId(students[0].id)
   }, [students, goalStudentId, updateStudentId, flagStudentId, callStudentId])
+
+  useEffect(() => {
+    if (selectedStudentId && Number(updateStudentId) !== selectedStudentId) {
+      setUpdateStudentId(selectedStudentId)
+      setUpdateGoalId('')
+    }
+  }, [selectedStudentId, updateStudentId])
 
   useEffect(() => {
     let active = true
@@ -267,6 +275,7 @@ export default function StudentSupport({
   }
 
   function prepareAnotherObservation(studentId: number | string) {
+    setStudentFilter(String(studentId))
     setUpdateStudentId(studentId)
     setUpdateGoalId('')
     setUpdateText('')
@@ -307,7 +316,7 @@ export default function StudentSupport({
   }
 
   async function addProgressUpdate() {
-    const student = studentFor(updateStudentId)
+    const student = studentFor(observationSaveStudentId)
     if (!student || !updateText.trim()) return
 
     const localDate = todayIso()
@@ -357,7 +366,7 @@ export default function StudentSupport({
       setUpdateText('')
       setUpdateMeasure('')
       setParentFollowUp(false)
-      setStudentFilter('all')
+      setStudentFilter(selectedStudentId ? String(observationSaveStudentId) : 'all')
       setSection('add-update')
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Unable to save observation.')
@@ -530,7 +539,7 @@ export default function StudentSupport({
             <div style={cardStyle}>
               <div style={{ fontSize: 15, fontWeight: 900, color: '#34465a', marginBottom: 10 }}>Quick Actions</div>
               <div style={{ display: 'grid', gap: 8 }}>
-                <button onClick={() => setSection('add-update')} style={{ ...S.btn('primary'), width: '100%' }}>Add Observation</button>
+                <button onClick={() => { setStudentFilter('all'); setSelectedObservationId(''); setSection('add-update') }} style={{ ...S.btn('primary'), width: '100%' }}>Add Observation</button>
                 <button onClick={() => setSection('calls')} style={{ ...S.btn('ghost'), width: '100%' }}>Mark Call Needed</button>
                 <button onClick={() => setSection('todos')} style={{ ...S.btn('ghost'), width: '100%' }}>Add Task</button>
                 <button onClick={() => setPage('dashboard')} style={{ ...S.btn('ghost'), width: '100%' }}>Dashboard</button>
@@ -546,12 +555,20 @@ export default function StudentSupport({
             <div style={{ fontSize: 17, fontWeight: 900, color: '#34465a', marginBottom: 5 }}>Add Observation</div>
             <div style={{ fontSize: 11, color: '#778493', marginBottom: 13 }}>Saved with structured type, author, date/time, follow-up, and related goal metadata.</div>
             <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>View</label>
-            <select value={studentFilter} onChange={event => { setStudentFilter(event.target.value); setSelectedObservationId('') }} style={{ ...inputStyle(), marginBottom: 10 }}>
+            <select value={studentFilter} onChange={event => { setStudentFilter(event.target.value); setSelectedObservationId(''); if (event.target.value !== 'all') { setUpdateStudentId(event.target.value); setUpdateGoalId('') } }} style={{ ...inputStyle(), marginBottom: 10 }}>
               <option value="all">All students</option>
               {students.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}
             </select>
-            <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>Student</label>
-            <select value={updateStudentId} onChange={event => { setUpdateStudentId(event.target.value); setUpdateGoalId('') }} style={{ ...inputStyle(), marginBottom: 10 }}>{students.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select>
+            {selectedStudentId ? (
+              <div style={{ border: '1px solid #d8dfe3', borderRadius: 9, padding: '9px 10px', marginBottom: 10, background: '#f7f8f8', color: '#34465a', fontSize: 12, fontWeight: 800 }}>
+                Student: {studentName(selectedStudentId)}
+              </div>
+            ) : (
+              <>
+                <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>Student</label>
+                <select value={updateStudentId} onChange={event => { setUpdateStudentId(event.target.value); setUpdateGoalId('') }} style={{ ...inputStyle(), marginBottom: 10 }}>{students.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select>
+              </>
+            )}
             <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>Related goal</label>
             <select value={updateGoalId} onChange={event => setUpdateGoalId(event.target.value)} style={{ ...inputStyle(), marginBottom: 10 }}><option value="">No related goal</option>{updateStudentGoals.map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select>
             <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>Category</label>
