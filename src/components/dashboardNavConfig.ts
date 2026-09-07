@@ -18,7 +18,7 @@ type RoleNavConfig = {
 const ADMIN_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
     { id: 'dashboard', label: 'Dashboard', defaultPage: 'dashboard', pages: ['dashboard'] },
-    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'students', label: 'Students', defaultPage: 'students', pages: ['students', 'support'] },
     { id: 'classes', label: 'Classes / Assignments', defaultPage: 'academics', pages: ['academics', 'setup'] },
     { id: 'points', label: 'Points', defaultPage: 'behavior', pages: ['behavior'] },
     { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'teaching-mode'] },
@@ -28,7 +28,10 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
   ],
   submenuByArea: {
     dashboard: [{ id: 'dashboard', label: 'Dashboard' }],
-    students: [{ id: 'students', label: 'My Students' }],
+    students: [
+      { id: 'students', label: 'My Students' },
+      { id: 'support', label: 'Student Support' },
+    ],
     classes: [
       { id: 'academics', label: 'Classes' },
       { id: 'setup', label: 'Assignments' },
@@ -46,13 +49,16 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
 
 const TEACHER_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
-    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students', 'support'] },
     { id: 'points', label: 'Points', defaultPage: 'behavior', pages: ['behavior'] },
     { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'teaching-mode'] },
     { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
-    students: [{ id: 'students', label: 'My Students' }],
+    students: [
+      { id: 'students', label: 'My Students' },
+      { id: 'support', label: 'Student Support' },
+    ],
     points: [{ id: 'behavior', label: 'Points' }],
     'school-day': [
       { id: 'attendance', label: 'Attendance' },
@@ -64,11 +70,14 @@ const TEACHER_NAV_CONFIG: RoleNavConfig = {
 
 const THERAPIST_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
-    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students', 'support'] },
     { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
-    students: [{ id: 'students', label: 'My Students' }],
+    students: [
+      { id: 'students', label: 'My Students' },
+      { id: 'support', label: 'Student Support' },
+    ],
     store: [{ id: 'store', label: 'Token Store' }],
   },
 }
@@ -93,12 +102,15 @@ const REGISTER_NAV_CONFIG: RoleNavConfig = {
 
 const SUPPORT_STAFF_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
-    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students'] },
+    { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students', 'support'] },
     { id: 'points', label: 'Points', defaultPage: 'behavior', pages: ['behavior'] },
     { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
-    students: [{ id: 'students', label: 'My Students' }],
+    students: [
+      { id: 'students', label: 'My Students' },
+      { id: 'support', label: 'Student Support' },
+    ],
     points: [{ id: 'behavior', label: 'Points' }],
     store: [{ id: 'store', label: 'Token Store' }],
   },

@@ -12,17 +12,21 @@ describe('role access helpers', () => {
     expect(canAccessDashboardPage('teacher', 'setup')).toBe(true)
     expect(canAccessDashboardPage('teacher', 'staff-directory')).toBe(true)
     expect(canAccessDashboardPage('teacher', 'attendance')).toBe(true)
+    expect(canAccessDashboardPage('teacher', 'support')).toBe(true)
     expect(canAccessDashboardPage('teacher', 'teaching-mode')).toBe(true)
     expect(canAccessDashboardPage('teacher', 'students')).toBe(true)
     expect(canAccessDashboardPage('teacher', 'store')).toBe(true)
     expect(canAccessDashboardPage('register', 'setup')).toBe(false)
     expect(canAccessDashboardPage('register', 'attendance')).toBe(false)
+    expect(canAccessDashboardPage('register', 'support')).toBe(false)
     expect(canAccessDashboardPage('register', 'store')).toBe(true)
   })
 
   it('allows leadership to open school-wide attendance', () => {
     expect(canAccessDashboardPage('admin', 'attendance')).toBe(true)
+    expect(canAccessDashboardPage('admin', 'support')).toBe(true)
     expect(canAccessDashboardPage('principal', 'attendance')).toBe(true)
+    expect(canAccessDashboardPage('principal', 'support')).toBe(true)
   })
 
   it('restricts teachers to assigned students', () => {
@@ -62,6 +66,7 @@ describe('role access helpers', () => {
     expect(canAccessDashboardPage('support_staff', 'setup')).toBe(true)
     expect(canAccessDashboardPage('support_staff', 'staff-directory')).toBe(true)
     expect(canAccessDashboardPage('support_staff', 'behavior')).toBe(true)
+    expect(canAccessDashboardPage('support_staff', 'support')).toBe(true)
     expect(canAccessDashboardPage('support_staff', 'store')).toBe(true)
   })
 

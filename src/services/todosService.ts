@@ -7,8 +7,15 @@ export type Todo = {
   text: string
   category: string
   done: boolean
+  student_id?: number | null
+  priority?: string
   created_at?: string
   updated_at?: string
+}
+
+function isMissingTodoColumnError(error: { message?: string } | null | undefined) {
+  const message = String(error?.message || '').toLowerCase()
+  return message.includes('column') || message.includes('schema cache') || message.includes('does not exist')
 }
 
 /**
@@ -33,6 +40,8 @@ export async function listTodos(): Promise<Todo[]> {
     text: row.text,
     category: row.category,
     done: row.done,
+    student_id: row.student_id == null ? null : Number(row.student_id),
+    priority: String(row.priority || 'normal'),
     created_at: row.created_at,
     updated_at: row.updated_at,
   }))
@@ -46,6 +55,8 @@ export async function createTodo(input: {
   time: string
   text: string
   category: string
+  studentId?: number | null
+  priority?: string
 }): Promise<Todo> {
   const normalizedText = String(input.text || '').trim()
   const normalizedCategory = String(input.category || 'general').trim().toLowerCase() || 'general'
@@ -55,19 +66,34 @@ export async function createTodo(input: {
     throw new Error('Todo text is required.')
   }
 
-  const { data, error } = await supabase
+  const payload = {
+    date: normalizedDate,
+    time: input.time || null,
+    text: normalizedText,
+    category: normalizedCategory,
+    done: false,
+    student_id: input.studentId || null,
+    priority: input.priority || 'normal',
+  }
+
+  const primary = await supabase
     .from('todos')
-    .insert([
-      {
-        date: normalizedDate,
-        time: input.time || null,
-        text: normalizedText,
-        category: normalizedCategory,
-        done: false,
-      }
-    ])
+    .insert([payload])
     .select('*')
     .single()
+
+  let data = primary.data
+  let error = primary.error
+
+  if (error && isMissingTodoColumnError(error)) {
+    const fallback = await supabase
+      .from('todos')
+      .insert([{ date: normalizedDate, time: input.time || null, text: normalizedText, category: normalizedCategory, done: false }])
+      .select('*')
+      .single()
+    data = fallback.data
+    error = fallback.error
+  }
 
   if (error) {
     console.error('Error creating todo:', error)
@@ -81,6 +107,8 @@ export async function createTodo(input: {
     text: normalizedText,
     category: normalizedCategory,
     done: data.done,
+    student_id: data.student_id == null ? input.studentId || null : Number(data.student_id),
+    priority: String(data.priority || input.priority || 'normal'),
     created_at: data.created_at,
     updated_at: data.updated_at,
   }
@@ -97,18 +125,39 @@ export async function updateTodo(
   const normalizedCategory = updates.category !== undefined ? String(updates.category || 'general').trim().toLowerCase() || 'general' : undefined
   const normalizedDate = updates.date !== undefined ? String(updates.date || '').trim() || new Date().toISOString().slice(0, 10) : undefined
 
-  const { data, error } = await supabase
+  const payload = {
+    ...(normalizedDate !== undefined && { date: normalizedDate }),
+    ...(updates.time !== undefined && { time: updates.time || null }),
+    ...(normalizedText !== undefined && { text: normalizedText }),
+    ...(normalizedCategory !== undefined && { category: normalizedCategory }),
+    ...(updates.done !== undefined && { done: updates.done }),
+    ...(updates.student_id !== undefined && { student_id: updates.student_id || null }),
+    ...(updates.priority !== undefined && { priority: updates.priority || 'normal' }),
+  }
+
+  const primary = await supabase
     .from('todos')
-    .update({
-      ...(normalizedDate !== undefined && { date: normalizedDate }),
-      ...(updates.time !== undefined && { time: updates.time || null }),
-      ...(normalizedText !== undefined && { text: normalizedText }),
-      ...(normalizedCategory !== undefined && { category: normalizedCategory }),
-      ...(updates.done !== undefined && { done: updates.done }),
-    })
+    .update(payload)
     .eq('id', id)
     .select('*')
     .single()
+
+  let data = primary.data
+  let error = primary.error
+
+  if (error && isMissingTodoColumnError(error)) {
+    const fallbackPayload = { ...payload }
+    delete fallbackPayload.student_id
+    delete fallbackPayload.priority
+    const fallback = await supabase
+      .from('todos')
+      .update(fallbackPayload)
+      .eq('id', id)
+      .select('*')
+      .single()
+    data = fallback.data
+    error = fallback.error
+  }
 
   if (error) {
     console.error('Error updating todo:', error)
@@ -122,6 +171,8 @@ export async function updateTodo(
     text: data.text,
     category: data.category,
     done: data.done,
+    student_id: data.student_id == null ? updates.student_id || null : Number(data.student_id),
+    priority: String(data.priority || updates.priority || 'normal'),
     created_at: data.created_at,
     updated_at: data.updated_at,
   }

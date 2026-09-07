@@ -906,7 +906,7 @@ export function divisionLabel(key) {
 
 export function canAccessDashboardPage(role, page) {
   if (role === 'register') return ['store'].includes(page)
-  return ['dashboard', 'students', 'academics', 'setup', 'behavior', 'store', 'staff-directory', 'attendance', 'teaching-mode'].includes(page)
+  return ['dashboard', 'students', 'support', 'academics', 'setup', 'behavior', 'store', 'staff-directory', 'attendance', 'teaching-mode'].includes(page)
 }
 
 type StudentAccessContext = {

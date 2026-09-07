@@ -17,6 +17,7 @@ export type StudentNoteRecord = {
   deleted_at: string | null
   deleted_by_user_id: string | null
   deleted_by_name: string | null
+  metadata: Record<string, unknown>
 }
 
 function toRecord(row: Record<string, unknown>): StudentNoteRecord {
@@ -36,6 +37,7 @@ function toRecord(row: Record<string, unknown>): StudentNoteRecord {
     deleted_at: row.deleted_at ? String(row.deleted_at) : null,
     deleted_by_user_id: row.deleted_by_user_id ? String(row.deleted_by_user_id) : null,
     deleted_by_name: row.deleted_by_name ? String(row.deleted_by_name) : null,
+    metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {},
   }
 }
 
@@ -79,12 +81,56 @@ export async function listStudentNotes(studentId: number): Promise<StudentNoteRe
     .map((row: Record<string, unknown>) => toRecord(row))
 }
 
+export async function listRecentStudentNotes(studentIds: number[] = []): Promise<StudentNoteRecord[]> {
+  let query = supabase
+    .from('student_notes')
+    .select('*')
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (studentIds.length > 0) {
+    query = query.in('student_id', studentIds)
+  }
+
+  const primary = await query
+
+  if (!primary.error) {
+    return (primary.data || []).map((row: Record<string, unknown>) => toRecord(row))
+  }
+
+  if (!isMissingNotesColumnError(primary.error)) {
+    throw new Error(primary.error.message || 'Unable to load recent notes right now.')
+  }
+
+  let fallbackQuery = supabase
+    .from('student_notes')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (studentIds.length > 0) {
+    fallbackQuery = fallbackQuery.in('student_id', studentIds)
+  }
+
+  const fallback = await fallbackQuery
+
+  if (fallback.error) {
+    throw new Error(fallback.error.message || 'Unable to load recent notes right now.')
+  }
+
+  return (fallback.data || [])
+    .filter((row: Record<string, unknown>) => row.is_deleted !== true)
+    .map((row: Record<string, unknown>) => toRecord(row))
+}
+
 export async function createStudentNote(input: {
   studentId: number
   studentName: string
   note: string
   author: string
   actorName: string
+  metadata?: Record<string, unknown>
 }) {
   const payload = {
     student_id: input.studentId,
@@ -92,6 +138,7 @@ export async function createStudentNote(input: {
     note: input.note,
     author: input.author,
     created_by_name: input.actorName,
+    metadata: input.metadata || {},
   }
   const primary = await supabase
     .from('student_notes')
