@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   cameToSchoolToday,
+  getCurrentLocationStatus,
   getDailyAttendanceStatus,
   hasDailyAttendanceRecordForDate,
   isInClassroom,
@@ -8,6 +9,7 @@ import {
   isCurrentlyOnCampus,
   resolveClassroomStatusAfterAttendanceUpdate,
   resolveDailyAttendanceStatusForDate,
+  resolveRealtimeDailyAttendanceStatus,
 } from '../attendancePresence'
 
 describe('resolveClassroomStatusAfterAttendanceUpdate', () => {
@@ -52,6 +54,12 @@ describe('attendancePresence shared rules', () => {
     expect(isCurrentlyOnCampus({ dailyStatus: 'present', status: 'with-bt' })).toBe(true)
   })
 
+  it('does not present live location as current when daily attendance is Not Arrived', () => {
+    expect(getCurrentLocationStatus({ dailyStatus: 'not-arrived', status: 'present' })).toBe('not-confirmed')
+    expect(getCurrentLocationStatus({ dailyStatus: 'not-arrived', status: 'therapy' })).toBe('not-confirmed')
+    expect(getCurrentLocationStatus({ dailyStatus: 'present', status: 'therapy' })).toBe('therapy')
+  })
+
   it('keeps dashboard-style counts aligned with attendance counts', () => {
     const students = [
       { dailyStatus: '', status: 'not-arrived' },
@@ -75,6 +83,19 @@ describe('attendancePresence shared rules', () => {
 
     expect(resolveDailyAttendanceStatusForDate({ dailyStatus: 'present', status: 'present', classLog: [] }, today)).toBe('not-arrived')
     expect(resolveDailyAttendanceStatusForDate({ dailyStatus: 'present', status: 'therapy' }, today)).toBe('not-arrived')
+  })
+
+  it('keeps a parent-call realtime update from reviving stale daily attendance', () => {
+    const today = new Date('2026-09-07T10:00:00')
+    const statusAfterParentCall = resolveRealtimeDailyAttendanceStatus(
+      'present',
+      [],
+      [],
+      today,
+    )
+
+    expect(statusAfterParentCall).toBe('not-arrived')
+    expect(cameToSchoolToday({ dailyStatus: statusAfterParentCall, status: 'present' })).toBe(false)
   })
 
   it('accepts same-day daily attendance records without consulting live location status', () => {

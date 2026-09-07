@@ -7,7 +7,7 @@ import {
   didTeachingModeWriteSucceed,
   summarizeTeachingModeWriteResults,
 } from './teachingModeUtils'
-import { getDailyAttendanceStatus, isInClassroom, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
+import { getCurrentLocationStatus, getDailyAttendanceStatus, isInClassroom, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
 
 const TEACHING_MODE_SCOPE_STATE_STORAGE_KEY = 'schoolDashboardTeachingModeScopeV1'
 
@@ -102,6 +102,16 @@ export default function TeachingMode({
   const isTeacherRole = role === 'teacher' || role === 'rebbe'
   const isStoreRole = role === 'store'
   const isTherapistRole = role === 'therapist'
+  const quickActionLocationStatus = quickActionStudent ? getCurrentLocationStatus(quickActionStudent) : 'not-confirmed'
+  const quickActionDailyStatus = quickActionStudent ? getDailyAttendanceStatus(quickActionStudent) : 'unconfirmed'
+  const quickActionDailyLabel = {
+    'not-arrived': 'Not Arrived',
+    present: 'Present',
+    absent: 'Absent',
+    late: 'Late',
+    'left-early': 'Left Early',
+    unconfirmed: 'Not Confirmed',
+  }[quickActionDailyStatus] || quickActionDailyStatus
 
   const roleStudents = useMemo(() => {
     const base = Array.isArray(students) ? students : []
@@ -1386,10 +1396,13 @@ export default function TeachingMode({
                   <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, marginTop: 4 }}>Reminders</div>
                 </div>
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 16, padding: 16, textAlign: 'center' }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: quickActionStudent.status === 'present' ? '#4b6854' : '#64748b', marginTop: 8 }}>
-                    {isStudentInClass(quickActionStudent) ? 'In Class' : statusLabel[quickActionStudent.status] || quickActionStudent.status}
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#334155', marginTop: 5 }}>
+                    Daily: {quickActionDailyLabel}
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginTop: 6 }}>
+                      Location: {quickActionLocationStatus === 'not-confirmed' ? 'Not confirmed' : quickActionLocationStatus === 'present' ? 'In Class' : statusLabel[quickActionLocationStatus] || quickActionLocationStatus}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, marginTop: 9 }}>Status</div>
+                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, marginTop: 9 }}>Daily attendance and current location</div>
                 </div>
               </div>
 
@@ -2378,12 +2391,16 @@ export default function TeachingMode({
             const isSelected = selected.includes(s.id)
             const vip = isVIP(s)
             const inClass = isStudentInClass(s)
+            const attendanceStatus = getDailyAttendanceStatus(s)
             const isAbsent = isOutOfSchool(s)
             const isPulledOut =
-              s.status === 'therapy' || s.status === 'with-bt'
+              isInSchool(s) && (s.status === 'therapy' || s.status === 'with-bt')
+            const currentLocationStatus = getCurrentLocationStatus(s)
             const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
             const thisIntervalReminders = intervalReminders[s.id] || 0
             const unavailableReason =
+              attendanceStatus === 'not-arrived' ? 'Not Arrived' :
+              attendanceStatus === 'unconfirmed' ? 'Not Confirmed' :
               s.dailyStatus === 'absent' ? 'Absent' :
               s.dailyStatus === 'left-early' ? 'Left Early' :
               s.status === 'therapy' ? 'In Therapy' :
@@ -2468,7 +2485,7 @@ export default function TeachingMode({
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: 12.5, color: '#27364c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
-                    {withStaffObj ? <div style={{ fontSize: 10, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</div> : <span style={{ ...S.tag(statusColor[s.status]), fontSize: 10 }}>{statusEmoji[s.status]}</span>}
+                    {withStaffObj ? <div style={{ fontSize: 10, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</div> : <span style={{ ...S.tag(statusColor[currentLocationStatus] || '#64748b'), fontSize: 10 }}>{currentLocationStatus === 'not-confirmed' ? '○' : statusEmoji[currentLocationStatus]}</span>}
                   </div>
                 </div>
 

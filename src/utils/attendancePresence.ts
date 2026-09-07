@@ -48,12 +48,29 @@ export function resolveDailyAttendanceStatusForDate(student: StudentAttendanceLi
   return hasDailyAttendanceRecordForDate(student, date) ? dailyStatus : 'not-arrived'
 }
 
+export function resolveRealtimeDailyAttendanceStatus(
+  dailyStatus: string | null | undefined,
+  rowClassLog: StudentAttendanceLike['classLog'],
+  fallbackClassLog: StudentAttendanceLike['classLog'],
+  date: Date = new Date(),
+): string {
+  return resolveDailyAttendanceStatusForDate({
+    dailyStatus,
+    classLog: Array.isArray(rowClassLog) ? rowClassLog : fallbackClassLog,
+  }, date)
+}
+
 export function hasConfirmedArrival(student: StudentAttendanceLike): boolean {
   return ARRIVAL_DAILY_STATUSES.has(getDailyAttendanceStatus(student))
 }
 
 export function isCurrentlyOnCampus(student: StudentAttendanceLike): boolean {
   return ON_CAMPUS_STATUSES.has(normalizeStatus(student?.status))
+}
+
+export function getCurrentLocationStatus(student: StudentAttendanceLike): string {
+  if (!hasConfirmedArrival(student)) return 'not-confirmed'
+  return normalizeStatus(student?.status) || 'unknown'
 }
 
 export function isOutOfSchool(student: StudentAttendanceLike): boolean {

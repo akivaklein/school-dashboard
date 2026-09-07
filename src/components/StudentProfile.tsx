@@ -3,6 +3,7 @@ import StudentNotes from './StudentNotes'
 import { resolveActorName } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
 import { buildStudentNavigationList, getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
+import { getCurrentLocationStatus, getDailyAttendanceStatus } from '../utils/attendancePresence'
 
 export default function StudentProfile({
   student,
@@ -49,6 +50,21 @@ export default function StudentProfile({
   const navigationList = buildStudentNavigationList(Array.isArray(navigationStudents) ? navigationStudents : students)
   const { previous, next } = getStudentNavigationPair(navigationList, s?.id)
   const normalizedStudent = normalizeStudentProfileFields(s)
+  const dailyAttendanceStatus = getDailyAttendanceStatus(s)
+  const currentLocationStatus = getCurrentLocationStatus(s)
+  const dailyAttendanceLabel = {
+    'not-arrived': 'Not Arrived',
+    present: 'Present',
+    absent: 'Absent',
+    late: 'Late',
+    'left-early': 'Left Early',
+    unconfirmed: 'Not Confirmed',
+  }[dailyAttendanceStatus] || dailyAttendanceStatus
+  const currentLocationLabel = currentLocationStatus === 'not-confirmed'
+    ? 'Not confirmed'
+    : currentLocationStatus === 'present'
+      ? 'In Class'
+      : statusLabel[currentLocationStatus] || currentLocationStatus
   const improvement = getImprovement(s)
   const vip = isVIP(s)
   const att = normalizedStudent.att
@@ -128,7 +144,8 @@ export default function StudentProfile({
               {s.name}{vip && <span style={{ background: '#fef9c3', color: '#854d0e', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>⭐ VIP</span>}
             </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-              <span style={{ ...S.tag(statusColor[s.status]), fontSize: 11 }}>{statusEmoji[s.status]} {statusLabel[s.status]}</span>
+              <span style={{ ...S.tag('#536579', '#eef2f6'), fontSize: 11 }}>Daily: {dailyAttendanceLabel}</span>
+              <span style={{ ...S.tag('#536579', '#f4f6f8'), fontSize: 11 }}>Location: {currentLocationLabel}</span>
               {withStaffObj && <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', padding: '2px 8px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>👤 With {withStaffObj.name}</span>}
               {s.iep && <span style={{ background: 'rgba(124,58,237,0.3)', color: '#c4b5fd', padding: '2px 8px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>📋 IEP</span>}
               {s.detention && <span style={{ background: 'rgba(220,38,38,0.3)', color: '#fca5a5', padding: '2px 8px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>⚠️ Detention</span>}

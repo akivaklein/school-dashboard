@@ -126,6 +126,7 @@ import {
   isInClassroom,
   isInSchool,
   resolveDailyAttendanceStatusForDate,
+  resolveRealtimeDailyAttendanceStatus,
 } from '../utils/attendancePresence'
 const DrillDown = lazy(() => import('./dashboard/DrillDown'))
 import { buildLoginAccountRoleLabel, getLoginRoleKey } from './dashboard/loginUserSearch'
@@ -1485,12 +1486,20 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       token_balance: resolveLiveStudentPoints(row.token_balance),
     }
 
+    const existingIndex = previous.findIndex(student => Number(student.id) === rowId)
+    const existingStudent = existingIndex === -1 ? null : previous[existingIndex]
+    const resolvedDailyStatus = resolveRealtimeDailyAttendanceStatus(
+      nextRow.dailyStatus == null ? null : String(nextRow.dailyStatus),
+      (row.class_log ?? row.classLog) as StudentLike['classLog'],
+      existingStudent?.classLog,
+    )
+
     const rowForStudent: StudentLike = {
       ...nextRow,
       id: rowId,
       className: typeof nextRow.className === 'string' ? nextRow.className : '',
       classId: typeof nextRow.classId === 'string' || typeof nextRow.classId === 'number' ? nextRow.classId : null,
-      dailyStatus: nextRow.dailyStatus == null ? null : String(nextRow.dailyStatus),
+      dailyStatus: resolvedDailyStatus,
       withStaff: typeof nextRow.withStaff === 'string' || typeof nextRow.withStaff === 'number' ? nextRow.withStaff : null,
       att: Array.isArray(nextRow.att) ? nextRow.att : [],
       notes: Array.isArray(nextRow.notes) ? nextRow.notes : [],
@@ -1500,7 +1509,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       classLog: Array.isArray(nextRow.classLog) ? nextRow.classLog : [],
     }
 
-    const existingIndex = previous.findIndex(student => Number(student.id) === rowId)
     if (existingIndex === -1) {
       const base = {
         id: rowId,
