@@ -29,6 +29,7 @@ type StudentFlagLike = {
 
 type SupportUpdate = {
   id: string
+  noteId: number
   studentId: number
   goalId: string | null
   type: string
@@ -100,6 +101,7 @@ function noteToSupportUpdate(note: StudentNoteRecord): SupportUpdate {
 
   return {
     id: `note-${note.id}`,
+    noteId: note.id,
     studentId: note.student_id,
     goalId: typeof metadata.relatedGoalId === 'string' ? metadata.relatedGoalId : null,
     type: String(metadata.observationType || metadata.observationCategory || 'Observation'),
@@ -137,6 +139,7 @@ export default function StudentSupport({
   const [studentFilter, setStudentFilter] = useState('all')
   const [goals, setGoals] = useState<StudentGoal[]>([])
   const [supportUpdates, setSupportUpdates] = useState<SupportUpdate[]>([])
+  const [selectedObservationId, setSelectedObservationId] = useState('')
   const [loadError, setLoadError] = useState('')
 
   const [goalStudentId, setGoalStudentId] = useState(students[0]?.id || '')
@@ -187,6 +190,7 @@ export default function StudentSupport({
   const activeGoals = goals.filter(goal => goal.status !== 'completed')
   const visibleGoals = goals.filter(goal => !selectedStudentId || Number(goal.studentId) === selectedStudentId)
   const visibleUpdates = supportUpdates.filter(update => !selectedStudentId || update.studentId === selectedStudentId)
+  const selectedObservation = supportUpdates.find(update => update.id === selectedObservationId) || null
   const updateStudentGoals = activeGoals.filter(goal => Number(goal.studentId) === Number(updateStudentId))
   const activeFlags = flags.filter(flag => !flag.completed && (!flag.endDate || flag.endDate >= todayIso()))
   const visibleFlags = activeFlags.filter(flag => !selectedStudentId || Number(flag.studentId) === selectedStudentId)
@@ -229,7 +233,9 @@ export default function StudentSupport({
 
         if (!active) return
         setGoals(savedGoals.filter(goal => scopedIds.includes(Number(goal.studentId))))
-        setSupportUpdates(savedNotes.filter(note => note.metadata?.supportType === 'observation').map(noteToSupportUpdate))
+        const loadedUpdates = savedNotes.filter(note => note.metadata?.supportType === 'observation').map(noteToSupportUpdate)
+        setSupportUpdates(loadedUpdates)
+        setSelectedObservationId(current => current && loadedUpdates.some(update => update.id === current) ? current : '')
       } catch (error) {
         if (!active) return
         console.error('Unable to load Student Support data:', error)
@@ -251,6 +257,23 @@ export default function StudentSupport({
     fontSize: 12,
     fontWeight: 800,
   })
+
+  function openObservation(update: SupportUpdate) {
+    setSelectedObservationId(update.id)
+    setStudentFilter(String(update.studentId))
+    setUpdateStudentId(update.studentId)
+    setUpdateGoalId(update.goalId || '')
+    setSection('add-update')
+  }
+
+  function prepareAnotherObservation(studentId: number | string) {
+    setUpdateStudentId(studentId)
+    setUpdateGoalId('')
+    setUpdateText('')
+    setUpdateMeasure('')
+    setParentFollowUp(false)
+    setSelectedObservationId('')
+  }
 
   const cardStyle: CSSProperties = {
     background: '#fafaf8',
@@ -310,9 +333,11 @@ export default function StudentSupport({
         author: currentStaffName,
         actorName: currentStaffName,
         metadata,
+        requireMetadata: true,
       })
-      const savedUpdate = noteToSupportUpdate(savedNote)
+      const savedUpdate = noteToSupportUpdate({ ...savedNote, metadata })
       setSupportUpdates(previous => [savedUpdate, ...previous])
+      setSelectedObservationId(savedUpdate.id)
 
       if (updateGoalId) {
         const goal = goals.find(item => item.id === updateGoalId)
@@ -332,8 +357,8 @@ export default function StudentSupport({
       setUpdateText('')
       setUpdateMeasure('')
       setParentFollowUp(false)
-      setStudentFilter(String(updateStudentId))
-      setSection('overview')
+      setStudentFilter('all')
+      setSection('add-update')
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Unable to save observation.')
     }
@@ -461,7 +486,7 @@ export default function StudentSupport({
 
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 16 }}>
           <button onClick={() => setSection('overview')} style={sectionButton('overview')}>Overview</button>
-          <button onClick={() => setSection('add-update')} style={sectionButton('add-update')}>Observations</button>
+          <button onClick={() => { setStudentFilter('all'); setSelectedObservationId(''); setSection('add-update') }} style={sectionButton('add-update')}>Observations ({supportUpdates.length})</button>
           <button onClick={() => setSection('flags')} style={sectionButton('flags')}>Flags ({activeFlags.length})</button>
           <button onClick={() => setSection('calls')} style={sectionButton('calls')}>Parent Calls ({callsNeeded.length})</button>
           <button onClick={() => setSection('goals')} style={sectionButton('goals')}>Goals ({activeGoals.length})</button>
@@ -478,7 +503,7 @@ export default function StudentSupport({
             <div style={{ fontSize: 17, fontWeight: 900, color: '#34465a', marginBottom: 13 }}>Recent Observations</div>
             <div style={{ display: 'grid', gap: 10 }}>
               {visibleUpdates.slice(0, 10).map(update => (
-                <div key={update.id} style={{ border: '1px solid #dfe4e7', background: '#f7f8f8', borderRadius: 12, padding: '12px 13px' }}>
+                <button key={update.id} onClick={() => openObservation(update)} style={{ border: '1px solid #dfe4e7', background: '#f7f8f8', borderRadius: 12, padding: '12px 13px', cursor: 'pointer', textAlign: 'left' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div><div style={{ fontSize: 13, fontWeight: 900, color: '#34465a' }}>{studentName(update.studentId)}</div><div style={{ fontSize: 10.5, color: '#778493', marginTop: 3 }}>{update.type}{update.goalId ? ` - ${goals.find(goal => goal.id === update.goalId)?.title || 'Related goal'}` : ''}</div></div>
                     <div style={{ fontSize: 10.5, color: '#778493', textAlign: 'right' }}><b>{update.author}</b> - {update.authorRole}<br />{update.date} - {update.time}</div>
@@ -489,7 +514,7 @@ export default function StudentSupport({
                     {update.measure && <span style={{ padding: '4px 8px', borderRadius: 999, background: '#edf1f4', color: '#617080', fontSize: 10, fontWeight: 800 }}>{update.measure}</span>}
                     {update.parentFollowUp && <span style={{ padding: '4px 8px', borderRadius: 999, background: '#fff3df', color: '#8a662e', fontSize: 10, fontWeight: 800 }}>Follow-up needed</span>}
                   </div>
-                </div>
+                </button>
               ))}
               {visibleUpdates.length === 0 && <div style={{ fontSize: 12, color: '#778493' }}>No observations yet.</div>}
             </div>
@@ -520,6 +545,11 @@ export default function StudentSupport({
           <div style={cardStyle}>
             <div style={{ fontSize: 17, fontWeight: 900, color: '#34465a', marginBottom: 5 }}>Add Observation</div>
             <div style={{ fontSize: 11, color: '#778493', marginBottom: 13 }}>Saved with structured type, author, date/time, follow-up, and related goal metadata.</div>
+            <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>View</label>
+            <select value={studentFilter} onChange={event => { setStudentFilter(event.target.value); setSelectedObservationId('') }} style={{ ...inputStyle(), marginBottom: 10 }}>
+              <option value="all">All students</option>
+              {students.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}
+            </select>
             <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>Student</label>
             <select value={updateStudentId} onChange={event => { setUpdateStudentId(event.target.value); setUpdateGoalId('') }} style={{ ...inputStyle(), marginBottom: 10 }}>{students.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}</select>
             <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>Related goal</label>
@@ -536,8 +566,27 @@ export default function StudentSupport({
             <button onClick={addProgressUpdate} style={S.btn('primary')}>Save Observation</button>
           </div>
           <div style={cardStyle}>
-            <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 10 }}>Recent for {studentName(updateStudentId)}</div>
-            {supportUpdates.filter(update => update.studentId === Number(updateStudentId)).slice(0, 8).map(update => <div key={update.id} style={{ padding: '10px 0', borderBottom: '1px solid #e6e9eb' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 10.5 }}><b style={{ color: '#46576a' }}>{update.type}</b><span style={{ color: '#778493' }}>{update.date} - {update.time}</span></div><div style={{ fontSize: 11.5, color: '#526274', lineHeight: 1.45, marginTop: 5 }}>{update.text}</div></div>)}
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 10 }}>{selectedObservation ? 'Observation Details' : 'Recent Observations'}</div>
+            {selectedObservation && (
+              <div style={{ border: '1px solid #dfe4e7', borderRadius: 12, padding: 12, background: '#f7f8f8', marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+                  <div><b style={{ color: '#34465a', fontSize: 13 }}>{studentName(selectedObservation.studentId)}</b><div style={{ color: '#778493', fontSize: 10.5 }}>{selectedObservation.type}</div></div>
+                  <div style={{ color: '#778493', fontSize: 10.5, textAlign: 'right' }}>{selectedObservation.date}<br />{selectedObservation.time}</div>
+                </div>
+                <div style={{ color: '#526274', fontSize: 12, lineHeight: 1.5 }}>{selectedObservation.text}</div>
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 9 }}>
+                  <span style={{ padding: '4px 8px', borderRadius: 999, background: '#edf3ee', color: '#587261', fontSize: 10, fontWeight: 800 }}>{selectedObservation.progress}</span>
+                  {selectedObservation.measure && <span style={{ padding: '4px 8px', borderRadius: 999, background: '#edf1f4', color: '#617080', fontSize: 10, fontWeight: 800 }}>{selectedObservation.measure}</span>}
+                  {selectedObservation.parentFollowUp && <span style={{ padding: '4px 8px', borderRadius: 999, background: '#fff3df', color: '#8a662e', fontSize: 10, fontWeight: 800 }}>Follow-up needed</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <button onClick={() => prepareAnotherObservation(selectedObservation.studentId)} style={S.btn('primary')}>Add Another for {studentName(selectedObservation.studentId)}</button>
+                  <button onClick={() => { const student = studentFor(selectedObservation.studentId); if (student) openStudent(student) }} style={S.btn('ghost')}>Open Student</button>
+                </div>
+              </div>
+            )}
+            {visibleUpdates.slice(0, 12).map(update => <button key={update.id} onClick={() => openObservation(update)} style={{ width: '100%', textAlign: 'left', background: selectedObservationId === update.id ? '#eef3f7' : 'transparent', border: 'none', borderBottom: '1px solid #e6e9eb', padding: '10px 0', cursor: 'pointer' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 10.5 }}><b style={{ color: '#46576a' }}>{studentName(update.studentId)} - {update.type}</b><span style={{ color: '#778493' }}>{update.date} - {update.time}</span></div><div style={{ fontSize: 11.5, color: '#526274', lineHeight: 1.45, marginTop: 5 }}>{update.text}</div></button>)}
+            {visibleUpdates.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No observations yet.</div>}
           </div>
         </div>
       )}

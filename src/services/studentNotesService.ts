@@ -131,6 +131,7 @@ export async function createStudentNote(input: {
   author: string
   actorName: string
   metadata?: Record<string, unknown>
+  requireMetadata?: boolean
 }) {
   const payload = {
     student_id: input.studentId,
@@ -152,6 +153,10 @@ export async function createStudentNote(input: {
 
   if (!isMissingNotesColumnError(primary.error)) {
     throw new Error(primary.error.message || 'Unable to save note right now.')
+  }
+
+  if (input.requireMetadata) {
+    throw new Error('Unable to save structured observation metadata. Please run the Student Support migration and try again.')
   }
 
   const fallback = await supabase

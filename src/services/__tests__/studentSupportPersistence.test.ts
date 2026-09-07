@@ -68,6 +68,28 @@ describe('student support persistence', () => {
     ])
   })
 
+  it('does not save observations as generic notes when metadata cannot be stored', async () => {
+    const primarySingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'Could not find the metadata column of student_notes in the schema cache' },
+    })
+    const primarySelect = vi.fn().mockReturnValue({ single: primarySingle })
+    const primaryInsert = vi.fn().mockReturnValue({ select: primarySelect })
+    fromMock.mockReturnValue({ insert: primaryInsert })
+
+    await expect(createStudentNote({
+      studentId: 4,
+      studentName: 'Ari',
+      note: 'Worked independently for ten minutes.',
+      author: 'Rabbi Klein',
+      actorName: 'Rabbi Klein',
+      metadata: { supportType: 'observation' },
+      requireMetadata: true,
+    })).rejects.toThrow('structured observation metadata')
+
+    expect(primaryInsert).toHaveBeenCalledTimes(1)
+  })
+
   it('creates and updates student goals in the support table', async () => {
     const createSingle = vi.fn().mockResolvedValue({
       data: {
