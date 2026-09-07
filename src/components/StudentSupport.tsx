@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties, type Dispatch, type SetStateAc
 import SupportSessions from './support/SupportSessions'
 import { resolveActorName } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
-import { createStudentNote, listRecentStudentNotes, type StudentNoteRecord } from '../services/studentNotesService'
+import { createStudentNote, listStudentNotes, type StudentNoteRecord } from '../services/studentNotesService'
 import { createStudentGoal, listStudentGoals, updateStudentGoal, type StudentGoal } from '../services/studentGoalsService'
 import { createTodo, updateTodo, type Todo } from '../services/todosService'
 
@@ -38,6 +38,18 @@ type SupportUpdate = {
   progress: string
   measure: string
   parentFollowUp: boolean
+  author: string
+  authorRole: string
+  date: string
+  time: string
+  followUps: SupportFollowUp[]
+}
+
+type SupportFollowUp = {
+  id: string
+  noteId: number
+  text: string
+  progress: string
   author: string
   authorRole: string
   date: string
@@ -115,6 +127,7 @@ function noteToSupportUpdate(note: StudentNoteRecord): SupportUpdate {
     authorRole: String(metadata.authorRole || 'Staff'),
     date: String(metadata.localDate || created.toISOString().slice(0, 10)),
     time: String(metadata.localTime || created.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })),
+    followUps: [],
   }
 }
 
@@ -141,6 +154,7 @@ export default function StudentSupport({
   const [goals, setGoals] = useState<StudentGoal[]>([])
   const [supportUpdates, setSupportUpdates] = useState<SupportUpdate[]>([])
   const [selectedObservationId, setSelectedObservationId] = useState('')
+  const [followUpParentId, setFollowUpParentId] = useState<number | null>(null)
   const [loadError, setLoadError] = useState('')
 
   const [goalStudentId, setGoalStudentId] = useState(students[0]?.id || '')
@@ -239,14 +253,36 @@ export default function StudentSupport({
       try {
         setLoadError('')
         const scopedIds = students.map(student => Number(student.id)).filter(Number.isFinite)
-        const [savedGoals, savedNotes] = await Promise.all([
+        const [savedGoals, savedNotesByStudent] = await Promise.all([
           listStudentGoals(),
-          listRecentStudentNotes(scopedIds),
+          Promise.all(scopedIds.map(studentId => listStudentNotes(studentId))),
         ])
 
         if (!active) return
         setGoals(savedGoals.filter(goal => scopedIds.includes(Number(goal.studentId))))
-        const loadedUpdates = savedNotes.filter(note => note.metadata?.supportType === 'observation').map(noteToSupportUpdate)
+        const observationNotes = savedNotesByStudent.flat().filter(note => note.metadata?.supportType === 'observation')
+        const mappedNotes = observationNotes.map(note => ({
+          note,
+          update: noteToSupportUpdate(note),
+          parentId: Number(note.metadata?.observationParentId),
+        }))
+        const loadedUpdates = mappedNotes
+          .filter(entry => !Number.isFinite(entry.parentId))
+          .map(entry => ({
+            ...entry.update,
+            followUps: mappedNotes
+              .filter(child => child.parentId === entry.note.id)
+              .map(child => ({
+                id: child.update.id,
+                noteId: child.update.noteId,
+                text: child.update.text,
+                progress: child.update.progress,
+                author: child.update.author,
+                authorRole: child.update.authorRole,
+                date: child.update.date,
+                time: child.update.time,
+              })),
+          }))
         setSupportUpdates(loadedUpdates)
         setSelectedObservationId(current => current && loadedUpdates.some(update => update.id === current) ? current : '')
       } catch (error) {
@@ -273,6 +309,7 @@ export default function StudentSupport({
 
   function openObservation(update: SupportUpdate) {
     setSelectedObservationId(update.id)
+    setFollowUpParentId(null)
     setStudentFilter(String(update.studentId))
     setUpdateStudentId(update.studentId)
     setUpdateGoalId(update.goalId || '')
@@ -286,7 +323,21 @@ export default function StudentSupport({
     setUpdateText('')
     setUpdateMeasure('')
     setParentFollowUp(false)
+    setFollowUpParentId(null)
     setSelectedObservationId('')
+  }
+
+  function prepareObservationFollowUp(observation: SupportUpdate) {
+    setSelectedObservationId(observation.id)
+    setFollowUpParentId(observation.noteId)
+    setStudentFilter(String(observation.studentId))
+    setUpdateStudentId(observation.studentId)
+    setUpdateGoalId(observation.goalId || '')
+    setUpdateText('')
+    setUpdateProgress('Logged')
+    setUpdateMeasure('')
+    setParentFollowUp(false)
+    setSection('add-update')
   }
 
   const cardStyle: CSSProperties = {
@@ -337,6 +388,7 @@ export default function StudentSupport({
       measure: updateMeasure.trim(),
       localDate,
       localTime,
+      ...(followUpParentId ? { observationParentId: followUpParentId } : {}),
     }
 
     try {
@@ -350,8 +402,25 @@ export default function StudentSupport({
         requireMetadata: true,
       })
       const savedUpdate = noteToSupportUpdate({ ...savedNote, metadata })
-      setSupportUpdates(previous => [savedUpdate, ...previous])
-      setSelectedObservationId(savedUpdate.id)
+      if (followUpParentId) {
+        const followUp: SupportFollowUp = {
+          id: savedUpdate.id,
+          noteId: savedUpdate.noteId,
+          text: savedUpdate.text,
+          progress: savedUpdate.progress,
+          author: savedUpdate.author,
+          authorRole: savedUpdate.authorRole,
+          date: savedUpdate.date,
+          time: savedUpdate.time,
+        }
+        setSupportUpdates(previous => previous.map(update => update.noteId === followUpParentId
+          ? { ...update, followUps: [followUp, ...update.followUps] }
+          : update))
+        setSelectedObservationId(`note-${followUpParentId}`)
+      } else {
+        setSupportUpdates(previous => [savedUpdate, ...previous])
+        setSelectedObservationId(savedUpdate.id)
+      }
 
       if (updateGoalId) {
         const goal = goals.find(item => item.id === updateGoalId)
@@ -371,6 +440,7 @@ export default function StudentSupport({
       setUpdateText('')
       setUpdateMeasure('')
       setParentFollowUp(false)
+      setFollowUpParentId(null)
       setStudentFilter(selectedStudentId ? String(observationSaveStudentId) : 'all')
       setSection('add-update')
     } catch (error) {
@@ -581,8 +651,8 @@ export default function StudentSupport({
       {section === 'add-update' && (
         <div style={{ display: 'grid', gridTemplateColumns: '0.85fr 1.15fr', gap: 16, alignItems: 'start' }}>
           <div style={cardStyle}>
-            <div style={{ fontSize: 17, fontWeight: 900, color: '#34465a', marginBottom: 5 }}>Add Observation</div>
-            <div style={{ fontSize: 11, color: '#778493', marginBottom: 13 }}>Saved with structured type, author, date/time, follow-up, and related goal metadata.</div>
+            <div style={{ fontSize: 17, fontWeight: 900, color: '#34465a', marginBottom: 5 }}>{followUpParentId ? 'Add Observation Follow-Up' : 'Add Observation'}</div>
+            <div style={{ fontSize: 11, color: '#778493', marginBottom: 13 }}>{followUpParentId ? 'This entry will be attached beneath the original observation.' : 'Saved with structured type, author, date/time, follow-up, and related goal metadata.'}</div>
             <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>View</label>
             <select value={studentFilter} onChange={event => { setStudentFilter(event.target.value); setSelectedObservationId(''); if (event.target.value !== 'all') { setUpdateStudentId(event.target.value); setUpdateGoalId('') } }} style={{ ...inputStyle(), marginBottom: 10 }}>
               <option value="all">All students</option>
@@ -609,7 +679,7 @@ export default function StudentSupport({
             <label style={{ display: 'block', fontSize: 11, color: '#6f7d8c', marginBottom: 5 }}>Measurement or note tag</label>
             <input value={updateMeasure} onChange={event => setUpdateMeasure(event.target.value)} style={{ ...inputStyle(), marginBottom: 10 }} spellCheck lang="en" />
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 800, color: '#526274', marginBottom: 13 }}><input type="checkbox" checked={parentFollowUp} onChange={event => setParentFollowUp(event.target.checked)} /> Follow-up needed</label>
-            <button onClick={addProgressUpdate} style={S.btn('primary')}>Save Observation</button>
+            <button onClick={addProgressUpdate} style={S.btn('primary')}>{followUpParentId ? 'Save Follow-Up' : 'Save Observation'}</button>
           </div>
           <div style={cardStyle}>
             <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 10 }}>{selectedObservation ? 'Observation Details' : 'Recent Observations'}</div>
@@ -625,7 +695,12 @@ export default function StudentSupport({
                   {selectedObservation.measure && <span style={{ padding: '4px 8px', borderRadius: 999, background: '#edf1f4', color: '#617080', fontSize: 10, fontWeight: 800 }}>{selectedObservation.measure}</span>}
                   {selectedObservation.parentFollowUp && <span style={{ padding: '4px 8px', borderRadius: 999, background: '#fff3df', color: '#8a662e', fontSize: 10, fontWeight: 800 }}>Follow-up needed</span>}
                 </div>
+                {selectedObservation.followUps.length > 0 && <div style={{ display: 'grid', gap: 7, marginTop: 12 }}>
+                  <div style={{ color: '#526274', fontSize: 11, fontWeight: 800 }}>Follow-up history</div>
+                  {selectedObservation.followUps.map(followUp => <div key={followUp.id} style={{ borderLeft: '3px solid #9bb4c8', padding: '7px 9px', background: '#fff' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#778493', fontSize: 10 }}><span>{followUp.author}</span><span>{followUp.date} {followUp.time}</span></div><div style={{ color: '#526274', fontSize: 12, marginTop: 4 }}>{followUp.text}</div><div style={{ color: '#587261', fontSize: 10, fontWeight: 800, marginTop: 4 }}>{followUp.progress}</div></div>)}
+                </div>}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <button onClick={() => prepareObservationFollowUp(selectedObservation)} style={S.btn('primary')}>Add Follow-Up</button>
                   <button onClick={() => prepareAnotherObservation(selectedObservation.studentId)} style={S.btn('primary')}>Add Another for {studentName(selectedObservation.studentId)}</button>
                   <button onClick={() => { const student = studentFor(selectedObservation.studentId); if (student) openStudent(student) }} style={S.btn('ghost')}>Open Student</button>
                 </div>
