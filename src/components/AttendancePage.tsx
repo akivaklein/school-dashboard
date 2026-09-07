@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { resolveActorName, resolveStudentClassId } from './dashboardData'
 import {
   getDailyAttendanceStatus,
+  getCurrentLocationStatus,
   isInClassroom,
   isInSchool,
   isLocationUnknown,
@@ -901,8 +902,8 @@ export default function AttendancePage({
               ['In Class', filteredStudents.filter(s => isInClassroom(s)).length, '#56765f'],
               ['Out of School', filteredStudents.filter(s => isOutOfSchool(s)).length, '#9f1239'],
               ['Late Today', filteredStudents.filter(s => getDailyAttendanceStatus(s) === 'late').length, '#9a6a2a'],
-              ['Therapy', filteredStudents.filter(s => s.status === 'therapy').length, '#6d28d9'],
-              ['With BT', filteredStudents.filter(s => s.status === 'with-bt').length, '#3f6b76'],
+              ['Therapy', filteredStudents.filter(s => getCurrentLocationStatus(s) === 'therapy').length, '#6d28d9'],
+              ['With BT', filteredStudents.filter(s => getCurrentLocationStatus(s) === 'with-bt').length, '#3f6b76'],
               ['Unknown', filteredStudents.filter(s => isLocationUnknown(s)).length, '#9f1239'],
             ].map(([label, val, color]) => (
               <div key={label} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 6px', border: `1px solid ${(val) > 0 ? color + '30' : '#e2e8f0'}` }}>
@@ -939,6 +940,8 @@ export default function AttendancePage({
             {filteredStudents.map((s, i) => {
               const inClass = isInClassroom(s)
               const outOfSchool = isOutOfSchool(s)
+              const dailyStatus = getDailyAttendanceStatus(s)
+              const locationStatus = getCurrentLocationStatus(s)
               const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
               return (
                 <div key={s.id} style={{ background:
@@ -946,9 +949,9 @@ export default function AttendancePage({
                       ? '#cbd5e1'
                       : s.status === 'unknown'
                         ? '#fee2e2'
-                        : s.status === 'therapy'
+                        : locationStatus === 'therapy'
                           ? '#f3e8ff'
-                          : s.status === 'with-bt'
+                          : locationStatus === 'with-bt'
                             ? '#e0f2fe'
                             : inClass
                               ? '#f0fdf4'
@@ -958,9 +961,9 @@ export default function AttendancePage({
                       ? '#94a3b8'
                       : s.status === 'unknown'
                         ? '#fca5a5'
-                        : s.status === 'therapy'
+                        : locationStatus === 'therapy'
                           ? '#c4b5fd'
-                          : s.status === 'with-bt'
+                          : locationStatus === 'with-bt'
                             ? '#7dd3fc'
                             : inClass
                               ? '#86efac'
@@ -971,7 +974,7 @@ export default function AttendancePage({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
                       {withStaffObj && <div style={{ fontSize: 10, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</div>}
-                      {!inClass && !withStaffObj && <div style={{ fontSize: 10, color: statusColor[s.status], fontWeight: 600 }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>}
+                      {!inClass && !withStaffObj && <div style={{ fontSize: 10, color: '#536579', fontWeight: 600 }}>Daily: {dailyStatus} · Location: {locationStatus === 'not-confirmed' ? 'Not confirmed' : locationStatus === 'present' ? 'In Class' : statusLabel[locationStatus] || locationStatus}</div>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

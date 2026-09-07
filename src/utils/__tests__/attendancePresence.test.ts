@@ -3,6 +3,7 @@ import {
   cameToSchoolToday,
   getCurrentLocationStatus,
   getDailyAttendanceStatus,
+  getStudentStatusDisplay,
   hasDailyAttendanceRecordForDate,
   isInClassroom,
   isInSchool,
@@ -58,6 +59,17 @@ describe('attendancePresence shared rules', () => {
     expect(getCurrentLocationStatus({ dailyStatus: 'not-arrived', status: 'present' })).toBe('not-confirmed')
     expect(getCurrentLocationStatus({ dailyStatus: 'not-arrived', status: 'therapy' })).toBe('not-confirmed')
     expect(getCurrentLocationStatus({ dailyStatus: 'present', status: 'therapy' })).toBe('therapy')
+  })
+
+  it('provides separate daily and gated location values for list cards', () => {
+    expect(getStudentStatusDisplay({ dailyStatus: 'not-arrived', status: 'therapy' })).toEqual({
+      dailyStatus: 'not-arrived',
+      locationStatus: 'not-confirmed',
+    })
+    expect(getStudentStatusDisplay({ dailyStatus: 'late', status: 'with-bt' })).toEqual({
+      dailyStatus: 'late',
+      locationStatus: 'with-bt',
+    })
   })
 
   it('keeps dashboard-style counts aligned with attendance counts', () => {

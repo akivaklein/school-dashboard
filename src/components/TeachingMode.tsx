@@ -996,7 +996,7 @@ export default function TeachingMode({
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#1f2937' }}>{student.name}</div>
                         <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                          Attendance: {attendanceStatus} · Location: {statusLabel[student.status] || student.status}
+                          Attendance: {attendanceStatus} · Location: {getCurrentLocationStatus(student) === 'not-confirmed' ? 'Not confirmed' : getCurrentLocationStatus(student) === 'present' ? 'In Class' : statusLabel[getCurrentLocationStatus(student)] || getCurrentLocationStatus(student)}
                         </div>
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 700, color: outOfSchool ? '#9f1239' : '#4b5563' }}>

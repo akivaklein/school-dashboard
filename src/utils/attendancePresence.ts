@@ -73,6 +73,13 @@ export function getCurrentLocationStatus(student: StudentAttendanceLike): string
   return normalizeStatus(student?.status) || 'unknown'
 }
 
+export function getStudentStatusDisplay(student: StudentAttendanceLike): { dailyStatus: string; locationStatus: string } {
+  return {
+    dailyStatus: getDailyAttendanceStatus(student),
+    locationStatus: getCurrentLocationStatus(student),
+  }
+}
+
 export function isOutOfSchool(student: StudentAttendanceLike): boolean {
   return !isInSchool(student)
 }

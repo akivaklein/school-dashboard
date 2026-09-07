@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { isInClassroom } from '../utils/attendancePresence'
+import { getCurrentLocationStatus, getDailyAttendanceStatus, isInClassroom } from '../utils/attendancePresence'
 import { buildClassroomCoverageForecast, debugCoverageForecastMatching } from './scheduleCoverageForecast'
 
 type Props = {
@@ -439,7 +439,7 @@ export default function SchedulePage({
               return (
                 <div key={student.id} onClick={() => openStudent(student)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: student.status === 'unknown' ? '#fef2f2' : '#ffffff', borderRadius: 6, cursor: 'pointer', border: `1px solid ${student.status === 'unknown' ? '#fecaca' : '#e2e8f0'}`, marginBottom: 6 }}>
                   <div style={S.avatar(index, 28)}>{initials(student.name)}</div>
-                  <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 12 }}>{student.name}</div><div style={{ fontSize: 11, color: statusColor[student.status] }}>{statusEmoji[student.status]} {statusLabel[student.status]}{withStaffObj ? ` · ${withStaffObj.name}` : ''}</div></div>
+                  <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 12 }}>{student.name}</div><div style={{ fontSize: 11, color: '#536579' }}>Daily: {getDailyAttendanceStatus(student)} · Location: {getCurrentLocationStatus(student) === 'not-confirmed' ? 'Not confirmed' : getCurrentLocationStatus(student) === 'present' ? 'In Class' : statusLabel[getCurrentLocationStatus(student)] || getCurrentLocationStatus(student)}{withStaffObj ? ` · ${withStaffObj.name}` : ''}</div></div>
                 </div>
               )
             })}

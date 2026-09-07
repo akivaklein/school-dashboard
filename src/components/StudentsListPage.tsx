@@ -2,8 +2,24 @@ import { useMemo, useState } from 'react'
 import { buildStudentListViewModel } from './studentListUtils'
 import { CLASS_ID_BY_GRADE, GRADE_LABELS, normalizeGradeValue, resolveStudentGrade } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
+import { getStudentStatusDisplay } from '../utils/attendancePresence'
 
 const GRADE_OPTIONS = ['8', '7']
+const DAILY_STATUS_LABELS = {
+  'not-arrived': 'Not Arrived',
+  unconfirmed: 'Not Confirmed',
+  present: 'Present',
+  absent: 'Absent',
+  late: 'Late',
+  'left-early': 'Left Early',
+}
+const LOCATION_STATUS_LABELS = {
+  'not-confirmed': 'Not confirmed',
+  present: 'In Class',
+  therapy: 'In Therapy',
+  'with-bt': 'With BT',
+  unknown: 'Location Unknown',
+}
 
 function gradeClassId(grade) {
   return CLASS_ID_BY_GRADE[grade] || ''
@@ -354,6 +370,9 @@ export default function StudentsListPage({
           const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
           const imp = getImprovement(s)
           const vip = isVIP(s)
+          const { dailyStatus, locationStatus } = getStudentStatusDisplay(s)
+          const dailyLabel = DAILY_STATUS_LABELS[dailyStatus] || dailyStatus
+          const locationLabel = LOCATION_STATUS_LABELS[locationStatus] || locationStatus
           return (
             <div key={s.id} onClick={() => openStudent(s, 'overview', studentsForDisplay)} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', padding: '14px 18px', borderLeft: vip ? '4px solid #ca8a04' : s.status === 'unknown' ? '4px solid #9f1239' : '1px solid #e2e8f0' }}>
               <div style={S.avatar(i, 40)}>{initials(s.name)}</div>
@@ -365,7 +384,8 @@ export default function StudentsListPage({
                   {s.is_active === false && <span style={{ background: '#fee2e2', color: '#7f1d1d', padding: '1px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>Archived</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={S.tag(statusColor[s.status])}>{statusEmoji[s.status]} {statusLabel[s.status]}</span>
+                  <span style={S.tag('#536579', '#eef2f6')}>Daily: {dailyLabel}</span>
+                  <span style={S.tag('#536579', '#f4f6f8')}>Location: {locationLabel}</span>
                   {withStaffObj && <span style={{ fontSize: 11, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</span>}
                   <span style={{ fontSize: 11, fontWeight: 600, color: imp.color }}>{imp.icon} {imp.label}</span>
                   {s.iep && <span style={S.tag('#5b5f7a')}>IEP</span>}
@@ -409,6 +429,9 @@ export default function StudentsListPage({
               <tbody>
                 {tableRows.map((student, index) => {
                   const withStaffObj = student.withStaff ? STAFF.find(st => st.id === student.withStaff) : null
+                  const { dailyStatus, locationStatus } = getStudentStatusDisplay(student)
+                  const dailyLabel = DAILY_STATUS_LABELS[dailyStatus] || dailyStatus
+                  const locationLabel = LOCATION_STATUS_LABELS[locationStatus] || locationStatus
                   const presentDays = student.att?.filter(day => day === 'P').length || 0
                   const isBusy = busyId === student.id
                   return (
@@ -422,7 +445,8 @@ export default function StudentsListPage({
                       <td style={{ padding: 10 }}>{student.id}</td>
                       <td style={{ padding: 10 }}>{studentClassName(student, classes) || '—'}</td>
                       <td style={{ padding: 10 }}>
-                        <span style={S.tag(statusColor[student.status])}>{statusEmoji[student.status]} {statusLabel[student.status]}</span>
+                        <span style={S.tag('#536579', '#eef2f6')}>Daily: {dailyLabel}</span>
+                        <span style={S.tag('#536579', '#f4f6f8')}>Location: {locationLabel}</span>
                         {withStaffObj && <div style={{ fontSize: 10, color: '#3f6b76', marginTop: 3 }}>With {withStaffObj.name}</div>}
                         {student.is_active === false && <div style={{ fontSize: 10, color: '#991b1b', marginTop: 3 }}>Archived</div>}
                       </td>

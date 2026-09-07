@@ -12,6 +12,8 @@ type DrillDownProps = {
   statusLabel: Record<string, string>
 }
 
+import { getCurrentLocationStatus, getDailyAttendanceStatus } from '../../utils/attendancePresence'
+
 export default function DrillDown({
   title,
   students,
@@ -47,7 +49,8 @@ export default function DrillDown({
                     {vip && <span style={{ background: '#854d0e', color: '#fef9c3', padding: '1px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>⭐ VIP</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
-                    <span style={styles.tag(statusColor[student.status])}>{statusEmoji[student.status]} {statusLabel[student.status]}</span>
+                    <span style={styles.tag('#536579', '#eef2f6')}>Daily: {getDailyAttendanceStatus(student)}</span>
+                    <span style={styles.tag('#536579', '#f4f6f8')}>Location: {getCurrentLocationStatus(student) === 'not-confirmed' ? 'Not confirmed' : getCurrentLocationStatus(student) === 'present' ? 'In Class' : statusLabel[getCurrentLocationStatus(student)] || getCurrentLocationStatus(student)}</span>
                     {withStaffObj && <span style={{ fontSize: 11, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</span>}
                   </div>
                 </div>

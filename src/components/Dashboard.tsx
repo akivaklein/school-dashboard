@@ -122,6 +122,7 @@ import {
 import { recordLoginSession, recordLogoutSession } from '../services/loginSessionService'
 import {
   cameToSchoolToday,
+  getCurrentLocationStatus,
   getDailyAttendanceStatus,
   isInClassroom,
   isInSchool,
@@ -716,6 +717,7 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
             const studentName = typeof s.name === 'string' ? s.name : 'Student'
             const studentStatus = typeof s.status === 'string' ? s.status : 'present'
             const attendanceStatus = getDailyAttendanceStatus(s)
+            const locationStatus = getCurrentLocationStatus(s)
             const shouldShowPullout = ['therapy', 'with-bt', 'unknown'].includes(String(studentStatus))
             const isUnknownStatus = studentStatus === 'unknown'
             const cardBackground = vip ? '#fffcf2' : isUnknownStatus ? '#fff9f9' : '#ffffff'
@@ -727,8 +729,8 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: 12, color: '#24374b' }}>{studentName}{vip && ' ★'}</div>
                     <div style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
-                      <span style={{ ...S.tag(statusColor[studentStatus as keyof typeof statusColor]), fontSize: 9.5, fontWeight: 700 }}>{statusEmoji[studentStatus as keyof typeof statusEmoji]}</span>
-                      <span style={{ ...S.tag('#5f6f82', '#f5f8fb'), fontSize: 9.5, fontWeight: 700 }}>{attendanceStatus}</span>
+                      <span style={{ ...S.tag('#536579', '#eef2f6'), fontSize: 9.5, fontWeight: 700 }}>Daily: {attendanceStatus}</span>
+                      <span style={{ ...S.tag('#536579', '#f4f6f8'), fontSize: 9.5, fontWeight: 700 }}>Location: {locationStatus === 'not-confirmed' ? 'Not confirmed' : locationStatus === 'present' ? 'In Class' : statusLabel[locationStatus] || locationStatus}</span>
                       {shouldShowPullout && <span style={{ ...S.tag('#5d3ca8', '#f3effd'), fontSize: 9.5, fontWeight: 700 }}>Pullout</span>}
                       {withStaffObj && <span style={{ fontSize: 9.5, color: '#566b86', fontWeight: 700 }}>{withStaffObj.name}</span>}
                     </div>
@@ -766,14 +768,15 @@ function TherapistDashboard({ students, userName, setSelectedStudent, staffMembe
           {myStudents.map((s: StudentLike, i: number) => {
             const imp = getImprovement(s as { lastWeekReminders: number; reminders: number })
             const studentName = typeof s.name === 'string' ? s.name : 'Student'
-            const studentStatus = typeof s.status === 'string' ? s.status : 'present'
+            const locationStatus = getCurrentLocationStatus(s)
             return (
               <div key={s.id} onClick={() => setSelectedStudent(s)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}>
                 <div style={S.avatar(i, 36)}>{initials(studentName)}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{studentName}</div>
                   <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                    <span style={S.tag(statusColor[studentStatus as keyof typeof statusColor])}>{statusEmoji[studentStatus as keyof typeof statusEmoji]} {statusLabel[studentStatus as keyof typeof statusLabel]}</span>
+                    <span style={S.tag('#536579', '#eef2f6')}>Daily: {getDailyAttendanceStatus(s)}</span>
+                    <span style={S.tag('#536579', '#f4f6f8')}>Location: {locationStatus === 'not-confirmed' ? 'Not confirmed' : locationStatus === 'present' ? 'In Class' : statusLabel[locationStatus] || locationStatus}</span>
                     <span style={{ fontSize: 11, color: imp.color, fontWeight: 600 }}>{imp.icon}</span>
                   </div>
                 </div>
@@ -5221,7 +5224,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
                         <div style={S.avatar(i, 28)}>{initials(s.name)}</div>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
-                          <div style={{ fontSize: 11, color: statusColor[s.status] }}>{statusEmoji[s.status]} {statusLabel[s.status]}</div>
+                          <div style={{ fontSize: 11, color: '#536579' }}>Daily: {getDailyAttendanceStatus(s)} · Location: {getCurrentLocationStatus(s) === 'not-confirmed' ? 'Not confirmed' : getCurrentLocationStatus(s) === 'present' ? 'In Class' : statusLabel[getCurrentLocationStatus(s)] || getCurrentLocationStatus(s)}</div>
                         </div>
                       </div>
                     ))}
