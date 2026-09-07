@@ -5,6 +5,7 @@ import { isLeadershipRole } from '../utils/permissions'
 import { createStudentNote, listStudentNotes, type StudentNoteRecord } from '../services/studentNotesService'
 import { createStudentGoal, listStudentGoals, updateStudentGoal, type StudentGoal } from '../services/studentGoalsService'
 import { createTodo, updateTodo, type Todo } from '../services/todosService'
+import { persistParentCalls } from '../services/studentPersistenceService'
 
 type StudentLike = {
   id: number | string
@@ -68,7 +69,6 @@ type StudentSupportProps = {
   setFlags: Dispatch<SetStateAction<StudentFlagLike[]>>
   todos?: Todo[]
   setTodos?: Dispatch<SetStateAction<Todo[]>>
-  persistStudentFields?: (id: number | string, fields: Record<string, unknown>) => Promise<boolean>
   initialSection?: string
   S: {
     btn: (variant: string) => CSSProperties
@@ -143,7 +143,6 @@ export default function StudentSupport({
   setFlags,
   todos = [],
   setTodos,
-  persistStudentFields,
   initialSection = 'overview',
   S,
   initials,
@@ -511,7 +510,7 @@ export default function StudentSupport({
 
   async function markCallNeeded() {
     const student = studentFor(callStudentId)
-    if (!student || !callReason.trim() || !persistStudentFields) return
+    if (!student || !callReason.trim()) return
 
     const nextCall = {
       id: `call-${Date.now()}`,
@@ -526,7 +525,7 @@ export default function StudentSupport({
     }
     const nextCalls = [...(Array.isArray(student.parentCalls) ? student.parentCalls : []), nextCall]
     setStudents(previous => previous.map(entry => Number(entry.id) === Number(student.id) ? { ...entry, parentCalls: nextCalls } : entry))
-    const saved = await persistStudentFields(student.id, { parentCalls: nextCalls })
+    const saved = await persistParentCalls(student.id, nextCalls)
     if (!saved) alert('Unable to save parent call.')
     setCallReason('')
     setCallAssignedTo('')
@@ -534,13 +533,12 @@ export default function StudentSupport({
   }
 
   async function completeCall(student: StudentLike, callIndex: number) {
-    if (!persistStudentFields) return
     const parentCalls = Array.isArray(student.parentCalls) ? student.parentCalls : []
     const nextCalls = parentCalls.map((call, index) => index === callIndex
       ? { ...call, outcome: callOutcome, notes: callNote.trim(), completed: true, completedAt: new Date().toISOString(), completedBy: currentStaffName }
       : call)
     setStudents(previous => previous.map(entry => Number(entry.id) === Number(student.id) ? { ...entry, parentCalls: nextCalls } : entry))
-    const saved = await persistStudentFields(student.id, { parentCalls: nextCalls })
+    const saved = await persistParentCalls(student.id, nextCalls)
     if (!saved) alert('Unable to save parent call outcome.')
     setCallNote('')
     setCallOutcome('Spoke')

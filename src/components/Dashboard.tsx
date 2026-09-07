@@ -5244,7 +5244,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               initials={initials}
               todos={todos}
               setTodos={setTodos}
-              persistStudentFields={persistStudentFields}
             />
           </Suspense>
         )}

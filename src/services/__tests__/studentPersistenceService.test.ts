@@ -10,7 +10,7 @@ vi.mock('../../supabaseClient', () => ({
   },
 }))
 
-import { persistStudentFields } from '../studentPersistenceService'
+import { persistParentCalls, persistStudentFields } from '../studentPersistenceService'
 
 describe('persistStudentFields', () => {
   beforeEach(() => {
@@ -139,5 +139,23 @@ describe('persistStudentFields', () => {
       departure_details: { timeDeparted: '12:15' },
     })
     expect(eqMock).toHaveBeenCalledWith('id', 15)
+  })
+
+  it('persists parent-call actions without attendance or current-location fields', async () => {
+    const eqMock = vi.fn().mockResolvedValue({ error: null })
+    const updateMock = vi.fn().mockReturnValue({ eq: eqMock })
+    fromMock.mockReturnValue({ update: updateMock })
+    const parentCalls = [{ id: 'call-1', outcome: 'Call Needed', completed: false }]
+
+    await persistParentCalls(21, parentCalls)
+
+    expect(updateMock).toHaveBeenCalledWith({ parent_calls: parentCalls })
+    const writtenFields = updateMock.mock.calls[0][0]
+    expect(writtenFields).not.toHaveProperty('daily_status')
+    expect(writtenFields).not.toHaveProperty('status')
+    expect(writtenFields).not.toHaveProperty('late_details')
+    expect(writtenFields).not.toHaveProperty('departure_details')
+    expect(writtenFields).not.toHaveProperty('with_staff')
+    expect(writtenFields).not.toHaveProperty('current_location')
   })
 })

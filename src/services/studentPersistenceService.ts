@@ -105,6 +105,10 @@ export async function persistStudentFields(id, fields, options = {}) {
   }
 }
 
+export async function persistParentCalls(id, parentCalls) {
+  return persistStudentFields(id, { parentCalls })
+}
+
 export async function persistStudentFieldsBulk(updates) {
   const results = await Promise.all(
     updates.map(({ id, fields }) => persistStudentFields(id, fields))
