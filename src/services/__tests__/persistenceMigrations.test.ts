@@ -5,6 +5,8 @@ const migrationPath = '../../../supabase/migrations/20260731_add_support_and_not
 const migrationSql = readFileSync(new URL(migrationPath, import.meta.url), 'utf8')
 const studentSupportMigrationPath = '../../../supabase/migrations/20260907_add_student_support_records.sql'
 const studentSupportMigrationSql = readFileSync(new URL(studentSupportMigrationPath, import.meta.url), 'utf8')
+const instructionalGroupMigrationPath = '../../../supabase/migrations/20260907_create_instructional_group_schedule.sql'
+const instructionalGroupMigrationSql = readFileSync(new URL(instructionalGroupMigrationPath, import.meta.url), 'utf8')
 
 describe('persistence migration coverage', () => {
   it('creates support session and student note tables with the expected columns and portal-safe RLS', () => {
@@ -33,5 +35,14 @@ describe('persistence migration coverage', () => {
     expect(studentSupportMigrationSql).not.toContain('to anon, authenticated')
     expect(studentSupportMigrationSql).not.toContain('using (true)')
     expect(studentSupportMigrationSql).not.toContain('with check (true)')
+  })
+
+  it('adds schedule-layer periods, rooms, groups, and memberships without replacing classes', () => {
+    expect(instructionalGroupMigrationSql).toContain('CREATE TABLE IF NOT EXISTS public.instructional_periods')
+    expect(instructionalGroupMigrationSql).toContain('CREATE TABLE IF NOT EXISTS public.physical_rooms')
+    expect(instructionalGroupMigrationSql).toContain('CREATE TABLE IF NOT EXISTS public.instructional_groups')
+    expect(instructionalGroupMigrationSql).toContain('CREATE TABLE IF NOT EXISTS public.instructional_group_memberships')
+    expect(instructionalGroupMigrationSql).toContain('PRIMARY KEY (group_id, student_id)')
+    expect(instructionalGroupMigrationSql).not.toContain('DROP TABLE')
   })
 })

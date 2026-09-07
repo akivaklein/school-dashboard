@@ -9,6 +9,7 @@ import SetupSchoolStructureSection from './SetupSchoolStructureSection'
 import StaffDirectoryPage from './StaffDirectoryPage'
 import RegisterAccountsSection from './RegisterAccountsSection'
 import DataCleanupSection from './DataCleanupSection'
+import SetupInstructionalGroupsSection from './SetupInstructionalGroupsSection'
 import { getSetupSectionMeta } from './setupCenterUtils'
 import { STUDENT_CLASSES } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
@@ -91,6 +92,11 @@ export default function SetupCenterPage({
   onClearPointsHistory,
   persistedClasses = [],
   onSaveClass,
+  instructionalPeriods = [],
+  physicalRooms = [],
+  instructionalGroups = [],
+  instructionalGroupMemberships = [],
+  onInstructionalScheduleChanged = (_change?: unknown) => {},
 }) {
   const safeSetupNavItems = Array.isArray(setupNavItems) ? setupNavItems : []
   const safeDivisions = DIVISIONS || {}
@@ -300,6 +306,20 @@ export default function SetupCenterPage({
               onBulkAddStudentsToClass={onBulkAddStudentsToClass}
               persistedClasses={persistedClasses}
               onSaveClass={onSaveClass}
+            />
+          )}
+
+          {setupTab === 'instructional-groups' && (
+            <SetupInstructionalGroupsSection
+              S={S}
+              students={students}
+              staffMembers={staffMembers}
+              periods={instructionalPeriods}
+              rooms={physicalRooms}
+              groups={instructionalGroups}
+              memberships={instructionalGroupMemberships}
+              actorName={userName || 'Admin'}
+              onChanged={onInstructionalScheduleChanged}
             />
           )}
 

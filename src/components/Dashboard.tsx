@@ -22,6 +22,7 @@ import {
   type PointsEventRecord,
 } from '../services/pointsEventsService'
 import { applyDailyAttendanceReset } from '../services/attendanceService'
+import { loadInstructionalSchedule, type InstructionalGroup, type InstructionalGroupMembership, type InstructionalPeriod, type PhysicalRoom } from '../services/instructionalGroupService'
 import { getOpenParentCalls } from '../utils/parentCallUtils'
 import {
   loadGradeEntries,
@@ -3098,6 +3099,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const [setupAccounts, setSetupAccounts] = useState<Record<string, Record<string, unknown>>>({})
   const [teacherRebbeAssignments, setTeacherRebbeAssignments] = useState<TeacherRebbeAssignment[]>([])
+  const [instructionalPeriods, setInstructionalPeriods] = useState<InstructionalPeriod[]>([])
+  const [physicalRooms, setPhysicalRooms] = useState<PhysicalRoom[]>([])
+  const [instructionalGroups, setInstructionalGroups] = useState<InstructionalGroup[]>([])
+  const [instructionalGroupMemberships, setInstructionalGroupMemberships] = useState<InstructionalGroupMembership[]>([])
 
   // student_class_assignments from Supabase — keyed by student_id
   const [studentClassOverrides, setStudentClassOverrides] = useState<Record<number, { classId: string; divisionKey: string }>>({})
@@ -3107,6 +3112,17 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   // student_additional_classes from Supabase — a student's classes on top of their primary/homeroom class
   const [additionalClassMemberships, setAdditionalClassMemberships] = useState<StudentAdditionalClass[]>([])
+
+  useEffect(() => {
+    loadInstructionalSchedule()
+      .then(schedule => {
+        setInstructionalPeriods(schedule.periods || [])
+        setPhysicalRooms(schedule.rooms || [])
+        setInstructionalGroups(schedule.groups || [])
+        setInstructionalGroupMemberships(schedule.memberships || [])
+      })
+      .catch(error => console.error('Unable to load instructional group schedule:', error))
+  }, [])
 
   const additionalClassIdsByStudent = useMemo(() => {
     const map: Record<number, string[]> = {}
@@ -4899,6 +4915,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     { id: 'accounts', label: 'Staff Accounts', icon: '🔐', group: 'People & Staff' },
     { id: 'register-accounts', label: 'Canteen Registers', icon: '🧾', group: 'People & Staff' },
     { id: 'classes-divisions', label: 'Classes & Divisions', icon: '🏫', group: 'School Structure' },
+    { id: 'instructional-groups', label: 'Periods & Instructional Groups', icon: '🗓️', group: 'School Structure' },
     { id: 'teaching', label: 'Behavior & Testing Options', icon: '📝', group: 'Rules & Options' },
     { id: 'vip', label: 'VIP Rules', icon: '⭐', group: 'Rules & Options' },
     { id: 'store', label: 'Store Sales', icon: '🏷️', group: 'Rules & Options' },
@@ -5387,6 +5404,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             onClearPointsHistory={() => clearPointsHistory(effectiveUserName || 'Admin')}
             persistedClasses={persistedClasses}
             onSaveClass={(cls: { id: string; name: string; grade: string; teacher: string; divisionKey: string }) => upsertClass(cls)}
+            instructionalPeriods={instructionalPeriods}
+            physicalRooms={physicalRooms}
+            instructionalGroups={instructionalGroups}
+            instructionalGroupMemberships={instructionalGroupMemberships}
+            onInstructionalScheduleChanged={(change: { period?: InstructionalPeriod; room?: PhysicalRoom; group?: InstructionalGroup; memberships?: InstructionalGroupMembership[] }) => {
+              if (change.period) setInstructionalPeriods(prev => [...prev.filter(item => item.id !== change.period!.id), change.period!])
+              if (change.room) setPhysicalRooms(prev => [...prev.filter(item => item.id !== change.room!.id), change.room!])
+              if (change.group) setInstructionalGroups(prev => [...prev.filter(item => item.id !== change.group!.id), change.group!])
+              if (change.memberships && change.group) setInstructionalGroupMemberships(prev => [...prev.filter(item => item.group_id !== change.group!.id), ...change.memberships!])
+            }}
           />
           </Suspense>
         )}
