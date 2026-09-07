@@ -1,7 +1,7 @@
 export type ParentCall = Record<string, unknown>
 
 export function isOpenParentCall(call: ParentCall): boolean {
-  return call.completed !== true && (
+  return call.completed !== true && call.deleted !== true && !call.deletedAt && (
     call.outcome === 'Call Needed' ||
     call.callNeeded === true ||
     call.status === 'needed'

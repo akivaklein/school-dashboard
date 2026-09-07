@@ -22,6 +22,7 @@ import {
   type PointsEventRecord,
 } from '../services/pointsEventsService'
 import { applyDailyAttendanceReset } from '../services/attendanceService'
+import { getOpenParentCalls } from '../utils/parentCallUtils'
 import {
   loadGradeEntries,
   upsertGradeEntry,
@@ -4855,7 +4856,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const needsAttention = visibleStudents.filter(s => (s.reminders ?? 0) > (s.lastWeekReminders ?? 0)).length
   const vipStudents = visibleStudents.filter(s => checkIsVIP(s))
   const urgentStudents = visibleStudents.filter(s => (s.reminders ?? 0) >= 6 || Boolean(s.detention) || (s.att ?? []).filter(d => d === 'A').length >= 3 || s.status === 'unknown')
-  const callsDueStudents = visibleStudents.filter(s => { const parentCalls = Array.isArray(s.parentCalls) ? s.parentCalls : []; const lc = parentCalls.length > 0 ? parentCalls[parentCalls.length - 1] as { date?: string } | undefined : null; return !lc?.date || daysSince(lc.date) > 14 })
+  const callsDueStudents = visibleStudents.filter(student => getOpenParentCalls(Array.isArray(student.parentCalls) ? student.parentCalls : []).length > 0)
   const divisionSummaries = userAccess.divisions.map(key => {
     const list = activeStudents.filter(s => studentDivision(s) === key)
     return {

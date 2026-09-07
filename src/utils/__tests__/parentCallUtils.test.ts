@@ -10,6 +10,18 @@ describe('parent call history rules', () => {
     expect(getCompletedParentCalls([openCall, completedCall])).toEqual([completedCall])
   })
 
+  it('matches the Dashboard count rule: one student counts once for open calls only', () => {
+    const students = [
+      { parentCalls: [openCall] },
+      { parentCalls: [completedCall] },
+      { parentCalls: [{ id: 'deleted', outcome: 'Call Needed', deleted: true }] },
+    ]
+    const studentsWithOpenCalls = students.filter(student => getOpenParentCalls(student.parentCalls).length > 0)
+
+    expect(studentsWithOpenCalls).toHaveLength(1)
+    expect(getOpenParentCalls(students[2].parentCalls)).toEqual([])
+  })
+
   it('removes only the confirmed record from the existing call array', () => {
     expect(removeParentCall([openCall, completedCall], 1)).toEqual([openCall])
   })
