@@ -178,6 +178,11 @@ export default function StudentSupport({
         : 'Staff'
 
   const selectedStudentId = studentFilter === 'all' ? null : Number(studentFilter)
+  const studentIdsKey = students
+    .map(student => Number(student.id))
+    .filter(Number.isFinite)
+    .sort((left, right) => left - right)
+    .join(',')
   const visibleStudents = selectedStudentId ? students.filter(student => Number(student.id) === selectedStudentId) : students
   const activeGoals = goals.filter(goal => goal.status !== 'completed')
   const visibleGoals = goals.filter(goal => !selectedStudentId || Number(goal.studentId) === selectedStudentId)
@@ -234,7 +239,7 @@ export default function StudentSupport({
 
     if (students.length > 0) loadSupportData()
     return () => { active = false }
-  }, [students])
+  }, [studentIdsKey])
 
   const sectionButton = (key: string) => ({
     padding: '9px 13px',

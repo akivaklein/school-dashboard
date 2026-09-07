@@ -20,11 +20,25 @@ export function buildSupportSessionsStudentFilter(studentIds: Array<number | str
   return `student_id=in.(${ids.join(',')})`
 }
 
-export async function listSupportSessions(): Promise<SupportSession[]> {
-  const { data, error } = await supabase
+export async function listSupportSessions(studentIds: Array<number | string | null | undefined> = []): Promise<SupportSession[]> {
+  const normalizedStudentIds = Array.from(
+    new Set(
+      studentIds
+        .map(value => Number(value))
+        .filter(value => Number.isFinite(value) && value > 0),
+    ),
+  )
+
+  let query = supabase
     .from('support_sessions')
     .select('*')
     .order('started_at', { ascending: false })
+
+  if (normalizedStudentIds.length > 0) {
+    query = query.in('student_id', normalizedStudentIds)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return (data || []) as SupportSession[]

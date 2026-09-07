@@ -2217,7 +2217,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         : resolveStudentGrade(databaseStudent),
       is_active: databaseStudent.is_active !== false,
       dailyStatus: resolveDailyAttendanceStatusForDate({
-        dailyStatus: databaseStudent.daily_status ?? databaseStudent.dailyStatus,
+        dailyStatus: databaseStudent.daily_status == null && databaseStudent.dailyStatus == null
+          ? null
+          : String(databaseStudent.daily_status ?? databaseStudent.dailyStatus),
         classLog: Array.isArray(databaseStudent.class_log)
           ? databaseStudent.class_log
           : (Array.isArray(databaseStudent.classLog) ? databaseStudent.classLog : []),

@@ -181,7 +181,7 @@ export default function AttendancePage({
     }
   }
 
-  async function applyDailyStatusToStudents(targetStudents, status, options = {}) {
+  async function applyDailyStatusToStudents(targetStudents, status, options: { clearSelection?: boolean } = {}) {
     if (targetStudents.length === 0) return
 
     const targetIds = new Set(targetStudents.map(student => String(student.id)))

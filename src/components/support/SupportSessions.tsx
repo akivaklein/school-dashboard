@@ -72,14 +72,15 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
     ),
     [students],
   )
-  const scopedStudentIdSet = useMemo(() => new Set(scopedStudentIds), [scopedStudentIds])
+  const scopedStudentKey = scopedStudentIds.join(',')
+  const scopedStudentIdSet = useMemo(() => new Set(scopedStudentIds), [scopedStudentKey])
   const scopedStudentFilter = useMemo(
     () => buildSupportSessionsStudentFilter(scopedStudentIds),
-    [scopedStudentIds],
+    [scopedStudentKey],
   )
   const scopedChannelName = useMemo(
     () => `support-sessions-${scopedStudentIds.join('-') || 'none'}`,
-    [scopedStudentIds],
+    [scopedStudentKey],
   )
 
   useEffect(() => {
@@ -146,12 +147,15 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
         setLoading(true)
         setErrorMessage('')
         if (!scopedStudentIds.length) {
-          if (active) setSessions([])
+          if (active) {
+            setSessions([])
+            setLoading(false)
+          }
           return
         }
-        const rows = await listSupportSessions()
+        const rows = await listSupportSessions(scopedStudentIds)
         if (active) {
-          setSessions(rows.filter(session => scopedStudentIdSet.has(Number(session.student_id))))
+          setSessions(rows)
         }
       } catch (error) {
         console.error('Error loading support sessions:', error)
@@ -163,7 +167,7 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
 
     load()
     return () => { active = false }
-  }, [scopedStudentIds, scopedStudentIdSet])
+  }, [scopedStudentKey])
 
   const activeSessions = useMemo(
     () => sessions.filter(session => !session.ended_at),
