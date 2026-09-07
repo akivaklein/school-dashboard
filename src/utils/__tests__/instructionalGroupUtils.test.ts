@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findInstructionalGroupConflict } from '../instructionalGroupUtils'
+import { findInstructionalGroupConflict, getActiveTeacherStaff } from '../instructionalGroupUtils'
 
 describe('instructional group conflicts', () => {
   const groups = [
@@ -18,5 +18,16 @@ describe('instructional group conflicts', () => {
 
   it('blocks overlapping groups in the same period', () => {
     expect(findInstructionalGroupConflict([7], 'morning-p1', groups, memberships)).toBe(7)
+  })
+})
+
+describe('instructional group teacher source', () => {
+  it('uses active persisted teacher/rebbe roles, including multi-role staff', () => {
+    expect(getActiveTeacherStaff([
+      { name: 'Teacher', role: 'Teacher', roles: ['teacher'], active: true },
+      { name: 'Admin Teacher', role: 'Admin + Teacher', roles: ['admin', 'teacher'], active: true },
+      { name: 'Archived Rebbe', role: 'Rebbe', roles: ['rebbe'], active: false },
+      { name: 'Support', role: 'Support Staff', roles: ['support_staff'], active: true },
+    ]).map(member => member.name)).toEqual(['Teacher', 'Admin Teacher'])
   })
 })
