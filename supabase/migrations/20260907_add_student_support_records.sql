@@ -24,38 +24,242 @@ create table if not exists public.student_goals (
 
 create index if not exists student_goals_student_id_created_at_idx
   on public.student_goals (student_id, created_at desc);
+create index if not exists student_goals_status_idx
+  on public.student_goals (status);
+create index if not exists student_goals_assigned_to_idx
+  on public.student_goals (assigned_to);
+create index if not exists student_goals_created_by_idx
+  on public.student_goals (created_by);
 
 alter table public.student_goals enable row level security;
 
-grant select, insert, update, delete on table public.student_goals to anon, authenticated;
+revoke all on table public.student_goals from anon;
+grant select, insert, update, delete on table public.student_goals to authenticated;
 
 drop policy if exists student_goals_select_portal on public.student_goals;
-create policy student_goals_select_portal
+drop policy if exists student_goals_insert_portal on public.student_goals;
+drop policy if exists student_goals_update_portal on public.student_goals;
+drop policy if exists student_goals_delete_portal on public.student_goals;
+drop policy if exists student_goals_select_dashboard on public.student_goals;
+drop policy if exists student_goals_insert_dashboard on public.student_goals;
+drop policy if exists student_goals_update_dashboard on public.student_goals;
+drop policy if exists student_goals_delete_leadership on public.student_goals;
+
+create policy student_goals_select_dashboard
 on public.student_goals
 for select
-to anon, authenticated
-using (true);
+to authenticated
+using (
+  public.dashboard_is_leadership()
+  or (
+    public.dashboard_current_role() in ('teacher', 'rebbe')
+    and exists (
+      select 1
+      from public.teacher_rebbe_assignments tra
+      where tra.student_id = student_goals.student_id
+        and tra.status = 'active'
+        and lower(trim(tra.teacher_name)) = lower(trim((
+          select ur.display_name
+          from public.user_roles ur
+          where ur.user_id = auth.uid()
+            and ur.is_active is true
+          order by
+            case ur.role
+              when 'admin' then 0
+              when 'principal' then 1
+              when 'teacher' then 2
+              when 'rebbe' then 3
+              when 'support_staff' then 4
+              else 5
+            end,
+            ur.role
+          limit 1
+        )))
+    )
+  )
+  or (
+    public.dashboard_current_role() = 'support_staff'
+    and lower(trim(coalesce(student_goals.assigned_to, student_goals.created_by, ''))) = lower(trim((
+      select ur.display_name
+      from public.user_roles ur
+      where ur.user_id = auth.uid()
+        and ur.is_active is true
+      order by
+        case ur.role
+          when 'admin' then 0
+          when 'principal' then 1
+          when 'teacher' then 2
+          when 'rebbe' then 3
+          when 'support_staff' then 4
+          else 5
+        end,
+        ur.role
+      limit 1
+    )))
+  )
+);
 
-drop policy if exists student_goals_insert_portal on public.student_goals;
-create policy student_goals_insert_portal
+create policy student_goals_insert_dashboard
 on public.student_goals
 for insert
-to anon, authenticated
-with check (true);
+to authenticated
+with check (
+  public.dashboard_is_leadership()
+  or (
+    public.dashboard_current_role() in ('teacher', 'rebbe')
+    and exists (
+      select 1
+      from public.teacher_rebbe_assignments tra
+      where tra.student_id = student_goals.student_id
+        and tra.status = 'active'
+        and lower(trim(tra.teacher_name)) = lower(trim((
+          select ur.display_name
+          from public.user_roles ur
+          where ur.user_id = auth.uid()
+            and ur.is_active is true
+          order by
+            case ur.role
+              when 'admin' then 0
+              when 'principal' then 1
+              when 'teacher' then 2
+              when 'rebbe' then 3
+              when 'support_staff' then 4
+              else 5
+            end,
+            ur.role
+          limit 1
+        )))
+    )
+  )
+  or (
+    public.dashboard_current_role() = 'support_staff'
+    and lower(trim(coalesce(student_goals.assigned_to, student_goals.created_by, ''))) = lower(trim((
+      select ur.display_name
+      from public.user_roles ur
+      where ur.user_id = auth.uid()
+        and ur.is_active is true
+      order by
+        case ur.role
+          when 'admin' then 0
+          when 'principal' then 1
+          when 'teacher' then 2
+          when 'rebbe' then 3
+          when 'support_staff' then 4
+          else 5
+        end,
+        ur.role
+      limit 1
+    )))
+  )
+);
 
-drop policy if exists student_goals_update_portal on public.student_goals;
-create policy student_goals_update_portal
+create policy student_goals_update_dashboard
 on public.student_goals
 for update
-to anon, authenticated
-using (true)
-with check (true);
+to authenticated
+using (
+  public.dashboard_is_leadership()
+  or (
+    public.dashboard_current_role() in ('teacher', 'rebbe')
+    and exists (
+      select 1
+      from public.teacher_rebbe_assignments tra
+      where tra.student_id = student_goals.student_id
+        and tra.status = 'active'
+        and lower(trim(tra.teacher_name)) = lower(trim((
+          select ur.display_name
+          from public.user_roles ur
+          where ur.user_id = auth.uid()
+            and ur.is_active is true
+          order by
+            case ur.role
+              when 'admin' then 0
+              when 'principal' then 1
+              when 'teacher' then 2
+              when 'rebbe' then 3
+              when 'support_staff' then 4
+              else 5
+            end,
+            ur.role
+          limit 1
+        )))
+    )
+  )
+  or (
+    public.dashboard_current_role() = 'support_staff'
+    and lower(trim(coalesce(student_goals.assigned_to, student_goals.created_by, ''))) = lower(trim((
+      select ur.display_name
+      from public.user_roles ur
+      where ur.user_id = auth.uid()
+        and ur.is_active is true
+      order by
+        case ur.role
+          when 'admin' then 0
+          when 'principal' then 1
+          when 'teacher' then 2
+          when 'rebbe' then 3
+          when 'support_staff' then 4
+          else 5
+        end,
+        ur.role
+      limit 1
+    )))
+  )
+)
+with check (
+  public.dashboard_is_leadership()
+  or (
+    public.dashboard_current_role() in ('teacher', 'rebbe')
+    and exists (
+      select 1
+      from public.teacher_rebbe_assignments tra
+      where tra.student_id = student_goals.student_id
+        and tra.status = 'active'
+        and lower(trim(tra.teacher_name)) = lower(trim((
+          select ur.display_name
+          from public.user_roles ur
+          where ur.user_id = auth.uid()
+            and ur.is_active is true
+          order by
+            case ur.role
+              when 'admin' then 0
+              when 'principal' then 1
+              when 'teacher' then 2
+              when 'rebbe' then 3
+              when 'support_staff' then 4
+              else 5
+            end,
+            ur.role
+          limit 1
+        )))
+    )
+  )
+  or (
+    public.dashboard_current_role() = 'support_staff'
+    and lower(trim(coalesce(student_goals.assigned_to, student_goals.created_by, ''))) = lower(trim((
+      select ur.display_name
+      from public.user_roles ur
+      where ur.user_id = auth.uid()
+        and ur.is_active is true
+      order by
+        case ur.role
+          when 'admin' then 0
+          when 'principal' then 1
+          when 'teacher' then 2
+          when 'rebbe' then 3
+          when 'support_staff' then 4
+          else 5
+        end,
+        ur.role
+      limit 1
+    )))
+  )
+);
 
-drop policy if exists student_goals_delete_portal on public.student_goals;
-create policy student_goals_delete_portal
+create policy student_goals_delete_leadership
 on public.student_goals
 for delete
-to anon, authenticated
-using (true);
+to authenticated
+using (public.dashboard_is_leadership());
 
 commit;
