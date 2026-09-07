@@ -53,6 +53,61 @@ export default function AttendancePage({
   const selectedDailyCount = dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))).length
   const allDailyStudentsSelected = dailyAttendanceStudents.length > 0 && selectedDailyCount === dailyAttendanceStudents.length
 
+  function currentLocalTimeValue() {
+    const now = new Date()
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  }
+
+  function buildArrivalDetails(status, timeArrived = currentLocalTimeValue(), existingDetails = null) {
+    return {
+      ...(existingDetails || {}),
+      timeArrived,
+      reason: status === 'late' ? existingDetails?.reason || 'no-reason' : 'checked-in',
+      note: status === 'late' ? existingDetails?.note || '' : '',
+      markedBy: actingStaffName,
+      markedAt: new Date().toISOString(),
+    }
+  }
+
+  function buildDepartureDetails(timeDeparted = currentLocalTimeValue(), existingDetails = null) {
+    return {
+      ...(existingDetails || {}),
+      timeDeparted,
+      reason: existingDetails?.reason || 'dismissed',
+      note: existingDetails?.note || '',
+      markedBy: actingStaffName,
+      markedAt: new Date().toISOString(),
+    }
+  }
+
+  function buildDailyDetailsForStatus(status, student, timeValue = currentLocalTimeValue()) {
+    if (status === 'present') {
+      return {
+        lateDetails: buildArrivalDetails(status, timeValue, student.lateDetails),
+        departureDetails: null,
+      }
+    }
+
+    if (status === 'late') {
+      return {
+        lateDetails: buildArrivalDetails(status, timeValue, student.lateDetails),
+        departureDetails: null,
+      }
+    }
+
+    if (status === 'left-early') {
+      return {
+        lateDetails: student.lateDetails || null,
+        departureDetails: buildDepartureDetails(timeValue, student.departureDetails),
+      }
+    }
+
+    return {
+      lateDetails: null,
+      departureDetails: null,
+    }
+  }
+
   function toggleDailyStudentSelection(id) {
     const key = String(id)
     setSelectedDailyStudentIds(previous => {
@@ -95,6 +150,37 @@ export default function AttendancePage({
     return success
   }
 
+  async function updateDailyTime(student, field, value) {
+    const original = students.find(s => Number(s.id) === Number(student.id))
+    if (!original) return
+
+    const nextDetails = field === 'arrival'
+      ? { ...(original.lateDetails || {}), timeArrived: value, markedBy: actingStaffName, markedAt: new Date().toISOString() }
+      : { ...(original.departureDetails || {}), timeDeparted: value, markedBy: actingStaffName, markedAt: new Date().toISOString() }
+    const fields = field === 'arrival'
+      ? { lateDetails: nextDetails }
+      : { departureDetails: nextDetails }
+
+    setStudents(previous => previous.map(entry => (
+      Number(entry.id) === Number(student.id)
+        ? { ...entry, ...fields }
+        : entry
+    )))
+
+    const success = await saveStudentFields(student.id, fields)
+    if (!success) {
+      setStudents(previous => previous.map(entry => (
+        Number(entry.id) === Number(student.id)
+          ? {
+              ...entry,
+              lateDetails: original.lateDetails,
+              departureDetails: original.departureDetails,
+            }
+          : entry
+      )))
+    }
+  }
+
   async function applyDailyStatusToStudents(targetStudents, status, options = {}) {
     if (targetStudents.length === 0) return
 
@@ -110,16 +196,17 @@ export default function AttendancePage({
       }))
 
     const updatesById = {}
+    const bulkTimeValue = currentLocalTimeValue()
     targetStudents.forEach(student => {
       const classLogEntry = buildClassLogEntry(
         'attendance-update',
         `Attendance marked ${status} by ${actingStaffName}`
       )
+      const dailyDetails = buildDailyDetailsForStatus(status, student, bulkTimeValue)
 
       updatesById[String(student.id)] = {
         dailyStatus: status,
-        lateDetails: null,
-        departureDetails: null,
+        ...dailyDetails,
         classLog: [...(student.classLog || []), classLogEntry],
       }
     })
@@ -181,6 +268,8 @@ export default function AttendancePage({
       `Attendance marked ${status} by ${actingStaffName}`
     )
     const updatedClassLog = [...(original.classLog || []), classLogEntry]
+    const actionTimeValue = currentLocalTimeValue()
+    const dailyDetails = buildDailyDetailsForStatus(status, original, actionTimeValue)
 
     setStudents(prev =>
       prev.map(s =>
@@ -188,6 +277,7 @@ export default function AttendancePage({
           ? {
               ...s,
               dailyStatus: status,
+              ...dailyDetails,
               classLog: updatedClassLog
             }
           : s
@@ -196,18 +286,19 @@ export default function AttendancePage({
 
     if (status === 'late') {
       setLatePopup(id)
-      setLateTime('')
-      setLateReason('no-reason')
-      setLateNote('')
+      setLateTime(actionTimeValue)
+      setLateReason(original.lateDetails?.reason || 'no-reason')
+      setLateNote(original.lateDetails?.note || '')
     } else if (status === 'left-early') {
       setDeparturePopup(id)
-      setDepartureTime('')
-      setDepartureReason('dismissed')
-      setDepartureNote('')
+      setDepartureTime(actionTimeValue)
+      setDepartureReason(original.departureDetails?.reason || 'dismissed')
+      setDepartureNote(original.departureDetails?.note || '')
     }
 
     const success = await saveStudentFields(id, {
       dailyStatus: status,
+      ...dailyDetails,
       classLog: updatedClassLog
     })
 
@@ -281,13 +372,11 @@ export default function AttendancePage({
     const original = students.find(s => s.id === studentId)
     if (!original) return
 
-    const lateDetails = {
-      timeArrived: lateTime,
+    const lateDetails = buildArrivalDetails('late', lateTime || currentLocalTimeValue(), {
+      ...(original.lateDetails || {}),
       reason: lateReason,
       note: lateNote,
-      markedBy: actingStaffName,
-      markedAt: new Date().toISOString(),
-    }
+    })
 
     const classLogEntry = buildClassLogEntry(
       'late-details',
@@ -332,13 +421,11 @@ export default function AttendancePage({
     const original = students.find(s => s.id === studentId)
     if (!original) return
 
-    const departureDetails = {
-      timeDeparted: departureTime,
+    const departureDetails = buildDepartureDetails(departureTime || currentLocalTimeValue(), {
+      ...(original.departureDetails || {}),
       reason: departureReason,
       note: departureNote,
-      markedBy: actingStaffName,
-      markedAt: new Date().toISOString(),
-    }
+    })
 
     const classLogEntry = buildClassLogEntry(
       'departure-details',
@@ -765,22 +852,39 @@ export default function AttendancePage({
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}</div>
                       <div style={{ fontSize: 11, color: colors[daily] || '#94a3b8', fontWeight: 600 }}>{labels[daily] || 'Unconfirmed'}</div>
+                      {daily === 'present' && s.lateDetails?.timeArrived && (
+                        <div style={{ fontSize: 10, color: '#64748b' }}>Check-in {s.lateDetails.timeArrived}</div>
+                      )}
                       {daily === 'late' && s.lateDetails?.timeArrived && (
-                        <div style={{ fontSize: 10, color: '#64748b' }}>{s.lateDetails.timeArrived}{s.lateDetails.note ? ` · ${s.lateDetails.note}` : ''}</div>
+                        <div style={{ fontSize: 10, color: '#64748b' }}>Arrival {s.lateDetails.timeArrived}{s.lateDetails.note ? ` · ${s.lateDetails.note}` : ''}</div>
                       )}
                       {daily === 'left-early' && s.departureDetails?.timeDeparted && (
-                        <div style={{ fontSize: 10, color: '#64748b' }}>{s.departureDetails.timeDeparted}{s.departureDetails.note ? ` · ${s.departureDetails.note}` : ''}</div>
+                        <div style={{ fontSize: 10, color: '#64748b' }}>Departure {s.departureDetails.timeDeparted}{s.departureDetails.note ? ` · ${s.departureDetails.note}` : ''}</div>
                       )}
                     </div>
                   </div>
                   {!collapsed && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {(daily === 'present' || daily === 'late') && (
+                        <label style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', gap: 6, fontSize: 10, color: '#64748b', fontWeight: 700 }}>
+                          <span>{daily === 'late' ? 'Arrival' : 'Check-in'}</span>
+                          <input type="time" value={s.lateDetails?.timeArrived || ''} onChange={event => updateDailyTime(s, 'arrival', event.target.value)} style={{ minWidth: 0, padding: '3px 5px', borderRadius: 5, border: '1px solid #e5e7eb', fontSize: 11 }} />
+                        </label>
+                      )}
+                      {daily === 'left-early' && (
+                        <label style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', gap: 6, fontSize: 10, color: '#64748b', fontWeight: 700 }}>
+                          <span>Departure</span>
+                          <input type="time" value={s.departureDetails?.timeDeparted || ''} onChange={event => updateDailyTime(s, 'departure', event.target.value)} style={{ minWidth: 0, padding: '3px 5px', borderRadius: 5, border: '1px solid #e5e7eb', fontSize: 11 }} />
+                        </label>
+                      )}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                       {[['present','Present'],['absent','Absent'],['late','Late'],['left-early','Left Early'],['not-arrived','Not Arrived']].map(([val, label]) => (
                         <button key={val} onClick={() => updateDailyStatus(s.id, val)}
                           style={{ padding: '4px 6px', borderRadius: 5, border: `1px solid ${daily === val ? colors[val] : '#e5e7eb'}`, background: daily === val ? colors[val] + '20' : '#fff', color: daily === val ? colors[val] : '#64748b', fontSize: 10, fontWeight: daily === val ? 700 : 400, cursor: 'pointer' }}>
                           {label}
                         </button>
                       ))}
+                      </div>
                     </div>
                   )}
                 </div>
