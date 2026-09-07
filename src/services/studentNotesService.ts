@@ -50,6 +50,31 @@ function isMissingNotesColumnError(error: { message?: string } | null | undefine
   )
 }
 
+function getMissingColumnName(error: { message?: string; code?: string } | null | undefined): string | null {
+  const message = String(error?.message || '')
+  const patterns = [
+    /['"]([a-zA-Z0-9_]+)['"]\s+column/i,
+    /find\s+the\s+([a-zA-Z0-9_]+)\s+column/i,
+    /column\s+"([a-zA-Z0-9_]+)"/i,
+  ]
+  for (const pattern of patterns) {
+    const match = message.match(pattern)
+    if (match?.[1]) return match[1]
+  }
+  return null
+}
+
+function describeSupabaseError(error: { code?: string; message?: string; details?: string; hint?: string } | null | undefined) {
+  const parts = [
+    error?.code ? `code ${error.code}` : '',
+    error?.message || 'Unknown Supabase error',
+    error?.details ? `Details: ${error.details}` : '',
+    error?.hint ? `Hint: ${error.hint}` : '',
+  ].filter(Boolean)
+
+  return parts.join(' - ')
+}
+
 export async function listStudentNotes(studentId: number): Promise<StudentNoteRecord[]> {
   const primary = await supabase
     .from('student_notes')
@@ -133,7 +158,7 @@ export async function createStudentNote(input: {
   metadata?: Record<string, unknown>
   requireMetadata?: boolean
 }) {
-  const payload = {
+  let payload: Record<string, unknown> = {
     student_id: input.studentId,
     student_name: input.studentName,
     note: input.note,
@@ -141,40 +166,42 @@ export async function createStudentNote(input: {
     created_by_name: input.actorName,
     metadata: input.metadata || {},
   }
-  const primary = await supabase
-    .from('student_notes')
-    .insert([payload])
-    .select('*')
-    .single()
 
-  if (!primary.error) {
-    return toRecord(primary.data as Record<string, unknown>)
+  while (true) {
+    const attempt = await supabase
+      .from('student_notes')
+      .insert([payload])
+      .select('*')
+      .single()
+
+    if (!attempt.error) {
+      return toRecord(attempt.data as Record<string, unknown>)
+    }
+
+    const missingColumn = getMissingColumnName(attempt.error)
+
+    if (isMissingNotesColumnError(attempt.error) && missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
+      if (missingColumn === 'metadata' && input.requireMetadata) {
+        console.error('Structured observation insert rejected metadata column:', {
+          error: attempt.error,
+          payloadKeys: Object.keys(payload),
+          metadata: payload.metadata,
+        })
+        throw new Error(`Unable to save structured observation metadata. Supabase returned ${describeSupabaseError(attempt.error)}`)
+      }
+
+      payload = { ...payload }
+      delete payload[missingColumn]
+      continue
+    }
+
+    console.error('Student note insert failed:', {
+      error: attempt.error,
+      payloadKeys: Object.keys(payload),
+      metadata: payload.metadata,
+    })
+    throw new Error(`Unable to save student note. Supabase returned ${describeSupabaseError(attempt.error)}`)
   }
-
-  if (!isMissingNotesColumnError(primary.error)) {
-    throw new Error(primary.error.message || 'Unable to save note right now.')
-  }
-
-  if (input.requireMetadata) {
-    throw new Error('Unable to save structured observation metadata. Please run the Student Support migration and try again.')
-  }
-
-  const fallback = await supabase
-    .from('student_notes')
-    .insert([{
-      student_id: input.studentId,
-      student_name: input.studentName,
-      note: input.note,
-      author: input.author,
-    }])
-    .select('*')
-    .single()
-
-  if (fallback.error) {
-    throw new Error(fallback.error.message || 'Unable to save note right now.')
-  }
-
-  return toRecord(fallback.data as Record<string, unknown>)
 }
 
 export async function updateStudentNote(input: {

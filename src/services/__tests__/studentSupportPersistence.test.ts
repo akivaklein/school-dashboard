@@ -71,7 +71,7 @@ describe('student support persistence', () => {
   it('does not save observations as generic notes when metadata cannot be stored', async () => {
     const primarySingle = vi.fn().mockResolvedValue({
       data: null,
-      error: { message: 'Could not find the metadata column of student_notes in the schema cache' },
+      error: { code: 'PGRST204', message: 'Could not find the metadata column of student_notes in the schema cache' },
     })
     const primarySelect = vi.fn().mockReturnValue({ single: primarySingle })
     const primaryInsert = vi.fn().mockReturnValue({ select: primarySelect })
@@ -85,9 +85,73 @@ describe('student support persistence', () => {
       actorName: 'Rabbi Klein',
       metadata: { supportType: 'observation' },
       requireMetadata: true,
-    })).rejects.toThrow('structured observation metadata')
+    })).rejects.toThrow('PGRST204')
 
     expect(primaryInsert).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves observation metadata when retrying without an optional missing note column', async () => {
+    const firstSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST204', message: 'Could not find the created_by_name column of student_notes in the schema cache' },
+    })
+    const secondSingle = vi.fn().mockResolvedValue({
+      data: {
+        id: 11,
+        student_id: 4,
+        student_name: 'Ari',
+        note: 'Worked independently for ten minutes.',
+        author: 'Rabbi Klein',
+        created_at: '2026-09-07T10:20:00Z',
+        metadata: { supportType: 'observation', relatedGoalId: null },
+      },
+      error: null,
+    })
+    const single = vi.fn()
+      .mockImplementationOnce(firstSingle)
+      .mockImplementationOnce(secondSingle)
+    const select = vi.fn().mockReturnValue({ single })
+    const insert = vi.fn().mockReturnValue({ select })
+    fromMock.mockReturnValue({ insert })
+
+    await expect(createStudentNote({
+      studentId: 4,
+      studentName: 'Ari',
+      note: 'Worked independently for ten minutes.',
+      author: 'Rabbi Klein',
+      actorName: 'Rabbi Klein',
+      metadata: { supportType: 'observation', relatedGoalId: null },
+      requireMetadata: true,
+    })).resolves.toMatchObject({ metadata: { supportType: 'observation', relatedGoalId: null } })
+
+    expect(insert).toHaveBeenNthCalledWith(1, [expect.objectContaining({
+      created_by_name: 'Rabbi Klein',
+      metadata: { supportType: 'observation', relatedGoalId: null },
+    })])
+    expect(insert).toHaveBeenNthCalledWith(2, [expect.objectContaining({
+      metadata: { supportType: 'observation', relatedGoalId: null },
+    })])
+    expect(insert.mock.calls[1][0][0]).not.toHaveProperty('created_by_name')
+  })
+
+  it('surfaces real RLS or permission errors for observation inserts', async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'new row violates row-level security policy for table "student_notes"' },
+    })
+    const select = vi.fn().mockReturnValue({ single })
+    const insert = vi.fn().mockReturnValue({ select })
+    fromMock.mockReturnValue({ insert })
+
+    await expect(createStudentNote({
+      studentId: 4,
+      studentName: 'Ari',
+      note: 'Worked independently for ten minutes.',
+      author: 'Rabbi Klein',
+      actorName: 'Rabbi Klein',
+      metadata: { supportType: 'observation', relatedGoalId: null },
+      requireMetadata: true,
+    })).rejects.toThrow('42501')
   })
 
   it('creates and updates student goals in the support table', async () => {
