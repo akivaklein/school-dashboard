@@ -23,6 +23,7 @@ import {
 } from '../services/pointsEventsService'
 import { applyDailyAttendanceReset } from '../services/attendanceService'
 import { loadInstructionalSchedule, type InstructionalGroup, type InstructionalGroupMembership, type InstructionalPeriod, type PhysicalRoom } from '../services/instructionalGroupService'
+import { getCurrentInstructionalPeriod, getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
 import { getOpenParentCalls } from '../utils/parentCallUtils'
 import {
   loadGradeEntries,
@@ -561,7 +562,7 @@ function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = nu
 }
 
 
-function TeacherDashboard({ students, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP, staffMembers }: { students: StudentLike[]; setStudents: Dispatch<SetStateAction<StudentLike[]>>; userName: string | null; setSelectedStudent: (student: StudentLike) => void; setTeachingMode: Dispatch<SetStateAction<boolean>>; initialClass?: string | number | null; setDrillDown: Dispatch<SetStateAction<{ title: string; students: StudentLike[] } | null>>; recordStudentPointsAction: (payload: { studentId: number | string; pointsDelta: number; reminderDelta?: number; reason: string; eventType: string; category: string; sourceContext: string; note?: string | null; metadata?: Record<string, unknown> }) => Promise<boolean>; isVIP: (student: StudentLike) => boolean; staffMembers: StaffMemberLike[] }) {
+function TeacherDashboard({ students, allStudents, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP, staffMembers, instructionalPeriods, physicalRooms, instructionalGroups, instructionalGroupMemberships }: { students: StudentLike[]; allStudents: StudentLike[]; setStudents: Dispatch<SetStateAction<StudentLike[]>>; userName: string | null; setSelectedStudent: (student: StudentLike) => void; setTeachingMode: Dispatch<SetStateAction<boolean>>; initialClass?: string | number | null; setDrillDown: Dispatch<SetStateAction<{ title: string; students: StudentLike[] } | null>>; recordStudentPointsAction: (payload: { studentId: number | string; pointsDelta: number; reminderDelta?: number; reason: string; eventType: string; category: string; sourceContext: string; note?: string | null; metadata?: Record<string, unknown> }) => Promise<boolean>; isVIP: (student: StudentLike) => boolean; staffMembers: StaffMemberLike[]; instructionalPeriods: InstructionalPeriod[]; physicalRooms: PhysicalRoom[]; instructionalGroups: InstructionalGroup[]; instructionalGroupMemberships: InstructionalGroupMembership[] }) {
   const [selectedClass, setSelectedClass] = useState(initialClass)
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
   const currentTimeLabel = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -593,6 +594,11 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
   const expectedRoster = coverageSnapshot.expectedCount
   const confirmedInClass = present
   const nextPullout = pulloutStudents[0]
+  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+  const normalizedTeacherName = String(userName || '').trim().toLowerCase()
+  const currentTeacherGroups = currentInstructionalPeriod
+    ? instructionalGroups.filter(group => group.status !== 'archived' && group.period_id === currentInstructionalPeriod.id && group.teacher_name.trim().toLowerCase() === normalizedTeacherName)
+    : []
 
   async function quickPoints(id: number | string, amount: number) {
     playSound(amount > 0 ? 'positive' : 'negative')
@@ -629,6 +635,19 @@ function TeacherDashboard({ students, setStudents, userName, setSelectedStudent,
           </div>
           <button onClick={() => setTeachingMode(true)} style={{ ...S.btn('primary'), padding: '8px 16px', fontSize: 13 }}>▶ Start Class Session</button>
         </div>
+      </div>
+
+      <div style={{ ...S.card, marginBottom: 16, padding: '14px 16px' }}>
+        <div style={{ fontWeight: 800, fontSize: 15, color: '#16243a' }}>My Instructional Groups Now</div>
+        <div style={{ fontSize: 12, color: '#64748b', marginTop: 3, marginBottom: 10 }}>{currentInstructionalPeriod?.name || 'No configured instructional period is running now.'}</div>
+        {currentTeacherGroups.length > 0 ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+          {currentTeacherGroups.map(group => {
+            const memberIds = new Set(getInstructionalGroupStudentIds(group.id, instructionalGroupMemberships))
+            const groupStudents = allStudents.filter(student => memberIds.has(Number(student.id)))
+            const room = physicalRooms.find(item => item.id === group.room_id)
+            return <button key={group.id} onClick={() => setDrillDown({ title: `${group.name} · ${currentInstructionalPeriod?.name}`, students: groupStudents })} style={{ border: '1px solid #d7e1ec', borderRadius: 8, background: '#fff', padding: 12, textAlign: 'left', cursor: 'pointer' }}><div style={{ fontWeight: 800, color: '#102a43' }}>{group.name}</div><div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>{group.subject || 'Subject not set'} · {room?.name || 'Room not set'}</div><div style={{ fontSize: 11, color: '#64748b', marginTop: 5 }}>{groupStudents.length} students · {groupStudents.filter(student => isInSchool(student)).length} in school</div></button>
+          })}
+        </div> : currentInstructionalPeriod ? <div style={{ color: '#64748b', fontSize: 12 }}>No group is assigned to you for this period.</div> : null}
       </div>
 
       <div style={{ ...S.card, marginBottom: 16, padding: '14px 16px' }}>
@@ -4813,6 +4832,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         teachingAssignments={teacherAssignmentPeriodBuckets}
         persistedClasses={persistedClasses}
         additionalClassIdsByStudent={additionalClassIdsByStudent}
+        instructionalPeriods={instructionalPeriods}
+        instructionalGroups={instructionalGroups}
+        instructionalGroupMemberships={instructionalGroupMemberships}
       />
     </Suspense>
   )
@@ -5277,7 +5299,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           </Suspense>
         )}
 
-        {page === 'dashboard' && (effectiveRole === 'teacher' || effectiveRole === 'rebbe') && <TeacherDashboard students={visibleStudents} setStudents={setStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} />}
+        {page === 'dashboard' && (effectiveRole === 'teacher' || effectiveRole === 'rebbe') && <TeacherDashboard students={visibleStudents} allStudents={activeStudents} setStudents={setStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} instructionalPeriods={instructionalPeriods} physicalRooms={physicalRooms} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
         {page === 'dashboard' && effectiveRole === 'support_staff' && <TherapistDashboard students={visibleStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s, 'therapy')} staffMembers={staffMembers} therapySchedule={THERAPY_SCHEDULE_STATE} />}
 
         {page === 'setup' && effectiveRole !== 'register' && (
@@ -5463,6 +5485,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             todos={todos}
             setTodos={setTodos}
             FlagDashboardWidget={FlagDashboardWidget}
+            instructionalPeriods={instructionalPeriods}
+            physicalRooms={physicalRooms}
+            instructionalGroups={instructionalGroups}
+            instructionalGroupMemberships={instructionalGroupMemberships}
           />
           </Suspense>
         )}
@@ -5489,6 +5515,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             onRestoreStudent={restoreStudentFromAdmin}
             onDeleteStudent={deleteStudentFromAdmin}
             onGetDeletionImpact={getDeletionImpactForStudent}
+            instructionalPeriods={instructionalPeriods}
+            instructionalGroups={instructionalGroups}
+            instructionalGroupMemberships={instructionalGroupMemberships}
           />
           </Suspense>
         )}
@@ -5526,6 +5555,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
             HISTORICAL_DATA={{}}
+            instructionalPeriods={instructionalPeriods}
+            instructionalGroups={instructionalGroups}
+            instructionalGroupMemberships={instructionalGroupMemberships}
           />
           </Suspense>
         )}
@@ -5560,6 +5592,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             onSaveGradeEntry={recordGradeEntry}
             onSaveGradeEntries={recordGradeEntries}
             additionalClassIdsByStudent={additionalClassIdsByStudent}
+            instructionalPeriods={instructionalPeriods}
+            physicalRooms={physicalRooms}
+            instructionalGroups={instructionalGroups}
+            instructionalGroupMemberships={instructionalGroupMemberships}
           />
         )}
 
@@ -5577,6 +5613,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
             CLASSES={CLASSES}
+            instructionalPeriods={instructionalPeriods}
+            physicalRooms={physicalRooms}
+            instructionalGroups={instructionalGroups}
+            instructionalGroupMemberships={instructionalGroupMemberships}
           />
           </Suspense>
         )}
@@ -5742,6 +5782,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         TrackingTab={TrackingTabView}
         pointsEvents={selectedStudentPointsEvents}
         onUndoPointsEvent={undoPointsEvent}
+        instructionalPeriods={instructionalPeriods}
+        physicalRooms={physicalRooms}
+        instructionalGroups={instructionalGroups}
+        instructionalGroupMemberships={instructionalGroupMemberships}
         StudentScoresTab={props => (
           <StudentScoresTab
             {...props}

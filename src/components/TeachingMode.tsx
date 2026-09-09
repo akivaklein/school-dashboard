@@ -8,6 +8,7 @@ import {
   summarizeTeachingModeWriteResults,
 } from './teachingModeUtils'
 import { getCurrentLocationStatus, getDailyAttendanceStatus, isInClassroom, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
+import { getCurrentInstructionalPeriod, getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
 
 const TEACHING_MODE_SCOPE_STATE_STORAGE_KEY = 'schoolDashboardTeachingModeScopeV1'
 
@@ -70,6 +71,9 @@ export default function TeachingMode({
   teachingAssignments = {},
   persistedClasses = [],
   additionalClassIdsByStudent = {},
+  instructionalPeriods = [],
+  instructionalGroups = [],
+  instructionalGroupMemberships = [],
 }) {
 
   const isStudentInClass = student => isInClassroom(student)
@@ -92,6 +96,7 @@ export default function TeachingMode({
   const [selectedTeacherClass, setSelectedTeacherClass] = useState('')
   const [selectedGrade, setSelectedGrade] = useState('')
   const [selectedPeriod, setSelectedPeriod] = useState('')
+  const [selectedInstructionalGroup, setSelectedInstructionalGroup] = useState('')
   const [lateClassPopup, setLateClassPopup] = useState(null) // studentId
   const [lateClassStaffSearch, setLateClassStaffSearch] = useState('')
   const [lateClassStaffId, setLateClassStaffId] = useState('')
@@ -138,11 +143,6 @@ export default function TeachingMode({
   }, [allStudents, roleStudents])
 
   const scopeBaseStudents = canViewEntireSchool ? schoolStudents : isStoreRole ? [] : roleStudents
-  const scopeBaseIdSet = useMemo(
-    () => new Set(scopeBaseStudents.map(student => Number(student.id))),
-    [scopeBaseStudents],
-  )
-
   const assignedIdSet = useMemo(
     () => new Set((assignedStudentIds || []).map(id => Number(id)).filter(Number.isFinite)),
     [assignedStudentIds],
@@ -199,36 +199,28 @@ export default function TeachingMode({
     [classOptions],
   )
 
-  const periodIds = [1, 2, 3]
-  const periodBuckets = useMemo(() => {
-    const ownerAssignments: Array<{ periods?: Record<number, Array<number | string>> } | null> = canViewEntireSchool
-      ? Object.values((teachingAssignments || {}) as Record<string, { periods?: Record<number, Array<number | string>> }>)
-      : [{ periods: assignmentPeriods || {} }]
-
-    return periodIds.map(period => {
-      const idSet = new Set()
-
-      ownerAssignments.forEach(assignment => {
-        const ids = assignment?.periods?.[period] || []
-        ids.forEach(id => {
-          const numericId = Number(id)
-          if (!Number.isFinite(numericId)) return
-          if (!scopeBaseIdSet.has(numericId)) return
-          idSet.add(numericId)
-        })
-      })
-
-      return {
-        period,
-        ids: Array.from(idSet),
-      }
+  const activeInstructionalPeriods = useMemo(
+    () => instructionalPeriods
+      .filter(period => period.status !== 'archived')
+      .sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0)),
+    [instructionalPeriods],
+  )
+  const currentInstructionalPeriod = useMemo(
+    () => getCurrentInstructionalPeriod(activeInstructionalPeriods),
+    [activeInstructionalPeriods],
+  )
+  const periodOptions = activeInstructionalPeriods.map(period => String(period.id))
+  const instructionalGroupOptions = useMemo(() => {
+    const normalizedUserName = String(userName || '').trim().toLowerCase()
+    return instructionalGroups.filter(group => {
+      if (group.status === 'archived' || group.period_id !== selectedPeriod) return false
+      if (canViewEntireSchool || !isTeacherRole) return true
+      return String(group.teacher_name || '').trim().toLowerCase() === normalizedUserName
     })
-  }, [canViewEntireSchool, teachingAssignments, assignmentPeriods, scopeBaseIdSet])
-
-  const periodOptions = periodBuckets.filter(bucket => bucket.ids.length > 0).map(bucket => String(bucket.period))
+  }, [instructionalGroups, selectedPeriod, canViewEntireSchool, isTeacherRole, userName])
   const selectorInitializedRef = useRef(false)
   const allowedScopeValues = useMemo(() => {
-    const values = ['teacher', 'class', 'grade', 'period']
+    const values = ['teacher', 'class', 'grade', 'group']
     if (canViewEntireSchool) values.unshift('entire')
     if (hasAssignedStudents) values.push('assigned')
     return values.filter(value => !(isStoreRole && value === 'assigned'))
@@ -238,12 +230,12 @@ export default function TeachingMode({
     const defaultClass = initialClass && classOptions.some(cls => cls.id === initialClass)
       ? initialClass
       : classOptions[0]?.id || null
-    const defaultPeriod = periodOptions[0] || ''
+    const defaultPeriod = currentInstructionalPeriod?.id || periodOptions[0] || ''
     const defaultScopeType = canViewEntireSchool
       ? 'entire'
       : isTeacherRole
         ? defaultPeriod
-          ? 'period'
+          ? 'group'
           : defaultClass
             ? 'class'
             : hasAssignedStudents
@@ -286,9 +278,6 @@ export default function TeachingMode({
     })
     setSelectedPeriod(prev => {
       if (prev && periodOptions.includes(prev)) return prev
-      if (hasValidRestoredScope && restoredScopeType === 'period' && restoredScopeValue && periodOptions.includes(restoredScopeValue)) {
-        return restoredScopeValue
-      }
       return defaultPeriod
     })
   }, [
@@ -301,7 +290,16 @@ export default function TeachingMode({
     teacherOptions,
     gradeOptions,
     periodOptions,
+    currentInstructionalPeriod,
   ])
+
+  useEffect(() => {
+    setSelectedInstructionalGroup(previous => (
+      previous && instructionalGroupOptions.some(group => group.id === previous)
+        ? previous
+        : instructionalGroupOptions[0]?.id || ''
+    ))
+  }, [instructionalGroupOptions])
 
   useEffect(() => {
     if (allowedScopeValues.includes(scopeType)) return
@@ -331,8 +329,8 @@ export default function TeachingMode({
           ? selectedTeacher
           : scopeType === 'grade'
             ? selectedGrade
-            : scopeType === 'period'
-              ? selectedPeriod
+            : scopeType === 'group'
+              ? selectedInstructionalGroup
               : ''
 
     try {
@@ -346,7 +344,7 @@ export default function TeachingMode({
     } catch (error) {
       console.error('Failed to persist teaching mode scope state:', error)
     }
-  }, [scopeType, selectedClass, selectedTeacher, selectedGrade, selectedPeriod])
+  }, [scopeType, selectedClass, selectedTeacher, selectedGrade, selectedInstructionalGroup])
 
   function buildClassLogEntry(type, note, extra: { staffId?: number | string | null } = {}) {
     return {
@@ -454,7 +452,7 @@ export default function TeachingMode({
     { value: 'class', label: 'Class' },
     { value: 'teacher', label: 'Teacher' },
     { value: 'grade', label: 'Grade' },
-    { value: 'period', label: 'Period' },
+    { value: 'group', label: 'Instructional Group' },
     ...(hasAssignedStudents ? [{ value: 'assigned', label: 'My Assigned Students' }] : []),
   ]
 
@@ -494,11 +492,10 @@ export default function TeachingMode({
       return scopeBaseStudents.filter(student => byGrade(student, selectedGrade))
     }
 
-    if (scopeType === 'period') {
-      const bucket = periodBuckets.find(item => String(item.period) === String(selectedPeriod))
-      if (!bucket) return []
-      const periodSet = new Set(bucket.ids)
-      return scopeBaseStudents.filter(student => periodSet.has(Number(student.id)))
+    if (scopeType === 'group') {
+      if (!selectedInstructionalGroup) return []
+      const groupStudentIds = new Set(getInstructionalGroupStudentIds(selectedInstructionalGroup, instructionalGroupMemberships))
+      return scopeBaseStudents.filter(student => groupStudentIds.has(Number(student.id)))
     }
 
     return scopeBaseStudents
@@ -514,7 +511,8 @@ export default function TeachingMode({
     selectedTeacherClass,
     selectedGrade,
     selectedPeriod,
-    periodBuckets,
+    selectedInstructionalGroup,
+    instructionalGroupMemberships,
     effectiveClasses,
     additionalClassIdsByStudent,
   ])
@@ -1674,26 +1672,17 @@ export default function TeachingMode({
                 </select>
               )}
 
-              {scopeType === 'period' && (
-                <select
-                  value={selectedPeriod}
-                  onChange={event => setSelectedPeriod(event.target.value)}
-                  style={{
-                    padding: '8px 10px',
-                    borderRadius: 9,
-                    border: '1px solid #d6e0ec',
-                    background: '#ffffff',
-                    color: '#233952',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    minWidth: 120,
-                  }}
-                >
-                  {periodOptions.length === 0 && <option value="">No Periods</option>}
-                  {periodOptions.map(period => (
-                    <option key={period} value={period}>Period {period}</option>
-                  ))}
-                </select>
+              {scopeType === 'group' && (
+                <>
+                  <select value={selectedPeriod} onChange={event => setSelectedPeriod(event.target.value)} style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid #d6e0ec', background: '#ffffff', color: '#233952', fontSize: 11, fontWeight: 700, minWidth: 150 }}>
+                    {periodOptions.length === 0 && <option value="">No configured periods</option>}
+                    {activeInstructionalPeriods.map(period => <option key={period.id} value={period.id}>{period.name}</option>)}
+                  </select>
+                  <select value={selectedInstructionalGroup} onChange={event => setSelectedInstructionalGroup(event.target.value)} style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid #d6e0ec', background: '#ffffff', color: '#233952', fontSize: 11, fontWeight: 700, minWidth: 180 }}>
+                    {instructionalGroupOptions.length === 0 && <option value="">No assigned groups</option>}
+                    {instructionalGroupOptions.map(group => <option key={group.id} value={group.id}>{group.name}{group.subject ? ` · ${group.subject}` : ''}</option>)}
+                  </select>
+                </>
               )}
             </div>
           </div>

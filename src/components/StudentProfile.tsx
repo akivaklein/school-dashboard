@@ -5,6 +5,7 @@ import { isLeadershipRole } from '../utils/permissions'
 import { buildStudentNavigationList, getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
 import { getCurrentLocationStatus, getDailyAttendanceStatus } from '../utils/attendancePresence'
 import { removeParentCall } from '../utils/parentCallUtils'
+import { getCurrentInstructionalPeriod, getStudentInstructionalGroup } from '../utils/instructionalGroupUtils'
 
 export default function StudentProfile({
   student,
@@ -34,6 +35,10 @@ export default function StudentProfile({
   FamilyEditorPopup,
   MedicalEditorPopup,
   persistStudentFields,
+  instructionalPeriods = [],
+  physicalRooms = [],
+  instructionalGroups = [],
+  instructionalGroupMemberships = [],
 }) {
   const [tab, setTab] = useState(defaultTab)
   const [callNotes, setCallNotes] = useState('')
@@ -66,6 +71,13 @@ export default function StudentProfile({
     : currentLocationStatus === 'present'
       ? 'In Class'
       : statusLabel[currentLocationStatus] || currentLocationStatus
+  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+  const currentInstructionalGroup = currentInstructionalPeriod
+    ? getStudentInstructionalGroup(s.id, currentInstructionalPeriod.id, instructionalGroups, instructionalGroupMemberships)
+    : null
+  const currentInstructionalRoom = currentInstructionalGroup
+    ? physicalRooms.find(room => room.id === currentInstructionalGroup.room_id) || null
+    : null
   const improvement = getImprovement(s)
   const vip = isVIP(s)
   const att = normalizedStudent.att
@@ -218,6 +230,14 @@ export default function StudentProfile({
               </div>
 
               <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ ...S.card, borderLeft: '3px solid #3f6f9f' }}>
+                  <div style={{ fontWeight: 700, color: '#294f76', marginBottom: 4, fontSize: 13 }}>Current Instructional Assignment</div>
+                  {currentInstructionalPeriod ? (
+                    currentInstructionalGroup
+                      ? <div style={{ fontSize: 13 }}><strong>{currentInstructionalGroup.name}</strong> · {currentInstructionalGroup.subject || 'Subject not set'} · {currentInstructionalGroup.teacher_name || 'Teacher not set'} · {currentInstructionalRoom?.name || 'Room not set'} <span style={{ color: '#64748b' }}>({currentInstructionalPeriod.name})</span></div>
+                      : <div style={{ fontSize: 13, color: '#64748b' }}>No instructional group assigned for {currentInstructionalPeriod.name}.</div>
+                  ) : <div style={{ fontSize: 13, color: '#64748b' }}>No configured instructional period is running now.</div>}
+                </div>
                 {withStaffObj && <div style={{ ...S.card, borderLeft: '3px solid #3f6b76' }}><div style={{ fontWeight: 700, color: '#3f6b76', marginBottom: 4, fontSize: 13 }}>📍 Currently With</div><div style={{ fontSize: 14 }}><strong>{withStaffObj.name}</strong> — {withStaffObj.role}</div></div>}
                 {s.status === 'unknown' && <div style={{ ...S.card, borderLeft: '3px solid #9f1239', background: '#fef2f2' }}><div style={{ fontWeight: 700, color: '#9f1239', marginBottom: 4, fontSize: 13 }}>❓ Location Unknown</div><div style={{ fontSize: 13, color: '#9f1239' }}>Student location is unaccounted for. Please locate immediately.</div></div>}
                 {s.iep && <div style={{ ...S.card, borderLeft: '3px solid #6d28d9' }}><div style={{ fontWeight: 700, color: '#6d28d9', marginBottom: 4, fontSize: 13 }}>📋 IEP</div><div style={{ fontSize: 13 }}>{s.iepDetails}</div></div>}

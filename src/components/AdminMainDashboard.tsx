@@ -6,6 +6,7 @@ import {
 } from '../utils/attendancePresence'
 import { formatUnknownDuration } from '../utils/unknownLocationTimer'
 import { resolveStudentClassId } from './dashboardData'
+import { getCurrentInstructionalPeriod, getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
 
 export default function AdminMainDashboard({
   S,
@@ -50,6 +51,10 @@ export default function AdminMainDashboard({
   todos,
   setTodos,
   FlagDashboardWidget,
+  instructionalPeriods = [],
+  physicalRooms = [],
+  instructionalGroups = [],
+  instructionalGroupMemberships = [],
 }) {
   const matchesTodo = (candidate, target) => (
     candidate === target || (
@@ -67,6 +72,11 @@ export default function AdminMainDashboard({
   const accountedForPct = total > 0 ? Math.round((knownLocationCount / total) * 100) : 0
   const knownLocationAngle = total > 0 ? (knownLocationCount / total) * 360 : 0
   const priorityDangerAlerts = alerts.filter(a => a.type === 'danger' && !a.msg.includes('Location unknown'))
+  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+  const roomNameById = Object.fromEntries(physicalRooms.map(room => [room.id, room.name]))
+  const currentInstructionalGroups = currentInstructionalPeriod
+    ? instructionalGroups.filter(group => group.status !== 'archived' && group.period_id === currentInstructionalPeriod.id)
+    : []
 
   const classLabelById = Object.fromEntries((CLASSES || []).map(cls => [cls.id, cls.name]))
 
@@ -95,6 +105,35 @@ export default function AdminMainDashboard({
             <div style={{ background: unknown > 0 ? '#fdf2f2' : '#f8fafc', border: '1px solid #e4e9f0', borderRadius: 14, padding: '12px 14px', textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 700 }}>{urgentStudents.length}</div><div style={{ fontSize: 10, color: '#64748b' }}>Urgent</div></div>
           </div>
         </div>
+      </div>
+      <div style={{ ...S.card, borderRadius: 12, padding: 20, marginBottom: 20 }}>
+        <div style={{ fontSize: 17, color: '#102a43', fontWeight: 800 }}>Instructional Groups Now</div>
+        <div style={{ fontSize: 12, color: '#64748b', marginTop: 3, marginBottom: 14 }}>
+          {currentInstructionalPeriod
+            ? currentInstructionalPeriod.name
+            : 'No configured instructional period is running now.'}
+        </div>
+        {currentInstructionalPeriod && currentInstructionalGroups.length === 0 && (
+          <div style={{ color: '#64748b', fontSize: 13 }}>No groups are configured for this period.</div>
+        )}
+        {currentInstructionalGroups.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+            {currentInstructionalGroups.map(group => {
+              const memberIds = new Set(getInstructionalGroupStudentIds(group.id, instructionalGroupMemberships))
+              const groupStudents = students.filter(student => memberIds.has(Number(student.id)))
+              const inSchoolCount = groupStudents.filter(student => isInSchool(student)).length
+              const inClassCount = groupStudents.filter(student => isInClassroom(student)).length
+              return (
+                <button key={group.id} onClick={() => setDrillDown({ title: `${group.name} · ${currentInstructionalPeriod.name}`, students: groupStudents })} style={{ textAlign: 'left', border: '1px solid #d7e1ec', borderRadius: 8, background: '#fff', padding: 14, cursor: 'pointer', color: '#102a43' }}>
+                  <div style={{ fontSize: 14, fontWeight: 800 }}>{group.name}</div>
+                  <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{group.subject || 'Subject not set'}</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 8 }}>{group.teacher_name || 'Teacher not set'} · {roomNameById[group.room_id] || 'Room not set'}</div>
+                  <div style={{ fontSize: 11, color: '#334155', marginTop: 4 }}>{groupStudents.length} students · {inSchoolCount} in school · {inClassCount} in class</div>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
       {divisionView === 'all' && userAccess.divisions.length > 1 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 20 }}>

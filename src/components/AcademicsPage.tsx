@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
 import { isLeadershipRole } from '../utils/permissions'
 import { resolveStudentClassId, resolveStudentClassIds } from './dashboardData'
 import {
@@ -277,6 +278,10 @@ export default function AcademicsPage({
   onSaveGradeEntry = null,
   onSaveGradeEntries = null,
   additionalClassIdsByStudent = {},
+  instructionalPeriods = [],
+  physicalRooms = [],
+  instructionalGroups = [],
+  instructionalGroupMemberships = [],
 }) {
   const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS)]))
   const initialTeacher = role === 'teacher' && userName && teacherOptions.includes(userName)
@@ -284,6 +289,8 @@ export default function AcademicsPage({
     : teacherOptions[0] || (academicTeacherOptions?.[0] || 'Rabbi Abowitz')
   const loggedInTeacher = (userName || '').trim() || initialTeacher
   const [classFilter, setClassFilter] = useState(role === 'teacher' && teacherClass ? teacherClass : 'all')
+  const [instructionalPeriodFilter, setInstructionalPeriodFilter] = useState('all')
+  const [instructionalGroupFilter, setInstructionalGroupFilter] = useState('all')
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [skillFilter, setSkillFilter] = useState('all')
@@ -333,7 +340,28 @@ export default function AcademicsPage({
                 : []
         )
       : students
-  const visibleStudents = scopedStudents.filter(s => classFilter === 'all' || resolveStudentClassIds(s, additionalClassIdsByStudent).includes(classFilter))
+  const availableInstructionalGroups = instructionalGroups.filter(group => {
+    if (group.status === 'archived') return false
+    if (instructionalPeriodFilter !== 'all' && group.period_id !== instructionalPeriodFilter) return false
+    if (isLeadershipRole(role)) return true
+    return String(group.teacher_name || '').trim().toLowerCase() === String(userName || '').trim().toLowerCase()
+  })
+  const selectedInstructionalGroup = instructionalGroups.find(group => group.id === instructionalGroupFilter) || null
+  const instructionalGroupStudentIds = new Set(
+    instructionalGroupFilter === 'all'
+      ? []
+      : getInstructionalGroupStudentIds(instructionalGroupFilter, instructionalGroupMemberships),
+  )
+  const classFilteredStudents = scopedStudents.filter(s => classFilter === 'all' || resolveStudentClassIds(s, additionalClassIdsByStudent).includes(classFilter))
+  const visibleStudents = instructionalGroupFilter === 'all'
+    ? classFilteredStudents
+    : students.filter(student => instructionalGroupStudentIds.has(Number(student.id)))
+  const selectedInstructionalPeriod = selectedInstructionalGroup
+    ? instructionalPeriods.find(period => period.id === selectedInstructionalGroup.period_id) || null
+    : null
+  const selectedInstructionalRoom = selectedInstructionalGroup
+    ? physicalRooms.find(room => room.id === selectedInstructionalGroup.room_id) || null
+    : null
 
   const bulkVisibleStudents = useMemo(() => {
     if (isLeadershipRole(role) || role === 'teacher' || role === 'rebbe') {
@@ -604,6 +632,13 @@ export default function AcademicsPage({
         date: bulkForm.date,
         classId: bulkForm.classId || '',
         className: CLASSES.find(cls => cls.id === bulkForm.classId)?.name || '',
+        instructionalPeriodId: selectedInstructionalPeriod?.id || '',
+        instructionalPeriodName: selectedInstructionalPeriod?.name || '',
+        instructionalGroupId: selectedInstructionalGroup?.id || '',
+        instructionalGroupName: selectedInstructionalGroup?.name || '',
+        instructionalGroupTeacher: selectedInstructionalGroup?.teacher_name || '',
+        instructionalRoomId: selectedInstructionalRoom?.id || '',
+        instructionalRoomName: selectedInstructionalRoom?.name || '',
         scoreType: attemptStatus === 'scored' ? effectiveScoreType : 'status',
         score: attemptStatus === 'scored' && effectiveScoreType === 'points' ? Number(state.score) : null,
         maxScore: attemptStatus === 'scored' && effectiveScoreType === 'points' ? numericMaxScore : null,
@@ -894,6 +929,14 @@ export default function AcademicsPage({
             {teacherOptions.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         )}
+        <select value={instructionalPeriodFilter} onChange={event => { setInstructionalPeriodFilter(event.target.value); setInstructionalGroupFilter('all') }} style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid #e2e8f0', fontSize: 13, background: '#fff', minWidth: 150 }}>
+          <option value="all">All Periods</option>
+          {instructionalPeriods.filter(period => period.status !== 'archived').sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0)).map(period => <option key={period.id} value={period.id}>{period.name}</option>)}
+        </select>
+        <select value={instructionalGroupFilter} onChange={event => setInstructionalGroupFilter(event.target.value)} style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid #e2e8f0', fontSize: 13, background: '#fff', minWidth: 170 }}>
+          <option value="all">All Instructional Groups</option>
+          {availableInstructionalGroups.map(group => <option key={group.id} value={group.id}>{group.name}{group.subject ? ` · ${group.subject}` : ''}</option>)}
+        </select>
         {isLeadershipRole(role) && (
           <select value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid #e2e8f0', fontSize: 13, background: '#fff', minWidth: 140 }}>
             <option value="all">All Classes</option>
@@ -1206,6 +1249,12 @@ export default function AcademicsPage({
             {[
               { label: 'Student', value: selectedScore.studentName },
               { label: 'Class', value: getClassName(selectedScore.studentId) },
+              ...(selectedScore.instructionalGroupName ? [
+                { label: 'Instructional Group', value: selectedScore.instructionalGroupName },
+                { label: 'Period', value: selectedScore.instructionalPeriodName || '—' },
+                { label: 'Group Teacher', value: selectedScore.instructionalGroupTeacher || '—' },
+                { label: 'Room', value: selectedScore.instructionalRoomName || '—' },
+              ] : []),
               { label: 'Teacher', value: selectedScore.teacher },
               { label: 'Subject', value: selectedScore.subject },
               { label: 'Skill / Topic', value: selectedScore.skill },

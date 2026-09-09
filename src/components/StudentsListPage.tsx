@@ -3,6 +3,7 @@ import { buildStudentListViewModel } from './studentListUtils'
 import { CLASS_ID_BY_GRADE, GRADE_LABELS, normalizeGradeValue, resolveStudentGrade } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
 import { getStudentStatusDisplay } from '../utils/attendancePresence'
+import { getCurrentInstructionalPeriod, getStudentInstructionalGroup } from '../utils/instructionalGroupUtils'
 
 const GRADE_OPTIONS = ['8', '7']
 const DAILY_STATUS_LABELS = {
@@ -93,6 +94,9 @@ export default function StudentsListPage({
   onRestoreStudent,
   onDeleteStudent,
   onGetDeletionImpact,
+  instructionalPeriods = [],
+  instructionalGroups = [],
+  instructionalGroupMemberships = [],
 }) {
   const [viewMode, setViewMode] = useState('cards')
   const [tableSearch, setTableSearch] = useState('')
@@ -109,6 +113,11 @@ export default function StudentsListPage({
 
   const isAdmin = isLeadershipRole(role)
   const pageSize = 12
+  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+  const currentGroupName = studentId => {
+    if (!currentInstructionalPeriod) return 'No current period'
+    return getStudentInstructionalGroup(studentId, currentInstructionalPeriod.id, instructionalGroups, instructionalGroupMemberships)?.name || 'Unassigned'
+  }
 
   const activeStudents = useMemo(
     () => (searchedStudents || []).filter(student => student?.is_active !== false),
@@ -334,6 +343,7 @@ export default function StudentsListPage({
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   <th style={{ textAlign: 'left', padding: 10 }}>Student</th>
                   <th style={{ textAlign: 'left', padding: 10 }}>Grade</th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Current Group</th>
                   <th style={{ textAlign: 'left', padding: 10 }}>Father phone</th>
                   <th style={{ textAlign: 'left', padding: 10 }}>Mother phone</th>
                   <th style={{ textAlign: 'left', padding: 10 }}>Actions</th>
@@ -346,6 +356,7 @@ export default function StudentsListPage({
                     <tr key={`directory-row-${student.id}`} style={{ borderBottom: '1px solid #eef2f7' }}>
                       <td style={{ padding: 10, fontWeight: 700 }}>{student.name}</td>
                       <td style={{ padding: 10 }}>{studentClassName(student, classes) || '—'}</td>
+                      <td style={{ padding: 10 }}>{currentGroupName(student.id)}</td>
                       <td style={{ padding: 10 }}>{phones.father || phones.general || '—'}</td>
                       <td style={{ padding: 10 }}>{phones.mother || phones.general || '—'}</td>
                       <td style={{ padding: 10 }}>
@@ -355,7 +366,7 @@ export default function StudentsListPage({
                   )
                 })}
                 {directoryStudents.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: 16, textAlign: 'center', color: '#64748b' }}>No students match this directory filter.</td></tr>
+                  <tr><td colSpan={6} style={{ padding: 16, textAlign: 'center', color: '#64748b' }}>No students match this directory filter.</td></tr>
                 )}
               </tbody>
             </table>
@@ -419,6 +430,7 @@ export default function StudentsListPage({
                   <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="Student" column="name" /></th>
                   <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="ID" column="id" /></th>
                   <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="Grade" column="className" /></th>
+                  <th style={{ textAlign: 'left', padding: 10 }}>Current Group</th>
                   <th style={{ textAlign: 'left', padding: 10 }}>Status</th>
                   <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="Points" column="points" /></th>
                   <th style={{ textAlign: 'left', padding: 10 }}><SortHead label="Reminders" column="reminders" /></th>
@@ -444,6 +456,7 @@ export default function StudentsListPage({
                       </td>
                       <td style={{ padding: 10 }}>{student.id}</td>
                       <td style={{ padding: 10 }}>{studentClassName(student, classes) || '—'}</td>
+                      <td style={{ padding: 10 }}>{currentGroupName(student.id)}</td>
                       <td style={{ padding: 10 }}>
                         <span style={S.tag('#536579', '#eef2f6')}>Daily: {dailyLabel}</span>
                         <span style={S.tag('#536579', '#f4f6f8')}>Location: {locationLabel}</span>

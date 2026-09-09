@@ -9,6 +9,7 @@ import {
   isLocationUnknown,
   isOutOfSchool,
 } from '../utils/attendancePresence'
+import { getCurrentInstructionalPeriod, getStudentInstructionalGroup } from '../utils/instructionalGroupUtils'
 
 type AttendanceStudent = { id: number | string; [key: string]: unknown }
 
@@ -33,6 +34,9 @@ export default function AttendancePage({
   statusEmoji,
   statusLabel,
   HISTORICAL_DATA,
+  instructionalPeriods = [],
+  instructionalGroups = [],
+  instructionalGroupMemberships = [],
 }) {
   const [leavePopup, setLeavePopup] = useState(null)
   const [leaveReason, setLeaveReason] = useState('therapy')
@@ -54,6 +58,12 @@ export default function AttendancePage({
   const [selectedDailyStudentIds, setSelectedDailyStudentIds] = useState<Set<string>>(() => new Set())
   const selectedDailyCount = dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))).length
   const allDailyStudentsSelected = dailyAttendanceStudents.length > 0 && selectedDailyCount === dailyAttendanceStudents.length
+  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+
+  function expectedInstructionalGroup(studentId) {
+    if (!currentInstructionalPeriod) return null
+    return getStudentInstructionalGroup(studentId, currentInstructionalPeriod.id, instructionalGroups, instructionalGroupMemberships)
+  }
 
   function currentLocalTimeValue() {
     const now = new Date()
@@ -979,6 +989,7 @@ export default function AttendancePage({
                       <div style={{ fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
                       {withStaffObj && <div style={{ fontSize: 10, color: '#3f6b76', fontWeight: 600 }}>👤 {withStaffObj.name}</div>}
                       {!inClass && !withStaffObj && <div style={{ fontSize: 10, color: '#536579', fontWeight: 600 }}>Daily: {dailyStatus} · Location: {locationStatus === 'not-confirmed' ? 'Not confirmed' : locationStatus === 'present' ? 'In Class' : statusLabel[locationStatus] || locationStatus}</div>}
+                      <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Expected now: {expectedInstructionalGroup(s.id)?.name || (currentInstructionalPeriod ? 'No group assigned' : 'No current period')}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -1,5 +1,42 @@
 import { describe, expect, it } from 'vitest'
-import { findInstructionalGroupConflict, getActiveTeacherStaff } from '../instructionalGroupUtils'
+import {
+  findInstructionalGroupConflict,
+  getActiveTeacherStaff,
+  getCurrentInstructionalPeriod,
+  getInstructionalGroupStudentIds,
+  getStudentInstructionalGroup,
+} from '../instructionalGroupUtils'
+
+describe('shared instructional schedule resolution', () => {
+  const periods = [
+    { id: 'morning-p1', start_time: '', end_time: '10:00', sort_order: 1, status: 'active' },
+    { id: 'afternoon-p1', start_time: '13:20', end_time: '14:00', sort_order: 4, status: 'active' },
+  ]
+
+  it('does not invent a start time for an incomplete morning period', () => {
+    expect(getCurrentInstructionalPeriod(periods, new Date(2026, 8, 9, 9, 30))).toBeNull()
+  })
+
+  it('resolves configured Monday through Thursday periods only', () => {
+    expect(getCurrentInstructionalPeriod(periods, new Date(2026, 8, 9, 13, 40))?.id).toBe('afternoon-p1')
+    expect(getCurrentInstructionalPeriod(periods, new Date(2026, 8, 11, 13, 40))).toBeNull()
+  })
+
+  it('resolves a student and roster from period-specific memberships', () => {
+    const groups = [
+      { id: 'math-a', period_id: 'afternoon-p1', status: 'active' },
+      { id: 'reading-b', period_id: 'afternoon-p2', status: 'active' },
+    ]
+    const memberships = [
+      { group_id: 'math-a', student_id: 7 },
+      { group_id: 'math-a', student_id: 8 },
+      { group_id: 'reading-b', student_id: 7 },
+    ]
+
+    expect(getStudentInstructionalGroup(7, 'afternoon-p1', groups, memberships)?.id).toBe('math-a')
+    expect(getInstructionalGroupStudentIds('math-a', memberships)).toEqual([7, 8])
+  })
+})
 
 describe('instructional group conflicts', () => {
   const groups = [

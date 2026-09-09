@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getCurrentLocationStatus, getDailyAttendanceStatus, isInClassroom } from '../utils/attendancePresence'
 import { buildClassroomCoverageForecast, debugCoverageForecastMatching } from './scheduleCoverageForecast'
+import { getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
 
 type Props = {
   S: any
@@ -14,6 +15,10 @@ type Props = {
   statusEmoji: Record<string, string>
   statusLabel: Record<string, string>
   CLASSES?: Array<{ id: string; name: string }>
+  instructionalPeriods?: any[]
+  physicalRooms?: any[]
+  instructionalGroups?: any[]
+  instructionalGroupMemberships?: any[]
 }
 
 export default function SchedulePage({
@@ -28,6 +33,10 @@ export default function SchedulePage({
   statusEmoji,
   statusLabel,
   CLASSES = [],
+  instructionalPeriods = [],
+  physicalRooms = [],
+  instructionalGroups = [],
+  instructionalGroupMemberships = [],
 }: Props) {
   const [horizonDays, setHorizonDays] = useState(3)
   const [selectedForecastPointKey, setSelectedForecastPointKey] = useState<string | null>(null)
@@ -160,6 +169,33 @@ export default function SchedulePage({
   return (
     <div>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 18 }}>🗓️ Schedule</h1>
+
+      <div style={{ ...S.card, marginBottom: 16, padding: '14px 16px' }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Periods & Instructional Groups</div>
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>Monday–Thursday instructional schedule from Setup Center.</div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {instructionalPeriods.filter(period => period.status !== 'archived').sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0)).map(period => {
+            const periodGroups = instructionalGroups.filter(group => group.status !== 'archived' && group.period_id === period.id)
+            return (
+              <div key={period.id} style={{ border: '1px solid #dbe3ee', borderRadius: 8, padding: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
+                  <strong>{period.name}</strong>
+                  <span style={{ color: '#64748b' }}>{period.start_time && period.end_time ? `${period.start_time}–${period.end_time}` : 'Time not fully configured'}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8, marginTop: 8 }}>
+                  {periodGroups.map(group => {
+                    const room = physicalRooms.find(item => item.id === group.room_id)
+                    const studentIds = getInstructionalGroupStudentIds(group.id, instructionalGroupMemberships)
+                    return <div key={group.id} style={{ background: '#f8fafc', borderRadius: 7, padding: 9, fontSize: 11 }}><div style={{ fontWeight: 800, color: '#0f172a' }}>{group.name}</div><div style={{ color: '#475569', marginTop: 2 }}>{group.subject || 'Subject not set'}</div><div style={{ color: '#64748b', marginTop: 3 }}>{group.teacher_name || 'Teacher not set'} · {room?.name || 'Room not set'} · {studentIds.length} students</div></div>
+                  })}
+                  {periodGroups.length === 0 && <div style={{ color: '#94a3b8', fontSize: 11 }}>No groups configured.</div>}
+                </div>
+              </div>
+            )
+          })}
+          {instructionalPeriods.filter(period => period.status !== 'archived').length === 0 && <div style={{ color: '#94a3b8', fontSize: 12 }}>No instructional periods configured.</div>}
+        </div>
+      </div>
 
       <div style={{ ...S.card, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
