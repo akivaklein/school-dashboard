@@ -2,8 +2,9 @@ import { useEffect, useState, type CSSProperties, type Dispatch, type SetStateAc
 import SupportSessions from './support/SupportSessions'
 import { resolveActorName } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
-import { createStudentNote, listStudentNotes, type StudentNoteRecord } from '../services/studentNotesService'
+import { createStudentNote, listStudentNotesForStudents, type StudentNoteRecord } from '../services/studentNotesService'
 import { createStudentGoal, listStudentGoals, updateStudentGoal, type StudentGoal } from '../services/studentGoalsService'
+import { loadStudentSupportSources } from '../services/studentSupportLoader'
 import { createTodo, updateTodo, type Todo } from '../services/todosService'
 import { persistParentCalls } from '../services/studentPersistenceService'
 import { getCompletedParentCalls, getOpenParentCalls, removeParentCall } from '../utils/parentCallUtils'
@@ -81,6 +82,9 @@ type StudentSupportProps = {
   }
   initials: (name: string) => string
   staff: Array<{ id: string | number; name?: string; role?: string; [key: string]: unknown }>
+  flagsLoadError?: string | null
+  todosLoadError?: string | null
+  parentCallsLoadError?: string | null
 }
 
 function todayIso() {
@@ -148,6 +152,9 @@ export default function StudentSupport({
   S,
   initials,
   staff,
+  flagsLoadError = null,
+  todosLoadError = null,
+  parentCallsLoadError = null,
 }: StudentSupportProps) {
   const [section, setSection] = useState(initialSection)
   const [studentFilter, setStudentFilter] = useState('all')
@@ -155,7 +162,8 @@ export default function StudentSupport({
   const [supportUpdates, setSupportUpdates] = useState<SupportUpdate[]>([])
   const [selectedObservationId, setSelectedObservationId] = useState('')
   const [followUpParentId, setFollowUpParentId] = useState<number | null>(null)
-  const [loadError, setLoadError] = useState('')
+  const [observationsLoadError, setObservationsLoadError] = useState<string | null>(null)
+  const [goalsLoadError, setGoalsLoadError] = useState<string | null>(null)
 
   const [goalStudentId, setGoalStudentId] = useState(students[0]?.id || '')
   const [goalTitle, setGoalTitle] = useState('')
@@ -248,17 +256,22 @@ export default function StudentSupport({
     let active = true
 
     async function loadSupportData() {
-      try {
-        setLoadError('')
-        const scopedIds = students.map(student => Number(student.id)).filter(Number.isFinite)
-        const [savedGoals, savedNotesByStudent] = await Promise.all([
-          listStudentGoals(),
-          Promise.all(scopedIds.map(studentId => listStudentNotes(studentId))),
-        ])
+      const scopedIds = students.map(student => Number(student.id)).filter(Number.isFinite)
+      const result = await loadStudentSupportSources({
+        loadGoals: listStudentGoals,
+        loadObservations: () => listStudentNotesForStudents(scopedIds),
+      })
 
-        if (!active) return
-        setGoals(savedGoals.filter(goal => scopedIds.includes(Number(goal.studentId))))
-        const observationNotes = savedNotesByStudent.flat().filter(note => note.metadata?.supportType === 'observation')
+      if (!active) return
+      setGoalsLoadError(result.goals.error)
+      setObservationsLoadError(result.observations.error)
+
+      if (result.goals.data) {
+        setGoals(result.goals.data.filter(goal => scopedIds.includes(Number(goal.studentId))))
+      }
+
+      if (result.observations.data) {
+        const observationNotes = result.observations.data.filter(note => note.metadata?.supportType === 'observation')
         const mappedNotes = observationNotes.map(note => ({
           note,
           update: noteToSupportUpdate(note),
@@ -283,10 +296,6 @@ export default function StudentSupport({
           }))
         setSupportUpdates(loadedUpdates)
         setSelectedObservationId(current => current && loadedUpdates.some(update => update.id === current) ? current : '')
-      } catch (error) {
-        if (!active) return
-        console.error('Unable to load Student Support data:', error)
-        setLoadError(error instanceof Error ? error.message : 'Unable to load Student Support data.')
       }
     }
 
@@ -304,6 +313,20 @@ export default function StudentSupport({
     fontSize: 12,
     fontWeight: 800,
   })
+  const countLabel = (count: number, error: string | null | undefined) => error ? 'Unavailable' : String(count)
+  const visibleLoadErrors = section === 'overview'
+    ? [observationsLoadError, goalsLoadError, flagsLoadError, todosLoadError, parentCallsLoadError]
+    : section === 'add-update'
+      ? [observationsLoadError]
+      : section === 'goals'
+        ? [goalsLoadError]
+        : section === 'flags'
+          ? [flagsLoadError]
+          : section === 'todos'
+            ? [todosLoadError]
+            : section === 'calls'
+              ? [parentCallsLoadError]
+              : []
 
   function openObservation(update: SupportUpdate) {
     setSelectedObservationId(update.id)
@@ -602,16 +625,18 @@ export default function StudentSupport({
 
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 16 }}>
           <button onClick={() => setSection('overview')} style={sectionButton('overview')}>Overview</button>
-          <button onClick={() => { setStudentFilter('all'); setSelectedObservationId(''); setSection('add-update') }} style={sectionButton('add-update')}>Observations ({supportUpdates.length})</button>
-          <button onClick={() => setSection('flags')} style={sectionButton('flags')}>Flags ({activeFlags.length})</button>
-          <button onClick={() => setSection('calls')} style={sectionButton('calls')}>Parent Calls ({callsNeeded.length})</button>
-          <button onClick={() => setSection('goals')} style={sectionButton('goals')}>Goals ({activeGoals.length})</button>
-          <button onClick={() => setSection('todos')} style={sectionButton('todos')}>To-Do ({openTodos.length})</button>
+          <button onClick={() => { setStudentFilter('all'); setSelectedObservationId(''); setSection('add-update') }} style={sectionButton('add-update')}>Observations ({countLabel(supportUpdates.length, observationsLoadError)})</button>
+          <button onClick={() => setSection('flags')} style={sectionButton('flags')}>Flags ({countLabel(activeFlags.length, flagsLoadError)})</button>
+          <button onClick={() => setSection('calls')} style={sectionButton('calls')}>Parent Calls ({countLabel(callsNeeded.length, parentCallsLoadError)})</button>
+          <button onClick={() => setSection('goals')} style={sectionButton('goals')}>Goals ({countLabel(activeGoals.length, goalsLoadError)})</button>
+          <button onClick={() => setSection('todos')} style={sectionButton('todos')}>To-Do ({countLabel(openTodos.length, todosLoadError)})</button>
           <button onClick={() => setSection('sessions')} style={sectionButton('sessions')}>Support Sessions</button>
         </div>
       </div>
 
-      {loadError && <div style={{ ...cardStyle, marginBottom: 16, color: '#9f1239' }}>{loadError}</div>}
+      {visibleLoadErrors.filter(Boolean).map(error => (
+        <div key={error} style={{ ...cardStyle, marginBottom: 10, color: '#9f1239', borderColor: '#fecaca', background: '#fff7f7' }}>{error}</div>
+      ))}
 
       {section === 'overview' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 16, alignItems: 'start' }}>
@@ -632,14 +657,19 @@ export default function StudentSupport({
                   </div>
                 </button>
               ))}
-              {visibleUpdates.length === 0 && <div style={{ fontSize: 12, color: '#778493' }}>No observations yet.</div>}
+              {!observationsLoadError && visibleUpdates.length === 0 && <div style={{ fontSize: 12, color: '#778493' }}>No observations yet.</div>}
             </div>
           </div>
 
           <div style={{ display: 'grid', gap: 16 }}>
             <div style={cardStyle}>
               <div style={{ fontSize: 15, fontWeight: 900, color: '#34465a', marginBottom: 10 }}>Open Work</div>
-              {[['Open flags', visibleFlags.length], ['Calls needed', visibleCallsNeeded.length], ['Tasks due', openTodos.length], ['Active goals', visibleGoals.filter(goal => goal.status === 'active').length]].map(([label, value]) => (
+              {[
+                ['Open flags', countLabel(visibleFlags.length, flagsLoadError)],
+                ['Calls needed', countLabel(visibleCallsNeeded.length, parentCallsLoadError)],
+                ['Tasks due', countLabel(openTodos.length, todosLoadError)],
+                ['Active goals', countLabel(visibleGoals.filter(goal => goal.status === 'active').length, goalsLoadError)],
+              ].map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 0', borderBottom: '1px solid #e6e9eb', fontSize: 12 }}><span style={{ color: '#6f7d8c' }}>{label}</span><b style={{ color: '#34465a' }}>{value}</b></div>
               ))}
             </div>
@@ -715,7 +745,7 @@ export default function StudentSupport({
               </div>
             )}
             {visibleUpdates.slice(0, 12).map(update => <button key={update.id} onClick={() => openObservation(update)} style={{ width: '100%', textAlign: 'left', background: selectedObservationId === update.id ? '#eef3f7' : 'transparent', border: 'none', borderBottom: '1px solid #e6e9eb', padding: '10px 0', cursor: 'pointer' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 10.5 }}><b style={{ color: '#46576a' }}>{studentName(update.studentId)} - {update.type}</b><span style={{ color: '#778493' }}>{update.date} - {update.time}</span></div><div style={{ fontSize: 11.5, color: '#526274', lineHeight: 1.45, marginTop: 5 }}>{update.text}</div></button>)}
-            {visibleUpdates.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No observations yet.</div>}
+            {!observationsLoadError && visibleUpdates.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No observations yet.</div>}
           </div>
         </div>
       )}
@@ -756,7 +786,7 @@ export default function StudentSupport({
                   </div>
                 })}
                 {visibleResolvedFlags.map(flag => <div key={flag.id} style={{ border: '1px solid #e1e6ea', borderRadius: 10, padding: 11, background: '#f7f8f8', opacity: 0.82 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}><div><b style={{ color: '#34465a', fontSize: 12 }}>{studentName(flag.studentId)}</b><div style={{ color: '#526274', fontSize: 12, fontWeight: 800, marginTop: 3 }}>{flag.reason || flag.goal}</div><div style={{ color: '#778493', fontSize: 10, marginTop: 4 }}>Resolved {String(flag.resolvedAt || '')}</div></div><button onClick={() => setFlagResolved(flag.id, false)} style={S.btn('ghost')}>Reopen</button></div>{Array.isArray(flag.updates) && flag.updates.length > 0 && <div style={{ display: 'grid', gap: 7, marginTop: 10 }}>{flag.updates.map(update => <div key={String(update.id)} style={{ borderLeft: '3px solid #b8c3cc', padding: '7px 9px', background: '#fff' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#778493', fontSize: 10 }}><span>{String(update.author || 'Staff')}</span><span>{String(update.date || '')} {String(update.time || '')}</span></div><div style={{ color: '#526274', fontSize: 12, marginTop: 4 }}>{String(update.note || update.text || '')}</div>{update.progress && <div style={{ color: '#587261', fontSize: 10, fontWeight: 800, marginTop: 4 }}>{String(update.progress)}</div>}</div>)}</div>}</div>)}
-                {visibleFlags.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No open flags.</div>}
+                {!flagsLoadError && visibleFlags.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No open flags.</div>}
                 {visibleResolvedFlags.length > 0 && <div style={{ color: '#778493', fontSize: 11, marginTop: 5 }}>Resolved concerns</div>}
               </div>
             </div>
@@ -777,14 +807,14 @@ export default function StudentSupport({
             <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 12 }}>Open Parent Calls</div>
             <div style={{ display: 'grid', gap: 10 }}>
               {visibleCallsNeeded.map(({ student, call, index }) => <div key={`${student.id}-${index}`} style={{ border: '1px solid #e1e6ea', borderRadius: 10, padding: 11, background: '#fff' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><b style={{ color: '#34465a', fontSize: 13 }}>{student.name}</b><span style={{ color: '#778493', fontSize: 11 }}>{String(call.date || '')} {String(call.time || '')}</span></div><div style={{ color: '#526274', fontSize: 12, marginTop: 5 }}>{String(call.reason || call.notes || 'Call needed')}</div>{call.assignedTo && <div style={{ color: '#778493', fontSize: 11, marginTop: 4 }}>Assigned to {String(call.assignedTo)}</div>}<div style={{ display: 'grid', gridTemplateColumns: '150px 1fr auto', gap: 8, marginTop: 10 }}><select value={callOutcome} onChange={event => setCallOutcome(event.target.value)} style={inputStyle()}><option>Spoke</option><option>No Answer</option><option>Left Message</option></select><input value={callNote} onChange={event => setCallNote(event.target.value)} placeholder="Short note" style={inputStyle()} spellCheck lang="en" /><button onClick={() => completeCall(student, index)} style={S.btn('success')}>Complete</button>{isLeadershipRole(role) && <button onClick={() => deleteCall(student, index)} style={S.btn('ghost')}>Delete</button>}</div></div>)}
-              {visibleCallsNeeded.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No open parent calls.</div>}
+              {!parentCallsLoadError && visibleCallsNeeded.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No open parent calls.</div>}
             </div>
           </div>
           <div style={cardStyle}>
             <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 12 }}>Completed Calls / Call History</div>
             <div style={{ display: 'grid', gap: 10 }}>
               {callHistory.map(({ student, call, index }) => <div key={`${student.id}-${index}`} style={{ border: '1px solid #e1e6ea', borderRadius: 10, padding: 11, background: '#f7f8f8' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><b style={{ color: '#34465a', fontSize: 13 }}>{student.name}</b><span style={{ color: '#778493', fontSize: 11 }}>{String(call.completedAt || call.date || '')} {String(call.time || '')}</span></div><div style={{ color: '#526274', fontSize: 12, marginTop: 5 }}>Reason: {String(call.reason || 'Parent call')}</div><div style={{ color: '#526274', fontSize: 12, marginTop: 4 }}>Outcome: {String(call.outcome || 'Completed')}</div>{call.notes && <div style={{ color: '#526274', fontSize: 12, marginTop: 4 }}>Note: {String(call.notes)}</div>}<div style={{ color: '#778493', fontSize: 11, marginTop: 5 }}>Logged by {String(call.staff || 'Staff')}{call.completedBy ? ` · Completed by ${String(call.completedBy)}` : ''}</div>{isLeadershipRole(role) && <button onClick={() => deleteCall(student, index)} style={{ ...S.btn('ghost'), marginTop: 8 }}>Delete</button>}</div>)}
-              {callHistory.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No completed calls yet.</div>}
+              {!parentCallsLoadError && callHistory.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No completed calls yet.</div>}
             </div>
           </div>
         </div>
@@ -803,7 +833,7 @@ export default function StudentSupport({
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
             {visibleGoals.map(goal => <div key={goal.id} style={cardStyle}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><div><b style={{ color: '#34465a', fontSize: 14 }}>{studentName(goal.studentId)}</b><div style={{ color: '#46576a', fontSize: 13, fontWeight: 800, marginTop: 3 }}>{goal.title}</div></div><span style={{ color: goal.status === 'completed' ? '#64748b' : '#587261', fontSize: 11, fontWeight: 900 }}>{goal.status}</span></div><div style={{ color: '#526274', fontSize: 12, lineHeight: 1.45, marginTop: 10 }}>{goal.target}</div><div style={{ color: '#778493', fontSize: 10.5, marginTop: 8 }}>Created by {goal.createdBy || 'Staff'} - Assigned to {goal.assignedTo || 'Staff'}</div>{goal.progressNotes.slice(0, 3).map(note => <div key={note.id} style={{ marginTop: 8, padding: 8, background: '#f3f5f6', borderRadius: 8, fontSize: 11.5, color: '#526274' }}>{note.text}</div>)}{goal.status !== 'completed' && <div style={{ display: 'flex', gap: 8, marginTop: 12 }}><button onClick={() => { setUpdateStudentId(goal.studentId); setUpdateGoalId(goal.id); setSection('add-update') }} style={S.btn('primary')}>Add Progress</button><button onClick={() => markGoalCompleted(goal)} style={S.btn('success')}>Complete</button></div>}</div>)}
-            {visibleGoals.length === 0 && <div style={cardStyle}>No goals yet.</div>}
+            {!goalsLoadError && visibleGoals.length === 0 && <div style={cardStyle}>No goals yet.</div>}
           </div>
         </div>
       )}
@@ -822,12 +852,12 @@ export default function StudentSupport({
             <div style={cardStyle}>
               <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 12 }}>Open Tasks</div>
               {openTodos.map(todo => <div key={todo.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '9px 0', borderBottom: '1px solid #e6e9eb' }}><input type="checkbox" checked={todo.done} onChange={() => markTodoDone(todo)} /><div><b style={{ color: '#34465a', fontSize: 12 }}>{todo.text}</b><div style={{ color: '#778493', fontSize: 10.5 }}>{studentName(todo.student_id)} - due {todo.date} - {todo.priority || 'normal'}</div></div></div>)}
-              {openTodos.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No open tasks.</div>}
+              {!todosLoadError && openTodos.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>No open tasks.</div>}
             </div>
             <div style={cardStyle}>
               <div style={{ fontSize: 16, fontWeight: 900, color: '#34465a', marginBottom: 12 }}>Completed Today</div>
               {completedTodayTodos.map(todo => <div key={todo.id} style={{ color: '#526274', fontSize: 12, padding: '6px 0' }}>{todo.text} <span style={{ color: '#778493' }}>({studentName(todo.student_id)})</span></div>)}
-              {completedTodayTodos.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>Nothing completed today yet.</div>}
+              {!todosLoadError && completedTodayTodos.length === 0 && <div style={{ color: '#778493', fontSize: 12 }}>Nothing completed today yet.</div>}
             </div>
           </div>
         </div>

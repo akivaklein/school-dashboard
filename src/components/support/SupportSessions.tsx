@@ -13,6 +13,7 @@ import type {
   SupportSession,
 } from '../../types/supportSession'
 import { mergeStudentFields } from '../../utils/studentStatus'
+import { describeSupportSourceError } from '../../services/studentSupportLoader'
 
 type Props = {
   students: StudentLike[]
@@ -119,6 +120,7 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
       .subscribe(status => {
         if (status === 'CHANNEL_ERROR') {
           console.error(`Supabase realtime channel error: ${scopedChannelName}`)
+          setErrorMessage('Support Sessions realtime updates could not connect. Loaded sessions remain available; refresh to retry.')
         }
       })
 
@@ -159,7 +161,7 @@ export default function SupportSessions({ students, setStudents, staff }: Props)
         }
       } catch (error) {
         console.error('Error loading support sessions:', error)
-        if (active) setErrorMessage('Unable to load support sessions.')
+        if (active) setErrorMessage(describeSupportSourceError('Support Sessions', 'support_sessions', error))
       } finally {
         if (active) setLoading(false)
       }

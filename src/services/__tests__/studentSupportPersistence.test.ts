@@ -11,7 +11,7 @@ vi.mock('../../supabaseClient', () => ({
 }))
 
 import { createStudentGoal, listStudentGoals, updateStudentGoal } from '../studentGoalsService'
-import { createStudentNote } from '../studentNotesService'
+import { createStudentNote, listStudentNotesForStudents } from '../studentNotesService'
 
 describe('student support persistence', () => {
   beforeEach(() => {
@@ -154,6 +154,42 @@ describe('student support persistence', () => {
     })).rejects.toThrow('42501')
   })
 
+  it('loads scoped observations in one query and retries once when is_deleted is not deployed', async () => {
+    const primaryOrder = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: '42703', message: 'column student_notes.is_deleted does not exist' },
+    })
+    const primaryEq = vi.fn().mockReturnValue({ order: primaryOrder })
+    const primaryIn = vi.fn().mockReturnValue({ eq: primaryEq })
+    const primarySelect = vi.fn().mockReturnValue({ in: primaryIn })
+
+    const fallbackOrder = vi.fn().mockResolvedValue({
+      data: [{
+        id: 21,
+        student_id: 4,
+        student_name: 'Ari',
+        note: 'Persisted observation',
+        author: 'Rabbi Klein',
+        created_at: '2026-09-07T10:20:00Z',
+        metadata: { supportType: 'observation' },
+      }],
+      error: null,
+    })
+    const fallbackIn = vi.fn().mockReturnValue({ order: fallbackOrder })
+    const fallbackSelect = vi.fn().mockReturnValue({ in: fallbackIn })
+
+    fromMock
+      .mockReturnValueOnce({ select: primarySelect })
+      .mockReturnValueOnce({ select: fallbackSelect })
+
+    await expect(listStudentNotesForStudents([4, 5, 4])).resolves.toEqual([
+      expect.objectContaining({ id: 21, student_id: 4, metadata: { supportType: 'observation' } }),
+    ])
+    expect(fromMock).toHaveBeenCalledTimes(2)
+    expect(primaryIn).toHaveBeenCalledWith('student_id', [4, 5])
+    expect(fallbackIn).toHaveBeenCalledWith('student_id', [4, 5])
+  })
+
   it('creates and updates student goals in the support table', async () => {
     const createSingle = vi.fn().mockResolvedValue({
       data: {
@@ -228,7 +264,7 @@ describe('student support persistence', () => {
     expect(updated.status).toBe('completed')
   })
 
-  it('loads an empty goal list before the support migration exists', async () => {
+  it('surfaces a missing goals table instead of reporting zero goals', async () => {
     const order = vi.fn().mockResolvedValue({
       data: null,
       error: { message: 'relation "public.student_goals" does not exist' },
@@ -236,6 +272,8 @@ describe('student support persistence', () => {
     const select = vi.fn().mockReturnValue({ order })
     fromMock.mockReturnValue({ select })
 
-    await expect(listStudentGoals()).resolves.toEqual([])
+    await expect(listStudentGoals()).rejects.toMatchObject({
+      message: 'relation "public.student_goals" does not exist',
+    })
   })
 })

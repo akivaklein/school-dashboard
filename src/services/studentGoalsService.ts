@@ -39,15 +39,6 @@ function toGoal(row: Record<string, unknown>): StudentGoal {
   }
 }
 
-function isMissingGoalsTableError(error: { message?: string } | null | undefined) {
-  const message = String(error?.message || '').toLowerCase()
-  return message.includes('student_goals') && (
-    message.includes('does not exist') ||
-    message.includes('schema cache') ||
-    message.includes('relation')
-  )
-}
-
 export async function listStudentGoals(): Promise<StudentGoal[]> {
   const { data, error } = await supabase
     .from('student_goals')
@@ -55,8 +46,7 @@ export async function listStudentGoals(): Promise<StudentGoal[]> {
     .order('created_at', { ascending: false })
 
   if (error) {
-    if (isMissingGoalsTableError(error)) return []
-    throw new Error(error.message || 'Unable to load student goals.')
+    throw error
   }
 
   return (data || []).map((row: Record<string, unknown>) => toGoal(row))

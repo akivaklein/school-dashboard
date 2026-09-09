@@ -106,6 +106,38 @@ export async function listStudentNotes(studentId: number): Promise<StudentNoteRe
     .map((row: Record<string, unknown>) => toRecord(row))
 }
 
+export async function listStudentNotesForStudents(studentIds: number[]): Promise<StudentNoteRecord[]> {
+  const normalizedIds = Array.from(new Set(studentIds.map(Number).filter(Number.isFinite)))
+  if (normalizedIds.length === 0) return []
+
+  const primary = await supabase
+    .from('student_notes')
+    .select('*')
+    .in('student_id', normalizedIds)
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false })
+
+  if (!primary.error) {
+    return (primary.data || []).map((row: Record<string, unknown>) => toRecord(row))
+  }
+
+  if (!isMissingNotesColumnError(primary.error)) {
+    throw primary.error
+  }
+
+  const fallback = await supabase
+    .from('student_notes')
+    .select('*')
+    .in('student_id', normalizedIds)
+    .order('created_at', { ascending: false })
+
+  if (fallback.error) throw fallback.error
+
+  return (fallback.data || [])
+    .filter((row: Record<string, unknown>) => row.is_deleted !== true)
+    .map((row: Record<string, unknown>) => toRecord(row))
+}
+
 export async function listRecentStudentNotes(studentIds: number[] = []): Promise<StudentNoteRecord[]> {
   let query = supabase
     .from('student_notes')

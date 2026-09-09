@@ -23,6 +23,7 @@ import {
 } from '../services/pointsEventsService'
 import { applyDailyAttendanceReset } from '../services/attendanceService'
 import { loadInstructionalSchedule, type InstructionalGroup, type InstructionalGroupMembership, type InstructionalPeriod, type PhysicalRoom } from '../services/instructionalGroupService'
+import { describeSupportSourceError } from '../services/studentSupportLoader'
 import { getInstructionalGroupStudentIds, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 import { getOpenParentCalls } from '../utils/parentCallUtils'
 import {
@@ -1830,6 +1831,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   )
   const [studentFlagsLoaded, setStudentFlagsLoaded] = useState(false)
   const [studentFlagsPersistenceReady, setStudentFlagsPersistenceReady] = useState(false)
+  const [studentFlagsLoadError, setStudentFlagsLoadError] = useState<string | null>(null)
   const [supportInitialSection, setSupportInitialSection] = useState('overview')
 
   useEffect(() => {
@@ -1837,6 +1839,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     async function loadStudentFlags() {
       try {
+        setStudentFlagsLoadError(null)
         const flags = await listStudentFlags()
         if (active && flags.length > 0) {
           skipNextStudentFlagsPersistRef.current = true
@@ -1849,6 +1852,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         console.error('Unable to load student flags from Supabase:', error)
         if (active) {
           setStudentFlagsPersistenceReady(false)
+          setStudentFlagsLoadError(describeSupportSourceError('Flags', 'student_flags', error))
         }
       } finally {
         if (active) {
@@ -2539,7 +2543,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         console.error('Unable to load todos from Supabase:', error)
         if (active) {
           setTodoLoadError(
-            error instanceof Error ? error.message : 'Unable to load todos.'
+            describeSupportSourceError('To-Do', 'todos', error)
           )
         }
       } finally {
@@ -5295,6 +5299,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
               initials={initials}
               todos={todos}
               setTodos={setTodos}
+              flagsLoadError={studentFlagsLoadError}
+              todosLoadError={todoLoadError}
+              parentCallsLoadError={studentLoadError ? describeSupportSourceError('Parent Calls', 'students.parent_calls', new Error(studentLoadError)) : null}
             />
           </Suspense>
         )}
