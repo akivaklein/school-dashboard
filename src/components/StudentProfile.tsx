@@ -5,7 +5,7 @@ import { isLeadershipRole } from '../utils/permissions'
 import { buildStudentNavigationList, getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
 import { getCurrentLocationStatus, getDailyAttendanceStatus } from '../utils/attendancePresence'
 import { removeParentCall } from '../utils/parentCallUtils'
-import { getCurrentInstructionalPeriod, getStudentInstructionalGroup } from '../utils/instructionalGroupUtils'
+import { getStudentInstructionalGroup, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 
 export default function StudentProfile({
   student,
@@ -71,7 +71,7 @@ export default function StudentProfile({
     : currentLocationStatus === 'present'
       ? 'In Class'
       : statusLabel[currentLocationStatus] || currentLocationStatus
-  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+  const currentInstructionalPeriod = useCurrentInstructionalPeriod(instructionalPeriods)
   const currentInstructionalGroup = currentInstructionalPeriod
     ? getStudentInstructionalGroup(s.id, currentInstructionalPeriod.id, instructionalGroups, instructionalGroupMemberships)
     : null

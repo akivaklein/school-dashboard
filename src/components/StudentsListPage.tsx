@@ -3,7 +3,7 @@ import { buildStudentListViewModel } from './studentListUtils'
 import { CLASS_ID_BY_GRADE, GRADE_LABELS, normalizeGradeValue, resolveStudentGrade } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
 import { getStudentStatusDisplay } from '../utils/attendancePresence'
-import { getCurrentInstructionalPeriod, getStudentInstructionalGroup } from '../utils/instructionalGroupUtils'
+import { getStudentInstructionalGroup, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 
 const GRADE_OPTIONS = ['8', '7']
 const DAILY_STATUS_LABELS = {
@@ -113,7 +113,7 @@ export default function StudentsListPage({
 
   const isAdmin = isLeadershipRole(role)
   const pageSize = 12
-  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+  const currentInstructionalPeriod = useCurrentInstructionalPeriod(instructionalPeriods)
   const currentGroupName = studentId => {
     if (!currentInstructionalPeriod) return 'No current period'
     return getStudentInstructionalGroup(studentId, currentInstructionalPeriod.id, instructionalGroups, instructionalGroupMemberships)?.name || 'Unassigned'

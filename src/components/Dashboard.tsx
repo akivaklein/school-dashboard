@@ -23,7 +23,7 @@ import {
 } from '../services/pointsEventsService'
 import { applyDailyAttendanceReset } from '../services/attendanceService'
 import { loadInstructionalSchedule, type InstructionalGroup, type InstructionalGroupMembership, type InstructionalPeriod, type PhysicalRoom } from '../services/instructionalGroupService'
-import { getCurrentInstructionalPeriod, getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
+import { getInstructionalGroupStudentIds, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 import { getOpenParentCalls } from '../utils/parentCallUtils'
 import {
   loadGradeEntries,
@@ -594,7 +594,7 @@ function TeacherDashboard({ students, allStudents, setStudents, userName, setSel
   const expectedRoster = coverageSnapshot.expectedCount
   const confirmedInClass = present
   const nextPullout = pulloutStudents[0]
-  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+  const currentInstructionalPeriod = useCurrentInstructionalPeriod(instructionalPeriods)
   const normalizedTeacherName = String(userName || '').trim().toLowerCase()
   const currentTeacherGroups = currentInstructionalPeriod
     ? instructionalGroups.filter(group => group.status !== 'archived' && group.period_id === currentInstructionalPeriod.id && group.teacher_name.trim().toLowerCase() === normalizedTeacherName)

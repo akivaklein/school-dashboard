@@ -9,7 +9,7 @@ import {
   isLocationUnknown,
   isOutOfSchool,
 } from '../utils/attendancePresence'
-import { getCurrentInstructionalPeriod, getStudentInstructionalGroup } from '../utils/instructionalGroupUtils'
+import { getStudentInstructionalGroup, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 
 type AttendanceStudent = { id: number | string; [key: string]: unknown }
 
@@ -58,7 +58,7 @@ export default function AttendancePage({
   const [selectedDailyStudentIds, setSelectedDailyStudentIds] = useState<Set<string>>(() => new Set())
   const selectedDailyCount = dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))).length
   const allDailyStudentsSelected = dailyAttendanceStudents.length > 0 && selectedDailyCount === dailyAttendanceStudents.length
-  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+  const currentInstructionalPeriod = useCurrentInstructionalPeriod(instructionalPeriods)
 
   function expectedInstructionalGroup(studentId) {
     if (!currentInstructionalPeriod) return null

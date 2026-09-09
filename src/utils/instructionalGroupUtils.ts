@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 type GroupLike = { id: string; period_id: string; status?: string }
 type MembershipLike = { group_id: string; student_id: number }
 type PeriodLike = { id: string; start_time?: string | null; end_time?: string | null; status?: string; sort_order?: number }
@@ -25,6 +27,17 @@ export function getCurrentInstructionalPeriod<T extends PeriodLike>(periods: T[]
       const end = timeToMinutes(period.end_time)
       return start !== null && end !== null && currentMinutes >= start && currentMinutes < end
     }) || null
+}
+
+export function useCurrentInstructionalPeriod<T extends PeriodLike>(periods: T[]): T | null {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  return getCurrentInstructionalPeriod(periods, now)
 }
 
 export function getInstructionalGroupStudentIds(groupId: string, memberships: MembershipLike[]): number[] {

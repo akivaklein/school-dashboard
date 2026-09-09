@@ -8,7 +8,7 @@ import {
   summarizeTeachingModeWriteResults,
 } from './teachingModeUtils'
 import { getCurrentLocationStatus, getDailyAttendanceStatus, isInClassroom, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
-import { getCurrentInstructionalPeriod, getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
+import { getInstructionalGroupStudentIds, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 
 const TEACHING_MODE_SCOPE_STATE_STORAGE_KEY = 'schoolDashboardTeachingModeScopeV1'
 
@@ -205,10 +205,7 @@ export default function TeachingMode({
       .sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0)),
     [instructionalPeriods],
   )
-  const currentInstructionalPeriod = useMemo(
-    () => getCurrentInstructionalPeriod(activeInstructionalPeriods),
-    [activeInstructionalPeriods],
-  )
+  const currentInstructionalPeriod = useCurrentInstructionalPeriod(activeInstructionalPeriods)
   const periodOptions = activeInstructionalPeriods.map(period => String(period.id))
   const instructionalGroupOptions = useMemo(() => {
     const normalizedUserName = String(userName || '').trim().toLowerCase()

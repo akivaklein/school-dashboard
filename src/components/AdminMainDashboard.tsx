@@ -6,7 +6,7 @@ import {
 } from '../utils/attendancePresence'
 import { formatUnknownDuration } from '../utils/unknownLocationTimer'
 import { resolveStudentClassId } from './dashboardData'
-import { getCurrentInstructionalPeriod, getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
+import { getInstructionalGroupStudentIds, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 
 export default function AdminMainDashboard({
   S,
@@ -72,7 +72,7 @@ export default function AdminMainDashboard({
   const accountedForPct = total > 0 ? Math.round((knownLocationCount / total) * 100) : 0
   const knownLocationAngle = total > 0 ? (knownLocationCount / total) * 360 : 0
   const priorityDangerAlerts = alerts.filter(a => a.type === 'danger' && !a.msg.includes('Location unknown'))
-  const currentInstructionalPeriod = getCurrentInstructionalPeriod(instructionalPeriods)
+  const currentInstructionalPeriod = useCurrentInstructionalPeriod(instructionalPeriods)
   const roomNameById = Object.fromEntries(physicalRooms.map(room => [room.id, room.name]))
   const currentInstructionalGroups = currentInstructionalPeriod
     ? instructionalGroups.filter(group => group.status !== 'archived' && group.period_id === currentInstructionalPeriod.id)
