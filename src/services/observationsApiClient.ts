@@ -19,7 +19,9 @@ export async function fetchObservationsFromSameOrigin(
   }
   if (!response.ok) {
     const code = payload.code ? ` (${payload.code})` : ''
-    throw new Error(`Observations API${code}: ${payload.error || `HTTP ${response.status}`}`)
+    const requestId = response.headers.get('x-student-support-request-id')
+    const requestLabel = requestId ? `; requestId=${requestId}` : ''
+    throw new Error(`Observations API HTTP ${response.status}${code}: ${payload.error || response.statusText || 'Request failed'}${requestLabel}`)
   }
 
   return Array.isArray(payload.data) ? payload.data : []

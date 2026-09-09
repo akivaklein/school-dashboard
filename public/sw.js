@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yk-secure-shell-v2'
+const CACHE_NAME = 'yk-secure-shell-v3'
 const APP_SHELL_PATHS = new Set(['/', '/index.html', '/manifest.webmanifest'])
 
 self.addEventListener('install', event => {
@@ -31,6 +31,7 @@ function shouldBypassServiceWorker(event) {
 
   if (request.method !== 'GET') return true
   if (!isSameOriginRequest(requestUrl)) return true
+  if (requestUrl.pathname.startsWith('/api/')) return true
   if (requestUrl.pathname === '/sw.js') return true
   if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') return true
   return false

@@ -20,12 +20,15 @@ describe('observations API', () => {
     const inMock = vi.fn().mockReturnValue({ eq })
     const select = vi.fn().mockReturnValue({ in: inMock })
     const from = vi.fn().mockReturnValue({ select })
-    const createClient = vi.fn().mockReturnValue({ from })
+    const getUser = vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
+    const rpc = vi.fn().mockResolvedValue({ data: 'admin', error: null, status: 200 })
+    const createClient = vi.fn().mockReturnValue({ auth: { getUser }, rpc, from })
+    const log = vi.fn()
     const { record, response } = responseRecorder()
     process.env.VITE_SUPABASE_YK_URL = 'https://project.supabase.co'
     process.env.VITE_SUPABASE_YK_ANON_KEY = 'public-anon-key'
 
-    await createObservationsHandler(createClient as never)({
+    await createObservationsHandler(createClient as never, log)({
       method: 'GET',
       headers: { 'x-supabase-access-token': 'caller-jwt' },
       query: { studentIds: '125,132,125' },
@@ -38,6 +41,9 @@ describe('observations API', () => {
     )
     expect(inMock).toHaveBeenCalledWith('student_id', [125, 132])
     expect(record).toMatchObject({ statusCode: 200, body: { data: [{ id: 4, student_id: 125 }] } })
+    expect(getUser).toHaveBeenCalledWith('caller-jwt')
+    expect(rpc).toHaveBeenCalledWith('dashboard_current_role')
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('"resolvedRole":"admin"'))
   })
 
   it('rejects missing authentication without querying Supabase', async () => {
@@ -59,7 +65,11 @@ describe('observations API', () => {
     const eq = vi.fn().mockReturnValue({ order })
     const inMock = vi.fn().mockReturnValue({ eq })
     const select = vi.fn().mockReturnValue({ in: inMock })
-    const createClient = vi.fn().mockReturnValue({ from: vi.fn().mockReturnValue({ select }) })
+    const createClient = vi.fn().mockReturnValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }) },
+      rpc: vi.fn().mockResolvedValue({ data: 'admin', error: null, status: 200 }),
+      from: vi.fn().mockReturnValue({ select }),
+    })
     const { record, response } = responseRecorder()
     process.env.VITE_SUPABASE_YK_URL = 'https://project.supabase.co'
     process.env.VITE_SUPABASE_YK_ANON_KEY = 'public-anon-key'

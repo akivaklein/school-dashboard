@@ -25,9 +25,9 @@ describe('same-origin observations client', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       error: 'permission denied for table student_notes',
       code: '42501',
-    }), { status: 403, headers: { 'Content-Type': 'application/json' } }))
+    }), { status: 403, headers: { 'Content-Type': 'application/json', 'X-Student-Support-Request-Id': 'request-123' } }))
 
     await expect(fetchObservationsFromSameOrigin([125], 'session-jwt', fetchMock))
-      .rejects.toThrow('Observations API (42501): permission denied for table student_notes')
+      .rejects.toThrow('Observations API HTTP 403 (42501): permission denied for table student_notes; requestId=request-123')
   })
 })

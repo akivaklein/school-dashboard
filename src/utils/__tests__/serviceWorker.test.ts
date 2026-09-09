@@ -80,4 +80,18 @@ describe('service worker fetch handling', () => {
 
     expect(respondWith).not.toHaveBeenCalled()
   })
+
+  it('does not intercept or cache authenticated same-origin API requests', () => {
+    const { listeners } = loadServiceWorker()
+    const respondWith = vi.fn()
+
+    listeners.fetch({
+      request: new Request('https://example.test/api/student-support/observations?studentIds=125', {
+        headers: { 'X-Supabase-Access-Token': 'session-jwt' },
+      }),
+      respondWith,
+    })
+
+    expect(respondWith).not.toHaveBeenCalled()
+  })
 })
