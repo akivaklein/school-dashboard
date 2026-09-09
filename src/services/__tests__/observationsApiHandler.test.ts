@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createObservationsHandler } from './observations'
+import { createObservationsHandler } from '../../../api/student-support/observations'
 
 function responseRecorder() {
   const record = { statusCode: 200, body: null as unknown, headers: {} as Record<string, string> }
