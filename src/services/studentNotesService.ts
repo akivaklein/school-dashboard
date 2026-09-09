@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient'
 import { isLeadershipRole } from '../utils/permissions'
+import { fetchObservationsFromSameOrigin } from './observationsApiClient'
 
 export type StudentNoteRecord = {
   id: number
@@ -139,6 +140,16 @@ export async function listStudentNotes(studentId: number): Promise<StudentNoteRe
 export async function listStudentNotesForStudents(studentIds: number[]): Promise<StudentNoteRecord[]> {
   const normalizedIds = Array.from(new Set(studentIds.map(Number).filter(value => Number.isSafeInteger(value) && value > 0)))
   if (normalizedIds.length === 0) return []
+
+  if (import.meta.env.PROD) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+    if (sessionError || !accessToken) {
+      throw new Error(`student_notes request cannot start: ${sessionError?.message || 'authenticated session is missing'}`)
+    }
+    const rows = await fetchObservationsFromSameOrigin(normalizedIds, accessToken)
+    return rows.map(row => toRecord(row))
+  }
 
   const primary = await supabase
     .from('student_notes')
