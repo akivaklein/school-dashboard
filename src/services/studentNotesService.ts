@@ -75,6 +75,36 @@ function describeSupabaseError(error: { code?: string; message?: string; details
   return parts.join(' - ')
 }
 
+function studentNotesRequestPath(studentIds: number[]): string {
+  return `/rest/v1/student_notes?select=*&student_id=in.(${studentIds.join(',')})&is_deleted=eq.false&order=created_at.desc`
+}
+
+async function studentNotesLoadError(error: { code?: string; message?: string; details?: string } | null | undefined, studentIds: number[]): Promise<Error> {
+  const authClient = (supabase as typeof supabase & { auth?: { getSession?: () => Promise<{ data?: { session?: { access_token?: string } | null }; error?: { message?: string } | null }> } }).auth
+  let authState = 'unknown'
+  try {
+    const sessionResult = authClient?.getSession ? await authClient.getSession() : null
+    authState = sessionResult?.error
+      ? `unavailable (${sessionResult.error.message || 'session lookup failed'})`
+      : sessionResult?.data?.session?.access_token
+        ? 'present'
+        : sessionResult
+          ? 'missing'
+          : 'unknown'
+  } catch {
+    authState = 'unavailable (session lookup failed)'
+  }
+  const projectUrl = String((supabase as typeof supabase & { supabaseUrl?: string }).supabaseUrl || 'configured-supabase-project')
+  const requestUrl = `${projectUrl}${studentNotesRequestPath(studentIds)}`
+  const message = String(error?.message || 'Unknown request error')
+  const isTransportFailure = /failed to fetch|fetch failed|networkerror|network request failed/i.test(message)
+  const status = isTransportFailure ? 'unavailable (fetch failed before a response)' : 'PostgREST response received'
+  const code = error?.code ? `; code=${error.code}` : ''
+  const details = error?.details ? `; details=${error.details}` : ''
+
+  return new Error(`student_notes request failed: ${message}; request=${requestUrl}; authSession=${authState}; httpStatus=${status}${code}${details}`)
+}
+
 export async function listStudentNotes(studentId: number): Promise<StudentNoteRecord[]> {
   const primary = await supabase
     .from('student_notes')
@@ -107,7 +137,7 @@ export async function listStudentNotes(studentId: number): Promise<StudentNoteRe
 }
 
 export async function listStudentNotesForStudents(studentIds: number[]): Promise<StudentNoteRecord[]> {
-  const normalizedIds = Array.from(new Set(studentIds.map(Number).filter(Number.isFinite)))
+  const normalizedIds = Array.from(new Set(studentIds.map(Number).filter(value => Number.isSafeInteger(value) && value > 0)))
   if (normalizedIds.length === 0) return []
 
   const primary = await supabase
@@ -122,7 +152,7 @@ export async function listStudentNotesForStudents(studentIds: number[]): Promise
   }
 
   if (!isMissingNotesColumnError(primary.error)) {
-    throw primary.error
+    throw await studentNotesLoadError(primary.error, normalizedIds)
   }
 
   const fallback = await supabase
@@ -131,7 +161,7 @@ export async function listStudentNotesForStudents(studentIds: number[]): Promise
     .in('student_id', normalizedIds)
     .order('created_at', { ascending: false })
 
-  if (fallback.error) throw fallback.error
+  if (fallback.error) throw await studentNotesLoadError(fallback.error, normalizedIds)
 
   return (fallback.data || [])
     .filter((row: Record<string, unknown>) => row.is_deleted !== true)

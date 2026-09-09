@@ -19,6 +19,9 @@ export function describeSupportSourceError(label: string, source: string, error:
   const details = errorDetails(error)
   const prefix = `${label} could not load from ${source}`
   if (/failed to fetch|fetch failed|networkerror|network request failed/i.test(details.message)) {
+    if (details.message.includes('request=') && details.message.includes('authSession=')) {
+      return `${prefix}: ${details.message}`
+    }
     return `${prefix}: network request failed. Check the connection and try again.`
   }
   const code = details.code ? ` (${details.code})` : ''

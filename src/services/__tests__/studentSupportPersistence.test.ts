@@ -1,12 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { fromMock } = vi.hoisted(() => ({
+const { fromMock, getSessionMock } = vi.hoisted(() => ({
   fromMock: vi.fn(),
+  getSessionMock: vi.fn(),
 }))
 
 vi.mock('../../supabaseClient', () => ({
   supabase: {
     from: fromMock,
+    auth: { getSession: getSessionMock },
+    supabaseUrl: 'https://project.supabase.co',
   },
 }))
 
@@ -16,6 +19,8 @@ import { createStudentNote, listStudentNotesForStudents } from '../studentNotesS
 describe('student support persistence', () => {
   beforeEach(() => {
     fromMock.mockReset()
+    getSessionMock.mockReset()
+    getSessionMock.mockResolvedValue({ data: { session: { access_token: 'redacted-test-token' } }, error: null })
   })
 
   it('stores structured observation metadata on student notes', async () => {
@@ -188,6 +193,21 @@ describe('student support persistence', () => {
     expect(fromMock).toHaveBeenCalledTimes(2)
     expect(primaryIn).toHaveBeenCalledWith('student_id', [4, 5])
     expect(fallbackIn).toHaveBeenCalledWith('student_id', [4, 5])
+  })
+
+  it('reports request path, auth presence, and missing HTTP status for a browser transport failure', async () => {
+    const order = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'TypeError: Failed to fetch' },
+    })
+    const eq = vi.fn().mockReturnValue({ order })
+    const inMock = vi.fn().mockReturnValue({ eq })
+    const select = vi.fn().mockReturnValue({ in: inMock })
+    fromMock.mockReturnValue({ select })
+
+    await expect(listStudentNotesForStudents([7, 8])).rejects.toThrow(
+      'request=https://project.supabase.co/rest/v1/student_notes?select=*&student_id=in.(7,8)&is_deleted=eq.false&order=created_at.desc; authSession=present; httpStatus=unavailable (fetch failed before a response)',
+    )
   })
 
   it('creates and updates student goals in the support table', async () => {
