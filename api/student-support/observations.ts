@@ -32,10 +32,10 @@ export function createObservationsHandler(createSupabaseClient = createClient) {
       return
     }
 
-    const authorizationValue = request.headers.authorization
-    const authorization = Array.isArray(authorizationValue) ? authorizationValue[0] : authorizationValue || ''
-    if (!/^Bearer\s+\S+$/i.test(authorization)) {
-      response.status(401).json({ error: 'A valid bearer token is required.' })
+    const tokenValue = request.headers['x-supabase-access-token']
+    const accessToken = Array.isArray(tokenValue) ? tokenValue[0] : tokenValue || ''
+    if (!accessToken || /\s/.test(accessToken)) {
+      response.status(401).json({ error: 'A valid Supabase access token is required.' })
       return
     }
 
@@ -57,7 +57,7 @@ export function createObservationsHandler(createSupabaseClient = createClient) {
     }
 
     const client = createSupabaseClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authorization } },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
       auth: { persistSession: false, autoRefreshToken: false },
     })
     const { data, error } = await client

@@ -16,7 +16,7 @@ describe('same-origin observations client', () => {
       expect.objectContaining({
         method: 'GET',
         cache: 'no-store',
-        headers: { Authorization: 'Bearer session-jwt' },
+        headers: { 'X-Supabase-Access-Token': 'session-jwt' },
       }),
     )
   })

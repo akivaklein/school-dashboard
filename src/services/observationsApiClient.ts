@@ -8,7 +8,7 @@ export async function fetchObservationsFromSameOrigin(
     method: 'GET',
     cache: 'no-store',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      'X-Supabase-Access-Token': accessToken,
     },
   })
 

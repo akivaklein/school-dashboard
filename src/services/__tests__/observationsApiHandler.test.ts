@@ -27,7 +27,7 @@ describe('observations API', () => {
 
     await createObservationsHandler(createClient as never)({
       method: 'GET',
-      headers: { authorization: 'Bearer caller-jwt' },
+      headers: { 'x-supabase-access-token': 'caller-jwt' },
       query: { studentIds: '125,132,125' },
     }, response)
 
@@ -51,7 +51,7 @@ describe('observations API', () => {
     }, response)
 
     expect(createClient).not.toHaveBeenCalled()
-    expect(record).toMatchObject({ statusCode: 401, body: { error: 'A valid bearer token is required.' } })
+    expect(record).toMatchObject({ statusCode: 401, body: { error: 'A valid Supabase access token is required.' } })
   })
 
   it('returns the upstream RLS denial and never substitutes an empty result', async () => {
@@ -66,7 +66,7 @@ describe('observations API', () => {
 
     await createObservationsHandler(createClient as never)({
       method: 'GET',
-      headers: { authorization: 'Bearer caller-jwt' },
+      headers: { 'x-supabase-access-token': 'caller-jwt' },
       query: { studentIds: '125' },
     }, response)
 
