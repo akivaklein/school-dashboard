@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { resolveActorName, resolveStudentClassId } from './dashboardData'
 import {
   getDailyAttendanceStatus,
+  getWeeklyAttendanceCodes,
   getCurrentLocationStatus,
   isInClassroom,
   isInSchool,
@@ -130,7 +131,7 @@ export default function AttendancePage({
     )
   }
 
-  function buildClassLogEntry(type, note, extra: { staffId?: number | string | null } = {}) {
+  function buildClassLogEntry(type, note, extra: { staffId?: number | string | null; attendanceStatus?: string } = {}) {
     return {
       time: new Date().toLocaleTimeString('en-US', {
         hour: '2-digit',
@@ -142,6 +143,7 @@ export default function AttendancePage({
       staffId: extra.staffId || null,
       staffName: actingStaffName,
       recordedAt: new Date().toISOString(),
+      ...(extra.attendanceStatus ? { attendanceStatus: extra.attendanceStatus } : {}),
     }
   }
 
@@ -201,7 +203,8 @@ export default function AttendancePage({
     targetStudents.forEach(student => {
       const classLogEntry = buildClassLogEntry(
         'attendance-update',
-        `Attendance marked ${status} by ${actingStaffName}`
+        `Attendance marked ${status} by ${actingStaffName}`,
+        { attendanceStatus: status },
       )
       const dailyDetails = buildDailyDetailsForStatus(status, student, bulkTimeValue)
 
@@ -266,7 +269,8 @@ export default function AttendancePage({
 
     const classLogEntry = buildClassLogEntry(
       'attendance-update',
-      `Attendance marked ${status} by ${actingStaffName}`
+      `Attendance marked ${status} by ${actingStaffName}`,
+      { attendanceStatus: status },
     )
     const updatedClassLog = [...(original.classLog || []), classLogEntry]
     const actionTimeValue = currentLocalTimeValue()
@@ -1110,7 +1114,7 @@ function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DA
           </thead>
           <tbody>
             {filteredStudents.map((s, i) => {
-              const attendanceCodes = Array.isArray(s.att) ? s.att : []
+              const attendanceCodes = getWeeklyAttendanceCodes(s, new Date(), DAYS.length)
               return (
                 <tr key={s.id} onClick={() => openStudent(s)} style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}>
                   <td style={{ padding: '8px 12px' }}>
@@ -1120,11 +1124,12 @@ function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DA
                       {(typeof isVIP === 'function' ? isVIP(s) : false) && <span style={{ fontSize: 10 }}>⭐</span>}
                     </div>
                   </td>
-                  {attendanceCodes.map((d, j) => {
-                    const [color, bg] = dailyColors[d] || dailyColors['P']
+                  {DAYS.map((_, j) => {
+                    const code = attendanceCodes[j]
+                    const [color, bg] = dailyColors[code] || ['#94a3b8', 'transparent']
                     return (
                       <td key={j} style={{ padding: 8, textAlign: 'center' }}>
-                        <span style={{ background: bg, color, padding: '2px 6px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>{d}</span>
+                        <span style={{ background: bg, color, padding: '2px 6px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>{code || '—'}</span>
                       </td>
                     )
                   })}

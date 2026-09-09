@@ -1,7 +1,7 @@
 type StudentAttendanceLike = {
   dailyStatus?: string | null
   status?: string | null
-  classLog?: Array<{ type?: unknown; recordedAt?: unknown }> | null
+  classLog?: Array<{ type?: unknown; recordedAt?: unknown; attendanceStatus?: unknown; note?: unknown }> | null
 }
 
 const ARRIVAL_DAILY_STATUSES = new Set(['present', 'late', 'left-early'])
@@ -65,12 +65,15 @@ export function hasConfirmedArrival(student: StudentAttendanceLike): boolean {
 }
 
 export function isCurrentlyOnCampus(student: StudentAttendanceLike): boolean {
-  return ON_CAMPUS_STATUSES.has(normalizeStatus(student?.status))
+  return ON_CAMPUS_STATUSES.has(getCurrentLocationStatus(student))
 }
 
 export function getCurrentLocationStatus(student: StudentAttendanceLike): string {
   if (!hasConfirmedArrival(student)) return 'not-confirmed'
-  return normalizeStatus(student?.status) || 'unknown'
+  if (getDailyAttendanceStatus(student) === 'left-early') return 'left-early'
+  const locationStatus = normalizeStatus(student?.status)
+  if (locationStatus === 'late' || locationStatus === 'not-arrived') return 'present'
+  return locationStatus || 'unknown'
 }
 
 export function getStudentStatusDisplay(student: StudentAttendanceLike): { dailyStatus: string; locationStatus: string } {
@@ -79,7 +82,6 @@ export function getStudentStatusDisplay(student: StudentAttendanceLike): { daily
     locationStatus: getCurrentLocationStatus(student),
   }
 }
-
 export function isOutOfSchool(student: StudentAttendanceLike): boolean {
   return !isInSchool(student)
 }
@@ -93,7 +95,54 @@ export function cameToSchoolToday(student: StudentAttendanceLike): boolean {
 }
 
 export function isInClassroom(student: StudentAttendanceLike): boolean {
-  return normalizeStatus(student?.status) === 'present' && isInSchool(student)
+  return getCurrentLocationStatus(student) === 'present' && isInSchool(student)
+}
+
+const ATTENDANCE_CODES: Record<string, string> = {
+  present: 'P',
+  absent: 'A',
+  late: 'L',
+  'left-early': 'LE',
+  'not-arrived': 'NA',
+}
+
+function getAttendanceStatusFromLogEntry(entry: NonNullable<StudentAttendanceLike['classLog']>[number]): string {
+  const explicitStatus = normalizeStatus(String(entry?.attendanceStatus || ''))
+  if (ATTENDANCE_CODES[explicitStatus]) return explicitStatus
+
+  const match = String(entry?.note || '').match(/attendance marked\s+(present|absent|late|left-early|not-arrived)\b/i)
+  return normalizeStatus(match?.[1])
+}
+
+export function getWeeklyAttendanceCodes(
+  student: StudentAttendanceLike,
+  date: Date = new Date(),
+  dayCount = 6,
+): string[] {
+  const weekStart = new Date(date)
+  weekStart.setHours(0, 0, 0, 0)
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+  const statusesByDate = new Map<string, { recordedAt: number; code: string }>()
+
+  for (const entry of Array.isArray(student?.classLog) ? student.classLog : []) {
+    if (String(entry?.type || '') !== 'attendance-update') continue
+    const status = getAttendanceStatusFromLogEntry(entry)
+    const code = ATTENDANCE_CODES[status]
+    const recordedDate = new Date(String(entry?.recordedAt || ''))
+    if (!code || Number.isNaN(recordedDate.getTime())) continue
+
+    const dateKey = getDateKey(recordedDate)
+    const previous = statusesByDate.get(dateKey)
+    if (!previous || recordedDate.getTime() >= previous.recordedAt) {
+      statusesByDate.set(dateKey, { recordedAt: recordedDate.getTime(), code })
+    }
+  }
+
+  return Array.from({ length: dayCount }, (_, offset) => {
+    const day = new Date(weekStart)
+    day.setDate(weekStart.getDate() + offset)
+    return statusesByDate.get(getDateKey(day))?.code || ''
+  })
 }
 
 export function isLocationUnknown(student: StudentAttendanceLike): boolean {

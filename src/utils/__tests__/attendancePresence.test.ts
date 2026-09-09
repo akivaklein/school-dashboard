@@ -4,6 +4,7 @@ import {
   getCurrentLocationStatus,
   getDailyAttendanceStatus,
   getStudentStatusDisplay,
+  getWeeklyAttendanceCodes,
   hasDailyAttendanceRecordForDate,
   isInClassroom,
   isInSchool,
@@ -46,6 +47,23 @@ describe('attendancePresence shared rules', () => {
   it('counts present and late as came today', () => {
     expect(cameToSchoolToday({ dailyStatus: 'present', status: 'present' })).toBe(true)
     expect(cameToSchoolToday({ dailyStatus: 'late', status: 'late' })).toBe(true)
+  })
+
+  it('treats a late arrival with a stale location as in school and in class', () => {
+    const student = { dailyStatus: 'late', status: 'not-arrived' }
+
+    expect(getCurrentLocationStatus(student)).toBe('present')
+    expect(isInSchool(student)).toBe(true)
+    expect(isInClassroom(student)).toBe(true)
+  })
+
+  it('counts left early as came today but no longer in school', () => {
+    const student = { dailyStatus: 'left-early', status: 'present' }
+
+    expect(cameToSchoolToday(student)).toBe(true)
+    expect(getCurrentLocationStatus(student)).toBe('left-early')
+    expect(isInSchool(student)).toBe(false)
+    expect(isInClassroom(student)).toBe(false)
   })
 
   it('only counts therapy and BT statuses when the student has actually arrived', () => {
@@ -122,5 +140,18 @@ describe('attendancePresence shared rules', () => {
 
     expect(hasDailyAttendanceRecordForDate(student, today)).toBe(true)
     expect(resolveDailyAttendanceStatusForDate(student, today)).toBe('present')
+  })
+
+  it('derives the current weekly record from dated attendance log entries', () => {
+    const student = {
+      classLog: [
+        { type: 'attendance-update', attendanceStatus: 'present', note: 'Attendance marked present by Admin', recordedAt: '2026-09-06T08:00:00' },
+        { type: 'attendance-update', note: 'Attendance marked late by Admin', recordedAt: '2026-09-07T08:15:00' },
+        { type: 'attendance-update', attendanceStatus: 'absent', note: 'Attendance marked absent by Admin', recordedAt: '2026-09-08T08:30:00' },
+        { type: 'attendance-update', attendanceStatus: 'present', note: 'Attendance marked present by Admin', recordedAt: '2026-08-31T08:00:00' },
+      ],
+    }
+
+    expect(getWeeklyAttendanceCodes(student, new Date('2026-09-09T12:00:00'))).toEqual(['P', 'L', 'A', '', '', ''])
   })
 })
