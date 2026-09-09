@@ -58,6 +58,10 @@ export function StudentScoresTab({
   onSaveGradeEntry = null,
   CLASSES = [],
   additionalClassIdsByStudent = {},
+  instructionalPeriods = [],
+  physicalRooms = [],
+  instructionalGroups = [],
+  instructionalGroupMemberships = [],
 }) {
   const teacherOptions = Array.from(new Set([...(academicTeacherOptions || []), ...Object.keys(ACADEMIC_AREAS || {})].filter(Boolean)))
   const initialTeacher = userName && teacherOptions.includes(userName) ? userName : teacherOptions[0] || DEFAULT_ACADEMIC_TEACHER
@@ -67,7 +71,9 @@ export function StudentScoresTab({
   const studentClassOptions = resolveStudentClassIds(s, additionalClassIdsByStudent)
     .map(classId => CLASSES.find(cls => cls.id === classId))
     .filter(Boolean)
-  const [form, setForm] = useState({ teacher: initialTeacher, subject: 'Math', skill: '2-digit', assessmentName: '', date: new Date().toISOString().slice(0,10), scoreType: 'points', score: '', maxScore: '100', rating: 'Good', notes: '', classId: studentClassOptions[0]?.id || '' })
+  const studentInstructionalGroupIds = new Set(instructionalGroupMemberships.filter(membership => Number(membership.student_id) === Number(s.id)).map(membership => membership.group_id))
+  const studentInstructionalGroups = instructionalGroups.filter(group => group.status !== 'archived' && studentInstructionalGroupIds.has(group.id))
+  const [form, setForm] = useState({ teacher: initialTeacher, subject: 'Math', skill: '2-digit', assessmentName: '', date: new Date().toISOString().slice(0,10), scoreType: 'points', score: '', maxScore: '100', rating: 'Good', notes: '', classId: studentClassOptions[0]?.id || '', instructionalGroupId: '' })
   const scores = s.testScores || []
   const numeric = scores.filter(x => x.scoreType !== 'rating' && x.maxScore)
   const avg = numeric.length ? Math.round(numeric.reduce((acc, x) => acc + academicPct(x), 0) / numeric.length) : null
@@ -103,6 +109,9 @@ export function StudentScoresTab({
   async function addScore() {
     if (!form.assessmentName.trim()) return alert('Add an assessment name')
     if (form.scoreType === 'points' && (!form.score || !form.maxScore)) return alert('Add score and max score')
+    const selectedGroup = studentInstructionalGroups.find(group => group.id === form.instructionalGroupId) || null
+    const selectedPeriod = selectedGroup ? instructionalPeriods.find(period => period.id === selectedGroup.period_id) || null : null
+    const selectedRoom = selectedGroup ? physicalRooms.find(room => room.id === selectedGroup.room_id) || null : null
     const entry = {
       id: `ts${Date.now()}`,
       teacher: form.teacher,
@@ -116,6 +125,13 @@ export function StudentScoresTab({
       rating: form.scoreType === 'rating' ? form.rating : null,
       classId: form.classId || '',
       className: CLASSES.find(cls => cls.id === form.classId)?.name || '',
+      instructionalPeriodId: selectedPeriod?.id || '',
+      instructionalPeriodName: selectedPeriod?.name || '',
+      instructionalGroupId: selectedGroup?.id || '',
+      instructionalGroupName: selectedGroup?.name || '',
+      instructionalGroupTeacher: selectedGroup?.teacher_name || '',
+      instructionalRoomId: selectedRoom?.id || '',
+      instructionalRoomName: selectedRoom?.name || '',
       notes: form.notes,
       enteredBy: userName || 'Staff',
       enteredAt: new Date().toISOString(),
@@ -200,6 +216,11 @@ export function StudentScoresTab({
             <div style={{ padding: 18, overflowY: 'auto', display: 'grid', gap: 10 }}>
               {[
                 { label: 'Teacher', value: selectedScore.teacher || '—' },
+                ...(selectedScore.instructionalGroupName ? [
+                  { label: 'Instructional Group', value: selectedScore.instructionalGroupName },
+                  { label: 'Period', value: selectedScore.instructionalPeriodName || '—' },
+                  { label: 'Room', value: selectedScore.instructionalRoomName || '—' },
+                ] : []),
                 { label: 'Subject', value: selectedScore.subject || '—' },
                 { label: 'Skill', value: selectedScore.skill || '—' },
                 { label: 'Date', value: selectedScore.date || '—' },
@@ -237,6 +258,15 @@ export function StudentScoresTab({
               {studentClassOptions.length > 0 && (
                 <select value={form.classId} onChange={e=>updateForm('classId', e.target.value)} style={{ gridColumn: '1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
                   {studentClassOptions.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
+                </select>
+              )}
+              {studentInstructionalGroups.length > 0 && (
+                <select value={form.instructionalGroupId} onChange={e=>updateForm('instructionalGroupId', e.target.value)} style={{ gridColumn: '1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                  <option value="">No instructional group snapshot</option>
+                  {studentInstructionalGroups.map(group => {
+                    const period = instructionalPeriods.find(item => item.id === group.period_id)
+                    return <option key={group.id} value={group.id}>{period?.name ? `${period.name} · ` : ''}{group.name}</option>
+                  })}
                 </select>
               )}
               <input placeholder="Assessment name" value={form.assessmentName} onChange={e=>updateForm('assessmentName', e.target.value)} style={{ gridColumn:'1 / -1', padding: 10, border:'1px solid #e5e7eb', borderRadius:8 }} />

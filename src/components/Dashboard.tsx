@@ -5807,6 +5807,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             onSaveGradeEntry={recordGradeEntry}
             CLASSES={CLASSES}
             additionalClassIdsByStudent={additionalClassIdsByStudent}
+            instructionalPeriods={instructionalPeriods}
+            physicalRooms={physicalRooms}
+            instructionalGroups={instructionalGroups}
+            instructionalGroupMemberships={instructionalGroupMemberships}
           />
         )}
         FamilyEditorPopup={FamilyEditorPopup}
