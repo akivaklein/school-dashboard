@@ -5,6 +5,7 @@ import {
   getCurrentInstructionalPeriod,
   getInstructionalGroupStudentIds,
   getStudentInstructionalGroup,
+  matchesClassAssignmentFilter,
 } from '../instructionalGroupUtils'
 
 describe('shared instructional schedule resolution', () => {
@@ -35,6 +36,21 @@ describe('shared instructional schedule resolution', () => {
 
     expect(getStudentInstructionalGroup(7, 'afternoon-p1', groups, memberships)?.id).toBe('math-a')
     expect(getInstructionalGroupStudentIds('math-a', memberships)).toEqual([7, 8])
+  })
+
+  it('filters Student Class Assignments by homeroom or persisted group membership', () => {
+    const memberships = [
+      { group_id: 'math-a', student_id: 7 },
+      { group_id: 'reading-b', student_id: 7 },
+      { group_id: 'math-a', student_id: 8 },
+    ]
+
+    expect(matchesClassAssignmentFilter(7, 'grade-8', 'all', memberships)).toBe(true)
+    expect(matchesClassAssignmentFilter(7, 'grade-8', 'homeroom:grade-8', memberships)).toBe(true)
+    expect(matchesClassAssignmentFilter(7, 'grade-8', 'homeroom:grade-7', memberships)).toBe(false)
+    expect(matchesClassAssignmentFilter(7, 'grade-8', 'group:math-a', memberships)).toBe(true)
+    expect(matchesClassAssignmentFilter(7, 'grade-8', 'group:reading-b', memberships)).toBe(true)
+    expect(matchesClassAssignmentFilter(8, 'grade-7', 'group:reading-b', memberships)).toBe(false)
   })
 })
 

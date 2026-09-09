@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CLASSES, DIVISIONS, CLASS_DIVISION } from './dashboardData'
+import { matchesClassAssignmentFilter } from '../utils/instructionalGroupUtils'
 
 type SchoolClass = {
   id: string
@@ -27,6 +28,8 @@ export default function SetupSchoolStructureSection({
   onBulkAddStudentsToClass = null as ((studentIds: number[], classId: string, className: string) => Promise<boolean>) | null,
   persistedClasses = [] as Array<{ id: string; name: string; grade: string; teacher: string; division_key: string }>,
   onSaveClass = null as ((cls: { id: string; name: string; grade: string; teacher: string; divisionKey: string }) => Promise<boolean>) | null,
+  instructionalGroups = [] as Array<{ id: string; name: string; period_id: string; status?: string }>,
+  instructionalGroupMemberships = [] as Array<{ group_id: string; student_id: number }>,
 }) {
   const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>(() =>
     CLASSES.map(cls => ({
@@ -121,11 +124,11 @@ export default function SetupSchoolStructureSection({
     const q = studentSearch.trim().toLowerCase()
     return (students || []).filter(s => {
       const classId = studentClassMap[s.id] || STUDENT_CLASSES_MAP[s.id] || ''
-      if (classViewFilter !== 'all' && classId !== classViewFilter) return false
+      if (!matchesClassAssignmentFilter(s.id, classId, classViewFilter, instructionalGroupMemberships)) return false
       if (q && !s.name.toLowerCase().includes(q)) return false
       return true
     })
-  }, [students, studentClassMap, STUDENT_CLASSES_MAP, studentSearch, classViewFilter])
+  }, [students, studentClassMap, STUDENT_CLASSES_MAP, studentSearch, classViewFilter, instructionalGroupMemberships])
 
   function toggleStudent(id: number) {
     setSelectedStudents(prev => {
@@ -424,7 +427,7 @@ export default function SetupSchoolStructureSection({
         <div style={S.card}>
           <div style={{ fontSize: 17, fontWeight: 900, color: '#223046', marginBottom: 6 }}>Student Class Assignments</div>
           <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
-            The dropdown on each row switches a student's primary/homeroom class. Use "Add to class" below to place students in additional classes (Gemara level, Math group, Reading group, etc.) without removing their homeroom or other classes.
+            The dropdown on each row switches a student's primary/homeroom class. Period-based Math, Reading, and other instructional groups are managed in Periods & Instructional Groups; this view filter includes those persisted memberships.
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -437,7 +440,12 @@ export default function SetupSchoolStructureSection({
             />
             <select value={classViewFilter} onChange={e => setClassViewFilter(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #dce4ed', fontSize: 12 }}>
               <option value="all">All classes</option>
-              {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <optgroup label="Homerooms">
+                {schoolClasses.map(c => <option key={c.id} value={`homeroom:${c.id}`}>{c.name}</option>)}
+              </optgroup>
+              <optgroup label="Instructional Groups">
+                {instructionalGroups.filter(group => group.status !== 'archived').map(group => <option key={group.id} value={`group:${group.id}`}>{group.name}</option>)}
+              </optgroup>
             </select>
           </div>
 

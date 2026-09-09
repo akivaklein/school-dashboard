@@ -306,6 +306,8 @@ export default function SetupCenterPage({
               onBulkAddStudentsToClass={onBulkAddStudentsToClass}
               persistedClasses={persistedClasses}
               onSaveClass={onSaveClass}
+              instructionalGroups={instructionalGroups}
+              instructionalGroupMemberships={instructionalGroupMemberships}
             />
           )}
 

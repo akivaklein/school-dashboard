@@ -47,6 +47,22 @@ export function getInstructionalGroupStudentIds(groupId: string, memberships: Me
     .filter(Number.isFinite)
 }
 
+export function matchesClassAssignmentFilter(
+  studentId: number | string,
+  homeroomClassId: string,
+  filterValue: string,
+  memberships: MembershipLike[],
+): boolean {
+  if (filterValue === 'all') return true
+  if (filterValue.startsWith('group:')) {
+    return getInstructionalGroupStudentIds(filterValue.slice('group:'.length), memberships).includes(Number(studentId))
+  }
+  const classId = filterValue.startsWith('homeroom:')
+    ? filterValue.slice('homeroom:'.length)
+    : filterValue
+  return homeroomClassId === classId
+}
+
 export function getStudentInstructionalGroup<T extends GroupLike>(
   studentId: number | string,
   periodId: string,
