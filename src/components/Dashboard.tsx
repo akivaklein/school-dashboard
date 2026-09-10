@@ -60,9 +60,7 @@ import {
 import {
   adjustStoreItemStockBy,
   createStoreItem,
-  listStoreItems,
-  listStoreRedemptions,
-  seedStoreItems,
+  loadStoreBootstrap,
   formatSupabaseError,
   normalizeStoreItemInput,
   redeemStorePurchaseTx,
@@ -180,7 +178,6 @@ import {
   statusColor,
   statusLabel,
   statusEmoji,
-  STORE_ITEMS,
 } from './dashboardData'
 
 function PageLoadingFallback() {
@@ -2425,15 +2422,11 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStoreSyncState('loading')
       setStoreLastLoadError('')
 
-      let loadedItems = await listStoreItems()
-      if (loadedItems.length === 0 && isLeadershipRole(role)) {
-        await seedStoreItems(STORE_ITEMS)
-        loadedItems = await listStoreItems()
-      }
-      const loadedRedemptions = await listStoreRedemptions(500)
+      const loadedStore = await loadStoreBootstrap()
+      const loadedItems = loadedStore.items
       setStoreItems(loadedItems)
       setPurchaseLog(
-        loadedRedemptions.map(redemption => ({
+        loadedStore.redemptions.map(redemption => ({
           id: redemption.id,
           pointsEventId: redemption.pointsEventId,
           reversedAt: redemption.reversedAt,

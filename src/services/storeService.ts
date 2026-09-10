@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient'
+import { fetchTokenStoreBootstrapFromSameOrigin } from './tokenStoreBootstrapApiClient'
 
 export type StoreItem = {
   id: number
@@ -340,6 +341,30 @@ function toStoreRedemption(row: StoreRedemptionRow): StoreRedemption {
     reversedAt: row.reversed_at || null,
     reversedBy: row.reversed_by || null,
     reversalEventId: row.reversal_event_id === null ? null : Number(row.reversal_event_id),
+  }
+}
+
+export async function loadStoreBootstrap(): Promise<{
+  items: StoreItem[]
+  redemptions: StoreRedemption[]
+}> {
+  if (import.meta.env.PROD) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+    if (sessionError || !accessToken) {
+      throw new Error(`Token Store request cannot start: ${sessionError?.message || 'authenticated session is missing'}`)
+    }
+
+    const rows = await fetchTokenStoreBootstrapFromSameOrigin(accessToken)
+    return {
+      items: (rows.items as StoreItemRow[]).map(toStoreItem),
+      redemptions: (rows.redemptions as StoreRedemptionRow[]).map(toStoreRedemption),
+    }
+  }
+
+  return {
+    items: await listStoreItems(),
+    redemptions: await listStoreRedemptions(500),
   }
 }
 
