@@ -16,9 +16,7 @@ describe('same-origin Token Store bootstrap client', () => {
       method: 'GET',
       cache: 'no-store',
       headers: {
-        'X-Store-Bootstrap-A': 'c2Vzc2',
-        'X-Store-Bootstrap-B': 'lvbi1q',
-        'X-Store-Bootstrap-C': 'd3Q=',
+        'X-Token-Store-Token': 'c2Vzc2.lvbi1q.d3Q=',
       },
     })
   })

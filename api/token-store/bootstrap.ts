@@ -29,11 +29,10 @@ export function createTokenStoreBootstrapHandler(createSupabaseClient = createCl
       return
     }
 
-    const encodedAccessToken = [
-      request.headers['x-store-bootstrap-a'],
-      request.headers['x-store-bootstrap-b'],
-      request.headers['x-store-bootstrap-c'],
-    ].map(value => Array.isArray(value) ? value[0] : value || '').join('')
+    const tokenValue = request.headers['x-token-store-token']
+    const encodedAccessToken = (Array.isArray(tokenValue) ? tokenValue[0] : tokenValue || '')
+      .split('.')
+      .join('')
     let accessToken = ''
     try {
       accessToken = Buffer.from(encodedAccessToken, 'base64').toString('utf8')

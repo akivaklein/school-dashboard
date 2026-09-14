@@ -13,9 +13,11 @@ export async function fetchTokenStoreBootstrapFromSameOrigin(
     method: 'GET',
     cache: 'no-store',
     headers: {
-      'X-Store-Bootstrap-A': encodedAccessToken.slice(0, chunkSize),
-      'X-Store-Bootstrap-B': encodedAccessToken.slice(chunkSize, chunkSize * 2),
-      'X-Store-Bootstrap-C': encodedAccessToken.slice(chunkSize * 2),
+      'X-Token-Store-Token': [
+        encodedAccessToken.slice(0, chunkSize),
+        encodedAccessToken.slice(chunkSize, chunkSize * 2),
+        encodedAccessToken.slice(chunkSize * 2),
+      ].join('.'),
     },
   })
 

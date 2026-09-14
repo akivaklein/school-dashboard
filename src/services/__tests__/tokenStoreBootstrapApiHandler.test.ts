@@ -44,9 +44,7 @@ describe('Token Store bootstrap API', () => {
     await createTokenStoreBootstrapHandler(createClient as never)({
       method: 'GET',
       headers: {
-        'x-store-bootstrap-a': 'Y2Fsb',
-        'x-store-bootstrap-b': 'GVyLW',
-        'x-store-bootstrap-c': 'p3dA==',
+        'x-token-store-token': 'Y2Fsb.GVyLW.p3dA==',
       },
     }, response)
 
@@ -80,9 +78,7 @@ describe('Token Store bootstrap API', () => {
     await createTokenStoreBootstrapHandler(createClient as never)({
       method: 'GET',
       headers: {
-        'x-store-bootstrap-a': 'Y2Fsb',
-        'x-store-bootstrap-b': 'GVyLW',
-        'x-store-bootstrap-c': 'p3dA==',
+        'x-token-store-token': 'Y2Fsb.GVyLW.p3dA==',
       },
     }, response)
 
