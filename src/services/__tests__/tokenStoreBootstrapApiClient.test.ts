@@ -13,9 +13,10 @@ describe('same-origin Token Store bootstrap client', () => {
       redemptions: [{ id: 2, item_name: 'Item' }],
     })
     expect(fetchMock).toHaveBeenCalledWith('/api/token-store/bootstrap', {
-      method: 'GET',
+      method: 'POST',
       cache: 'no-store',
-      headers: { 'X-Supabase-Access-Token': 'session-jwt' },
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken: 'session-jwt' }),
     })
   })
 

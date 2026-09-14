@@ -42,8 +42,9 @@ describe('Token Store bootstrap API', () => {
     process.env.VITE_SUPABASE_YK_ANON_KEY = 'public-anon-key'
 
     await createTokenStoreBootstrapHandler(createClient as never)({
-      method: 'GET',
-      headers: { 'x-supabase-access-token': 'caller-jwt' },
+      method: 'POST',
+      headers: {},
+      body: { accessToken: 'caller-jwt' },
     }, response)
 
     expect(createClient).toHaveBeenCalledWith(
@@ -74,8 +75,9 @@ describe('Token Store bootstrap API', () => {
     process.env.VITE_SUPABASE_YK_ANON_KEY = 'public-anon-key'
 
     await createTokenStoreBootstrapHandler(createClient as never)({
-      method: 'GET',
-      headers: { 'x-supabase-access-token': 'caller-jwt' },
+      method: 'POST',
+      headers: {},
+      body: { accessToken: 'caller-jwt' },
     }, response)
 
     expect(record).toMatchObject({
@@ -89,7 +91,7 @@ describe('Token Store bootstrap API', () => {
     const createClient = vi.fn()
     const { record, response } = responseRecorder()
 
-    await createTokenStoreBootstrapHandler(createClient as never)({ method: 'GET', headers: {} }, response)
+    await createTokenStoreBootstrapHandler(createClient as never)({ method: 'POST', headers: {} }, response)
 
     expect(createClient).not.toHaveBeenCalled()
     expect(record).toMatchObject({ statusCode: 401 })

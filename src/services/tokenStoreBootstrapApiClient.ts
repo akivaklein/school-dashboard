@@ -8,11 +8,12 @@ export async function fetchTokenStoreBootstrapFromSameOrigin(
   fetchImplementation: typeof fetch = fetch,
 ): Promise<TokenStoreBootstrapRows> {
   const response = await fetchImplementation('/api/token-store/bootstrap', {
-    method: 'GET',
+    method: 'POST',
     cache: 'no-store',
     headers: {
-      'X-Supabase-Access-Token': accessToken,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ accessToken }),
   })
 
   const payload = await response.json().catch(() => ({})) as {
