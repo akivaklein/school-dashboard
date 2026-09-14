@@ -2454,7 +2454,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       setStoreLastLoadError(
         error instanceof Error
           ? error.message
-          : 'Unable to load token store data from Supabase.',
+          : formatSupabaseError(error),
       )
     }
   }, [role])
