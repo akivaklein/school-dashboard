@@ -200,6 +200,7 @@ type Props = {
   storeSyncState: string
   storeLastLoadError: string
   refreshStoreData: () => void
+  restoreStarterStoreCatalog: () => Promise<void>
   onReverseStoreRedemption?: (purchase: StorePurchaseLog) => Promise<void>
 }
 
@@ -259,6 +260,7 @@ export default function TokenStorePage({
   storeSyncState,
   storeLastLoadError,
   refreshStoreData,
+  restoreStarterStoreCatalog,
   onReverseStoreRedemption,
 }: Props) {
   const [reportRange, setReportRange] = useState<'today' | 'week'>('today')
@@ -629,6 +631,20 @@ export default function TokenStorePage({
                     <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Update stock, token cost, VIP status, and low-stock alerts.</div>
                   </div>
                 </div>
+
+                {storePersistenceReady && storeItems.length === 0 && (
+                  <div style={{ marginBottom: 14, padding: '10px 12px', border: '1px solid #f0c36d', borderRadius: 8, background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, color: '#854d0e', fontWeight: 600 }}>The synced catalog is empty.</span>
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Restore the starter Token Store catalog?')) void restoreStarterStoreCatalog()
+                      }}
+                      style={{ ...S.btn('primary'), padding: '6px 10px', fontSize: 12 }}
+                    >
+                      Restore Starter Catalog
+                    </button>
+                  </div>
+                )}
 
                 <div style={{ borderBottom: '1px solid #e2e8f0', marginBottom: 14, paddingBottom: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Add Store Item</div>

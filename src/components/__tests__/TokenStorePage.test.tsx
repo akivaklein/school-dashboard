@@ -48,6 +48,7 @@ const baseProps = {
   storeSyncState: 'error',
   storeLastLoadError: '',
   refreshStoreData: () => {},
+  restoreStarterStoreCatalog: async () => {},
 }
 
 describe('TokenStorePage', () => {
@@ -64,6 +65,20 @@ describe('TokenStorePage', () => {
 
     expect(markup).toContain('Pending sync')
     expect(markup).toContain('Local changes pending')
+  })
+
+  it('offers catalog restoration only to inventory managers after an empty catalog sync', () => {
+    const markup = renderToStaticMarkup(
+      <TokenStorePage
+        {...baseProps}
+        userAccess={{ ...baseProps.userAccess, canManageStore: true }}
+        showStoreManager={true}
+        storePersistenceReady={true}
+        storeSyncState="ready"
+      />,
+    )
+
+    expect(markup).toContain('Restore Starter Catalog')
   })
 
   it('offers a dedicated image replacement action for each inventory row', () => {

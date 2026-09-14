@@ -61,6 +61,7 @@ import {
   adjustStoreItemStockBy,
   createStoreItem,
   loadStoreBootstrap,
+  seedStoreItems,
   formatSupabaseError,
   normalizeStoreItemInput,
   redeemStorePurchaseTx,
@@ -144,6 +145,7 @@ import { isLeadershipRole, mergePermissionsForRole, type PermissionMatrix } from
 
 import {
   STORE_CATEGORY_OPTIONS,
+  STORE_ITEMS,
   openAttendanceReportWindow,
   SKILL_RATINGS,
   RATING_SCORE,
@@ -2456,6 +2458,29 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       )
     }
   }, [role])
+
+  const restoreStarterStoreCatalog = useCallback(async () => {
+    if (!storePersistenceReady) {
+      throw new Error('Wait for the Token Store sync to finish before restoring the catalog.')
+    }
+    if (storeItems.length > 0) {
+      throw new Error('The Token Store catalog already contains items.')
+    }
+
+    try {
+      setStoreSyncState('loading')
+      setStoreLastLoadError('')
+      await seedStoreItems(STORE_ITEMS)
+      await refreshStoreData()
+    } catch (error) {
+      console.error('Unable to restore the Token Store catalog:', error)
+      setStorePersistenceReady(false)
+      setStoreSyncState('error')
+      setStoreLastLoadError(
+        error instanceof Error ? error.message : 'Unable to restore the Token Store catalog.',
+      )
+    }
+  }, [refreshStoreData, storeItems.length, storePersistenceReady])
 
   async function reverseStoreRedemptionFromStore(purchase: {
     id: number | string
@@ -5672,6 +5697,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             storeSyncState={storeSyncState}
             storeLastLoadError={storeLastLoadError}
             refreshStoreData={refreshStoreData}
+            restoreStarterStoreCatalog={restoreStarterStoreCatalog}
             onReverseStoreRedemption={reverseStoreRedemptionFromStore}
           />
           </Suspense>
