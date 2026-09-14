@@ -16,7 +16,7 @@ describe('same-origin Token Store bootstrap client', () => {
       method: 'POST',
       cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accessToken: 'session-jwt' }),
+      body: JSON.stringify({ encodedAccessToken: 'c2Vzc2lvbi1qd3Q=' }),
     })
   })
 

@@ -33,7 +33,13 @@ export function createTokenStoreBootstrapHandler(createSupabaseClient = createCl
     const requestBody = typeof request.body === 'object' && request.body !== null
       ? request.body as Record<string, unknown>
       : {}
-    const accessToken = String(requestBody.accessToken || '')
+    const encodedAccessToken = String(requestBody.encodedAccessToken || '')
+    let accessToken = ''
+    try {
+      accessToken = Buffer.from(encodedAccessToken, 'base64').toString('utf8')
+    } catch {
+      accessToken = ''
+    }
     const diagnostics: Record<string, unknown> = {
       requestId,
       jwtPresent: Boolean(accessToken),

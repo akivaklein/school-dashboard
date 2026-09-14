@@ -13,7 +13,7 @@ export async function fetchTokenStoreBootstrapFromSameOrigin(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ accessToken }),
+    body: JSON.stringify({ encodedAccessToken: btoa(accessToken) }),
   })
 
   const payload = await response.json().catch(() => ({})) as {

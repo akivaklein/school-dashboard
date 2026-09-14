@@ -44,7 +44,7 @@ describe('Token Store bootstrap API', () => {
     await createTokenStoreBootstrapHandler(createClient as never)({
       method: 'POST',
       headers: {},
-      body: { accessToken: 'caller-jwt' },
+      body: { encodedAccessToken: 'Y2FsbGVyLWp3dA==' },
     }, response)
 
     expect(createClient).toHaveBeenCalledWith(
@@ -77,7 +77,7 @@ describe('Token Store bootstrap API', () => {
     await createTokenStoreBootstrapHandler(createClient as never)({
       method: 'POST',
       headers: {},
-      body: { accessToken: 'caller-jwt' },
+      body: { encodedAccessToken: 'Y2FsbGVyLWp3dA==' },
     }, response)
 
     expect(record).toMatchObject({
