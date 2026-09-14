@@ -4,6 +4,17 @@
   "framework": "vite",
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "school-dashboard-git-yeshiva-keta-e6b2e0-akiva-klein-s-projects.vercel.app"
+        }
+      ],
+      "destination": "https://yeshiva-ketana-secure.vercel.app/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [
         {
