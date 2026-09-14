@@ -29,12 +29,16 @@ function normalizeAccessToken(value: string | null | undefined): string {
   const compactCandidate = candidate.split('.').join('')
   try {
     const decoded = Buffer.from(compactCandidate, 'base64').toString('utf8')
-    if (decoded) return decoded
+    if (decoded && /^[\x21-\x7E]+$/.test(decoded)) return decoded
   } catch {
     // fall through to the raw value below
   }
 
   return candidate
+}
+
+function isHeaderSafeToken(value: string): boolean {
+  return /^[\x21-\x7E]+$/.test(value)
 }
 
 export function createTokenStoreBootstrapHandler(createSupabaseClient = createClient, log = console.info) {
@@ -61,7 +65,7 @@ export function createTokenStoreBootstrapHandler(createSupabaseClient = createCl
       requestId,
       jwtPresent: Boolean(accessToken),
     }
-    if (!accessToken || /\s/.test(accessToken)) {
+    if (!accessToken || /\s/.test(accessToken) || !isHeaderSafeToken(accessToken)) {
       log(JSON.stringify({ ...diagnostics, stage: 'request-validation', outcome: 'rejected' }))
       response.status(401).json({ error: 'A valid Supabase access token is required.', requestId })
       return

@@ -122,4 +122,31 @@ describe('Token Store bootstrap API', () => {
     expect(createClient).not.toHaveBeenCalled()
     expect(record).toMatchObject({ statusCode: 401 })
   })
+
+  it('does not decode malformed legacy-looking tokens into unsafe header values', async () => {
+    const createClient = vi.fn().mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: { status: 401, code: 'bad_jwt', message: 'invalid JWT' },
+        }),
+      },
+    })
+    const { record, response } = responseRecorder()
+    process.env.VITE_SUPABASE_YK_URL = 'https://project.supabase.co'
+    process.env.VITE_SUPABASE_YK_ANON_KEY = 'public-anon-key'
+
+    await createTokenStoreBootstrapHandler(createClient as never)({
+      method: 'POST',
+      headers: {},
+      body: { accessToken: 'not-a-real-token' },
+    }, response)
+
+    expect(createClient).toHaveBeenCalledWith(
+      'https://project.supabase.co',
+      'public-anon-key',
+      expect.objectContaining({ global: { headers: { Authorization: 'Bearer not-a-real-token' } } }),
+    )
+    expect(record).toMatchObject({ statusCode: 401, body: { stage: 'auth', code: 'bad_jwt' } })
+  })
 })
