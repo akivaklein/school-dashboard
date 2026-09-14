@@ -29,6 +29,28 @@ function queryResult(result: Record<string, unknown>) {
 }
 
 describe('Token Store bootstrap API', () => {
+  it('allows preflight from the old branch host while canonical navigation catches up', async () => {
+    const createClient = vi.fn()
+    const { record, response } = responseRecorder()
+
+    await createTokenStoreBootstrapHandler(createClient as never)({
+      method: 'OPTIONS',
+      headers: {
+        origin: 'https://school-dashboard-git-yeshiva-keta-e6b2e0-akiva-klein-s-projects.vercel.app',
+      },
+    }, response)
+
+    expect(createClient).not.toHaveBeenCalled()
+    expect(record).toMatchObject({
+      statusCode: 204,
+      headers: {
+        'Access-Control-Allow-Origin': 'https://school-dashboard-git-yeshiva-keta-e6b2e0-akiva-klein-s-projects.vercel.app',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    })
+  })
+
   it('forwards the caller JWT and reads both tables with RLS enabled', async () => {
     const items = queryResult({ data: [{ id: 1, name: 'Item' }], error: null, status: 200 })
     const redemptions = queryResult({ data: [{ id: 2, item_name: 'Item' }], error: null, status: 200 })

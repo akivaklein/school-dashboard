@@ -13,6 +13,26 @@ type ResponseLike = {
   setHeader: (name: string, value: string) => void
 }
 
+const ALLOWED_CORS_ORIGINS = new Set([
+  'https://yeshiva-ketana-secure.vercel.app',
+  'https://school-dashboard-git-yeshiva-keta-e6b2e0-akiva-klein-s-projects.vercel.app',
+])
+
+function getHeaderValue(headers: RequestLike['headers'], name: string): string {
+  const headerValue = headers[name] || headers[name.toLowerCase()]
+  return Array.isArray(headerValue) ? headerValue[0] || '' : headerValue || ''
+}
+
+function applyCorsHeaders(request: RequestLike, response: ResponseLike) {
+  const origin = getHeaderValue(request.headers, 'origin')
+  if (!ALLOWED_CORS_ORIGINS.has(origin)) return
+
+  response.setHeader('Access-Control-Allow-Origin', origin)
+  response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  response.setHeader('Vary', 'Origin')
+}
+
 function upstreamStatus(status: number, code?: string): number {
   if (status >= 400) return status
   return code === '42501' ? 403 : 400
@@ -46,15 +66,20 @@ export function createTokenStoreBootstrapHandler(createSupabaseClient = createCl
     const requestId = randomUUID()
     response.setHeader('Cache-Control', 'no-store')
     response.setHeader('X-Token-Store-Request-Id', requestId)
+    applyCorsHeaders(request, response)
+
+    if (request.method === 'OPTIONS') {
+      response.status(204).json(null)
+      return
+    }
 
     if (request.method !== 'GET' && request.method !== 'POST') {
-      response.setHeader('Allow', 'GET, POST')
+      response.setHeader('Allow', 'GET, POST, OPTIONS')
       response.status(405).json({ error: 'Method not allowed.' })
       return
     }
 
-    const tokenValue = request.headers['x-token-store-token']
-    const headerToken = Array.isArray(tokenValue) ? tokenValue[0] : tokenValue || ''
+    const headerToken = getHeaderValue(request.headers, 'x-token-store-token')
     const bodyToken = typeof request.body === 'string'
       ? request.body
       : request.body && typeof request.body === 'object' && 'accessToken' in request.body
