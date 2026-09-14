@@ -2,6 +2,19 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "school-dashboard-git-yeshiva-keta-e6b2e0-akiva-klein-s-projects.vercel.app"
+        }
+      ],
+      "destination": "https://yeshiva-ketana-secure.vercel.app/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/|.*\\..*).*)",
