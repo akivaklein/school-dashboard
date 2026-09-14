@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yk-secure-shell-v3'
+const CACHE_NAME = 'yk-secure-shell-v4'
 const APP_SHELL_PATHS = new Set(['/', '/index.html', '/manifest.webmanifest'])
 
 self.addEventListener('install', event => {
@@ -14,6 +14,12 @@ self.addEventListener('activate', event => {
           .map(cacheName => caches.delete(cacheName))
       ))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(clients => Promise.all(
+        clients
+          .filter(client => client.url && client.url.startsWith(self.location.origin) && 'navigate' in client)
+          .map(client => client.navigate(client.url))
+      ))
   )
 })
 
@@ -22,6 +28,10 @@ function isSameOriginRequest(requestUrl) {
 }
 
 function isAppNavigationRequest(event, requestUrl) {
+  return event.request.mode === 'navigate' || APP_SHELL_PATHS.has(requestUrl.pathname)
+}
+
+function shouldCacheResponse(event, requestUrl) {
   return event.request.mode === 'navigate' || APP_SHELL_PATHS.has(requestUrl.pathname)
 }
 
@@ -39,11 +49,12 @@ function shouldBypassServiceWorker(event) {
 
 async function networkFirstWithCacheFallback(event) {
   const request = event.request
+  const requestUrl = new URL(request.url)
 
   try {
     const response = await fetch(request)
 
-    if (response && response.ok && request.method === 'GET') {
+    if (response && response.ok && shouldCacheResponse(event, requestUrl)) {
       const cache = await caches.open(CACHE_NAME)
       cache.put(request, response.clone()).catch(() => undefined)
     }
@@ -53,7 +64,6 @@ async function networkFirstWithCacheFallback(event) {
     const cachedResponse = await caches.match(request)
     if (cachedResponse) return cachedResponse
 
-    const requestUrl = new URL(request.url)
     if (isAppNavigationRequest(event, requestUrl)) {
       const cachedShell = await caches.match('/index.html') || await caches.match('/')
       if (cachedShell) return cachedShell
