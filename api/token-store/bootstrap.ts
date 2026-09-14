@@ -83,9 +83,11 @@ export function createTokenStoreBootstrapHandler(createSupabaseClient = createCl
       auth: { persistSession: false, autoRefreshToken: false },
     })
     const authResult = await client.auth.getUser(accessToken)
+    const authenticatedUserId = authResult.data.user?.id || null
     diagnostics.authStatus = authResult.error?.status || (authResult.data.user ? 200 : 401)
     diagnostics.authErrorCode = authResult.error?.code || null
     diagnostics.jwtValid = Boolean(authResult.data.user)
+    diagnostics.authenticatedUserId = authenticatedUserId
     if (authResult.error || !authResult.data.user) {
       log(JSON.stringify({ ...diagnostics, stage: 'supabase-auth', outcome: 'rejected' }))
       response.status(401).json({
@@ -157,6 +159,14 @@ export function createTokenStoreBootstrapHandler(createSupabaseClient = createCl
       items: itemsResult.data || [],
       redemptions: redemptionsResult.data || [],
       requestId,
+      diagnostics: {
+        requestId,
+        stage: 'complete',
+        authenticatedUserId,
+        resolvedRole: diagnostics.resolvedRole,
+        storeItemCount: itemsResult.data?.length || 0,
+        storeRedemptionCount: redemptionsResult.data?.length || 0,
+      },
     })
   }
 }

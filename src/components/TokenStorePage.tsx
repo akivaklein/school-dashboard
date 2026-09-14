@@ -199,6 +199,14 @@ type Props = {
   storePersistenceReady: boolean
   storeSyncState: string
   storeLastLoadError: string
+  storeSyncDiagnostics?: {
+    requestId?: string
+    stage?: string
+    authenticatedUserId?: string | null
+    resolvedRole?: string | null
+    storeItemCount?: number
+    storeRedemptionCount?: number
+  }
   refreshStoreData: () => void
   restoreStarterStoreCatalog: () => Promise<void>
   onReverseStoreRedemption?: (purchase: StorePurchaseLog) => Promise<void>
@@ -259,6 +267,7 @@ export default function TokenStorePage({
   storePersistenceReady,
   storeSyncState,
   storeLastLoadError,
+  storeSyncDiagnostics,
   refreshStoreData,
   restoreStarterStoreCatalog,
   onReverseStoreRedemption,
@@ -295,6 +304,9 @@ export default function TokenStorePage({
   })
 
   const lastErrorText = storeLastLoadError || 'none'
+  const lastSyncText = storeSyncDiagnostics?.requestId
+    ? `${storeSyncDiagnostics.requestId} (${storeSyncDiagnostics.resolvedRole || 'role unknown'}, ${storeSyncDiagnostics.storeItemCount ?? '?'} items)`
+    : 'none'
   const selectedStoreStudent = storeStudent ? students.find(student => student.id === storeStudent) : null
 
   function getStoreUnavailableReason(item: StoreItemLike) {
@@ -603,6 +615,9 @@ export default function TokenStorePage({
                 )}
                 <span style={{ fontSize: 11, color: '#475569' }}>
                   Last load error: {lastErrorText}
+                </span>
+                <span style={{ fontSize: 11, color: '#475569' }}>
+                  Last sync: {lastSyncText}
                 </span>
                 <span style={{ fontSize: 11, color: '#334155', fontWeight: 600 }}>
                   Scanner: {scannerMessage}

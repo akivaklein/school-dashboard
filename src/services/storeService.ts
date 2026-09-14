@@ -347,6 +347,14 @@ function toStoreRedemption(row: StoreRedemptionRow): StoreRedemption {
 export async function loadStoreBootstrap(): Promise<{
   items: StoreItem[]
   redemptions: StoreRedemption[]
+  diagnostics?: {
+    requestId?: string
+    stage?: string
+    authenticatedUserId?: string | null
+    resolvedRole?: string | null
+    storeItemCount?: number
+    storeRedemptionCount?: number
+  }
 }> {
   if (import.meta.env.PROD) {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
@@ -359,6 +367,7 @@ export async function loadStoreBootstrap(): Promise<{
     return {
       items: (rows.items as StoreItemRow[]).map(toStoreItem),
       redemptions: (rows.redemptions as StoreRedemptionRow[]).map(toStoreRedemption),
+      diagnostics: rows.diagnostics,
     }
   }
 

@@ -1,6 +1,14 @@
 export type TokenStoreBootstrapRows = {
   items: Array<Record<string, unknown>>
   redemptions: Array<Record<string, unknown>>
+  diagnostics?: {
+    requestId?: string
+    stage?: string
+    authenticatedUserId?: string | null
+    resolvedRole?: string | null
+    storeItemCount?: number
+    storeRedemptionCount?: number
+  }
 }
 
 export async function fetchTokenStoreBootstrapFromSameOrigin(
@@ -22,6 +30,7 @@ export async function fetchTokenStoreBootstrapFromSameOrigin(
     error?: string
     code?: string | null
     stage?: string
+    diagnostics?: TokenStoreBootstrapRows['diagnostics']
   }
   if (!response.ok) {
     const stage = payload.stage ? ` [${payload.stage}]` : ''
@@ -34,5 +43,6 @@ export async function fetchTokenStoreBootstrapFromSameOrigin(
   return {
     items: Array.isArray(payload.items) ? payload.items : [],
     redemptions: Array.isArray(payload.redemptions) ? payload.redemptions : [],
+    diagnostics: payload.diagnostics,
   }
 }

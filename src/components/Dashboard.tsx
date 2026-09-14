@@ -2191,6 +2191,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [storePersistenceReady, setStorePersistenceReady] = useState(false)
   const [storeSyncState, setStoreSyncState] = useState('loading')
   const [storeLastLoadError, setStoreLastLoadError] = useState('')
+  const [storeSyncDiagnostics, setStoreSyncDiagnostics] = useState<Awaited<ReturnType<typeof loadStoreBootstrap>>['diagnostics']>(undefined)
   const [showStoreManager, setShowStoreManager] = useState(false)
   const [newStoreItem, setNewStoreItem] = useState({ name: '', sku: '', barcode: '', cost: '', stock: '', lowStockAt: '5', emoji: '', imageUrl: '', category: 'nosh', vip: false })
   const [attFilter, setAttFilter] = useState('all')
@@ -2427,6 +2428,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       const loadedStore = await loadStoreBootstrap()
       const loadedItems = loadedStore.items
       setStoreItems(loadedItems)
+      setStoreSyncDiagnostics(loadedStore.diagnostics)
       setPurchaseLog(
         loadedStore.redemptions.map(redemption => ({
           id: redemption.id,
@@ -2451,6 +2453,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       console.error('Unable to load token store data from Supabase:', error)
       setStorePersistenceReady(false)
       setStoreSyncState('error')
+      setStoreSyncDiagnostics(undefined)
       setStoreLastLoadError(
         error instanceof Error
           ? error.message
@@ -5696,6 +5699,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             storePersistenceReady={storePersistenceReady}
             storeSyncState={storeSyncState}
             storeLastLoadError={storeLastLoadError}
+            storeSyncDiagnostics={storeSyncDiagnostics}
             refreshStoreData={refreshStoreData}
             restoreStarterStoreCatalog={restoreStarterStoreCatalog}
             onReverseStoreRedemption={reverseStoreRedemptionFromStore}
