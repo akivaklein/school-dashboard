@@ -89,6 +89,30 @@ describe('Token Store bootstrap API', () => {
     expect(from).toHaveBeenCalledTimes(1)
   })
 
+  it('accepts a JWT delivered in a POST body', async () => {
+    const items = queryResult({ data: [{ id: 1, name: 'Item' }], error: null, status: 200 })
+    const redemptions = queryResult({ data: [{ id: 2, item_name: 'Item' }], error: null, status: 200 })
+    const createClient = vi.fn().mockReturnValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }) },
+      rpc: vi.fn().mockResolvedValue({ data: 'register', error: null, status: 200 }),
+      from: vi.fn((table: string) => table === 'store_items' ? items : redemptions),
+    })
+    const { record, response } = responseRecorder()
+    process.env.VITE_SUPABASE_YK_URL = 'https://project.supabase.co'
+    process.env.VITE_SUPABASE_YK_ANON_KEY = 'public-anon-key'
+
+    await createTokenStoreBootstrapHandler(createClient as never)({
+      method: 'POST',
+      headers: {},
+      body: { accessToken: 'Y2Fsb.GVyLW.p3dA==' },
+    }, response)
+
+    expect(record).toMatchObject({
+      statusCode: 200,
+      body: { items: [{ id: 1, name: 'Item' }], redemptions: [{ id: 2, item_name: 'Item' }] },
+    })
+  })
+
   it('rejects a missing JWT before querying Supabase', async () => {
     const createClient = vi.fn()
     const { record, response } = responseRecorder()

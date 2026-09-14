@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 type RequestLike = {
   method?: string
   headers: Record<string, string | string[] | undefined>
+  body?: unknown
 }
 
 type ResponseLike = {
@@ -17,28 +18,45 @@ function upstreamStatus(status: number, code?: string): number {
   return code === '42501' ? 403 : 400
 }
 
+function normalizeAccessToken(value: string | null | undefined): string {
+  const candidate = typeof value === 'string' ? value.trim() : ''
+  if (!candidate) return ''
+
+  if (candidate.split('.').length === 3 && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(candidate)) {
+    return candidate
+  }
+
+  const compactCandidate = candidate.split('.').join('')
+  try {
+    const decoded = Buffer.from(compactCandidate, 'base64').toString('utf8')
+    if (decoded) return decoded
+  } catch {
+    // fall through to the raw value below
+  }
+
+  return candidate
+}
+
 export function createTokenStoreBootstrapHandler(createSupabaseClient = createClient, log = console.info) {
   return async function tokenStoreBootstrapHandler(request: RequestLike, response: ResponseLike) {
     const requestId = randomUUID()
     response.setHeader('Cache-Control', 'no-store')
     response.setHeader('X-Token-Store-Request-Id', requestId)
 
-    if (request.method !== 'GET') {
-      response.setHeader('Allow', 'GET')
+    if (request.method !== 'GET' && request.method !== 'POST') {
+      response.setHeader('Allow', 'GET, POST')
       response.status(405).json({ error: 'Method not allowed.' })
       return
     }
 
     const tokenValue = request.headers['x-token-store-token']
-    const encodedAccessToken = (Array.isArray(tokenValue) ? tokenValue[0] : tokenValue || '')
-      .split('.')
-      .join('')
-    let accessToken = ''
-    try {
-      accessToken = Buffer.from(encodedAccessToken, 'base64').toString('utf8')
-    } catch {
-      accessToken = ''
-    }
+    const headerToken = Array.isArray(tokenValue) ? tokenValue[0] : tokenValue || ''
+    const bodyToken = typeof request.body === 'string'
+      ? request.body
+      : request.body && typeof request.body === 'object' && 'accessToken' in request.body
+        ? String((request.body as { accessToken?: string }).accessToken || '')
+        : ''
+    const accessToken = normalizeAccessToken(bodyToken || headerToken)
     const diagnostics: Record<string, unknown> = {
       requestId,
       jwtPresent: Boolean(accessToken),

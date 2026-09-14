@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fetchTokenStoreBootstrapFromSameOrigin } from '../tokenStoreBootstrapApiClient'
 
 describe('same-origin Token Store bootstrap client', () => {
-  it('sends the session JWT and returns both initial datasets', async () => {
+  it('sends the session JWT in a POST body and returns both initial datasets', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       items: [{ id: 1, name: 'Item' }],
       redemptions: [{ id: 2, item_name: 'Item' }],
@@ -13,11 +13,12 @@ describe('same-origin Token Store bootstrap client', () => {
       redemptions: [{ id: 2, item_name: 'Item' }],
     })
     expect(fetchMock).toHaveBeenCalledWith('/api/token-store/bootstrap', {
-      method: 'GET',
+      method: 'POST',
       cache: 'no-store',
       headers: {
-        'X-Token-Store-Token': 'c2Vzc2.lvbi1q.d3Q=',
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ accessToken: 'session-jwt' }),
     })
   })
 
