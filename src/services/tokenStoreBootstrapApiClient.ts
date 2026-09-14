@@ -7,11 +7,15 @@ export async function fetchTokenStoreBootstrapFromSameOrigin(
   accessToken: string,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<TokenStoreBootstrapRows> {
+  const encodedAccessToken = btoa(accessToken)
+  const chunkSize = Math.ceil(encodedAccessToken.length / 3)
   const response = await fetchImplementation('/api/token-store/bootstrap', {
     method: 'GET',
     cache: 'no-store',
     headers: {
-      'X-Token-Store-Token': btoa(accessToken),
+      'X-Store-Bootstrap-A': encodedAccessToken.slice(0, chunkSize),
+      'X-Store-Bootstrap-B': encodedAccessToken.slice(chunkSize, chunkSize * 2),
+      'X-Store-Bootstrap-C': encodedAccessToken.slice(chunkSize * 2),
     },
   })
 

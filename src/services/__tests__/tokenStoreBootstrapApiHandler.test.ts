@@ -43,7 +43,11 @@ describe('Token Store bootstrap API', () => {
 
     await createTokenStoreBootstrapHandler(createClient as never)({
       method: 'GET',
-      headers: { 'x-token-store-token': 'Y2FsbGVyLWp3dA==' },
+      headers: {
+        'x-store-bootstrap-a': 'Y2Fsb',
+        'x-store-bootstrap-b': 'GVyLW',
+        'x-store-bootstrap-c': 'p3dA==',
+      },
     }, response)
 
     expect(createClient).toHaveBeenCalledWith(
@@ -75,7 +79,11 @@ describe('Token Store bootstrap API', () => {
 
     await createTokenStoreBootstrapHandler(createClient as never)({
       method: 'GET',
-      headers: { 'x-token-store-token': 'Y2FsbGVyLWp3dA==' },
+      headers: {
+        'x-store-bootstrap-a': 'Y2Fsb',
+        'x-store-bootstrap-b': 'GVyLW',
+        'x-store-bootstrap-c': 'p3dA==',
+      },
     }, response)
 
     expect(record).toMatchObject({

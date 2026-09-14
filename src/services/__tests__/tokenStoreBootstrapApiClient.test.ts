@@ -15,7 +15,11 @@ describe('same-origin Token Store bootstrap client', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/token-store/bootstrap', {
       method: 'GET',
       cache: 'no-store',
-      headers: { 'X-Token-Store-Token': 'c2Vzc2lvbi1qd3Q=' },
+      headers: {
+        'X-Store-Bootstrap-A': 'c2Vzc2',
+        'X-Store-Bootstrap-B': 'lvbi1q',
+        'X-Store-Bootstrap-C': 'd3Q=',
+      },
     })
   })
 
