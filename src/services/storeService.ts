@@ -344,6 +344,10 @@ function toStoreRedemption(row: StoreRedemptionRow): StoreRedemption {
   }
 }
 
+export function shouldFallBackFromTokenStoreProxy(error: unknown): boolean {
+  return error instanceof Error && error.message === 'Token Store API HTTP 403: Forbidden'
+}
+
 export async function loadStoreBootstrap(): Promise<{
   items: StoreItem[]
   redemptions: StoreRedemption[]
@@ -355,10 +359,20 @@ export async function loadStoreBootstrap(): Promise<{
       throw new Error(`Token Store request cannot start: ${sessionError?.message || 'authenticated session is missing'}`)
     }
 
-    const rows = await fetchTokenStoreBootstrapFromSameOrigin(accessToken)
-    return {
-      items: (rows.items as StoreItemRow[]).map(toStoreItem),
-      redemptions: (rows.redemptions as StoreRedemptionRow[]).map(toStoreRedemption),
+    try {
+      const rows = await fetchTokenStoreBootstrapFromSameOrigin(accessToken)
+      return {
+        items: (rows.items as StoreItemRow[]).map(toStoreItem),
+        redemptions: (rows.redemptions as StoreRedemptionRow[]).map(toStoreRedemption),
+      }
+    } catch (error) {
+      if (!shouldFallBackFromTokenStoreProxy(error)) throw error
+
+      const [items, redemptions] = await Promise.all([
+        listStoreItems(),
+        listStoreRedemptions(500),
+      ])
+      return { items, redemptions }
     }
   }
 

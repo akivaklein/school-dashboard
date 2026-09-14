@@ -6,6 +6,7 @@ import {
   normalizeStoreRedemptionInput,
   redeemStorePurchaseTx,
   reverseStorePurchaseTx,
+  shouldFallBackFromTokenStoreProxy,
   shouldUseDemoStoreActivity,
   findStoreItemByIdentifier,
 } from '../storeService'
@@ -75,6 +76,13 @@ describe('formatSupabaseError', () => {
 
   it('falls back to the generic message when no structured fields exist', () => {
     expect(formatSupabaseError({})).toBe('Unable to complete store redemption.')
+  })
+})
+
+describe('shouldFallBackFromTokenStoreProxy', () => {
+  it('only falls back for an unstructured platform 403 response', () => {
+    expect(shouldFallBackFromTokenStoreProxy(new Error('Token Store API HTTP 403: Forbidden'))).toBe(true)
+    expect(shouldFallBackFromTokenStoreProxy(new Error('Token Store API [store_items] HTTP 403 (42501): permission denied'))).toBe(false)
   })
 })
 
