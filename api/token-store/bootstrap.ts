@@ -4,7 +4,6 @@ import { randomUUID } from 'node:crypto'
 type RequestLike = {
   method?: string
   headers: Record<string, string | string[] | undefined>
-  body?: unknown
 }
 
 type ResponseLike = {
@@ -24,16 +23,14 @@ export function createTokenStoreBootstrapHandler(createSupabaseClient = createCl
     response.setHeader('Cache-Control', 'no-store')
     response.setHeader('X-Token-Store-Request-Id', requestId)
 
-    if (request.method !== 'POST') {
-      response.setHeader('Allow', 'POST')
+    if (request.method !== 'GET') {
+      response.setHeader('Allow', 'GET')
       response.status(405).json({ error: 'Method not allowed.' })
       return
     }
 
-    const requestBody = typeof request.body === 'object' && request.body !== null
-      ? request.body as Record<string, unknown>
-      : {}
-    const encodedAccessToken = String(requestBody.encodedAccessToken || '')
+    const tokenValue = request.headers['x-token-store-token']
+    const encodedAccessToken = Array.isArray(tokenValue) ? tokenValue[0] : tokenValue || ''
     let accessToken = ''
     try {
       accessToken = Buffer.from(encodedAccessToken, 'base64').toString('utf8')
