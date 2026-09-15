@@ -15,12 +15,18 @@ export function getPrintableTeacherNames(classes: PrintableClass[], setupAssignm
   ].filter(Boolean))).sort()
 }
 
+export function getPrintableTeacherClassOptions(classes: PrintableClass[], teacherName: string) {
+  const normalizedTeacherName = normalizeName(teacherName)
+  return classes.filter(entry => normalizeName(entry.teacher) === normalizedTeacherName)
+}
+
 export function getPrintableRoster({
   students,
   classes,
   scope,
   classId,
   teacherName,
+  teacherClassId,
   setupAssignments,
   additionalClassIdsByStudent,
   teacherAssignedStudentIdsByName,
@@ -30,6 +36,7 @@ export function getPrintableRoster({
   scope: 'school' | 'class' | 'teacher'
   classId: string
   teacherName: string
+  teacherClassId?: string
   setupAssignments: Record<string, unknown>
   additionalClassIdsByStudent: Record<string | number, string[]>
   teacherAssignedStudentIdsByName: Map<string, Set<number>>
@@ -39,16 +46,18 @@ export function getPrintableRoster({
   if (scope === 'class') return activeStudents.filter(student => studentBelongsToClass(student, classId, additionalClassIdsByStudent))
 
   const normalizedTeacherName = normalizeName(teacherName)
-  const classIds = new Set(classes
-    .filter(entry => normalizeName(entry.teacher) === normalizedTeacherName)
-    .map(entry => String(entry.id)))
+  const teacherClasses = getPrintableTeacherClassOptions(classes, teacherName)
+  const classIds = new Set(teacherClasses.map(entry => String(entry.id)))
   const assignedStudentIds = new Set([
     ...getTeacherAssignedStudentIds(teacherName, setupAssignments),
     ...(teacherAssignedStudentIdsByName.get(normalizedTeacherName) || new Set<number>()),
   ].map(Number))
 
-  return activeStudents.filter(student =>
+  const teacherStudents = activeStudents.filter(student =>
     assignedStudentIds.has(Number(student.id))
     || Array.from(classIds).some(assignedClassId => studentBelongsToClass(student, assignedClassId, additionalClassIdsByStudent)),
   )
+  if (!teacherClassId) return []
+  if (teacherClassId === 'all') return teacherStudents
+  return teacherStudents.filter(student => studentBelongsToClass(student, teacherClassId, additionalClassIdsByStudent))
 }

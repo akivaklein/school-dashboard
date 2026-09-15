@@ -5503,7 +5503,15 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             openStudent={openStudent}
             studentFlags={studentFlags}
             setSupportInitialSection={setSupportInitialSection}
-            CLASSES={CLASSES}
+            CLASSES={Array.from(new Map([
+              ...CLASSES.map(classEntry => [classEntry.id, classEntry]),
+              ...persistedClasses.map(classEntry => [classEntry.id, {
+                id: classEntry.id,
+                name: classEntry.name,
+                grade: classEntry.grade,
+                teacher: classEntry.teacher,
+              }]),
+            ]).values())}
             STUDENT_CLASSES={STUDENT_CLASSES}
             improved={improved}
             needsAttention={needsAttention}

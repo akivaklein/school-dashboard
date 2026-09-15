@@ -21,8 +21,24 @@ describe('getPrintableRoster', () => {
   })
 
   it('uses the existing teacher class and direct-student assignments', () => {
-    const roster = getPrintableRoster({ students, classes, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', setupAssignments: {}, additionalClassIdsByStudent: {}, teacherAssignedStudentIdsByName: teacherAssignments })
+    const roster = getPrintableRoster({ students, classes, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'all', setupAssignments: {}, additionalClassIdsByStudent: {}, teacherAssignedStudentIdsByName: teacherAssignments })
 
     expect(roster.map(student => student.id)).toEqual([1, 4])
+  })
+
+  it('keeps a teacher’s groups separate until All classes is explicitly selected', () => {
+    const groups = [
+      { id: 'mishna', name: 'Mishna', teacher: 'Rabbi Cohen' },
+      { id: 'gemara', name: 'Gemara', teacher: 'Rabbi Cohen' },
+    ]
+    const groupStudents = [
+      { id: 10, name: 'Eli', is_active: true },
+      { id: 11, name: 'Fischl', is_active: true },
+    ]
+    const memberships = { 10: ['mishna'], 11: ['gemara'] }
+
+    expect(getPrintableRoster({ students: groupStudents, classes: groups, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: '', setupAssignments: {}, additionalClassIdsByStudent: memberships, teacherAssignedStudentIdsByName: new Map() })).toEqual([])
+    expect(getPrintableRoster({ students: groupStudents, classes: groups, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'mishna', setupAssignments: {}, additionalClassIdsByStudent: memberships, teacherAssignedStudentIdsByName: new Map() }).map(student => student.id)).toEqual([10])
+    expect(getPrintableRoster({ students: groupStudents, classes: groups, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'all', setupAssignments: {}, additionalClassIdsByStudent: memberships, teacherAssignedStudentIdsByName: new Map() }).map(student => student.id)).toEqual([10, 11])
   })
 })
