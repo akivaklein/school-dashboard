@@ -20,6 +20,7 @@ export default function PrintClassList({ students, classes, onClose, S, setupAss
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [title, setTitle] = useState('Class List')
   const [columns, setColumns] = useState(['On Time', 'Leaving', 'Notes'])
+  const [showNumbering, setShowNumbering] = useState(true)
 
   const activeStudents = useMemo(
     () => students.filter(student => student.is_active !== false).sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''))),
@@ -53,7 +54,7 @@ export default function PrintClassList({ students, classes, onClose, S, setupAss
     const cleanColumns = columns.map(column => column.trim()).filter(Boolean)
     const headerCells = cleanColumns.map(column => `<th>${escapeHtml(column)}</th>`).join('')
     const rows = selectedStudents.map((student, index) => `
-      <tr><td class="number">${index + 1}</td><td class="name">${escapeHtml(student.name)}</td>${cleanColumns.map(() => '<td class="blank"></td>').join('')}</tr>
+      <tr>${showNumbering ? `<td class="number">${index + 1}</td>` : ''}<td class="name">${escapeHtml(student.name)}</td>${cleanColumns.map(() => '<td class="blank"></td>').join('')}</tr>
     `).join('')
     const win = window.open('', '_blank')
     if (!win) {
@@ -65,9 +66,9 @@ export default function PrintClassList({ students, classes, onClose, S, setupAss
       body { font-family: Arial, sans-serif; color: #111827; }
       h1 { margin: 0; font-size: 22px; } .meta { margin: 7px 0 18px; color: #475569; font-size: 13px; }
       table { width: 100%; border-collapse: collapse; table-layout: fixed; } th, td { border: 1px solid #64748b; padding: 8px; }
-      th { background: #e2e8f0; font-size: 12px; text-align: left; } .number { width: 32px; text-align: center; } .name { width: 30%; font-weight: 700; }
+      th { background: #e2e8f0; font-size: 12px; text-align: left; } .number { width: 22px; padding-left: 4px; padding-right: 4px; text-align: center; } .name { width: 30%; font-weight: 700; } .without-numbering .name { width: calc(30% + 30px); }
       .blank { height: 38px; } @media print { button { display: none; } }
-    </style></head><body><h1>${escapeHtml(title || 'Class List')}</h1><div class="meta">${escapeHtml(selectionLabel)} | ${escapeHtml(today)} | ${selectedStudents.length} students</div><table><thead><tr><th>#</th><th>Student</th>${headerCells}</tr></thead><tbody>${rows}</tbody></table></body></html>`)
+    </style></head><body><h1>${escapeHtml(title || 'Class List')}</h1><div class="meta">${escapeHtml(selectionLabel)} | ${escapeHtml(today)} | ${selectedStudents.length} students</div><table class="${showNumbering ? '' : 'without-numbering'}"><thead><tr>${showNumbering ? '<th class="number">#</th>' : ''}<th>Student</th>${headerCells}</tr></thead><tbody>${rows}</tbody></table></body></html>`)
     win.document.close()
     win.focus()
     win.print()
@@ -84,6 +85,7 @@ export default function PrintClassList({ students, classes, onClose, S, setupAss
           <label style={{ display: 'grid', gap: 6, fontSize: 12, fontWeight: 700, color: '#334155' }}>Title
             <input value={title} onChange={event => setTitle(event.target.value)} style={{ padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 14 }} />
           </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#334155', cursor: 'pointer' }}><input type="checkbox" checked={showNumbering} onChange={event => setShowNumbering(event.target.checked)} />Number students</label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
             {[['school', 'Entire School'], ['class', 'Specific Class'], ['teacher', 'Specific Teacher']].map(([value, label]) => <button key={value} onClick={() => setScope(value)} style={{ ...S.btn(scope === value ? 'primary' : 'ghost'), padding: '9px 8px', fontSize: 12 }}>{label}</button>)}
           </div>

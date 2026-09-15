@@ -20,6 +20,7 @@ export default function PrintDaveningChecklist({ students, classes, onClose, S, 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [title, setTitle] = useState('Davening Checklist')
   const [sections, setSections] = useState(['Baruch Sheamar', 'Ashrei', 'Shema', 'Shemoneh Esrei'])
+  const [showNumbering, setShowNumbering] = useState(true)
 
   const activeStudents = useMemo(() => students
     .filter(student => student.is_active !== false)
@@ -49,7 +50,7 @@ export default function PrintDaveningChecklist({ students, classes, onClose, S, 
     const cleanSections = sections.map(section => section.trim()).filter(Boolean)
     const today = new Date().toLocaleDateString()
     const headers = cleanSections.map(section => `<th>${escapeHtml(section)}</th>`).join('')
-    const rows = selectedStudents.map((student, index) => `<tr><td class="number">${index + 1}</td><td class="name">${escapeHtml(student.name)}</td>${cleanSections.map(() => '<td class="mark-space"></td>').join('')}</tr>`).join('')
+    const rows = selectedStudents.map((student, index) => `<tr>${showNumbering ? `<td class="number">${index + 1}</td>` : ''}<td class="name">${escapeHtml(student.name)}</td>${cleanSections.map(() => '<td class="mark-space"></td>').join('')}</tr>`).join('')
     const win = window.open('', '_blank')
     if (!win) {
       alert('Please allow popups to print the davening checklist.')
@@ -58,8 +59,8 @@ export default function PrintDaveningChecklist({ students, classes, onClose, S, 
     win.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>
       @page { margin: 0.4in; } body { font-family: Arial, sans-serif; color: #111827; } h1 { margin: 0; font-size: 22px; }
       .meta { margin: 7px 0 10px; color: #475569; font-size: 13px; } .legend { border: 1px solid #64748b; padding: 7px 9px; margin-bottom: 16px; font-size: 11px; }
-      table { width: 100%; border-collapse: collapse; table-layout: fixed; } th, td { border: 1px solid #475569; padding: 7px; } th { background: #e2e8f0; font-size: 11px; text-align: left; vertical-align: bottom; } .number { width: 28px; text-align: center; } .name { width: 25%; font-size: 12px; font-weight: 700; } .mark-space { height: 38px; } @media print { button { display: none; } }
-    </style></head><body><h1>${escapeHtml(title || 'Davening Checklist')}</h1><div class="meta">${escapeHtml(selectionLabel)} | ${escapeHtml(today)} | ${selectedStudents.length} students</div><div class="legend"><b>Marking key:</b> DG = Doing Great | G = Good | NI = Needs Improvement | M = Missed (student was present but did not daven this section) | A = Absent (student was not there)</div><table><thead><tr><th>#</th><th>Student</th>${headers}</tr></thead><tbody>${rows}</tbody></table></body></html>`)
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; } th, td { border: 1px solid #475569; padding: 7px; } th { background: #e2e8f0; font-size: 11px; text-align: left; vertical-align: bottom; } .number { width: 22px; padding-left: 4px; padding-right: 4px; text-align: center; } .name { width: 25%; font-size: 12px; font-weight: 700; } .without-numbering .name { width: calc(25% + 30px); } .mark-space { height: 38px; } @media print { button { display: none; } }
+    </style></head><body><h1>${escapeHtml(title || 'Davening Checklist')}</h1><div class="meta">${escapeHtml(selectionLabel)} | ${escapeHtml(today)} | ${selectedStudents.length} students</div><div class="legend"><b>Marking key:</b> DG = Doing Great | G = Good | NI = Needs Improvement | M = Missed (student was present but did not daven this section) | A = Absent (student was not there)</div><table class="${showNumbering ? '' : 'without-numbering'}"><thead><tr>${showNumbering ? '<th class="number">#</th>' : ''}<th>Student</th>${headers}</tr></thead><tbody>${rows}</tbody></table></body></html>`)
     win.document.close()
     win.focus()
     win.print()
@@ -71,6 +72,7 @@ export default function PrintDaveningChecklist({ students, classes, onClose, S, 
         <div style={{ padding: '18px 22px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div><h2 style={{ margin: 0, fontSize: 18, color: '#16243a' }}>Davening Checklist</h2><div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>A separate handwritten checklist for a class or rebbe.</div></div><button onClick={onClose} aria-label="Close davening checklist" style={S.btn('ghost')}>Close</button></div>
         <div style={{ padding: 22, display: 'grid', gap: 18 }}>
           <label style={{ display: 'grid', gap: 6, fontSize: 12, fontWeight: 700, color: '#334155' }}>Title<input value={title} onChange={event => setTitle(event.target.value)} style={{ padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 14 }} /></label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#334155', cursor: 'pointer' }}><input type="checkbox" checked={showNumbering} onChange={event => setShowNumbering(event.target.checked)} />Number students</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{[['class', 'Specific Class'], ['teacher', 'Specific Teacher']].map(([value, label]) => <button key={value} onClick={() => setScope(value)} style={{ ...S.btn(scope === value ? 'primary' : 'ghost'), padding: '9px 8px', fontSize: 12 }}>{label}</button>)}</div>
           {scope === 'class' && <label style={{ display: 'grid', gap: 6, fontSize: 12, fontWeight: 700, color: '#334155' }}>Class<select value={classId} onChange={event => setClassId(event.target.value)} style={{ padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff' }}><option value="">Choose a class</option>{classes.map(entry => <option key={entry.id} value={entry.id}>{entry.name}{entry.teacher ? ` - ${entry.teacher}` : ''}</option>)}</select></label>}
           {scope === 'teacher' && <label style={{ display: 'grid', gap: 6, fontSize: 12, fontWeight: 700, color: '#334155' }}>Teacher<select value={teacherName} onChange={event => setTeacherName(event.target.value)} style={{ padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff' }}><option value="">Choose a teacher</option>{teacherNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}
