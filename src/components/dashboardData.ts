@@ -981,13 +981,13 @@ export const SCHEDULE_PERIODS = [
 ]
 
 export const THERAPY_SCHEDULE = [
-  { student: 'Bloom Yair', staffId: 's6', day: 'Mon', time: '10:10', duration: '45 min', type: 'Speech' },
-  { student: 'Haddad Moshe Chaim', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
+  { student: 'Abramson Noach', staffId: 's6', day: 'Mon', time: '10:10', duration: '45 min', type: 'Speech' },
+  { student: 'Cohen Aryeh', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
   { student: 'Levitz Avrohom', staffId: 's7', day: 'Wed', time: '10:10', duration: '45 min', type: 'OT' },
   { student: 'Feltman Daniel', staffId: 's9', day: 'Thu', time: '10:10', duration: '45 min', type: 'Therapy' },
   { student: 'Schwartz Moishe Michael', staffId: 's8', day: 'Fri', time: '11:20', duration: '30 min', type: 'Counseling' },
-  { student: 'Goldberger Yossi', staffId: 's6', day: 'Mon', time: '10:10', duration: '45 min', type: 'Speech' },
-  { student: 'Barber Chaim', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
+  { student: 'Auerbach Shimon', staffId: 's6', day: 'Mon', time: '10:10', duration: '45 min', type: 'Speech' },
+  { student: 'Ciment Shlomo', staffId: 's8', day: 'Tue', time: '11:20', duration: '60 min', type: 'Counseling' },
 ]
 
 export const mkStudent = (
@@ -1118,34 +1118,34 @@ export const LEVITZ_CLASS_LOG = [
 ]
 
 export const initialStudents: StudentRecord[] = [
-  mkStudent(1, 'Bloom Yair', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Klein',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Klein',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
-  mkStudent(2, 'Friedlander Zev', 80, 0, ['P','P','P','P','P','P'], 'late'),
-  mkStudent(3, 'Haddad Moshe Chaim', 60, 3, ['P','L','A','P','P','P'], 'therapy', 's8', [{staffId:'s8',type:'Counseling',hrs:3}], [{date:'2025-06-01',staff:'Rabbi Klein',notes:'Left voicemail',duration:'2 min'}]),
-  mkStudent(4, 'Hayon David', 95, 0, ['P','P','P','P','P','P'], 'with-bt', 's10', [], [], [{date:'2025-06-02',author:'Rabbi Klein',text:'Excellent week.'}]),
-  mkStudent(5, 'Karman Yitzchok', 20, 5, ['A','A','A','P','P','P'], 'absent'),
-  mkStudent(6, 'Levitz Avrohom', 70, 1, ['P','P','P','L','P','P'], 'with-bt', 's10', [{staffId:'s7',type:'OT',hrs:2}], [{date:'2025-05-20',staff:'Rabbi Klein',notes:'General check-in',duration:'5 min'}], [], true, 'OT IEP - sensory processing'),
-  mkStudent(7, 'Rosenfeld Yehuda', 55, 6, ['P','P','P','P','A','P'], 'late', null, [], [], [], false, '', true),
-  mkStudent(8, 'Schwartz Moishe Michael', 40, 2, ['L','LE','L','L','P','P'], 'present', null, [{staffId:'s8',type:'Counseling',hrs:0.5}]),
-  mkStudent(9, 'Simon Eliyahu', 65, 0, ['P','P','P','P','P','P'], 'unknown'),
-  mkStudent(10, 'Berkowitz Avraham', 55, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(11, 'Dinowitz Shmuel', 70, 0, ['P','P','P','P','P','A'], 'absent'),
-  mkStudent(12, 'Ettlinger Moshe', 30, 4, ['LE','P','P','A','P','P'], 'present'),
-  mkStudent(13, 'Feldman Shraga', 85, 0, ['P','P','P','P','P','P'], 'therapy', 's6'),
-  mkStudent(14, 'Feltman Daniel', 45, 2, ['P','A','P','P','L','P'], 'therapy', 's9', [{staffId:'s9',type:'Therapy',hrs:2}]),
-  mkStudent(15, 'Gantz Tzvi', 60, 0, ['P','P','P','P','P','P'], 'unknown'),
-  mkStudent(16, 'Hickson Shlomo', 25, 5, ['A','A','P','P','P','P'], 'absent'),
-  mkStudent(17, 'Mezei Yehuda', 90, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(18, 'Reich Nathan', 50, 3, ['P','L','P','P','A','P'], 'with-bt', 's11'),
-  mkStudent(19, 'Teitelbaum Binyamin', 75, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(20, 'Yanni Shimon', 40, 2, ['P','P','A','P','P','P'], 'late'),
-  mkStudent(21, 'Moskowitz Meir Shulem', 65, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(22, 'Goldberg Chaim', 50, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(23, 'Lieberman Yehoshua', 60, 1, ['P','P','P','P','L','P'], 'present'),
-  mkStudent(24, 'Veksler Aron', 45, 2, ['P','A','P','P','P','P'], 'present'),
-  mkStudent(25, 'Shein Dovi', 70, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(26, 'Jakobi Aharon', 35, 3, ['L','P','P','A','P','P'], 'present'),
-  mkStudent(27, 'Stern Aaron', 80, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(28, 'Sigman Shmuel', 55, 1, ['P','P','L','P','P','P'], 'present')
+  mkStudent(1, 'Abramson Noach', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Klein',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Klein',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
+  mkStudent(2, 'Birnbaum Eitan', 80, 0, ['P','P','P','P','P','P'], 'late'),
+  mkStudent(3, 'Cohen Aryeh', 60, 3, ['P','L','A','P','P','P'], 'therapy', 's8', [{staffId:'s8',type:'Counseling',hrs:3}], [{date:'2025-06-01',staff:'Rabbi Klein',notes:'Left voicemail',duration:'2 min'}]),
+  mkStudent(4, 'Danziger Eliezer', 95, 0, ['P','P','P','P','P','P'], 'with-bt', 's10', [], [], [{date:'2025-06-02',author:'Rabbi Klein',text:'Excellent week.'}]),
+  mkStudent(5, 'Eisenberg Yonah', 20, 5, ['A','A','A','P','P','P'], 'absent'),
+  mkStudent(6, 'Finkelstein Shaya', 70, 1, ['P','P','P','L','P','P'], 'with-bt', 's10', [{staffId:'s7',type:'OT',hrs:2}], [{date:'2025-05-20',staff:'Rabbi Klein',notes:'General check-in',duration:'5 min'}], [], true, 'OT IEP - sensory processing'),
+  mkStudent(7, 'Greenwald Meir', 55, 6, ['P','P','P','P','A','P'], 'late', null, [], [], [], false, '', true),
+  mkStudent(8, 'Horowitz Rafael', 40, 2, ['L','LE','L','L','P','P'], 'present', null, [{staffId:'s8',type:'Counseling',hrs:0.5}]),
+  mkStudent(9, 'Isaacs Kalman', 65, 0, ['P','P','P','P','P','P'], 'unknown'),
+  mkStudent(10, 'Jaffe Tzvi', 55, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(11, 'Koppel Levi', 70, 0, ['P','P','P','P','P','A'], 'absent'),
+  mkStudent(12, 'Landa Simcha', 30, 4, ['LE','P','P','A','P','P'], 'present'),
+  mkStudent(13, 'Morgenstern Yisroel', 85, 0, ['P','P','P','P','P','P'], 'therapy', 's6'),
+  mkStudent(14, 'Neuman Chaim', 45, 2, ['P','A','P','P','L','P'], 'therapy', 's9', [{staffId:'s9',type:'Therapy',hrs:2}]),
+  mkStudent(15, 'Orenstein Zecharia', 60, 0, ['P','P','P','P','P','P'], 'unknown'),
+  mkStudent(16, 'Pearlman Yaakov', 25, 5, ['A','A','P','P','P','P'], 'absent'),
+  mkStudent(17, 'Rabinowitz Dov', 90, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(18, 'Silverman Menachem', 50, 3, ['P','L','P','P','A','P'], 'with-bt', 's11'),
+  mkStudent(19, 'Tannenbaum Shlomo', 75, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(20, 'Ungar Avrumi', 40, 2, ['P','P','A','P','P','P'], 'late'),
+  mkStudent(21, 'Vogel Daniel', 65, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(22, 'Wasserman Yitzchak', 50, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(23, 'Zilber Yosef', 60, 1, ['P','P','P','P','L','P'], 'present'),
+  mkStudent(24, 'Adler Reuven', 45, 2, ['P','A','P','P','P','P'], 'present'),
+  mkStudent(25, 'Braverman Asher', 70, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(26, 'Chazin Gedalia', 35, 3, ['L','P','P','A','P','P'], 'present'),
+  mkStudent(27, 'Deutsch Moshe', 80, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(28, 'Erlich Avraham', 55, 1, ['P','P','L','P','P','P'], 'present')
 ]
 
 const levitzStudent = initialStudents.find(s => s.id === 6)
@@ -1332,21 +1332,21 @@ if (student18) {
 }
 
 export const yeshivaKetanaStudents = [
-  mkStudent(101, 'Goldberger Yossi', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Schults',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Schults',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
-  mkStudent(102, 'Goldberger Shmuel', 80, 0, ['P','P','P','P','P','P'], 'late'),
-  mkStudent(103, 'Barber Chaim', 60, 3, ['P','L','A','P','P','P'], 'therapy', 's8', [{staffId:'s8',type:'Counseling',hrs:3}], [{date:'2025-06-01',staff:'Rabbi Schimborski',notes:'Left voicemail',duration:'2 min'}]),
-  mkStudent(104, 'Erani Meir', 95, 0, ['P','P','P','P','P','P'], 'with-bt', 's10', [], [], [{date:'2025-06-02',author:'Rabbi Schults',text:'Excellent week.'}]),
-  mkStudent(105, 'Bornstein Dovid', 20, 5, ['A','A','A','P','P','P'], 'absent'),
-  mkStudent(106, 'Weingarten Moshe', 70, 1, ['P','P','P','L','P','P'], 'with-bt', 's10', [{staffId:'s7',type:'OT',hrs:2}], [{date:'2025-05-20',staff:'Rabbi Schults',notes:'General check-in',duration:'5 min'}], [], true, 'OT IEP - sensory processing'),
-  mkStudent(107, 'Friedman Aryeh', 55, 6, ['P','P','P','P','A','P'], 'late', null, [], [], [], false, '', true),
-  mkStudent(108, 'Klein Yitzchok', 40, 2, ['L','LE','L','L','P','P'], 'left-early', null, [{staffId:'s8',type:'Counseling',hrs:0.5}]),
-  mkStudent(109, 'Rosenberg Yaakov', 65, 0, ['P','P','P','P','P','P'], 'unknown'),
-  mkStudent(110, 'Stein Avrohom', 55, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(111, 'Levy Menachem', 70, 0, ['P','P','P','P','P','A'], 'absent'),
-  mkStudent(112, 'Schwartz Eliyahu', 30, 4, ['LE','P','P','A','P','P'], 'present'),
-  mkStudent(113, 'Katz Mordechai', 85, 0, ['P','P','P','P','P','P'], 'therapy', 's6'),
-  mkStudent(114, 'Weiss Bentzion', 45, 2, ['P','A','P','P','L','P'], 'therapy', 's9', [{staffId:'s9',type:'Therapy',hrs:2}]),
-  mkStudent(115, 'Berger Shloime', 50, 2, ['A','P','P','P','P','P'], 'absent'),
+  mkStudent(101, 'Auerbach Shimon', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Schults',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Schults',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
+  mkStudent(102, 'Berman Yehuda', 80, 0, ['P','P','P','P','P','P'], 'late'),
+  mkStudent(103, 'Ciment Shlomo', 60, 3, ['P','L','A','P','P','P'], 'therapy', 's8', [{staffId:'s8',type:'Counseling',hrs:3}], [{date:'2025-06-01',staff:'Rabbi Schimborski',notes:'Left voicemail',duration:'2 min'}]),
+  mkStudent(104, 'Drucker Yoni', 95, 0, ['P','P','P','P','P','P'], 'with-bt', 's10', [], [], [{date:'2025-06-02',author:'Rabbi Schults',text:'Excellent week.'}]),
+  mkStudent(105, 'Edelman Moshe', 20, 5, ['A','A','A','P','P','P'], 'absent'),
+  mkStudent(106, 'Friedman Tzvi', 70, 1, ['P','P','P','L','P','P'], 'with-bt', 's10', [{staffId:'s7',type:'OT',hrs:2}], [{date:'2025-05-20',staff:'Rabbi Schults',notes:'General check-in',duration:'5 min'}], [], true, 'OT IEP - sensory processing'),
+  mkStudent(107, 'Goldman Eli', 55, 6, ['P','P','P','P','A','P'], 'late', null, [], [], [], false, '', true),
+  mkStudent(108, 'Heller Binyamin', 40, 2, ['L','LE','L','L','P','P'], 'left-early', null, [{staffId:'s8',type:'Counseling',hrs:0.5}]),
+  mkStudent(109, 'Izsak Dovid', 65, 0, ['P','P','P','P','P','P'], 'unknown'),
+  mkStudent(110, 'Kahan Meir', 55, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(111, 'Lipsky Ari', 70, 0, ['P','P','P','P','P','A'], 'absent'),
+  mkStudent(112, 'Miller Yitzchak', 30, 4, ['LE','P','P','A','P','P'], 'present'),
+  mkStudent(113, 'Nussbaum Reuven', 85, 0, ['P','P','P','P','P','P'], 'therapy', 's6'),
+  mkStudent(114, 'Perlstein Nachum', 45, 2, ['P','A','P','P','L','P'], 'therapy', 's9', [{staffId:'s9',type:'Therapy',hrs:2}]),
+  mkStudent(115, 'Rosen Chaim', 50, 2, ['A','P','P','P','P','P'], 'absent'),
 ]
 initialStudents.push(...yeshivaKetanaStudents)
 
