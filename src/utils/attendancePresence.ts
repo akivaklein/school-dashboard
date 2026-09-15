@@ -1,6 +1,7 @@
 type StudentAttendanceLike = {
   dailyStatus?: string | null
   status?: string | null
+  departureDetails?: { timeDeparted?: string } | null
   classLog?: Array<{ type?: unknown; recordedAt?: unknown; attendanceStatus?: unknown; note?: unknown }> | null
 }
 
@@ -70,7 +71,7 @@ export function isCurrentlyOnCampus(student: StudentAttendanceLike): boolean {
 
 export function getCurrentLocationStatus(student: StudentAttendanceLike): string {
   if (!hasConfirmedArrival(student)) return 'not-confirmed'
-  if (getDailyAttendanceStatus(student) === 'left-early') return 'left-early'
+  if (student?.departureDetails || getDailyAttendanceStatus(student) === 'left-early') return 'left-early'
   const locationStatus = normalizeStatus(student?.status)
   if (locationStatus === 'late' || locationStatus === 'not-arrived') return 'present'
   return locationStatus || 'unknown'
@@ -122,7 +123,7 @@ export function getWeeklyAttendanceCodes(
   const weekStart = new Date(date)
   weekStart.setHours(0, 0, 0, 0)
   weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-  const statusesByDate = new Map<string, { recordedAt: number; code: string }>()
+  const statusesByDate = new Map<string, { recordedAt: number; code: string; leftEarly: boolean }>()
 
   for (const entry of Array.isArray(student?.classLog) ? student.classLog : []) {
     if (String(entry?.type || '') !== 'attendance-update') continue
@@ -134,14 +135,35 @@ export function getWeeklyAttendanceCodes(
     const dateKey = getDateKey(recordedDate)
     const previous = statusesByDate.get(dateKey)
     if (!previous || recordedDate.getTime() >= previous.recordedAt) {
-      statusesByDate.set(dateKey, { recordedAt: recordedDate.getTime(), code })
+      statusesByDate.set(dateKey, { recordedAt: recordedDate.getTime(), code, leftEarly: status === 'left-early' })
     }
+  }
+
+  const departureUpdatesByDate = new Map<string, { recordedAt: number; leftEarly: boolean }>()
+  for (const entry of Array.isArray(student?.classLog) ? student.classLog : []) {
+    const type = String(entry?.type || '')
+    if (type !== 'departure-details' && type !== 'departure-cleared') continue
+    const recordedDate = new Date(String(entry?.recordedAt || ''))
+    if (Number.isNaN(recordedDate.getTime())) continue
+
+    const dateKey = getDateKey(recordedDate)
+    const previous = departureUpdatesByDate.get(dateKey)
+    if (!previous || recordedDate.getTime() >= previous.recordedAt) {
+      departureUpdatesByDate.set(dateKey, { recordedAt: recordedDate.getTime(), leftEarly: type === 'departure-details' })
+    }
+  }
+
+  for (const [dateKey, departureUpdate] of departureUpdatesByDate) {
+    const previous = statusesByDate.get(dateKey)
+    if (previous) previous.leftEarly = departureUpdate.leftEarly
   }
 
   return Array.from({ length: dayCount }, (_, offset) => {
     const day = new Date(weekStart)
     day.setDate(weekStart.getDate() + offset)
-    return statusesByDate.get(getDateKey(day))?.code || ''
+    const record = statusesByDate.get(getDateKey(day))
+    if (!record) return ''
+    return record.leftEarly && record.code !== 'LE' ? `${record.code}/LE` : record.code
   })
 }
 

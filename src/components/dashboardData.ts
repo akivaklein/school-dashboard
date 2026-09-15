@@ -209,7 +209,7 @@ export function openAttendanceReportWindow({ rows, view, selectedStudent, filter
   const present = rows.filter(s => ['present','late','left-early'].includes(s.lastStatus)).length
   const absent = rows.filter(s => s.lastStatus === 'absent').length
   const late = rows.filter(s => s.lastStatus === 'late').length
-  const leftEarly = rows.filter(s => s.lastStatus === 'left-early').length
+  const leftEarly = rows.filter(s => s.lastLeftEarly).length
 
   const studentHistoryHtml = selectedStudent ? `
     <h2>${escapeHtml(selectedStudent.name)} History</h2>
@@ -232,8 +232,8 @@ export function openAttendanceReportWindow({ rows, view, selectedStudent, filter
         ${selectedStudent.history.map(day => `
           <tr>
             <td>${escapeHtml(day.label)}</td>
-            <td><b>${escapeHtml(statusLabel(day.status))}</b></td>
-            <td>${escapeHtml(day.arrived || day.left || '—')}</td>
+            <td><b>${escapeHtml(`${statusLabel(day.status)}${day.leftEarly ? ' · Left Early' : ''}`)}</b></td>
+            <td>${escapeHtml([day.arrived && `Arrived ${day.arrived}`, day.left && `Left ${day.left}`].filter(Boolean).join(' · ') || '—')}</td>
             <td>${escapeHtml(day.note)}</td>
           </tr>
         `).join('')}
@@ -261,7 +261,7 @@ export function openAttendanceReportWindow({ rows, view, selectedStudent, filter
             <td><b>${escapeHtml(stu.name)}</b></td>
             <td>${escapeHtml(stu.division === 'yeshiva-ketana' ? 'Yeshiva Ketana' : 'Yeshiva Ketana')}</td>
             <td>${escapeHtml(stu.className)}</td>
-            <td>${escapeHtml(statusLabel(stu.lastStatus))}</td>
+            <td>${escapeHtml(`${statusLabel(stu.lastStatus)}${stu.lastLeftEarly ? ' · Left Early' : ''}`)}</td>
             <td>${escapeHtml(stu.cameToYeshivaDays)}/7</td>
             <td>${escapeHtml(stu.absentDays)}</td>
             <td>${escapeHtml(stu.lateDays)}</td>
@@ -441,21 +441,25 @@ export function buildAttendanceReportRows(students) {
       if ((index + dayIndex) % 13 === 0) status = 'late'
       if ((index + dayIndex) % 17 === 0) status = 'left-early'
       if (day.key === 'today') status = student.dailyStatus || student.status || 'present'
+      const leftEarly = day.key === 'today'
+        ? Boolean(student.departureDetails) || status === 'left-early'
+        : status === 'left-early'
 
       return {
         ...day,
         date: day.offset === 0 ? 'Today' : `${day.offset} school day${day.offset === 1 ? '' : 's'} ago`,
         status,
-        arrived: status === 'late' ? '9:42 AM' : status === 'absent' ? '' : '8:54 AM',
-        left: status === 'left-early' ? '12:35 PM' : '',
-        note: status === 'absent' ? 'Parent notified office' : status === 'late' ? 'Arrived late' : status === 'left-early' ? 'Dismissed early' : 'Present'
+        arrived: day.key === 'today' && student.lateDetails?.timeArrived ? student.lateDetails.timeArrived : status === 'late' ? '9:42 AM' : status === 'absent' ? '' : '8:54 AM',
+        left: day.key === 'today' && student.departureDetails?.timeDeparted ? student.departureDetails.timeDeparted : leftEarly ? '12:35 PM' : '',
+        leftEarly,
+        note: status === 'absent' ? 'Parent notified office' : leftEarly && status === 'late' ? 'Arrived late; dismissed early' : status === 'late' ? 'Arrived late' : leftEarly ? 'Dismissed early' : 'Present'
       }
     })
 
     const presentDays = history.filter(x => x.status === 'present' || x.status === 'late' || x.status === 'left-early').length
     const absentDays = history.filter(x => x.status === 'absent').length
     const lateDays = history.filter(x => x.status === 'late').length
-    const leftEarlyDays = history.filter(x => x.status === 'left-early').length
+    const leftEarlyDays = history.filter(x => x.leftEarly).length
 
     return {
       ...student,
@@ -465,7 +469,8 @@ export function buildAttendanceReportRows(students) {
       lateDays,
       leftEarlyDays,
       cameToYeshivaDays: presentDays,
-      lastStatus: history[0]?.status || 'present'
+      lastStatus: history[0]?.status || 'present',
+      lastLeftEarly: Boolean(history[0]?.leftEarly)
     }
   })
 }

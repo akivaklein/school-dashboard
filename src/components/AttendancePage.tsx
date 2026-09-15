@@ -96,14 +96,14 @@ export default function AttendancePage({
     if (status === 'present') {
       return {
         lateDetails: buildArrivalDetails(status, timeValue, student.lateDetails),
-        departureDetails: null,
+        departureDetails: student.departureDetails || null,
       }
     }
 
     if (status === 'late') {
       return {
         lateDetails: buildArrivalDetails(status, timeValue, student.lateDetails),
-        departureDetails: null,
+        departureDetails: student.departureDetails || null,
       }
     }
 
@@ -197,7 +197,12 @@ export default function AttendancePage({
   async function applyDailyStatusToStudents(targetStudents, status, options: { clearSelection?: boolean } = {}) {
     if (targetStudents.length === 0) return
 
-    const targetIds = new Set(targetStudents.map(student => String(student.id)))
+    const eligibleStudents = status === 'left-early'
+      ? targetStudents.filter(student => hasConfirmedArrival(student))
+      : targetStudents
+    if (eligibleStudents.length === 0) return
+
+    const targetIds = new Set(eligibleStudents.map(student => String(student.id)))
     const snapshot = students
       .filter(student => targetIds.has(String(student.id)))
       .map(student => ({
@@ -210,16 +215,21 @@ export default function AttendancePage({
 
     const updatesById = {}
     const bulkTimeValue = currentLocalTimeValue()
-    targetStudents.forEach(student => {
+    eligibleStudents.forEach(student => {
+      const nextDailyStatus = status === 'left-early'
+        ? getDailyAttendanceStatus(student)
+        : status
       const classLogEntry = buildClassLogEntry(
-        'attendance-update',
-        `Attendance marked ${status} by ${actingStaffName}`,
-        { attendanceStatus: status },
+        status === 'left-early' ? 'departure-details' : 'attendance-update',
+        status === 'left-early'
+          ? `Left early marked by ${actingStaffName}`
+          : `Attendance marked ${status} by ${actingStaffName}`,
+        { attendanceStatus: nextDailyStatus },
       )
       const dailyDetails = buildDailyDetailsForStatus(status, student, bulkTimeValue)
 
       updatesById[String(student.id)] = {
-        dailyStatus: status,
+        dailyStatus: nextDailyStatus,
         ...dailyDetails,
         classLog: [...(student.classLog || []), classLogEntry],
       }
@@ -232,7 +242,7 @@ export default function AttendancePage({
     }))
 
     const success = await persistStudentFieldsBulk(
-      targetStudents.map(student => ({
+      eligibleStudents.map(student => ({
         id: student.id,
         fields: updatesById[String(student.id)],
       }))
@@ -264,6 +274,10 @@ export default function AttendancePage({
   async function updateDailyStatus(id, status) {
     const original = students.find(s => Number(s.id) === Number(id))
     if (!original) return
+    if (status === 'left-early' && !hasConfirmedArrival(original)) {
+      alert('Mark the student Present or Late before recording an early departure.')
+      return
+    }
 
     setUndoStack(u => [
       ...u.slice(-19),
@@ -277,10 +291,15 @@ export default function AttendancePage({
       }
     ])
 
+    const nextDailyStatus = status === 'left-early'
+      ? getDailyAttendanceStatus(original)
+      : status
     const classLogEntry = buildClassLogEntry(
-      'attendance-update',
-      `Attendance marked ${status} by ${actingStaffName}`,
-      { attendanceStatus: status },
+      status === 'left-early' ? 'departure-details' : 'attendance-update',
+      status === 'left-early'
+        ? `Left early marked by ${actingStaffName}`
+        : `Attendance marked ${status} by ${actingStaffName}`,
+      { attendanceStatus: nextDailyStatus },
     )
     const updatedClassLog = [...(original.classLog || []), classLogEntry]
     const actionTimeValue = currentLocalTimeValue()
@@ -291,7 +310,7 @@ export default function AttendancePage({
         Number(s.id) === Number(id)
           ? {
               ...s,
-              dailyStatus: status,
+              dailyStatus: nextDailyStatus,
               ...dailyDetails,
               classLog: updatedClassLog
             }
@@ -312,7 +331,7 @@ export default function AttendancePage({
     }
 
     const success = await saveStudentFields(id, {
-      dailyStatus: status,
+      dailyStatus: nextDailyStatus,
       ...dailyDetails,
       classLog: updatedClassLog
     })
@@ -476,6 +495,35 @@ export default function AttendancePage({
     }
 
     setDeparturePopup(null)
+  }
+
+  async function clearDeparture(student) {
+    const original = students.find(s => s.id === student.id)
+    if (!original?.departureDetails) return
+
+    const classLogEntry = buildClassLogEntry(
+      'departure-cleared',
+      `Early departure cleared by ${actingStaffName}`,
+    )
+    const updatedClassLog = [...(original.classLog || []), classLogEntry]
+
+    setStudents(prev => prev.map(s => (
+      s.id === student.id
+        ? { ...s, departureDetails: null, classLog: updatedClassLog }
+        : s
+    )))
+
+    const success = await saveStudentFields(student.id, {
+      departureDetails: null,
+      classLog: updatedClassLog,
+    })
+    if (!success) {
+      setStudents(prev => prev.map(s => (
+        s.id === student.id
+          ? { ...s, departureDetails: original.departureDetails, classLog: original.classLog }
+          : s
+      )))
+    }
   }
 
   const filteredStaff = leaveStaffSearch.length > 0
@@ -819,10 +867,10 @@ export default function AttendancePage({
               ['Present', dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === 'present').length, '#56765f', 'present'],
               ['Absent', dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === 'absent').length, '#9f1239', 'absent'],
               ['Late', dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === 'late').length, '#9a6a2a', 'late'],
-              ['Left Early', dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === 'left-early').length, '#6d28d9', 'left-early'],
+              ['Left Early', dailyAttendanceStudents.filter(s => Boolean(s.departureDetails) || getDailyAttendanceStatus(s) === 'left-early').length, '#6d28d9', 'left-early'],
               ['Not Arrived / Unconfirmed', dailyAttendanceStudents.filter(s => ['not-arrived', 'unconfirmed'].includes(getDailyAttendanceStatus(s))).length, '#64748b', 'unconfirmed'],
             ].map(([label, val, color, status]) => (
-              <div key={label} onClick={() => { const filtered = dailyAttendanceStudents.filter(s => getDailyAttendanceStatus(s) === status || (status === 'unconfirmed' && ['not-arrived', 'unconfirmed'].includes(getDailyAttendanceStatus(s)))); if (filtered.length > 0) { } }} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px', cursor: 'pointer', border: '2px solid transparent' }}
+              <div key={label} onClick={() => { const filtered = dailyAttendanceStudents.filter(s => (status === 'left-early' && (Boolean(s.departureDetails) || getDailyAttendanceStatus(s) === 'left-early')) || getDailyAttendanceStatus(s) === status || (status === 'unconfirmed' && ['not-arrived', 'unconfirmed'].includes(getDailyAttendanceStatus(s)))); if (filtered.length > 0) { } }} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px', cursor: 'pointer', border: '2px solid transparent' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.border = `2px solid ${color}` }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.border = '2px solid transparent' }}>
                 <div style={{ fontSize: 28, fontWeight: 700, color }}>{val}</div>
@@ -873,7 +921,7 @@ export default function AttendancePage({
                       {daily === 'late' && s.lateDetails?.timeArrived && (
                         <div style={{ fontSize: 10, color: '#64748b' }}>Arrival {s.lateDetails.timeArrived}{s.lateDetails.note ? ` · ${s.lateDetails.note}` : ''}</div>
                       )}
-                      {daily === 'left-early' && s.departureDetails?.timeDeparted && (
+                      {s.departureDetails?.timeDeparted && (
                         <div style={{ fontSize: 10, color: '#64748b' }}>Departure {s.departureDetails.timeDeparted}{s.departureDetails.note ? ` · ${s.departureDetails.note}` : ''}</div>
                       )}
                     </div>
@@ -886,7 +934,7 @@ export default function AttendancePage({
                           <input type="time" value={s.lateDetails?.timeArrived || ''} onChange={event => updateDailyTime(s, 'arrival', event.target.value)} style={{ minWidth: 0, padding: '3px 5px', borderRadius: 5, border: '1px solid #e5e7eb', fontSize: 11 }} />
                         </label>
                       )}
-                      {daily === 'left-early' && (
+                      {s.departureDetails && (
                         <label style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', gap: 6, fontSize: 10, color: '#64748b', fontWeight: 700 }}>
                           <span>Departure</span>
                           <input type="time" value={s.departureDetails?.timeDeparted || ''} onChange={event => updateDailyTime(s, 'departure', event.target.value)} style={{ minWidth: 0, padding: '3px 5px', borderRadius: 5, border: '1px solid #e5e7eb', fontSize: 11 }} />
@@ -900,6 +948,9 @@ export default function AttendancePage({
                         </button>
                       ))}
                       </div>
+                      {s.departureDetails && (
+                        <button onClick={() => clearDeparture(s)} style={{ ...S.btn('ghost'), padding: '4px 6px', fontSize: 10, color: '#6d28d9' }}>Clear Left Early</button>
+                      )}
                     </div>
                   )}
                 </div>

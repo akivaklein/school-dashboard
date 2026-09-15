@@ -66,6 +66,35 @@ describe('attendancePresence shared rules', () => {
     expect(isInClassroom(student)).toBe(false)
   })
 
+  it('keeps a late arrival and early departure as separate same-day facts', () => {
+    const student = {
+      dailyStatus: 'late',
+      status: 'present',
+      departureDetails: { timeDeparted: '14:05' },
+      classLog: [
+        { type: 'attendance-update', attendanceStatus: 'late', recordedAt: '2026-09-13T09:20:00' },
+        { type: 'departure-details', recordedAt: '2026-09-13T14:05:00' },
+      ],
+    }
+
+    expect(getDailyAttendanceStatus(student)).toBe('late')
+    expect(getCurrentLocationStatus(student)).toBe('left-early')
+    expect(isInSchool(student)).toBe(false)
+    expect(getWeeklyAttendanceCodes(student, new Date('2026-09-13T15:00:00'))[0]).toBe('L/LE')
+  })
+
+  it('uses the latest departure correction when building the weekly record', () => {
+    const student = {
+      classLog: [
+        { type: 'attendance-update', attendanceStatus: 'late', recordedAt: '2026-09-13T09:20:00' },
+        { type: 'departure-details', recordedAt: '2026-09-13T14:05:00' },
+        { type: 'departure-cleared', recordedAt: '2026-09-13T14:10:00' },
+      ],
+    }
+
+    expect(getWeeklyAttendanceCodes(student, new Date('2026-09-13T15:00:00'))[0]).toBe('L')
+  })
+
   it('only counts therapy and BT statuses when the student has actually arrived', () => {
     expect(isInSchool({ dailyStatus: 'unconfirmed', status: 'therapy' })).toBe(false)
     expect(isInSchool({ dailyStatus: 'present', status: 'therapy' })).toBe(true)

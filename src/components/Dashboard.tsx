@@ -4912,7 +4912,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const inClassroomsStudents = visibleStudents.filter(s => isInClassroom(s))
   const inClassrooms = inClassroomsStudents.length
   const lateStudents = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'late')
-  const leftEarlyStudents = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'left-early')
+  const leftEarlyStudents = visibleStudents.filter(s => Boolean(s.departureDetails) || getDailyAttendanceStatus(s) === 'left-early')
   const absentTodayStudents = visibleStudents.filter(s => getDailyAttendanceStatus(s) === 'absent')
   const cameTodayRate = total ? Math.round(cameToday / total * 100) : 0
   const improved = visibleStudents.filter(s => (s.reminders ?? 0) < (s.lastWeekReminders ?? 0)).length
