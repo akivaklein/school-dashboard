@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PrintClassList from './PrintClassList'
 import { resolveActorName, resolveStudentClassId } from './dashboardData'
 import {
   getDailyAttendanceStatus,
@@ -53,6 +54,7 @@ export default function AttendancePage({
   const [departureTime, setDepartureTime] = useState('')
   const [departureReason, setDepartureReason] = useState('dismissed')
   const [departureNote, setDepartureNote] = useState('')
+  const [showPrintClassList, setShowPrintClassList] = useState(false)
   const actingStaffName = resolveActorName(userName, role)
   const dailyAttendanceStudents = students.filter(s => s?.is_active !== false)
   const [selectedDailyStudentIds, setSelectedDailyStudentIds] = useState<Set<string>>(() => new Set())
@@ -852,13 +854,16 @@ export default function AttendancePage({
           <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: '#16243a' }}>School Day</h1>
           <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Attendance, arrivals, and live class status</div>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button onClick={() => setShowPrintClassList(true)} style={{ ...S.btn('ghost'), padding: '7px 14px', fontSize: 12 }}>Print Class List</button>
           <button onClick={() => setDailyView('daily')} style={{ ...S.btn(dailyView === 'daily' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Daily Check-In</button>
           <button onClick={() => setDailyView('class')} style={{ ...S.btn(dailyView === 'class' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Class Toggle</button>
           <button onClick={() => setDailyView('status-board')} style={{ ...S.btn(dailyView === 'status-board' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Status Board</button>
           <button onClick={() => setDailyView('weekly')} style={{ ...S.btn(dailyView === 'weekly' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Weekly Record</button>
         </div>
       </div>
+
+      {showPrintClassList && <PrintClassList students={students} classes={CLASSES} onClose={() => setShowPrintClassList(false)} S={S} />}
 
       {dailyView === 'daily' && (
         <div style={S.card}>
