@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getPrintableRoster, getPrintableTeacherNames } from './printRosterUtils'
 
-type Student = { id: string | number; name?: string; is_active?: boolean; classId?: string; class_id?: string; services?: Array<{ role?: string; staffName?: string; name?: string }> }
+type Student = { id: string | number; name?: string; is_active?: boolean }
 type SchoolClass = { id: string | number; name: string; teacher?: string }
 
 function escapeHtml(value: unknown) {
@@ -12,11 +13,7 @@ function escapeHtml(value: unknown) {
     .replaceAll("'", '&#039;')
 }
 
-function studentClassId(student: Student) {
-  return String(student.classId || student.class_id || '')
-}
-
-export default function PrintDaveningChecklist({ students, classes, onClose, S }: { students: Student[]; classes: SchoolClass[]; onClose: () => void; S: any }) {
+export default function PrintDaveningChecklist({ students, classes, onClose, S, setupAssignments, additionalClassIdsByStudent, teacherAssignedStudentIdsByName }: { students: Student[]; classes: SchoolClass[]; onClose: () => void; S: any; setupAssignments: Record<string, unknown>; additionalClassIdsByStudent: Record<string | number, string[]>; teacherAssignedStudentIdsByName: Map<string, Set<number>> }) {
   const [scope, setScope] = useState('class')
   const [classId, setClassId] = useState('')
   const [teacherName, setTeacherName] = useState('')
@@ -27,17 +24,8 @@ export default function PrintDaveningChecklist({ students, classes, onClose, S }
   const activeStudents = useMemo(() => students
     .filter(student => student.is_active !== false)
     .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''))), [students])
-  const teacherNames = useMemo(() => Array.from(new Set([
-    ...classes.map(entry => String(entry.teacher || '').trim()),
-    ...activeStudents.flatMap(student => (student.services || [])
-      .filter(service => String(service.role || '').toLowerCase() === 'teacher')
-      .map(service => String(service.staffName || service.name || '').trim())),
-  ].filter(Boolean))).sort(), [activeStudents, classes])
-  const matchingStudents = useMemo(() => {
-    if (scope === 'class') return activeStudents.filter(student => studentClassId(student) === classId)
-    const teacherClassIds = new Set(classes.filter(entry => entry.teacher === teacherName).map(entry => String(entry.id)))
-    return activeStudents.filter(student => teacherClassIds.has(studentClassId(student)) || (student.services || []).some(service => String(service.role || '').toLowerCase() === 'teacher' && (service.staffName || service.name) === teacherName))
-  }, [activeStudents, classId, classes, scope, teacherName])
+  const teacherNames = useMemo(() => getPrintableTeacherNames(classes, setupAssignments, teacherAssignedStudentIdsByName), [classes, setupAssignments, teacherAssignedStudentIdsByName])
+  const matchingStudents = useMemo(() => getPrintableRoster({ students: activeStudents, classes, scope, classId, teacherName, setupAssignments, additionalClassIdsByStudent, teacherAssignedStudentIdsByName }), [activeStudents, additionalClassIdsByStudent, classId, classes, scope, setupAssignments, teacherAssignedStudentIdsByName, teacherName])
   const selectedStudents = matchingStudents.filter(student => selectedIds.has(String(student.id)))
   const selectionLabel = scope === 'class'
     ? classes.find(entry => String(entry.id) === classId)?.name || 'Selected Class'

@@ -5517,6 +5517,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             physicalRooms={physicalRooms}
             instructionalGroups={instructionalGroups}
             instructionalGroupMemberships={instructionalGroupMemberships}
+            setupAssignments={setupAssignments}
+            additionalClassIdsByStudent={additionalClassIdsByStudent}
+            teacherAssignedStudentIdsByName={activeTeacherAssignmentIdsByName}
           />
           </Suspense>
         )}

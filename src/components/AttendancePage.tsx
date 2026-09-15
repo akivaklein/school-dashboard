@@ -39,6 +39,9 @@ export default function AttendancePage({
   instructionalPeriods = [],
   instructionalGroups = [],
   instructionalGroupMemberships = [],
+  setupAssignments = {},
+  additionalClassIdsByStudent = {},
+  teacherAssignedStudentIdsByName = new Map(),
 }) {
   const [leavePopup, setLeavePopup] = useState(null)
   const [leaveReason, setLeaveReason] = useState('therapy')
@@ -866,8 +869,8 @@ export default function AttendancePage({
         </div>
       </div>
 
-      {showPrintClassList && <PrintClassList students={students} classes={CLASSES} onClose={() => setShowPrintClassList(false)} S={S} />}
-      {showDaveningChecklist && <PrintDaveningChecklist students={students} classes={CLASSES} onClose={() => setShowDaveningChecklist(false)} S={S} />}
+      {showPrintClassList && <PrintClassList students={students} classes={CLASSES} onClose={() => setShowPrintClassList(false)} S={S} setupAssignments={setupAssignments} additionalClassIdsByStudent={additionalClassIdsByStudent} teacherAssignedStudentIdsByName={teacherAssignedStudentIdsByName} />}
+      {showDaveningChecklist && <PrintDaveningChecklist students={students} classes={CLASSES} onClose={() => setShowDaveningChecklist(false)} S={S} setupAssignments={setupAssignments} additionalClassIdsByStudent={additionalClassIdsByStudent} teacherAssignedStudentIdsByName={teacherAssignedStudentIdsByName} />}
 
       {dailyView === 'daily' && (
         <div style={S.card}>
