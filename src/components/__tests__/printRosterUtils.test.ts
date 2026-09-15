@@ -26,6 +26,13 @@ describe('getPrintableRoster', () => {
     expect(roster.map(student => student.id)).toEqual([2, 4])
   })
 
+  it('uses a saved Student Class Assignment before stale legacy class or grade fields', () => {
+    const staleStudent = [{ id: 20, name: 'Ephraim', classId: 'yk-a', grade: '8', is_active: true }]
+
+    expect(getPrintableRoster({ students: staleStudent, classes, scope: 'class', classId: 'yk-b', teacherName: '', primaryClassIdsByStudent: { 20: 'yk-b' }, additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships }).map(student => student.id)).toEqual([20])
+    expect(getPrintableRoster({ students: staleStudent, classes, scope: 'class', classId: 'yk-a', teacherName: '', primaryClassIdsByStudent: { 20: 'yk-b' }, additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships })).toEqual([])
+  })
+
   it('uses student class assignments rather than teacher direct-student records', () => {
     const roster = getPrintableRoster({ students, classes, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'all', additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships })
 

@@ -39,6 +39,7 @@ export default function AttendancePage({
   instructionalPeriods = [],
   instructionalGroups = [],
   instructionalGroupMemberships = [],
+  primaryClassIdsByStudent = {},
   additionalClassIdsByStudent = {},
 }) {
   const [leavePopup, setLeavePopup] = useState(null)
@@ -867,8 +868,8 @@ export default function AttendancePage({
         </div>
       </div>
 
-      {showPrintClassList && <PrintClassList students={students} classes={CLASSES} onClose={() => setShowPrintClassList(false)} S={S} additionalClassIdsByStudent={additionalClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
-      {showDaveningChecklist && <PrintDaveningChecklist students={students} classes={CLASSES} onClose={() => setShowDaveningChecklist(false)} S={S} additionalClassIdsByStudent={additionalClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
+      {showPrintClassList && <PrintClassList students={students} classes={CLASSES} onClose={() => setShowPrintClassList(false)} S={S} primaryClassIdsByStudent={primaryClassIdsByStudent} additionalClassIdsByStudent={additionalClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
+      {showDaveningChecklist && <PrintDaveningChecklist students={students} classes={CLASSES} onClose={() => setShowDaveningChecklist(false)} S={S} primaryClassIdsByStudent={primaryClassIdsByStudent} additionalClassIdsByStudent={additionalClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
 
       {dailyView === 'daily' && (
         <div style={S.card}>

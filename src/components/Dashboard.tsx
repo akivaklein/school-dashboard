@@ -5610,6 +5610,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             instructionalPeriods={instructionalPeriods}
             instructionalGroups={instructionalGroups}
             instructionalGroupMemberships={instructionalGroupMemberships}
+            primaryClassIdsByStudent={Object.fromEntries(Object.entries(studentClassOverrides).map(([studentId, assignment]) => [studentId, assignment.classId]))}
             additionalClassIdsByStudent={additionalClassIdsByStudent}
           />
           </Suspense>

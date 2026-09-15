@@ -27,13 +27,18 @@ export function getPrintableTeacherClassOptions(classes: PrintableClass[], teach
   return classes.filter(entry => normalizeName(entry.teacher) === normalizedTeacherName)
 }
 
-function getClassOrGroupRoster(students: PrintableStudent[], classOrGroupId: string, additionalClassIdsByStudent: Record<string | number, string[]>, instructionalGroups: InstructionalGroup[], instructionalGroupMemberships: InstructionalGroupMembership[]) {
+function getClassOrGroupRoster(students: PrintableStudent[], classOrGroupId: string, primaryClassIdsByStudent: Record<string | number, string>, additionalClassIdsByStudent: Record<string | number, string[]>, instructionalGroups: InstructionalGroup[], instructionalGroupMemberships: InstructionalGroupMembership[]) {
   const instructionalGroup = instructionalGroups.some(group => group.id === classOrGroupId && group.status !== 'archived')
   if (instructionalGroup) {
     const memberIds = new Set(getInstructionalGroupStudentIds(classOrGroupId, instructionalGroupMemberships))
     return students.filter(student => memberIds.has(Number(student.id)))
   }
-  return students.filter(student => studentBelongsToClass(student, classOrGroupId, additionalClassIdsByStudent))
+  return students.filter(student => {
+    const savedPrimaryClassId = primaryClassIdsByStudent[Number(student.id)] || primaryClassIdsByStudent[student.id]
+    const hasAdditionalMembership = (additionalClassIdsByStudent[Number(student.id)] || additionalClassIdsByStudent[student.id] || []).includes(classOrGroupId)
+    if (savedPrimaryClassId) return savedPrimaryClassId === classOrGroupId || hasAdditionalMembership
+    return studentBelongsToClass(student, classOrGroupId, additionalClassIdsByStudent)
+  })
 }
 
 export function getPrintableRoster({
@@ -43,6 +48,7 @@ export function getPrintableRoster({
   classId,
   teacherName,
   teacherClassId,
+  primaryClassIdsByStudent = {},
   additionalClassIdsByStudent,
   instructionalGroups,
   instructionalGroupMemberships,
@@ -53,19 +59,20 @@ export function getPrintableRoster({
   classId: string
   teacherName: string
   teacherClassId?: string
+  primaryClassIdsByStudent?: Record<string | number, string>
   additionalClassIdsByStudent: Record<string | number, string[]>
   instructionalGroups: InstructionalGroup[]
   instructionalGroupMemberships: InstructionalGroupMembership[]
 }) {
   const activeStudents = students.filter(student => student.is_active !== false)
   if (scope === 'school') return activeStudents
-  if (scope === 'class') return getClassOrGroupRoster(activeStudents, classId, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships)
+  if (scope === 'class') return getClassOrGroupRoster(activeStudents, classId, primaryClassIdsByStudent, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships)
 
   const teacherClasses = getPrintableTeacherClassOptions(classes, teacherName)
   if (!teacherClassId) return []
   if (teacherClassId === 'all') {
-    const studentIds = new Set(teacherClasses.flatMap(classEntry => getClassOrGroupRoster(activeStudents, String(classEntry.id), additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships).map(student => String(student.id))))
+    const studentIds = new Set(teacherClasses.flatMap(classEntry => getClassOrGroupRoster(activeStudents, String(classEntry.id), primaryClassIdsByStudent, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships).map(student => String(student.id))))
     return activeStudents.filter(student => studentIds.has(String(student.id)))
   }
-  return getClassOrGroupRoster(activeStudents, teacherClassId, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships)
+  return getClassOrGroupRoster(activeStudents, teacherClassId, primaryClassIdsByStudent, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships)
 }

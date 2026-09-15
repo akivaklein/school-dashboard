@@ -13,7 +13,7 @@ function escapeHtml(value: unknown) {
     .replaceAll("'", '&#039;')
 }
 
-export default function PrintClassList({ students, classes, onClose, S, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships }: { students: Student[]; classes: SchoolClass[]; onClose: () => void; S: any; additionalClassIdsByStudent: Record<string | number, string[]>; instructionalGroups: Array<{ id: string; status?: string }>; instructionalGroupMemberships: Array<{ group_id: string; student_id: number }> }) {
+export default function PrintClassList({ students, classes, onClose, S, primaryClassIdsByStudent, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships }: { students: Student[]; classes: SchoolClass[]; onClose: () => void; S: any; primaryClassIdsByStudent: Record<string | number, string>; additionalClassIdsByStudent: Record<string | number, string[]>; instructionalGroups: Array<{ id: string; status?: string }>; instructionalGroupMemberships: Array<{ group_id: string; student_id: number }> }) {
   const [scope, setScope] = useState('school')
   const [classId, setClassId] = useState('')
   const [teacherName, setTeacherName] = useState('')
@@ -29,7 +29,7 @@ export default function PrintClassList({ students, classes, onClose, S, addition
   )
   const teacherNames = useMemo(() => getPrintableTeacherNames(classes), [classes])
   const teacherClassOptions = useMemo(() => getPrintableTeacherClassOptions(classes, teacherName), [classes, teacherName])
-  const matchingStudents = useMemo(() => getPrintableRoster({ students: activeStudents, classes, scope, classId, teacherName, teacherClassId, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships }), [activeStudents, additionalClassIdsByStudent, classId, classes, instructionalGroupMemberships, instructionalGroups, scope, teacherClassId, teacherName])
+  const matchingStudents = useMemo(() => getPrintableRoster({ students: activeStudents, classes, scope, classId, teacherName, teacherClassId, primaryClassIdsByStudent, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships }), [activeStudents, additionalClassIdsByStudent, classId, classes, instructionalGroupMemberships, instructionalGroups, primaryClassIdsByStudent, scope, teacherClassId, teacherName])
   const selectedStudents = matchingStudents.filter(student => selectedIds.has(String(student.id)))
   const selectionLabel = scope === 'class'
     ? classes.find(entry => String(entry.id) === classId)?.name || 'Selected Class'
