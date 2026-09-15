@@ -1,23 +1,31 @@
-import { getTeacherAssignedStudentIds, studentBelongsToClass } from './dashboardData'
+import { studentBelongsToClass } from './dashboardData'
+import { getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
 
 type PrintableStudent = { id: string | number; name?: string; is_active?: boolean }
 type PrintableClass = { id: string | number; name: string; teacher?: string }
+type InstructionalGroup = { id: string; status?: string }
+type InstructionalGroupMembership = { group_id: string; student_id: number }
 
 function normalizeName(value: unknown) {
   return String(value || '').trim().toLowerCase()
 }
 
-export function getPrintableTeacherNames(classes: PrintableClass[], setupAssignments: Record<string, unknown>, teacherAssignedStudentIdsByName: Map<string, Set<number>>) {
-  return Array.from(new Set([
-    ...classes.map(entry => String(entry.teacher || '').trim()),
-    ...Object.keys(setupAssignments || {}),
-    ...Array.from(teacherAssignedStudentIdsByName.keys()),
-  ].filter(Boolean))).sort()
+export function getPrintableTeacherNames(classes: PrintableClass[]) {
+  return Array.from(new Set(classes.map(entry => String(entry.teacher || '').trim()).filter(Boolean))).sort()
 }
 
 export function getPrintableTeacherClassOptions(classes: PrintableClass[], teacherName: string) {
   const normalizedTeacherName = normalizeName(teacherName)
   return classes.filter(entry => normalizeName(entry.teacher) === normalizedTeacherName)
+}
+
+function getClassOrGroupRoster(students: PrintableStudent[], classOrGroupId: string, additionalClassIdsByStudent: Record<string | number, string[]>, instructionalGroups: InstructionalGroup[], instructionalGroupMemberships: InstructionalGroupMembership[]) {
+  const instructionalGroup = instructionalGroups.some(group => group.id === classOrGroupId && group.status !== 'archived')
+  if (instructionalGroup) {
+    const memberIds = new Set(getInstructionalGroupStudentIds(classOrGroupId, instructionalGroupMemberships))
+    return students.filter(student => memberIds.has(Number(student.id)))
+  }
+  return students.filter(student => studentBelongsToClass(student, classOrGroupId, additionalClassIdsByStudent))
 }
 
 export function getPrintableRoster({
@@ -27,9 +35,9 @@ export function getPrintableRoster({
   classId,
   teacherName,
   teacherClassId,
-  setupAssignments,
   additionalClassIdsByStudent,
-  teacherAssignedStudentIdsByName,
+  instructionalGroups,
+  instructionalGroupMemberships,
 }: {
   students: PrintableStudent[]
   classes: PrintableClass[]
@@ -37,27 +45,19 @@ export function getPrintableRoster({
   classId: string
   teacherName: string
   teacherClassId?: string
-  setupAssignments: Record<string, unknown>
   additionalClassIdsByStudent: Record<string | number, string[]>
-  teacherAssignedStudentIdsByName: Map<string, Set<number>>
+  instructionalGroups: InstructionalGroup[]
+  instructionalGroupMemberships: InstructionalGroupMembership[]
 }) {
   const activeStudents = students.filter(student => student.is_active !== false)
   if (scope === 'school') return activeStudents
-  if (scope === 'class') return activeStudents.filter(student => studentBelongsToClass(student, classId, additionalClassIdsByStudent))
+  if (scope === 'class') return getClassOrGroupRoster(activeStudents, classId, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships)
 
-  const normalizedTeacherName = normalizeName(teacherName)
   const teacherClasses = getPrintableTeacherClassOptions(classes, teacherName)
-  const classIds = new Set(teacherClasses.map(entry => String(entry.id)))
-  const assignedStudentIds = new Set([
-    ...getTeacherAssignedStudentIds(teacherName, setupAssignments),
-    ...(teacherAssignedStudentIdsByName.get(normalizedTeacherName) || new Set<number>()),
-  ].map(Number))
-
-  const teacherStudents = activeStudents.filter(student =>
-    assignedStudentIds.has(Number(student.id))
-    || Array.from(classIds).some(assignedClassId => studentBelongsToClass(student, assignedClassId, additionalClassIdsByStudent)),
-  )
   if (!teacherClassId) return []
-  if (teacherClassId === 'all') return teacherStudents
-  return teacherStudents.filter(student => studentBelongsToClass(student, teacherClassId, additionalClassIdsByStudent))
+  if (teacherClassId === 'all') {
+    const studentIds = new Set(teacherClasses.flatMap(classEntry => getClassOrGroupRoster(activeStudents, String(classEntry.id), additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships).map(student => String(student.id))))
+    return activeStudents.filter(student => studentIds.has(String(student.id)))
+  }
+  return getClassOrGroupRoster(activeStudents, teacherClassId, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships)
 }

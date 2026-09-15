@@ -13,7 +13,7 @@ function escapeHtml(value: unknown) {
     .replaceAll("'", '&#039;')
 }
 
-export default function PrintClassList({ students, classes, onClose, S, setupAssignments, additionalClassIdsByStudent, teacherAssignedStudentIdsByName }: { students: Student[]; classes: SchoolClass[]; onClose: () => void; S: any; setupAssignments: Record<string, unknown>; additionalClassIdsByStudent: Record<string | number, string[]>; teacherAssignedStudentIdsByName: Map<string, Set<number>> }) {
+export default function PrintClassList({ students, classes, onClose, S, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships }: { students: Student[]; classes: SchoolClass[]; onClose: () => void; S: any; additionalClassIdsByStudent: Record<string | number, string[]>; instructionalGroups: Array<{ id: string; status?: string }>; instructionalGroupMemberships: Array<{ group_id: string; student_id: number }> }) {
   const [scope, setScope] = useState('school')
   const [classId, setClassId] = useState('')
   const [teacherName, setTeacherName] = useState('')
@@ -27,9 +27,9 @@ export default function PrintClassList({ students, classes, onClose, S, setupAss
     () => students.filter(student => student.is_active !== false).sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''))),
     [students],
   )
-  const teacherNames = useMemo(() => getPrintableTeacherNames(classes, setupAssignments, teacherAssignedStudentIdsByName), [classes, setupAssignments, teacherAssignedStudentIdsByName])
+  const teacherNames = useMemo(() => getPrintableTeacherNames(classes), [classes])
   const teacherClassOptions = useMemo(() => getPrintableTeacherClassOptions(classes, teacherName), [classes, teacherName])
-  const matchingStudents = useMemo(() => getPrintableRoster({ students: activeStudents, classes, scope, classId, teacherName, teacherClassId, setupAssignments, additionalClassIdsByStudent, teacherAssignedStudentIdsByName }), [activeStudents, additionalClassIdsByStudent, classId, classes, scope, setupAssignments, teacherAssignedStudentIdsByName, teacherClassId, teacherName])
+  const matchingStudents = useMemo(() => getPrintableRoster({ students: activeStudents, classes, scope, classId, teacherName, teacherClassId, additionalClassIdsByStudent, instructionalGroups, instructionalGroupMemberships }), [activeStudents, additionalClassIdsByStudent, classId, classes, instructionalGroupMemberships, instructionalGroups, scope, teacherClassId, teacherName])
   const selectedStudents = matchingStudents.filter(student => selectedIds.has(String(student.id)))
   const selectionLabel = scope === 'class'
     ? classes.find(entry => String(entry.id) === classId)?.name || 'Selected Class'

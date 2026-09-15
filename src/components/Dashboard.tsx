@@ -5589,7 +5589,20 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             initials={initials}
             isVIP={checkIsVIP}
             DAYS={DAYS}
-            CLASSES={CLASSES}
+            CLASSES={Array.from(new Map([
+              ...CLASSES.map(classEntry => [classEntry.id, classEntry]),
+              ...persistedClasses.map(classEntry => [classEntry.id, {
+                id: classEntry.id,
+                name: classEntry.name,
+                grade: classEntry.grade,
+                teacher: classEntry.teacher,
+              }]),
+              ...instructionalGroups.filter(group => group.status !== 'archived').map(group => [group.id, {
+                id: group.id,
+                name: group.name,
+                teacher: group.teacher_name,
+              }]),
+            ]).values())}
             statusColor={statusColor}
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
@@ -5597,6 +5610,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             instructionalPeriods={instructionalPeriods}
             instructionalGroups={instructionalGroups}
             instructionalGroupMemberships={instructionalGroupMemberships}
+            additionalClassIdsByStudent={additionalClassIdsByStudent}
           />
           </Suspense>
         )}

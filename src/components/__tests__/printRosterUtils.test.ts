@@ -11,19 +11,20 @@ const students = [
   { id: 3, name: 'Chaim', grade: '7', is_active: false },
   { id: 4, name: 'Dovid', grade: '7', is_active: true },
 ]
-const teacherAssignments = new Map([['rabbi cohen', new Set([4])]])
+const instructionalGroups = []
+const instructionalGroupMemberships = []
 
 describe('getPrintableRoster', () => {
   it('uses the existing class resolver and excludes archived students', () => {
-    const roster = getPrintableRoster({ students, classes, scope: 'class', classId: 'yk-b', teacherName: '', setupAssignments: {}, additionalClassIdsByStudent: {}, teacherAssignedStudentIdsByName: teacherAssignments })
+    const roster = getPrintableRoster({ students, classes, scope: 'class', classId: 'yk-b', teacherName: '', additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships })
 
     expect(roster.map(student => student.id)).toEqual([2, 4])
   })
 
-  it('uses the existing teacher class and direct-student assignments', () => {
-    const roster = getPrintableRoster({ students, classes, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'all', setupAssignments: {}, additionalClassIdsByStudent: {}, teacherAssignedStudentIdsByName: teacherAssignments })
+  it('uses student class assignments rather than teacher direct-student records', () => {
+    const roster = getPrintableRoster({ students, classes, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'all', additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships })
 
-    expect(roster.map(student => student.id)).toEqual([1, 4])
+    expect(roster.map(student => student.id)).toEqual([1])
   })
 
   it('keeps a teacher’s groups separate until All classes is explicitly selected', () => {
@@ -35,10 +36,10 @@ describe('getPrintableRoster', () => {
       { id: 10, name: 'Eli', is_active: true },
       { id: 11, name: 'Fischl', is_active: true },
     ]
-    const memberships = { 10: ['mishna'], 11: ['gemara'] }
+    const memberships = [{ group_id: 'mishna', student_id: 10 }, { group_id: 'gemara', student_id: 11 }]
 
-    expect(getPrintableRoster({ students: groupStudents, classes: groups, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: '', setupAssignments: {}, additionalClassIdsByStudent: memberships, teacherAssignedStudentIdsByName: new Map() })).toEqual([])
-    expect(getPrintableRoster({ students: groupStudents, classes: groups, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'mishna', setupAssignments: {}, additionalClassIdsByStudent: memberships, teacherAssignedStudentIdsByName: new Map() }).map(student => student.id)).toEqual([10])
-    expect(getPrintableRoster({ students: groupStudents, classes: groups, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'all', setupAssignments: {}, additionalClassIdsByStudent: memberships, teacherAssignedStudentIdsByName: new Map() }).map(student => student.id)).toEqual([10, 11])
+    expect(getPrintableRoster({ students: groupStudents, classes: groups, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: '', additionalClassIdsByStudent: {}, instructionalGroups: groups, instructionalGroupMemberships: memberships })).toEqual([])
+    expect(getPrintableRoster({ students: groupStudents, classes: groups, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'mishna', additionalClassIdsByStudent: {}, instructionalGroups: groups, instructionalGroupMemberships: memberships }).map(student => student.id)).toEqual([10])
+    expect(getPrintableRoster({ students: groupStudents, classes: groups, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'all', additionalClassIdsByStudent: {}, instructionalGroups: groups, instructionalGroupMemberships: memberships }).map(student => student.id)).toEqual([10, 11])
   })
 })
