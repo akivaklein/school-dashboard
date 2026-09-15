@@ -1,11 +1,13 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "school-dashboard-public-demo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "audit:public": "node scripts/audit-public-demo.mjs",
+    "audit:dist": "node scripts/audit-public-demo.mjs --dist",
+    "build": "npm run audit:public && vite build && npm run audit:dist",
     "lint": "eslint .",
     "preview": "vite preview"
   },

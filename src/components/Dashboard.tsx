@@ -485,82 +485,6 @@ function DrillDown({ title, students, onClose, onSelectStudent }) {
   )
 }
 
-function LoginPage({ onLogin }) {
-  const [role, setRole] = useState('admin')
-  const [emailInput, setEmailInput] = useState('')
-  const [showSuggestion, setShowSuggestion] = useState(false)
-  const accounts = [
-    { role: 'admin', name: 'Rabbi Baum', email: 'rbaum@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Ehrnreich', email: 'rehrnreich@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Weiss', email: 'rweiss@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Fried', email: 'rfried@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Blau', email: 'rblau@hadranacademy.org' },
-    { role: 'admin', name: 'Rabbi Abramowitz', email: 'rabramowitz@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Klein', email: 'rklein@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Goldstein', email: 'rgoldstein@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Lefkowitz', email: 'rlefkowitz@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Ambush', email: 'rambush@hadranacademy.org' },
-    { role: 'teacher', name: 'Rabbi Abowitz', email: 'rabowitz@hadranacademy.org' },
-    { role: 'therapist', name: 'Yitzi Liebowitz', email: 'yliebowitz@hadranacademy.org' },
-    { role: 'therapist', name: 'Mrs. Goldberg', email: 'mgoldberg@hadranacademy.org' },
-  ]
-  const filtered = emailInput.length > 1 ? accounts.filter(a => a.email.toLowerCase().includes(emailInput.toLowerCase()) || a.name.toLowerCase().includes(emailInput.toLowerCase())) : []
-  function selectAccount(acc) { setEmailInput(acc.email); setRole(acc.role); setShowSuggestion(false) }
-  function handleLogin() {
-    const acc = accounts.find(a => a.email === emailInput) || accounts.find(a => a.role === role)
-    if (acc) onLogin(acc.role, acc.name)
-  }
-  return (
-    <div style={{ minHeight: '100vh', background: '#1a1f36', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif" }}>
-      <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', width: 820, display: 'flex', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
-        <div style={{ flex: 1, padding: '52px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#1a1f36' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🎓</div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: '#fff', textAlign: 'center', lineHeight: 1.2 }}>Hadran<br/>Academy</div>
-          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 10, textAlign: 'center' }}>Student Management System</div>
-          <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
-            {[['🎓','Menahel Dashboard'],['👨‍🏫','Teacher Portal'],['🧠','Therapist Access'],['🛒','Canteen Store']].map(([icon, label]) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'rgba(255,255,255,0.5)', fontSize: 13 }}><span>{icon}</span><span>{label}</span></div>
-            ))}
-          </div>
-        </div>
-        <div style={{ flex: 1, padding: '52px 44px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1f36', marginBottom: 4 }}>Welcome Back</div>
-          <div style={{ color: '#6b7280', fontSize: 13, marginBottom: 28 }}>Sign in to your account</div>
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sign in as</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[['admin','Menahel/Admin'],['teacher','Teacher'],['therapist','Therapist']].map(([r, label]) => (
-                <button key={r} onClick={() => setRole(r)} style={{ flex: 1, padding: '9px 6px', borderRadius: 6, border: `2px solid ${role === r ? '#1a1f36' : '#e5e7eb'}`, background: role === r ? '#1a1f36' : '#fff', color: role === r ? '#fff' : '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{label}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ marginBottom: 14, position: 'relative' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Email</div>
-            <input value={emailInput} onChange={e => { setEmailInput(e.target.value); setShowSuggestion(true) }} onFocus={() => setShowSuggestion(true)} placeholder="Start typing your name or email..." style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }} />
-            {showSuggestion && filtered.length > 0 && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 10, overflow: 'hidden' }}>
-                {filtered.map((acc, i) => (
-                  <div key={i} onClick={() => selectAccount(acc)} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f4f5f7', fontSize: 13 }} onMouseEnter={e => e.currentTarget.style.background = '#f4f5f7'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                    <div style={{ fontWeight: 600 }}>{acc.name}</div>
-                    <div style={{ fontSize: 11, color: '#6b7280' }}>{acc.email}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Password</div>
-            <input type="password" defaultValue="••••••••••" style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }} />
-          </div>
-          <button onClick={handleLogin} style={{ width: '100%', padding: '12px', borderRadius: 8, border: 'none', background: '#1a1f36', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>Sign In →</button>
-          <div style={{ color: '#9ca3af', fontSize: 12, textAlign: 'center', marginTop: 20 }}>Need help? Contact admin@hadranacademy.org</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── TRACKING TAB COMPONENT ────────────────────────────────────────────────────
 function TrackingTab({ s, students }) {
   const [period, setPeriod] = useState('today')
   const [drillType, setDrillType] = useState(null) // 'in', 'out', or a date string
@@ -2314,9 +2238,8 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
 }
 
 export default function Dashboard() {
-  const [loggedIn, setLoggedIn] = useState(false)
   const [role, setRole] = useState('admin')
-  const [userName, setUserName] = useState('')
+  const [userName, setUserName] = useState('Demo Administrator')
   const [page, setPage] = useState('dashboard')
   const [students, setStudents] = useState(initialStudents)
   const [selectedStudent, setSelectedStudent] = useState(null)
@@ -2366,16 +2289,6 @@ export default function Dashboard() {
   const [newTodoCategory, setNewTodoCategory] = useState('general')
   const [newTodoTime, setNewTodoTime] = useState('')
 
-  function handleLogin(r, name) { 
-    setRole(r)
-    setUserName(name)
-    setLoggedIn(true)
-    setPage('dashboard')
-    if (r === 'teacher') {
-      const cls = TEACHER_CLASS_MAP[name] || null
-      setTeacherClass(cls)
-    }
-  }
   function openStudent(s, tab = 'overview') { setSelectedStudent(s); setSelectedStudentTab(tab) }
   function updateStatus(id, status) { setStudents(prev => prev.map(s => s.id === id ? { ...s, status } : s)) }
   function addPoints(id, amount) { playSound(amount > 0 ? 'positive' : 'negative'); setStudents(prev => prev.map(s => s.id === id ? { ...s, points: Math.max(0, s.points + amount) } : s)) }
@@ -2407,7 +2320,6 @@ export default function Dashboard() {
     if (students.filter(s => s.status === 'unknown' && s.id !== studentId).length === 0) setShowUnknownPopup(false)
   }
 
-  if (!loggedIn) return <LoginPage onLogin={handleLogin} />
   if (teachingMode) return <TeachingMode students={students} setStudents={setStudents} onExit={() => setTeachingMode(false)} isAdmin={role === 'admin'} />
 
   const present = students.filter(s => s.status === 'present').length
