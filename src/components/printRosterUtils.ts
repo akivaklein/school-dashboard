@@ -10,6 +10,14 @@ function normalizeName(value: unknown) {
   return String(value || '').trim().toLowerCase()
 }
 
+export function movePrintColumn<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) return items
+  const nextItems = [...items]
+  const [item] = nextItems.splice(fromIndex, 1)
+  nextItems.splice(toIndex, 0, item)
+  return nextItems
+}
+
 export function getPrintableTeacherNames(classes: PrintableClass[]) {
   return Array.from(new Set(classes.map(entry => String(entry.teacher || '').trim()).filter(Boolean))).sort()
 }

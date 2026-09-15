@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getPrintableRoster } from '../printRosterUtils'
+import { getPrintableRoster, movePrintColumn } from '../printRosterUtils'
 
 const classes = [
   { id: 'yk-a', name: '8th Grade', teacher: 'Rabbi Cohen' },
@@ -15,6 +15,11 @@ const instructionalGroups = []
 const instructionalGroupMemberships = []
 
 describe('getPrintableRoster', () => {
+  it('moves printable columns in the requested direction without changing other entries', () => {
+    expect(movePrintColumn(['On Time', 'Leaving', 'Notes'], 2, 0)).toEqual(['Notes', 'On Time', 'Leaving'])
+    expect(movePrintColumn(['On Time', 'Leaving', 'Notes'], 0, -1)).toEqual(['On Time', 'Leaving', 'Notes'])
+  })
+
   it('uses the existing class resolver and excludes archived students', () => {
     const roster = getPrintableRoster({ students, classes, scope: 'class', classId: 'yk-b', teacherName: '', additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships })
 
