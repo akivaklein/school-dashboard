@@ -2237,7 +2237,59 @@ function AttendancePage({ students, setStudents, role, attFilter, setAttFilter, 
   )
 }
 
+function DemoAccessPage({ onEnter }) {
+  const [role, setRole] = useState('admin')
+  const availableStaff = STAFF.filter(staff =>
+    role === 'admin'
+      ? ['Menahel', 'Sgan Menahel', 'Mashgiach'].includes(staff.role)
+      : role === 'teacher'
+        ? staff.role === 'Teacher'
+        : ['Speech Therapist', 'OT', 'Counselor', 'Therapist', 'BT'].includes(staff.role)
+  )
+  const [staffId, setStaffId] = useState(availableStaff[0].id)
+
+  function chooseRole(nextRole) {
+    const nextStaff = STAFF.find(staff =>
+      nextRole === 'admin'
+        ? ['Menahel', 'Sgan Menahel', 'Mashgiach'].includes(staff.role)
+        : nextRole === 'teacher'
+          ? staff.role === 'Teacher'
+          : ['Speech Therapist', 'OT', 'Counselor', 'Therapist', 'BT'].includes(staff.role)
+    )
+    setRole(nextRole)
+    setStaffId(nextStaff.id)
+  }
+
+  return (
+    <main style={{ minHeight: '100vh', background: '#1a1f36', display: 'grid', placeItems: 'center', padding: 24, fontFamily: "'DM Sans', sans-serif" }}>
+      <section style={{ width: 'min(100%, 760px)', display: 'grid', gridTemplateColumns: 'minmax(0, 0.9fr) minmax(0, 1.1fr)', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
+        <div style={{ padding: '48px 36px', background: '#1a1f36', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontSize: 42, marginBottom: 16 }}>🎓</div>
+          <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.2 }}>Hadran<br />Academy</div>
+          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.5 }}>Student Management System</p>
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.5, marginTop: 20 }}>Public demo with sample data only.</p>
+        </div>
+        <div style={{ padding: '48px 40px' }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1f36' }}>Choose a demo view</div>
+          <p style={{ color: '#6b7280', fontSize: 14, margin: '6px 0 28px' }}>Select a role and staff member to explore the sample dashboard.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 22 }}>
+            {[['admin', 'Menahel'], ['teacher', 'Rebbe'], ['therapist', 'Therapy']].map(([value, label]) => (
+              <button key={value} onClick={() => chooseRole(value)} style={{ padding: '10px 6px', borderRadius: 6, border: `2px solid ${role === value ? '#1a1f36' : '#e5e7eb'}`, background: role === value ? '#1a1f36' : '#fff', color: role === value ? '#fff' : '#4b5563', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+            ))}
+          </div>
+          <label style={{ display: 'block', color: '#374151', fontSize: 12, fontWeight: 700, marginBottom: 7 }}>Staff member</label>
+          <select value={staffId} onChange={event => setStaffId(event.target.value)} style={{ width: '100%', boxSizing: 'border-box', padding: '11px 12px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', color: '#1f2937', fontSize: 14, marginBottom: 20 }}>
+            {availableStaff.map(staff => <option key={staff.id} value={staff.id}>{staff.name} - {staff.role}</option>)}
+          </select>
+          <button onClick={() => onEnter(role, STAFF.find(staff => staff.id === staffId).name)} style={{ width: '100%', padding: 12, border: 0, borderRadius: 6, background: '#1a1f36', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>Enter Demo</button>
+        </div>
+      </section>
+    </main>
+  )
+}
+
 export default function Dashboard() {
+  const [hasSelectedDemoView, setHasSelectedDemoView] = useState(false)
   const [role, setRole] = useState('admin')
   const [userName, setUserName] = useState('Demo Administrator')
   const [page, setPage] = useState('dashboard')
@@ -2318,6 +2370,15 @@ export default function Dashboard() {
     }))
     setUnknownNotes(prev => ({ ...prev, [studentId]: '' }))
     if (students.filter(s => s.status === 'unknown' && s.id !== studentId).length === 0) setShowUnknownPopup(false)
+  }
+
+  if (!hasSelectedDemoView) {
+    return <DemoAccessPage onEnter={(selectedRole, selectedName) => {
+      setRole(selectedRole)
+      setUserName(selectedName)
+      setTeacherClass(TEACHER_CLASS_MAP[selectedName] || null)
+      setHasSelectedDemoView(true)
+    }} />
   }
 
   if (teachingMode) return <TeachingMode students={students} setStudents={setStudents} onExit={() => setTeachingMode(false)} isAdmin={role === 'admin'} />
