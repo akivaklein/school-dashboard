@@ -239,34 +239,34 @@ const LEVITZ_CLASS_LOG = [
 ]
 
 const initialStudents = [
-  mkStudent(1, 'Bloom Yair', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Klein',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Klein',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
-  mkStudent(2, 'Friedlander Zev', 80, 0, ['P','P','P','P','P','P'], 'late'),
-  mkStudent(3, 'Haddad Moshe Chaim', 60, 3, ['P','L','A','P','P','P'], 'therapy', 's8', [{staffId:'s8',type:'Counseling',hrs:3}], [{date:'2025-06-01',staff:'Rabbi Klein',notes:'Left voicemail',duration:'2 min'}]),
-  mkStudent(4, 'Hayon David', 95, 0, ['P','P','P','P','P','P'], 'with-bt', 's10', [], [], [{date:'2025-06-02',author:'Rabbi Klein',text:'Excellent week.'}]),
-  mkStudent(5, 'Karman Yitzchok', 20, 5, ['A','A','A','P','P','P'], 'absent'),
-  mkStudent(6, 'Levitz Avrohom', 70, 1, ['P','P','P','L','P','P'], 'with-bt', 's10', [{staffId:'s7',type:'OT',hrs:2}], [{date:'2025-05-20',staff:'Rabbi Klein',notes:'General check-in',duration:'5 min'}], [], true, 'OT IEP - sensory processing'),
-  mkStudent(7, 'Rosenfeld Yehuda', 55, 6, ['P','P','P','P','A','P'], 'late', null, [], [], [], false, '', true),
-  mkStudent(8, 'Schwartz Moishe Michael', 40, 2, ['L','LE','L','L','P','P'], 'present', null, [{staffId:'s8',type:'Counseling',hrs:0.5}]),
-  mkStudent(9, 'Simon Eliyahu', 65, 0, ['P','P','P','P','P','P'], 'unknown'),
-  mkStudent(10, 'Berkowitz Avraham', 55, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(11, 'Dinowitz Shmuel', 70, 0, ['P','P','P','P','P','A'], 'absent'),
-  mkStudent(12, 'Ettlinger Moshe', 30, 4, ['LE','P','P','A','P','P'], 'present'),
-  mkStudent(13, 'Feldman Shraga', 85, 0, ['P','P','P','P','P','P'], 'therapy', 's6'),
-  mkStudent(14, 'Feltman Daniel', 45, 2, ['P','A','P','P','L','P'], 'therapy', 's9', [{staffId:'s9',type:'Therapy',hrs:2}]),
-  mkStudent(15, 'Gantz Tzvi', 60, 0, ['P','P','P','P','P','P'], 'unknown'),
-  mkStudent(16, 'Hickson Shlomo', 25, 5, ['A','A','P','P','P','P'], 'absent'),
-  mkStudent(17, 'Mezei Yehuda', 90, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(18, 'Reich Nathan', 50, 3, ['P','L','P','P','A','P'], 'with-bt', 's11'),
-  mkStudent(19, 'Teitelbaum Binyamin', 75, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(20, 'Yanni Shimon', 40, 2, ['P','P','A','P','P','P'], 'late'),
-  mkStudent(21, 'Moskowitz Meir Shulem', 65, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(22, 'Goldberg Chaim', 50, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(23, 'Lieberman Yehoshua', 60, 1, ['P','P','P','P','L','P'], 'present'),
-  mkStudent(24, 'Veksler Aron', 45, 2, ['P','A','P','P','P','P'], 'present'),
-  mkStudent(25, 'Shein Dovi', 70, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(26, 'Jakobi Aharon', 35, 3, ['L','P','P','A','P','P'], 'present'),
-  mkStudent(27, 'Stern Aaron', 80, 0, ['P','P','P','P','P','P'], 'present'),
-  mkStudent(28, 'Sigman Shmuel', 55, 1, ['P','P','L','P','P','P'], 'present'),
+  mkStudent(1, 'Abramson Noach', 45, 2, ['P','P','L','LE','L','P'], 'present', null, [{staffId:'s6',type:'Speech Therapy',hrs:1.5}], [{date:'2025-05-28',staff:'Rabbi Klein',notes:'Discussed attendance',duration:'8 min'}], [{date:'2025-05-30',author:'Rabbi Klein',text:'Improving in davening.'}], true, 'Speech IEP - review Aug 2025', true),
+  mkStudent(2, 'Birnbaum Eitan', 80, 0, ['P','P','P','P','P','P'], 'late'),
+  mkStudent(3, 'Cohen Aryeh', 60, 3, ['P','L','A','P','P','P'], 'therapy', 's8', [{staffId:'s8',type:'Counseling',hrs:3}], [{date:'2025-06-01',staff:'Rabbi Klein',notes:'Left voicemail',duration:'2 min'}]),
+  mkStudent(4, 'Danziger Eliezer', 95, 0, ['P','P','P','P','P','P'], 'with-bt', 's10', [], [], [{date:'2025-06-02',author:'Rabbi Klein',text:'Excellent week.'}]),
+  mkStudent(5, 'Eisenberg Yonah', 20, 5, ['A','A','A','P','P','P'], 'absent'),
+  mkStudent(6, 'Finkelstein Shaya', 70, 1, ['P','P','P','L','P','P'], 'with-bt', 's10', [{staffId:'s7',type:'OT',hrs:2}], [{date:'2025-05-20',staff:'Rabbi Klein',notes:'General check-in',duration:'5 min'}], [], true, 'OT IEP - sensory processing'),
+  mkStudent(7, 'Greenwald Meir', 55, 6, ['P','P','P','P','A','P'], 'late', null, [], [], [], false, '', true),
+  mkStudent(8, 'Horowitz Rafael', 40, 2, ['L','LE','L','L','P','P'], 'present', null, [{staffId:'s8',type:'Counseling',hrs:0.5}]),
+  mkStudent(9, 'Isaacs Kalman', 65, 0, ['P','P','P','P','P','P'], 'unknown'),
+  mkStudent(10, 'Jaffe Tzvi', 55, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(11, 'Koppel Levi', 70, 0, ['P','P','P','P','P','A'], 'absent'),
+  mkStudent(12, 'Landa Simcha', 30, 4, ['LE','P','P','A','P','P'], 'present'),
+  mkStudent(13, 'Morgenstern Yisroel', 85, 0, ['P','P','P','P','P','P'], 'therapy', 's6'),
+  mkStudent(14, 'Neuman Chaim', 45, 2, ['P','A','P','P','L','P'], 'therapy', 's9', [{staffId:'s9',type:'Therapy',hrs:2}]),
+  mkStudent(15, 'Orenstein Zecharia', 60, 0, ['P','P','P','P','P','P'], 'unknown'),
+  mkStudent(16, 'Pearlman Yaakov', 25, 5, ['A','A','P','P','P','P'], 'absent'),
+  mkStudent(17, 'Rabinowitz Dov', 90, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(18, 'Silverman Menachem', 50, 3, ['P','L','P','P','A','P'], 'with-bt', 's11'),
+  mkStudent(19, 'Tannenbaum Shlomo', 75, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(20, 'Ungar Avrumi', 40, 2, ['P','P','A','P','P','P'], 'late'),
+  mkStudent(21, 'Vogel Daniel', 65, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(22, 'Wasserman Yitzchak', 50, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(23, 'Zilber Yosef', 60, 1, ['P','P','P','P','L','P'], 'present'),
+  mkStudent(24, 'Adler Reuven', 45, 2, ['P','A','P','P','P','P'], 'present'),
+  mkStudent(25, 'Braverman Asher', 70, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(26, 'Chazin Gedalia', 35, 3, ['L','P','P','A','P','P'], 'present'),
+  mkStudent(27, 'Deutsch Moshe', 80, 0, ['P','P','P','P','P','P'], 'present'),
+  mkStudent(28, 'Erlich Avraham', 55, 1, ['P','P','L','P','P','P'], 'present'),
 ]
 initialStudents.find(s => s.id === 6).classLog = LEVITZ_CLASS_LOG
 
@@ -290,21 +290,21 @@ initialStudents.find(s => s.id === 7).testScores = [
 ]
 
 // Realistic daily check-in statuses
-initialStudents.find(s => s.id === 5).dailyStatus = 'absent'   // Karman Yitzchok
-initialStudents.find(s => s.id === 7).dailyStatus = 'late'     // Rosenfeld Yehuda
+initialStudents.find(s => s.id === 5).dailyStatus = 'absent'   // Eisenberg Yonah
+initialStudents.find(s => s.id === 7).dailyStatus = 'late'     // Greenwald Meir
 initialStudents.find(s => s.id === 7).lateDetails = { timeArrived: '10:45', reason: 'parent-called', note: 'Father called, said coming after doctor' }
-initialStudents.find(s => s.id === 11).dailyStatus = 'absent'  // Dinowitz Shmuel
-initialStudents.find(s => s.id === 16).dailyStatus = 'absent'  // Hickson Shlomo
-initialStudents.find(s => s.id === 20).dailyStatus = 'late'    // Yanni Shimon
+initialStudents.find(s => s.id === 11).dailyStatus = 'absent'  // Koppel Levi
+initialStudents.find(s => s.id === 16).dailyStatus = 'absent'  // Pearlman Yaakov
+initialStudents.find(s => s.id === 20).dailyStatus = 'late'    // Ungar Avrumi
 initialStudents.find(s => s.id === 20).lateDetails = { timeArrived: '11:10', reason: 'transport', note: '' }
-initialStudents.find(s => s.id === 8).dailyStatus = 'left-early' // Schwartz Moishe Michael
+initialStudents.find(s => s.id === 8).dailyStatus = 'left-early' // Horowitz Rafael
 
 // Sample family & medical data
 initialStudents.find(s => s.id === 6).family = {
-  fatherName: 'Moshe Levitz', fatherPhone: '718-555-0101', fatherEmail: 'mlevitz@email.com',
-  motherName: 'Rivka Levitz', motherPhone: '718-555-0102', motherEmail: 'rlevitz@email.com',
+  fatherName: 'Moshe Finkelstein', fatherPhone: '718-555-0101', fatherEmail: 'mfinkelstein@email.com',
+  motherName: 'Rivka Finkelstein', motherPhone: '718-555-0102', motherEmail: 'rfinkelstein@email.com',
   address: '1423 54th St, Brooklyn NY 11219',
-  emergencyContact: 'Moshe Levitz (Father)', emergencyPhone: '718-555-0101'
+  emergencyContact: 'Moshe Finkelstein (Father)', emergencyPhone: '718-555-0101'
 }
 initialStudents.find(s => s.id === 6).medical = {
   allergies: [{ name: 'Penicillin', severity: 'severe' }, { name: 'Tree nuts', severity: 'moderate' }],
@@ -313,10 +313,10 @@ initialStudents.find(s => s.id === 6).medical = {
   doctorName: 'Dr. Shmuel Katz', doctorPhone: '718-555-9876', lastPhysical: '2025-09-15', notes: 'Needs sensory breaks. Has OT IEP.'
 }
 initialStudents.find(s => s.id === 1).family = {
-  fatherName: 'Yisrael Bloom', fatherPhone: '718-555-0201', fatherEmail: 'ybloom@email.com',
-  motherName: 'Chana Bloom', motherPhone: '718-555-0202', motherEmail: '',
+  fatherName: 'Yisrael Abramson', fatherPhone: '718-555-0201', fatherEmail: 'yabramson@email.com',
+  motherName: 'Chana Abramson', motherPhone: '718-555-0202', motherEmail: 'cabramson@email.com',
   address: '1567 48th St, Brooklyn NY 11219',
-  emergencyContact: 'Yisrael Bloom (Father)', emergencyPhone: '718-555-0201'
+  emergencyContact: 'Yisrael Abramson (Father)', emergencyPhone: '718-555-0201'
 }
 initialStudents.find(s => s.id === 1).medical = {
   allergies: [{ name: 'Shellfish', severity: 'mild' }],
@@ -325,10 +325,10 @@ initialStudents.find(s => s.id === 1).medical = {
   doctorName: 'Dr. Rachel Stern', doctorPhone: '718-555-8765', lastPhysical: '2025-08-20', notes: 'Speech therapy twice weekly.'
 }
 initialStudents.find(s => s.id === 3).family = {
-  fatherName: 'Yaakov Haddad', fatherPhone: '718-555-0301', fatherEmail: 'yhaddad@email.com',
-  motherName: 'Leah Haddad', motherPhone: '718-555-0302', motherEmail: 'lhaddad@email.com',
+  fatherName: 'Yaakov Cohen', fatherPhone: '718-555-0301', fatherEmail: 'ycohen@email.com',
+  motherName: 'Leah Cohen', motherPhone: '718-555-0302', motherEmail: 'lcohen@email.com',
   address: '892 Ocean Pkwy, Brooklyn NY 11230',
-  emergencyContact: 'Yaakov Haddad (Father)', emergencyPhone: '718-555-0301'
+  emergencyContact: 'Yaakov Cohen (Father)', emergencyPhone: '718-555-0301'
 }
 initialStudents.find(s => s.id === 3).medical = {
   allergies: [{ name: 'Latex', severity: 'moderate' }, { name: 'Bee stings', severity: 'severe' }],
