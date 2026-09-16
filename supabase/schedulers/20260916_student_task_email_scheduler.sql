@@ -1,0 +1,26 @@
+-- Phase 3 scheduler definition. This file intentionally does not enable cron.
+-- Run the commands below only after Resend and Supabase secrets are configured,
+-- the Edge Function is deployed, and production sending is explicitly approved.
+--
+-- Required extensions:
+--   create extension if not exists pg_cron;
+--   create extension if not exists pg_net;
+--
+-- Replace PROJECT_REF and CRON_SECRET before enabling:
+-- select cron.schedule(
+--   'student-task-email-reminders',
+--   '* * * * *',
+--   $$
+--   select net.http_post(
+--     url := 'https://PROJECT_REF.supabase.co/functions/v1/send-student-task-reminders',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'x-task-email-cron-secret', 'CRON_SECRET'
+--     ),
+--     body := '{}'::jsonb
+--   );
+--   $$
+-- );
+--
+-- Disable later with:
+-- select cron.unschedule('student-task-email-reminders');

@@ -16,6 +16,7 @@ export type StudentTask = {
   recurrence_days: number[]
   series_id: string | null
   occurrence_number: number
+  notification_cycle: string
   created_by: string
   created_at: string
   updated_at: string
@@ -37,6 +38,7 @@ function mapTask(row: Record<string, unknown>): StudentTask {
     recurrence_days: Array.isArray(row.recurrence_days) ? row.recurrence_days.map(Number) : [],
     series_id: row.series_id ? String(row.series_id) : null,
     occurrence_number: Number(row.occurrence_number || 1),
+    notification_cycle: String(row.notification_cycle || ''),
     created_by: String(row.created_by || 'Staff'),
     created_at: String(row.created_at || ''),
     updated_at: String(row.updated_at || ''),
@@ -97,6 +99,7 @@ export async function createStudentTask(input: {
   notificationPreference?: StudentTaskNotification
   seriesId?: string | null
   occurrenceNumber?: number
+  notificationCycle?: string
   createdBy: string
 }): Promise<StudentTask> {
   const title = String(input.title || '').trim()
@@ -112,6 +115,7 @@ export async function createStudentTask(input: {
     notification_preference: input.notificationPreference || 'dashboard_only',
     series_id: input.seriesId || null,
     occurrence_number: input.occurrenceNumber || 1,
+    ...(input.notificationCycle ? { notification_cycle: input.notificationCycle } : {}),
     created_by: String(input.createdBy || 'Staff').trim() || 'Staff',
   }
   const { data, error } = await supabase.from('student_tasks').insert(payload).select('*').single()
@@ -124,7 +128,8 @@ export async function createStudentTask(input: {
   return created
 }
 
-export async function updateStudentTask(id: string, updates: Partial<Pick<StudentTask, 'title' | 'note' | 'due_at' | 'repeat_type' | 'completed_at' | 'completed_by' | 'reminder_start_at' | 'recurrence_days' | 'notification_preference' | 'snoozed_until' | 'series_id' | 'occurrence_number'>>): Promise<StudentTask> {
+export async function updateStudentTask(id: string, updates: Partial<Pick<StudentTask, 'title' | 'note' | 'due_at' | 'repeat_type' | 'completed_at' | 'completed_by' | 'reminder_start_at' | 'recurrence_days' | 'notification_preference' | 'snoozed_until' | 'series_id' | 'occurrence_number' | 'notification_cycle'>>): Promise<StudentTask> {
+  const rescheduled = updates.due_at !== undefined || updates.reminder_start_at !== undefined
   const payload = {
     ...(updates.title !== undefined ? { title: String(updates.title).trim() } : {}),
     ...(updates.note !== undefined ? { note: String(updates.note || '').trim() || null } : {}),
@@ -136,6 +141,7 @@ export async function updateStudentTask(id: string, updates: Partial<Pick<Studen
     ...(updates.snoozed_until !== undefined ? { snoozed_until: updates.snoozed_until } : {}),
     ...(updates.series_id !== undefined ? { series_id: updates.series_id } : {}),
     ...(updates.occurrence_number !== undefined ? { occurrence_number: updates.occurrence_number } : {}),
+    ...((updates.notification_cycle !== undefined || rescheduled) ? { notification_cycle: updates.notification_cycle || crypto.randomUUID() } : {}),
     ...(updates.completed_at !== undefined ? { completed_at: updates.completed_at } : {}),
     ...(updates.completed_by !== undefined ? { completed_by: updates.completed_by } : {}),
   }
@@ -147,7 +153,7 @@ export async function updateStudentTask(id: string, updates: Partial<Pick<Studen
 export async function snoozeStudentTask(task: StudentTask, snoozedUntil: string, snoozedBy: string): Promise<StudentTask> {
   const { error: historyError } = await supabase.from('student_task_snoozes').insert({ task_id: task.id, snoozed_until: snoozedUntil, snoozed_by: snoozedBy || 'Staff' })
   if (historyError) throw new Error(historyError.message || 'Unable to save snooze history')
-  return updateStudentTask(task.id, { snoozed_until: snoozedUntil })
+  return updateStudentTask(task.id, { snoozed_until: snoozedUntil, notification_cycle: crypto.randomUUID() })
 }
 
 export async function completeStudentTask(task: StudentTask, completedBy: string): Promise<{ completed: StudentTask; next: StudentTask | null }> {
