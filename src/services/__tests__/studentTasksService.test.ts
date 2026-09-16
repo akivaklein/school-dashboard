@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getStudentTaskDueAt, getStudentTaskStatus, type StudentTask } from '../studentTasksService'
+import { getNextOccurrenceDueAt, getStudentTaskDueAt, getStudentTaskStatus, type StudentTask } from '../studentTasksService'
 
 const baseTask: StudentTask = {
   id: 'task-1',
@@ -22,10 +22,16 @@ describe('student task status', () => {
     expect(getStudentTaskStatus({ ...baseTask, completed_at: now.toISOString() }, now)).toBe('Done')
   })
 
-  it('uses the current day due time for daily-until-done tasks', () => {
+  it('creates the next daily occurrence instead of moving the completed row', () => {
     const task = { ...baseTask, repeat_type: 'daily_until_done' as const }
-    const now = new Date('2026-09-18T08:00:00.000Z')
-    expect(getStudentTaskDueAt(task, now).toISOString()).toBe('2026-09-18T09:00:00.000Z')
-    expect(getStudentTaskStatus(task, now)).toBe('Due')
+    expect(getStudentTaskDueAt(task).toISOString()).toBe('2026-09-16T09:00:00.000Z')
+    expect(getNextOccurrenceDueAt(task)?.toISOString()).toBe('2026-09-17T09:00:00.000Z')
+  })
+
+  it('supports reminder start, snooze, and weekday recurrence status', () => {
+    const task = { ...baseTask, reminder_start_at: '2026-09-16T08:00:00.000Z', repeat_type: 'weekdays' as const }
+    expect(getStudentTaskStatus(task, new Date('2026-09-16T07:00:00.000Z'))).toBe('Upcoming')
+    expect(getStudentTaskStatus({ ...task, snoozed_until: '2026-09-16T10:30:00.000Z' }, new Date('2026-09-16T10:00:00.000Z'))).toBe('Snoozed')
+    expect(getNextOccurrenceDueAt(task)?.toISOString()).toBe('2026-09-17T09:00:00.000Z')
   })
 })

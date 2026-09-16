@@ -6,6 +6,10 @@ const migration = readFileSync(
   path.resolve(__dirname, '../../../supabase/migrations/20260916_create_student_tasks.sql'),
   'utf8',
 )
+const phase2Migration = readFileSync(
+  path.resolve(__dirname, '../../../supabase/migrations/20260916_extend_student_tasks_phase2.sql'),
+  'utf8',
+)
 
 describe('student tasks schema', () => {
   it('uses a dedicated table with preserved completion history', () => {
@@ -19,5 +23,13 @@ describe('student tasks schema', () => {
     expect(migration).toContain('alter table public.student_tasks enable row level security')
     expect(migration).toContain('revoke all on table public.student_tasks from anon')
     expect(migration).toContain('to authenticated')
+  })
+
+  it('adds reminder timing, snooze history, and recurring occurrence fields additively', () => {
+    expect(phase2Migration).toContain('add column if not exists reminder_start_at')
+    expect(phase2Migration).toContain('add column if not exists recurrence_days')
+    expect(phase2Migration).toContain('create table if not exists public.student_task_snoozes')
+    expect(phase2Migration).toContain("'specific_days'")
+    expect(phase2Migration).not.toContain('drop table')
   })
 })
