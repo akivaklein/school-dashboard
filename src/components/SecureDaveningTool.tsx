@@ -2,6 +2,7 @@ import { type CSSProperties, useEffect, useMemo, useState } from 'react'
 import {
   deleteDaveningTemplate,
   loadDaveningTemplates,
+  loadPreviousDaveningChecklistMarks,
   loadStudentDaveningHistory,
   openDaveningChecklist,
   renameDaveningTemplate,
@@ -71,6 +72,7 @@ export default function SecureDaveningTool({ students, classes, onClose, S, acto
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [markAllRatingId, setMarkAllRatingId] = useState('')
 
   const activeStudents = useMemo(() => students.filter(student => student.is_active !== false).sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''))), [students])
   const teacherNames = useMemo(() => getPrintableTeacherNames(classes), [classes])
@@ -196,6 +198,29 @@ export default function SecureDaveningTool({ students, classes, onClose, S, acto
     void run(() => saveDaveningMarks(checklist.id, rows), 'Davening marks saved.')
   }
 
+  function markAllStudents() {
+    if (!checklist || !markAllRatingId) return
+    setMarks(previous => {
+      const next = { ...previous }
+      matchingStudents.forEach(student => {
+        checklist.sections.forEach(section => { next[`${student.id}:${section.id}`] = markAllRatingId })
+      })
+      return next
+    })
+    setMessage('Marked everyone — adjust any exceptions below, then Save Marks.')
+  }
+
+  function copyPriorDay() {
+    if (!checklist || !selectedTemplate || !selectedTarget) return
+    if (Object.values(marks).some(Boolean) && !window.confirm("Copy yesterday's ratings into today? This will overwrite any ratings already entered here (not yet saved).")) return
+    void run(async () => {
+      const previous = await loadPreviousDaveningChecklistMarks({ templateId: selectedTemplate.id, scopeType: selectedTarget.type, scopeId: selectedTarget.id, beforeDate: date })
+      if (!previous) { setMessage('No earlier dated checklist found for this class/group to copy from.'); return }
+      setMarks(Object.fromEntries(previous.marks.map(mark => [`${mark.student_id}:${mark.section_id}`, mark.rating_id])))
+      setMessage(`Copied ratings from ${previous.checklistDate}. Review, then Save Marks.`)
+    })
+  }
+
   function loadHistory() {
     const studentId = Number(historyStudentId)
     if (!Number.isFinite(studentId)) return
@@ -226,6 +251,11 @@ export default function SecureDaveningTool({ students, classes, onClose, S, acto
         {view === 'digital' && <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, alignItems: 'end' }}><label style={labelStyle}>Class / Group<select value={classId} onChange={event => { setClassId(event.target.value); setScope('class'); setChecklist(null) }} style={fieldStyle}><option value="">Choose a class or group</option>{classAndGroupOptions.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label><label style={labelStyle}>Date<input type="date" value={date} onChange={event => { setDate(event.target.value); setChecklist(null) }} style={fieldStyle} /></label><button disabled={!selectedTemplate || !selectedTarget || busy} onClick={openDigital} style={S.btn('primary')}>Open / Create</button></div>
           {!selectedTemplate && <div style={{ color: '#64748b', fontSize: 13 }}>Choose a saved template before opening a digital checklist.</div>}
+          {checklist && <div style={{ display: 'flex', gap: 8, alignItems: 'end', flexWrap: 'wrap', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 10 }}>
+            <label style={{ ...labelStyle, minWidth: 180 }}>Mark all with<select value={markAllRatingId} onChange={event => setMarkAllRatingId(event.target.value)} style={fieldStyle}><option value="">Choose a rating</option>{checklist.ratings.map(rating => <option key={rating.id} value={rating.id}>{rating.code} · {rating.label}</option>)}</select></label>
+            <button disabled={!markAllRatingId || busy} onClick={markAllStudents} style={S.btn('primary')}>Mark All</button>
+            <button disabled={busy} onClick={copyPriorDay} style={S.btn('ghost')}>Copy Prior Day's Ratings</button>
+          </div>}
           {checklist && <div style={{ overflowX: 'auto', border: '1px solid #dbe3ee' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}><thead><tr><th style={{ textAlign: 'left', padding: 8, background: '#f1f5f9' }}>Student</th>{checklist.sections.map(section => <th key={section.id} style={{ padding: 8, background: '#f1f5f9', fontSize: 12 }}>{section.label}</th>)}</tr></thead><tbody>{matchingStudents.map(student => <tr key={student.id}><td style={{ padding: 8, borderTop: '1px solid #e2e8f0', fontWeight: 700 }}>{student.name}</td>{checklist.sections.map(section => <td key={section.id} style={{ padding: 6, borderTop: '1px solid #e2e8f0' }}><select aria-label={`${student.name} ${section.label}`} value={marks[`${student.id}:${section.id}`] || ''} onChange={event => setMarks(previous => ({ ...previous, [`${student.id}:${section.id}`]: event.target.value }))} style={{ ...fieldStyle, width: '100%' }}><option value="">-</option>{checklist.ratings.map(rating => <option key={rating.id} value={rating.id}>{rating.code}</option>)}</select></td>)}</tr>)}</tbody></table></div>}
           {checklist && <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button disabled={busy} onClick={saveDigital} style={S.btn('primary')}>Save Marks</button></div>}
         </>}

@@ -49,12 +49,14 @@ const ADMIN_NAV_CONFIG: RoleNavConfig = {
 
 const TEACHER_NAV_CONFIG: RoleNavConfig = {
   topAreas: [
+    { id: 'dashboard', label: 'Quick Mode', defaultPage: 'dashboard', pages: ['dashboard'] },
     { id: 'students', label: 'My Students', defaultPage: 'students', pages: ['students', 'support'] },
     { id: 'points', label: 'Points', defaultPage: 'behavior', pages: ['behavior'] },
     { id: 'school-day', label: 'School Day', defaultPage: 'attendance', pages: ['attendance', 'teaching-mode'] },
     { id: 'store', label: 'Token Store', defaultPage: 'store', pages: ['store'] },
   ],
   submenuByArea: {
+    dashboard: [{ id: 'dashboard', label: 'Quick Mode' }],
     students: [
       { id: 'students', label: 'My Students' },
       { id: 'support', label: 'Student Support' },

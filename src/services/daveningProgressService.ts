@@ -129,3 +129,32 @@ export async function loadStudentDaveningHistory(studentId: number): Promise<Dav
   if (error) throw error
   return (data || []) as DaveningHistoryRow[]
 }
+
+// Finds the most recent prior dated checklist for the same template/scope so staff can copy
+// yesterday's ratings as a starting point. Does not touch the target checklist's own history.
+export async function loadPreviousDaveningChecklistMarks(input: {
+  templateId: string
+  scopeType: 'class' | 'group'
+  scopeId: string
+  beforeDate: string
+}): Promise<{ checklistDate: string; marks: DaveningMark[] } | null> {
+  const { data: previousChecklist, error: findError } = await supabase
+    .from('davening_checklists')
+    .select('id, checklist_date')
+    .eq('template_id', input.templateId)
+    .eq('scope_type', input.scopeType)
+    .eq('scope_id', input.scopeId)
+    .lt('checklist_date', input.beforeDate)
+    .order('checklist_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (findError) throw findError
+  if (!previousChecklist) return null
+
+  const { data: marks, error: marksError } = await supabase
+    .from('davening_marks')
+    .select('*')
+    .eq('checklist_id', previousChecklist.id)
+  if (marksError) throw marksError
+  return { checklistDate: previousChecklist.checklist_date, marks: (marks || []) as DaveningMark[] }
+}

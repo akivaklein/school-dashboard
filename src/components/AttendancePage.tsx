@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import PrintClassList from './PrintClassList'
 import SecureDaveningTool from './SecureDaveningTool'
-import { resolveActorName, resolveStudentClassId } from './dashboardData'
+import { resolveActorName, resolveStudentClassId, resolveStudentClassIds } from './dashboardData'
 import {
   getDailyAttendanceStatus,
   getWeeklyAttendanceCodes,
   getCurrentLocationStatus,
+  hasConfirmedArrival,
   isInClassroom,
   isInSchool,
   isLocationUnknown,
   isOutOfSchool,
 } from '../utils/attendancePresence'
-import { getStudentInstructionalGroup, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
+import { getInstructionalGroupStudentIds, getStudentInstructionalGroup, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 
 type AttendanceStudent = { id: number | string; [key: string]: unknown }
 
@@ -65,6 +66,28 @@ export default function AttendancePage({
   const selectedDailyCount = dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))).length
   const allDailyStudentsSelected = dailyAttendanceStudents.length > 0 && selectedDailyCount === dailyAttendanceStudents.length
   const currentInstructionalPeriod = useCurrentInstructionalPeriod(instructionalPeriods)
+
+  // Classroom Attendance Mode: fast per-class/group roster for teachers/rebbeim.
+  const [classroomTeacherFilter, setClassroomTeacherFilter] = useState('')
+  const [classroomScopeId, setClassroomScopeId] = useState('')
+
+  const classroomScopeOptions = (CLASSES || []).filter(cls => (
+    !classroomTeacherFilter || cls.teacher === classroomTeacherFilter
+  ))
+
+  const classroomTeacherOptions = Array.from(new Set((CLASSES || []).map(cls => cls.teacher).filter(Boolean))).sort()
+
+  function studentsInClassroomScope(list, scopeId) {
+    if (!scopeId) return list
+    const isGroupScope = (instructionalGroups || []).some(group => group.id === scopeId)
+    if (isGroupScope) {
+      const memberIds = new Set(getInstructionalGroupStudentIds(scopeId, instructionalGroupMemberships || []))
+      return list.filter(student => memberIds.has(Number(student.id)))
+    }
+    return list.filter(student => resolveStudentClassIds(student, additionalClassIdsByStudent).includes(scopeId))
+  }
+
+  const classroomStudents = studentsInClassroomScope(dailyAttendanceStudents, classroomScopeId)
 
   function expectedInstructionalGroup(studentId) {
     if (!currentInstructionalPeriod) return null
@@ -861,6 +884,7 @@ export default function AttendancePage({
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button onClick={() => setShowPrintClassList(true)} style={{ ...S.btn('ghost'), padding: '7px 14px', fontSize: 12 }}>Print Class List</button>
           <button onClick={() => setShowDaveningChecklist(true)} style={{ ...S.btn('ghost'), padding: '7px 14px', fontSize: 12 }}>Davening Checklist</button>
+          <button onClick={() => setDailyView('classroom')} style={{ ...S.btn(dailyView === 'classroom' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Classroom Mode</button>
           <button onClick={() => setDailyView('daily')} style={{ ...S.btn(dailyView === 'daily' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Daily Check-In</button>
           <button onClick={() => setDailyView('class')} style={{ ...S.btn(dailyView === 'class' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Class Toggle</button>
           <button onClick={() => setDailyView('status-board')} style={{ ...S.btn(dailyView === 'status-board' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Status Board</button>
@@ -968,6 +992,103 @@ export default function AttendancePage({
               )
             })}
           </div>
+        </div>
+      )}
+
+      {dailyView === 'classroom' && (
+        <div style={S.card}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>Teacher / Rebbe</div>
+              <select value={classroomTeacherFilter} onChange={e => { setClassroomTeacherFilter(e.target.value); setClassroomScopeId('') }} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, minWidth: 160 }}>
+                <option value="">All teachers</option>
+                {classroomTeacherOptions.map(name => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>Class / Group</div>
+              <select value={classroomScopeId} onChange={e => setClassroomScopeId(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, minWidth: 200 }}>
+                <option value="">Choose a class or group…</option>
+                {classroomScopeOptions.map(cls => <option key={cls.id} value={cls.id}>{cls.name}{cls.teacher ? ` · ${cls.teacher}` : ''}</option>)}
+              </select>
+            </div>
+            {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '8px 14px', fontSize: 12 }}>Undo</button>}
+          </div>
+
+          {!classroomScopeId ? (
+            <div style={{ padding: '30px 10px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Pick a class or group above to start taking attendance.</div>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 16 }}>
+                {[
+                  ['Present', classroomStudents.filter(s => getDailyAttendanceStatus(s) === 'present').length, '#56765f'],
+                  ['Late', classroomStudents.filter(s => getDailyAttendanceStatus(s) === 'late').length, '#9a6a2a'],
+                  ['Absent', classroomStudents.filter(s => getDailyAttendanceStatus(s) === 'absent').length, '#9f1239'],
+                  ['Left Early', classroomStudents.filter(s => Boolean(s.departureDetails) || getDailyAttendanceStatus(s) === 'left-early').length, '#6d28d9'],
+                ].map(([label, val, color]) => (
+                  <div key={label} style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 10, padding: '14px 10px' }}>
+                    <div style={{ fontSize: 30, fontWeight: 800, color }}>{val}</div>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, fontWeight: 700 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{classroomStudents.length} student{classroomStudents.length === 1 ? '' : 's'} in this roster</div>
+                <button onClick={() => applyDailyStatusToStudents(classroomStudents, 'present')} style={{ ...S.btn('success'), padding: '7px 14px', fontSize: 12 }}>Mark All Present</button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+                {classroomStudents.map((s, i) => {
+                  const daily = getDailyAttendanceStatus(s)
+                  const colors = { present: '#56765f', absent: '#9f1239', late: '#9a6a2a', 'left-early': '#6d28d9', 'not-arrived': '#64748b', unconfirmed: '#94a3b8' }
+                  const arrived = hasConfirmedArrival(s)
+                  return (
+                    <div key={s.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `5px solid ${colors[daily] || '#94a3b8'}`, borderRadius: 12, padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                        <div style={S.avatar(i, 34)}>{initials(s.name)}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 800, fontSize: 14 }}>{s.name}</div>
+                          <div style={{ fontSize: 11, color: colors[daily] || '#94a3b8', fontWeight: 700 }}>
+                            {daily === 'not-arrived' || daily === 'unconfirmed' ? 'Not marked yet' : (daily === 'left-early' ? 'Left Early' : daily.charAt(0).toUpperCase() + daily.slice(1))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: arrived ? 8 : 0 }}>
+                        {[['present', 'Present'], ['late', 'Late'], ['absent', 'Absent']].map(([val, label]) => (
+                          <button key={val} onClick={() => updateDailyStatus(s.id, val)}
+                            style={{ padding: '10px 6px', borderRadius: 8, border: `2px solid ${daily === val ? colors[val] : '#e5e7eb'}`, background: daily === val ? colors[val] + '20' : '#fff', color: daily === val ? colors[val] : '#334155', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {arrived && (
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <label style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', gap: 6, fontSize: 11, color: '#64748b', fontWeight: 700 }}>
+                            <span>{daily === 'late' ? 'Arrival' : 'Check-in'}</span>
+                            <input type="time" value={s.lateDetails?.timeArrived || ''} onChange={event => updateDailyTime(s, 'arrival', event.target.value)} style={{ minWidth: 0, padding: '4px 6px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                          </label>
+                          {s.departureDetails ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, alignItems: 'center' }}>
+                              <label style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'center', gap: 6, fontSize: 11, color: '#64748b', fontWeight: 700 }}>
+                                <span>Left</span>
+                                <input type="time" value={s.departureDetails?.timeDeparted || ''} onChange={event => updateDailyTime(s, 'departure', event.target.value)} style={{ minWidth: 0, padding: '4px 6px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                              </label>
+                              <button onClick={() => clearDeparture(s)} style={{ ...S.btn('ghost'), padding: '4px 8px', fontSize: 11, color: '#6d28d9' }}>Clear</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => updateDailyStatus(s.id, 'left-early')} style={{ ...S.btn('ghost'), padding: '6px 8px', fontSize: 12, color: '#6d28d9', border: '1px solid #ddd6fe' }}>Mark Left Early</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
       )}
 

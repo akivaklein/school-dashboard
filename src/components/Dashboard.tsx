@@ -564,7 +564,7 @@ function MedicalEditor({ s, setStudents, userName, onCancel = null, onSaved = nu
 }
 
 
-function TeacherDashboard({ students, allStudents, setStudents, userName, setSelectedStudent, setTeachingMode, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP, staffMembers, instructionalPeriods, physicalRooms, instructionalGroups, instructionalGroupMemberships }: { students: StudentLike[]; allStudents: StudentLike[]; setStudents: Dispatch<SetStateAction<StudentLike[]>>; userName: string | null; setSelectedStudent: (student: StudentLike) => void; setTeachingMode: Dispatch<SetStateAction<boolean>>; initialClass?: string | number | null; setDrillDown: Dispatch<SetStateAction<{ title: string; students: StudentLike[] } | null>>; recordStudentPointsAction: (payload: { studentId: number | string; pointsDelta: number; reminderDelta?: number; reason: string; eventType: string; category: string; sourceContext: string; note?: string | null; metadata?: Record<string, unknown> }) => Promise<boolean>; isVIP: (student: StudentLike) => boolean; staffMembers: StaffMemberLike[]; instructionalPeriods: InstructionalPeriod[]; physicalRooms: PhysicalRoom[]; instructionalGroups: InstructionalGroup[]; instructionalGroupMemberships: InstructionalGroupMembership[] }) {
+function TeacherDashboard({ students, allStudents, setStudents, userName, setSelectedStudent, setTeachingMode, setPage, initialClass = null, setDrillDown, recordStudentPointsAction, isVIP, staffMembers, instructionalPeriods, physicalRooms, instructionalGroups, instructionalGroupMemberships }: { students: StudentLike[]; allStudents: StudentLike[]; setStudents: Dispatch<SetStateAction<StudentLike[]>>; userName: string | null; setSelectedStudent: (student: StudentLike) => void; setTeachingMode: Dispatch<SetStateAction<boolean>>; setPage: (page: string) => void; initialClass?: string | number | null; setDrillDown: Dispatch<SetStateAction<{ title: string; students: StudentLike[] } | null>>; recordStudentPointsAction: (payload: { studentId: number | string; pointsDelta: number; reminderDelta?: number; reason: string; eventType: string; category: string; sourceContext: string; note?: string | null; metadata?: Record<string, unknown> }) => Promise<boolean>; isVIP: (student: StudentLike) => boolean; staffMembers: StaffMemberLike[]; instructionalPeriods: InstructionalPeriod[]; physicalRooms: PhysicalRoom[]; instructionalGroups: InstructionalGroup[]; instructionalGroupMemberships: InstructionalGroupMembership[] }) {
   const [selectedClass, setSelectedClass] = useState(initialClass)
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
   const currentTimeLabel = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -635,7 +635,10 @@ function TeacherDashboard({ students, allStudents, setStudents, userName, setSel
             <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#16243a' }}>{userName ? `Good afternoon, ${userName}` : 'Teacher Dashboard'}</h1>
             <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>{todayLabel} · {currentTimeLabel}</p>
           </div>
-          <button onClick={() => setTeachingMode(true)} style={{ ...S.btn('primary'), padding: '8px 16px', fontSize: 13 }}>▶ Start Class Session</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={() => setPage('attendance')} style={{ ...S.btn('primary'), padding: '8px 14px', fontSize: 13 }}>Classroom Attendance</button>
+            <button onClick={() => setTeachingMode(true)} style={{ ...S.btn('ghost'), padding: '8px 14px', fontSize: 13 }}>Start Class Session</button>
+          </div>
         </div>
       </div>
 
@@ -5348,7 +5351,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           </Suspense>
         )}
 
-        {page === 'dashboard' && (effectiveRole === 'teacher' || effectiveRole === 'rebbe') && <TeacherDashboard students={visibleStudents} allStudents={activeStudents} setStudents={setStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} instructionalPeriods={instructionalPeriods} physicalRooms={physicalRooms} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
+        {page === 'dashboard' && (effectiveRole === 'teacher' || effectiveRole === 'rebbe') && <TeacherDashboard students={visibleStudents} allStudents={activeStudents} setStudents={setStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} setPage={setPage} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} instructionalPeriods={instructionalPeriods} physicalRooms={physicalRooms} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
         {page === 'dashboard' && effectiveRole === 'support_staff' && <TherapistDashboard students={visibleStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s, 'therapy')} staffMembers={staffMembers} therapySchedule={THERAPY_SCHEDULE_STATE} />}
 
         {page === 'setup' && effectiveRole !== 'register' && (

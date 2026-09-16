@@ -21,7 +21,6 @@ function todayValue() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
-
 function taskToForm(task: StudentTask): FormState {
   const due = new Date(task.due_at)
   return {
@@ -61,6 +60,36 @@ function statusStyle(status: string, S: StyleApi) {
   return S.badge('#1d4ed8', '#dbeafe')
 }
 
+function statusIcon(status: string) {
+  if (status === 'Upcoming') return '🕒'
+  if (status === 'Snoozed') return '💤'
+  if (status === 'Overdue') return '⚠️'
+  if (status === 'Done') return '✅'
+  return '🔔'
+}
+
+const REPEAT_LABELS: Record<StudentTaskRepeat, string> = {
+  one_time: '',
+  daily_until_done: 'Daily until done',
+  every_day: 'Every day',
+  weekdays: 'Weekdays',
+  specific_days: 'Specific days',
+}
+
+function isRecurring(task: StudentTask) {
+  return task.repeat_type !== 'one_time'
+}
+
+function isDailyStyleTask(task: StudentTask) {
+  return task.repeat_type === 'daily_until_done' || task.repeat_type === 'every_day' || task.repeat_type === 'weekdays'
+}
+
+function repeatBadgeStyle(task: StudentTask): Record<string, string | number> {
+  const base = { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 800, letterSpacing: '0.02em' }
+  if (isDailyStyleTask(task)) return { ...base, background: '#ede9fe', color: '#5b21b6' }
+  return { ...base, background: '#e0f2fe', color: '#0369a1' }
+}
+
 function TaskForm({ form, setForm, onSave, onCancel, saving }: { form: FormState; setForm: (next: FormState) => void; onSave: () => void; onCancel?: () => void; saving: boolean }) {
   return (
     <div style={{ border: '1px solid #dbe4ef', borderRadius: 10, padding: 14, background: '#fff', marginBottom: 14 }}>
@@ -92,6 +121,8 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [nextOccurrenceNote, setNextOccurrenceNote] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
   const studentTasks = tasks.filter(task => Number(task.student_id) === Number(studentId))
   const now = new Date()
 
@@ -118,10 +149,12 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
       if (!done) {
         const updated = await updateStudentTask(task.id, { completed_at: null, completed_by: null })
         setTasks(previous => previous.map(item => item.id === updated.id ? updated : item))
+        setNextOccurrenceNote('')
         return
       }
       const result = await completeStudentTask(task, userName || 'Staff')
       setTasks(previous => [...previous.map(item => item.id === result.completed.id ? result.completed : item), ...(result.next ? [result.next] : [])])
+      setNextOccurrenceNote(result.next ? `“${task.title}” is done. Next occurrence: ${formatDue(result.next)}.` : '')
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Unable to update task.')
     }
@@ -174,26 +207,69 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
     }
   }
 
-  const sortedTasks = [...studentTasks].sort((a, b) => Number(Boolean(a.completed_at)) - Number(Boolean(b.completed_at)) || getStudentTaskDueAt(a).getTime() - getStudentTaskDueAt(b).getTime())
+  const activeTasks = studentTasks
+    .filter(task => !task.completed_at)
+    .sort((a, b) => getStudentTaskDueAt(a).getTime() - getStudentTaskDueAt(b).getTime())
+  const historyTasks = studentTasks
+    .filter(task => task.completed_at)
+    .sort((a, b) => new Date(b.completed_at as string).getTime() - new Date(a.completed_at as string).getTime())
+
+  function renderTaskRow(task: StudentTask) {
+    const status = getStudentTaskStatus(task, now)
+    const recurring = isRecurring(task)
+    return (
+      <div key={task.id} style={{ borderTop: '1px solid #eef2f6', padding: '12px 0', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <input type="checkbox" checked={status === 'Done'} onChange={() => setDone(task, status !== 'Done')} title={status === 'Done' ? 'Reopen task' : 'Mark task done'} style={{ marginTop: 3, cursor: 'pointer', width: 16, height: 16 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <strong style={{ fontSize: 13, textDecoration: status === 'Done' ? 'line-through' : 'none' }}>{task.title}</strong>
+            <span style={statusStyle(status, S)}>{statusIcon(status)} {status}</span>
+            {recurring && <span style={repeatBadgeStyle(task)}>🔁 {REPEAT_LABELS[task.repeat_type]}</span>}
+          </div>
+          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
+            <strong style={{ color: '#334155' }}>Due:</strong> {formatDue(task)}
+            {task.reminder_start_at && <> · <strong style={{ color: '#334155' }}>Start reminding:</strong> {new Date(task.reminder_start_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</>}
+          </div>
+          <div style={{ color: '#94a3b8', fontSize: 10, marginTop: 3 }}>Created by {task.created_by} on {new Date(task.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>
+          {task.note && <div style={{ color: '#334155', fontSize: 12, marginTop: 5 }}>{task.note}</div>}
+          {status === 'Done' && task.completed_by && <div style={{ color: '#166534', fontSize: 11, marginTop: 4, fontWeight: 700 }}>✅ Completed by {task.completed_by} on {task.completed_at ? new Date(task.completed_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : ''}</div>}
+        </div>
+        <div style={{ display: 'flex', gap: 5, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 220 }}>
+          {status !== 'Done' && <>
+            <button onClick={() => snooze(task, 15)} title="Snooze 15 minutes" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 15m</button>
+            <button onClick={() => snooze(task, 60)} title="Snooze 1 hour" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 1h</button>
+            <button onClick={() => snooze(task, 180)} title="Snooze 3 hours" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 3h</button>
+            <button onClick={() => snoozeTomorrow(task)} title="Snooze until tomorrow morning" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 Tomorrow</button>
+            <button onClick={() => snoozeCustom(task)} title="Choose a custom snooze time" style={{ padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 11 }}>Custom…</button>
+          </>}
+          <button onClick={() => { setEditingId(task.id); setForm(taskToForm(task)); setError('') }} style={{ padding: '5px 8px', border: '1px solid #dbe4ef', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 11 }}>Edit</button>
+          <button onClick={() => removeTask(task)} style={{ padding: '5px 8px', border: '1px solid #fecdd3', borderRadius: 6, background: '#fff7f7', color: '#9f1239', cursor: 'pointer', fontSize: 11 }}>Delete</button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ ...S.card, padding: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: form ? 12 : 0 }}>
-          <div><div style={{ fontWeight: 700, fontSize: 14 }}>Reminders / Tasks</div><div style={{ color: '#64748b', fontSize: 12, marginTop: 3 }}>Open tasks stay here until someone marks them Done.</div></div>
-          {!form && <button onClick={() => { setEditingId(null); setForm(emptyForm()); setError('') }} style={S.btn('primary')}>Add task</button>}
+          <div><div style={{ fontWeight: 700, fontSize: 14 }}>Reminders / Tasks</div><div style={{ color: '#64748b', fontSize: 12, marginTop: 3 }}>Active reminders stay here until marked Done. Completed ones move to history below.</div></div>
+          {!form && <button onClick={() => { setEditingId(null); setForm(emptyForm()); setError(''); setNextOccurrenceNote('') }} style={S.btn('primary')}>Add task</button>}
         </div>
         {form && <TaskForm form={form} setForm={setForm} onSave={saveTask} onCancel={() => { setForm(null); setEditingId(null) }} saving={saving} />}
         {error && <div style={{ color: '#9f1239', fontSize: 12, marginBottom: 10 }}>{error}</div>}
-        {sortedTasks.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, paddingTop: 14 }}>No reminders or tasks yet.</div>}
-        {sortedTasks.map(task => {
-          const status = getStudentTaskStatus(task, now)
-          return <div key={task.id} style={{ borderTop: '1px solid #eef2f6', padding: '12px 0', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <input type="checkbox" checked={status === 'Done'} onChange={() => setDone(task, status !== 'Done')} title={status === 'Done' ? 'Reopen task' : 'Mark task done'} style={{ marginTop: 3, cursor: 'pointer' }} />
-            <div style={{ flex: 1, minWidth: 0 }}><div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}><strong style={{ fontSize: 13, textDecoration: status === 'Done' ? 'line-through' : 'none' }}>{task.title}</strong><span style={statusStyle(status, S)}>{status}</span></div><div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>Due {formatDue(task)} · {task.repeat_type.replace('_', ' ')} · Created by {task.created_by} on {new Date(task.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>{task.reminder_start_at && <div style={{ color: '#64748b', fontSize: 11, marginTop: 3 }}>Reminding from {new Date(task.reminder_start_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>}{task.note && <div style={{ color: '#334155', fontSize: 12, marginTop: 5 }}>{task.note}</div>}{status === 'Done' && task.completed_by && <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>Completed by {task.completed_by}</div>}</div>
-            <div style={{ display: 'flex', gap: 5, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{status !== 'Done' && <><button onClick={() => snooze(task, 15)} title="Snooze 15 minutes" style={{ padding: '4px 7px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11 }}>15m</button><button onClick={() => snooze(task, 60)} title="Snooze 1 hour" style={{ padding: '4px 7px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11 }}>1h</button><button onClick={() => snooze(task, 180)} title="Snooze 3 hours" style={{ padding: '4px 7px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11 }}>3h</button><button onClick={() => snoozeTomorrow(task)} title="Snooze until tomorrow morning" style={{ padding: '4px 7px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11 }}>Tomorrow</button><button onClick={() => snoozeCustom(task)} title="Choose a custom snooze time" style={{ padding: '4px 7px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11 }}>Custom</button></>}<button onClick={() => { setEditingId(task.id); setForm(taskToForm(task)); setError('') }} style={{ padding: '4px 7px', border: '1px solid #dbe4ef', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 11 }}>Edit</button><button onClick={() => removeTask(task)} style={{ padding: '4px 7px', border: '1px solid #fecdd3', borderRadius: 6, background: '#fff7f7', color: '#9f1239', cursor: 'pointer', fontSize: 11 }}>Delete</button></div>
+        {nextOccurrenceNote && <div style={{ color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', fontSize: 12, fontWeight: 600, marginBottom: 10 }}>🔁 {nextOccurrenceNote}</div>}
+        {activeTasks.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, paddingTop: 14 }}>No active reminders or tasks.</div>}
+        {activeTasks.map(renderTaskRow)}
+
+        {historyTasks.length > 0 && (
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '2px solid #eef2f6' }}>
+            <button onClick={() => setShowHistory(v => !v)} style={{ padding: '5px 10px', border: '1px solid #dbe4ef', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#475569' }}>
+              {showHistory ? '▾' : '▸'} History ({historyTasks.length} completed)
+            </button>
+            {showHistory && historyTasks.map(renderTaskRow)}
           </div>
-        })}
+        )}
       </div>
     </div>
   )
@@ -212,10 +288,12 @@ export function StudentTasksDashboard({ tasks, students, openStudent, S }: { tas
     { label: 'Upcoming', tasks: openTasks.filter(task => ['Upcoming', 'Due'].includes(getStudentTaskStatus(task, now)) && getStudentTaskDueAt(task).toDateString() !== now.toDateString()) },
   ]
   const visibleGroups = groups.map(group => ({ ...group, tasks: group.tasks.slice().sort((a, b) => getStudentTaskDueAt(a).getTime() - getStudentTaskDueAt(b).getTime()).slice(0, 5) })).filter(group => group.tasks.length > 0)
+  const groupIcon: Record<string, string> = { 'Needs Attention': '🔔', Overdue: '⚠️', Snoozed: '💤', 'Later Today': '🕒', Upcoming: '📅' }
 
   return <div style={{ ...S.card, borderRadius: 12, padding: 20, marginBottom: 20 }}>
     <div style={{ marginBottom: 14 }}><div style={{ fontSize: 17, color: '#102a43', fontWeight: 800 }}>Reminders / Tasks</div><div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>Student tasks that still need attention</div></div>
     {visibleGroups.length === 0 && <div style={{ color: '#64748b', fontSize: 13 }}>No open student tasks.</div>}
-    {visibleGroups.map(group => <div key={group.label} style={{ marginBottom: 12 }}><div style={{ fontSize: 11, fontWeight: 800, color: group.label === 'Overdue' ? '#9f1239' : '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>{group.label}</div>{group.tasks.map(task => { const student = studentById.get(Number(task.student_id)); return <button key={task.id} onClick={() => student && openStudent(student, 'tasks')} style={{ width: '100%', textAlign: 'left', display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', border: 'none', borderTop: '1px solid #eef2f6', background: 'transparent', cursor: 'pointer' }}><span style={{ minWidth: 0 }}><strong style={{ display: 'block', color: '#263241', fontSize: 12 }}>{student?.name || 'Student'} · {task.title}</strong><span style={{ color: '#64748b', fontSize: 11 }}>{formatDue(task)}</span></span><span style={statusStyle(getStudentTaskStatus(task, now), S)}>{getStudentTaskStatus(task, now)}</span></button> })}</div>)}
+    {visibleGroups.map(group => <div key={group.label} style={{ marginBottom: 12 }}><div style={{ fontSize: 11, fontWeight: 800, color: group.label === 'Overdue' ? '#9f1239' : '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>{groupIcon[group.label]} {group.label}</div>{group.tasks.map(task => { const student = studentById.get(Number(task.student_id)); return <button key={task.id} onClick={() => student && openStudent(student, 'tasks')} style={{ width: '100%', textAlign: 'left', display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', border: 'none', borderTop: '1px solid #eef2f6', background: 'transparent', cursor: 'pointer' }}><span style={{ minWidth: 0 }}><strong style={{ display: 'block', color: '#263241', fontSize: 12 }}>{student?.name || 'Student'} · {task.title}{isRecurring(task) ? ' 🔁' : ''}</strong><span style={{ color: '#64748b', fontSize: 11 }}>{formatDue(task)}</span></span><span style={statusStyle(getStudentTaskStatus(task, now), S)}>{statusIcon(getStudentTaskStatus(task, now))} {getStudentTaskStatus(task, now)}</span></button> })}</div>)}
   </div>
 }
+

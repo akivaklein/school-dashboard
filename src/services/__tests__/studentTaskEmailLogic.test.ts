@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildEmailHtml,
+  buildEmailSubject,
   getNotificationTime,
   hasAlreadySent,
   isReadyToSend,
@@ -28,6 +29,7 @@ describe('student task email reminder logic', () => {
     expect(isReadyToSend(task(), new Date('2026-09-16T12:44:00.000Z'))).toBe(false)
     expect(isReadyToSend(task(), new Date('2026-09-16T12:45:00.000Z'))).toBe(true)
     expect(buildEmailHtml(task(), 'Yair Bloom', 'https://yeshiva-ketana-secure.vercel.app')).toContain('Yair Bloom')
+    expect(buildEmailSubject(task(), 'Yair Bloom', new Date('2026-09-16T14:00:00.000Z'))).toBe('Overdue: Give medication for Yair Bloom')
   })
 
   it('does not send completed tasks before their reminder time', () => {

@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { buildEmailHtml, buildSmsText, getNotificationTime, isEmailEligible, isReadyToSend, isSmsEligible, providerFailureMessage, type ReminderTask } from './logic.ts'
+import { buildEmailHtml, buildEmailSubject, buildSmsText, getNotificationTime, isEmailEligible, isReadyToSend, isSmsEligible, providerFailureMessage, type ReminderTask } from './logic.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://yeshiva-ketana-secure.vercel.app',
@@ -83,8 +83,8 @@ Deno.serve(async request => {
         body: JSON.stringify({
           from: fromEmail,
           to: [recipientEmail],
-          subject: `Reminder: ${row.title} for ${row.students?.name || 'student'}`,
-          html: buildEmailHtml(row, row.students?.name || 'Student', appUrl),
+          subject: buildEmailSubject(row, row.students?.name || 'student', now),
+          html: buildEmailHtml(row, row.students?.name || 'Student', appUrl, now),
         }),
       })
       const resendBody = await resendResponse.json().catch(() => ({})) as { id?: string; message?: string }
