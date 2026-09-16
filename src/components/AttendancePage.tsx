@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import PrintClassList from './PrintClassList'
-import PrintDaveningChecklist from './PrintDaveningChecklist'
+import SecureDaveningTool from './SecureDaveningTool'
 import { resolveActorName, resolveStudentClassId } from './dashboardData'
 import {
   getDailyAttendanceStatus,
@@ -869,7 +869,7 @@ export default function AttendancePage({
       </div>
 
       {showPrintClassList && <PrintClassList students={students} classes={CLASSES} onClose={() => setShowPrintClassList(false)} S={S} primaryClassIdsByStudent={primaryClassIdsByStudent} additionalClassIdsByStudent={additionalClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
-      {showDaveningChecklist && <PrintDaveningChecklist students={students} classes={CLASSES} onClose={() => setShowDaveningChecklist(false)} S={S} primaryClassIdsByStudent={primaryClassIdsByStudent} additionalClassIdsByStudent={additionalClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
+      {showDaveningChecklist && <SecureDaveningTool students={students} classes={CLASSES} actorName={actingStaffName} onClose={() => setShowDaveningChecklist(false)} S={S} primaryClassIdsByStudent={primaryClassIdsByStudent} additionalClassIdsByStudent={additionalClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
 
       {dailyView === 'daily' && (
         <div style={S.card}>
