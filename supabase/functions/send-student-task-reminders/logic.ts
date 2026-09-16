@@ -21,6 +21,10 @@ export function isEmailEligible(task: ReminderTask) {
   return task.notification_preference === 'email' || task.notification_preference === 'email_text'
 }
 
+export function isSmsEligible(task: ReminderTask) {
+  return task.notification_preference === 'text' || task.notification_preference === 'email_text'
+}
+
 export function getNotificationTime(task: ReminderTask) {
   const reminderTime = task.reminder_start_at ? new Date(task.reminder_start_at).getTime() : new Date(task.due_at).getTime()
   const snoozeTime = task.snoozed_until ? new Date(task.snoozed_until).getTime() : 0
@@ -28,7 +32,7 @@ export function getNotificationTime(task: ReminderTask) {
 }
 
 export function isReadyToSend(task: ReminderTask, now = new Date()) {
-  return !task.completed_at && isEmailEligible(task) && getNotificationTime(task).getTime() <= now.getTime()
+  return !task.completed_at && (isEmailEligible(task) || isSmsEligible(task)) && getNotificationTime(task).getTime() <= now.getTime()
 }
 
 export function hasAlreadySent(deliveries: DeliveryRecord[], task: ReminderTask) {
@@ -46,6 +50,11 @@ export function buildEmailHtml(task: ReminderTask, studentName: string, appUrl: 
   const due = new Date(task.due_at).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })
   const note = task.note ? `<p><strong>Note:</strong> ${escapeHtml(task.note)}</p>` : ''
   return `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#172033"><h2>Student reminder</h2><p><strong>Student:</strong> ${escapeHtml(studentName)}</p><p><strong>Task:</strong> ${escapeHtml(task.title)}</p>${note}<p><strong>Due:</strong> ${escapeHtml(due)}</p><p><a href="${escapeHtml(taskUrl)}">Open secure dashboard</a></p></div>`
+}
+
+export function buildSmsText(task: ReminderTask, studentName: string, appUrl: string) {
+  const due = new Date(task.due_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
+  return `School reminder: ${studentName} - ${task.title}. Due ${due}. ${appUrl}`
 }
 
 export function providerFailureMessage(status: number, body: { message?: string } = {}) {

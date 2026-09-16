@@ -14,6 +14,10 @@ const phase3Migration = readFileSync(
   path.resolve(__dirname, '../../../supabase/migrations/20260916_student_task_email_delivery.sql'),
   'utf8',
 )
+const smsMigration = readFileSync(
+  path.resolve(__dirname, '../../../supabase/migrations/20260917_student_task_sms_delivery.sql'),
+  'utf8',
+)
 
 describe('student tasks schema', () => {
   it('uses a dedicated table with preserved completion history', () => {
@@ -43,5 +47,12 @@ describe('student tasks schema', () => {
     expect(phase3Migration).toContain('unique (task_id, notification_cycle)')
     expect(phase3Migration).toContain('revoke all on table public.student_task_email_deliveries from anon, authenticated')
     expect(phase3Migration).toContain('claim_student_task_email_delivery')
+  })
+
+  it('adds channel-aware SMS delivery without replacing email history', () => {
+    expect(smsMigration).toContain("add column if not exists channel text not null default 'email'")
+    expect(smsMigration).toContain("check (channel in ('email', 'sms'))")
+    expect(smsMigration).toContain('student_task_delivery_task_cycle_channel_uidx')
+    expect(smsMigration).toContain('claim_student_task_delivery')
   })
 })
