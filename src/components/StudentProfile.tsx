@@ -39,6 +39,9 @@ export default function StudentProfile({
   physicalRooms = [],
   instructionalGroups = [],
   instructionalGroupMemberships = [],
+  studentTasks = [],
+  setStudentTasks,
+  StudentTasksTab,
 }) {
   const [tab, setTab] = useState(defaultTab)
   const [callNotes, setCallNotes] = useState('')
@@ -50,8 +53,8 @@ export default function StudentProfile({
   const [undoFeedback, setUndoFeedback] = useState(null)
   const isTeacherRole = role === 'teacher' || role === 'rebbe'
   const availableTabs = isTeacherRole
-    ? ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes']
-    : ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes','info']
+    ? ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes','tasks']
+    : ['overview','attendance','tracking','behavior','pointsHistory','therapy','testScores','calls','notes','tasks','info']
   const s = getStudentById(students, student.id) || student
   const navigationList = buildStudentNavigationList(Array.isArray(navigationStudents) ? navigationStudents : students)
   const { previous, next } = getStudentNavigationPair(navigationList, s?.id)
@@ -193,7 +196,7 @@ export default function StudentProfile({
         </div>
         <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', padding: '0 24px', background: '#ffffff', overflowX: 'auto', overflowY: 'hidden', flexShrink: 0 }}>
           {availableTabs.map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: effectiveTab === t ? 700 : 400, borderBottom: effectiveTab === t ? '2px solid #0f172a' : '2px solid transparent', color: effectiveTab === t ? '#0f172a' : '#64748b', textTransform: 'capitalize', whiteSpace: 'nowrap', flexShrink: 0 }}>{t}</button>
+            <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: effectiveTab === t ? 700 : 400, borderBottom: effectiveTab === t ? '2px solid #0f172a' : '2px solid transparent', color: effectiveTab === t ? '#0f172a' : '#64748b', textTransform: 'capitalize', whiteSpace: 'nowrap', flexShrink: 0 }}>{t === 'tasks' ? 'Reminders / Tasks' : t}</button>
           ))}
         </div>
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '20px 24px', background: '#f8fafc' }}>
@@ -425,6 +428,10 @@ export default function StudentProfile({
           )}
           {effectiveTab === 'notes' && (
             <StudentNotes student={s} students={students} setStudents={setStudents} userName={userName} role={role} S={S} />
+          )}
+
+          {effectiveTab === 'tasks' && StudentTasksTab && setStudentTasks && (
+            <StudentTasksTab studentId={s.id} tasks={studentTasks} setTasks={setStudentTasks} userName={userName} S={S} />
           )}
 
           {effectiveTab === 'info' && (

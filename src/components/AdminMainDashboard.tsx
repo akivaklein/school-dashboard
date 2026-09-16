@@ -7,6 +7,7 @@ import {
 import { formatUnknownDuration } from '../utils/unknownLocationTimer'
 import { resolveStudentClassId } from './dashboardData'
 import { getInstructionalGroupStudentIds, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
+import { StudentTasksDashboard } from './StudentTasksTab'
 
 export default function AdminMainDashboard({
   S,
@@ -50,6 +51,8 @@ export default function AdminMainDashboard({
   initials,
   todos,
   setTodos,
+  studentTasks = [],
+  setStudentTasks,
   FlagDashboardWidget,
   instructionalPeriods = [],
   physicalRooms = [],
@@ -106,7 +109,9 @@ export default function AdminMainDashboard({
           </div>
         </div>
       </div>
-      <div style={{ ...S.card, borderRadius: 12, padding: 20, marginBottom: 20 }}>
+      <StudentTasksDashboard tasks={studentTasks} students={students} openStudent={openStudent} S={S} />
+
+      <div style={{ ...S.card, borderRadius: 16, padding: 24, boxShadow: '0 10px 28px rgba(15,23,42,0.045)' }}>
         <div style={{ fontSize: 17, color: '#102a43', fontWeight: 800 }}>Instructional Groups Now</div>
         <div style={{ fontSize: 12, color: '#64748b', marginTop: 3, marginBottom: 14 }}>
           {currentInstructionalPeriod

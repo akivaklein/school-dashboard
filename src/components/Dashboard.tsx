@@ -77,6 +77,8 @@ import {
   deleteTodo,
   type Todo,
 } from '../services/todosService'
+import { listStudentTasks, type StudentTask } from '../services/studentTasksService'
+import StudentTasksTab from './StudentTasksTab'
 import {
   listTeachingActions,
   createTeachingAction,
@@ -2584,6 +2586,24 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   useEffect(() => {
     let active = true
 
+    async function loadStudentTasks() {
+      try {
+        const loadedTasks = await listStudentTasks()
+        if (active) setStudentTasks(loadedTasks)
+      } catch (error) {
+        console.error('Unable to load student tasks from Supabase:', error)
+      }
+    }
+
+    loadStudentTasks()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+
     async function loadSetupData() {
       try {
         const [actions, vipRules, sales, setupBundle, schedule, accounts, teacherAssignments] = await Promise.all([
@@ -3722,6 +3742,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [todos, setTodos] = useState<Todo[]>([])
   const [todosLoaded, setTodosLoaded] = useState(false)
   const [todoLoadError, setTodoLoadError] = useState<string | null>(null)
+  const [studentTasks, setStudentTasks] = useState<StudentTask[]>([])
   const [newTodo, setNewTodo] = useState('')
   const [newTodoCategory, setNewTodoCategory] = useState('general')
   const [newTodoTime, setNewTodoTime] = useState('')
@@ -5520,6 +5541,8 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             initials={initials}
             todos={todos}
             setTodos={setTodos}
+            studentTasks={studentTasks}
+            setStudentTasks={setStudentTasks}
             FlagDashboardWidget={FlagDashboardWidget}
             instructionalPeriods={instructionalPeriods}
             physicalRooms={physicalRooms}
@@ -5842,6 +5865,9 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         physicalRooms={physicalRooms}
         instructionalGroups={instructionalGroups}
         instructionalGroupMemberships={instructionalGroupMemberships}
+        studentTasks={studentTasks}
+        setStudentTasks={setStudentTasks}
+        StudentTasksTab={StudentTasksTab}
         StudentScoresTab={props => (
           <StudentScoresTab
             {...props}
