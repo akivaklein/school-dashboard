@@ -155,7 +155,7 @@ export default function StudentProfile({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 760, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 70px rgba(15,23,42,0.22)' }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 760, height: '90vh', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 70px rgba(15,23,42,0.22)' }}>
         <div style={{ background: vip ? 'linear-gradient(135deg, #854d0e, #a16207)' : '#0f172a', padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={S.avatar(s.id - 1, 48)}>{initials(s.name)}</div>
           <div style={{ flex: 1 }}>
@@ -196,7 +196,7 @@ export default function StudentProfile({
             <button key={t} onClick={() => setTab(t)} style={{ padding: '11px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: effectiveTab === t ? 700 : 400, borderBottom: effectiveTab === t ? '2px solid #0f172a' : '2px solid transparent', color: effectiveTab === t ? '#0f172a' : '#64748b', textTransform: 'capitalize', whiteSpace: 'nowrap', flexShrink: 0 }}>{t}</button>
           ))}
         </div>
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', background: '#f8fafc' }}>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '20px 24px', background: '#f8fafc' }}>
           {effectiveTab === 'overview' && (
             <div style={{ display: 'grid', gap: 12 }}>
               {vip && <div style={{ background: 'linear-gradient(135deg, #fef9c3, #fef08a)', border: '2px solid #ca8a04', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 32 }}>⭐</span><div><div style={{ fontWeight: 700, fontSize: 15, color: '#854d0e' }}>VIP Student!</div><div style={{ fontSize: 13, color: '#92400e' }}>Perfect week — eligible for VIP rewards!</div></div></div>}
