@@ -12,11 +12,13 @@ alter table public.student_tasks
   add column if not exists recurrence_canceled_by text;
 
 -- Prevent duplicate occurrences when both the client (on Done/Skip) and the
--- server-side catch-up job try to create the same next occurrence.
-drop index if exists student_tasks_series_occurrence_unique_idx;
-create unique index student_tasks_series_occurrence_unique_idx
-  on public.student_tasks (series_id, occurrence_number)
-  where series_id is not null;
+-- server-side catch-up job try to create the same next occurrence. A plain
+-- (non-partial) unique constraint is required so upsert's ON CONFLICT target
+-- can be inferred; Postgres already allows multiple NULL series_id rows.
+alter table public.student_tasks
+  drop constraint if exists student_tasks_series_occurrence_unique;
+alter table public.student_tasks
+  add constraint student_tasks_series_occurrence_unique unique (series_id, occurrence_number);
 
 -- Latest occurrence per series, used by the server-side occurrence-advance job
 -- to determine the next due date(s) without depending on anyone opening the app.

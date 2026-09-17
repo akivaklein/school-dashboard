@@ -70,8 +70,7 @@ describe('student tasks schema', () => {
   })
 
   it('makes duplicate occurrence creation impossible so client and server catch-up cannot double-create', () => {
-    expect(recurrenceDurabilityMigration).toContain('create unique index student_tasks_series_occurrence_unique_idx')
-    expect(recurrenceDurabilityMigration).toContain('on public.student_tasks (series_id, occurrence_number)')
+    expect(recurrenceDurabilityMigration).toContain('add constraint student_tasks_series_occurrence_unique unique (series_id, occurrence_number)')
   })
 
   it('exposes only the series tip through a service-role-only view for server-side catch-up', () => {
