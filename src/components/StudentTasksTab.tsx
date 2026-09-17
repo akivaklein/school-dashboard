@@ -2,9 +2,11 @@ import { useState } from 'react'
 import {
   createStudentTask,
   completeStudentTask,
+  cancelStudentTaskRecurrence,
   deleteStudentTask,
   getStudentTaskDueAt,
   getStudentTaskStatus,
+  skipStudentTask,
   snoozeStudentTask,
   updateStudentTask,
   type StudentTask,
@@ -57,6 +59,7 @@ function statusStyle(status: string, S: StyleApi) {
   if (status === 'Snoozed') return S.badge('#92400e', '#fef3c7')
   if (status === 'Overdue') return S.badge('#9f1239', '#fee2e2')
   if (status === 'Done') return S.badge('#166534', '#dcfce7')
+  if (status === 'Skipped') return S.badge('#78350f', '#fde68a')
   return S.badge('#1d4ed8', '#dbeafe')
 }
 
@@ -65,6 +68,7 @@ function statusIcon(status: string) {
   if (status === 'Snoozed') return '💤'
   if (status === 'Overdue') return '⚠️'
   if (status === 'Done') return '✅'
+  if (status === 'Skipped') return '⏭'
   return '🔔'
 }
 
@@ -160,6 +164,26 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
     }
   }
 
+  async function skip(task: StudentTask) {
+    try {
+      const result = await skipStudentTask(task, userName || 'Staff')
+      setTasks(previous => [...previous.map(item => item.id === result.skipped.id ? result.skipped : item), ...(result.next ? [result.next] : [])])
+      setNextOccurrenceNote(result.next ? `“${task.title}” skipped. Next occurrence: ${formatDue(result.next)}.` : '')
+    } catch (skipError) {
+      setError(skipError instanceof Error ? skipError.message : 'Unable to skip task.')
+    }
+  }
+
+  async function cancelRecurrence(task: StudentTask) {
+    if (!window.confirm(`Stop repeating “${task.title}”? Future occurrences will no longer be created.`)) return
+    try {
+      const updated = await cancelStudentTaskRecurrence(task, userName || 'Staff')
+      setTasks(previous => previous.map(item => item.id === updated.id ? updated : item))
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : 'Unable to cancel recurrence.')
+    }
+  }
+
   async function snooze(task: StudentTask, minutes: number) {
     try {
       const updated = await snoozeStudentTask(task, new Date(Date.now() + minutes * 60000).toISOString(), userName || 'Staff')
@@ -208,21 +232,22 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
   }
 
   const activeTasks = studentTasks
-    .filter(task => !task.completed_at)
+    .filter(task => !task.completed_at && !task.skipped_at)
     .sort((a, b) => getStudentTaskDueAt(a).getTime() - getStudentTaskDueAt(b).getTime())
   const historyTasks = studentTasks
-    .filter(task => task.completed_at)
-    .sort((a, b) => new Date(b.completed_at as string).getTime() - new Date(a.completed_at as string).getTime())
+    .filter(task => task.completed_at || task.skipped_at)
+    .sort((a, b) => new Date((b.completed_at || b.skipped_at) as string).getTime() - new Date((a.completed_at || a.skipped_at) as string).getTime())
 
   function renderTaskRow(task: StudentTask) {
     const status = getStudentTaskStatus(task, now)
+    const closed = status === 'Done' || status === 'Skipped'
     const recurring = isRecurring(task)
     return (
       <div key={task.id} style={{ borderTop: '1px solid #eef2f6', padding: '12px 0', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-        <input type="checkbox" checked={status === 'Done'} onChange={() => setDone(task, status !== 'Done')} title={status === 'Done' ? 'Reopen task' : 'Mark task done'} style={{ marginTop: 3, cursor: 'pointer', width: 16, height: 16 }} />
+        <input type="checkbox" checked={status === 'Done'} disabled={status === 'Skipped'} onChange={() => setDone(task, status !== 'Done')} title={status === 'Done' ? 'Reopen task' : 'Mark task done'} style={{ marginTop: 3, cursor: 'pointer', width: 16, height: 16 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <strong style={{ fontSize: 13, textDecoration: status === 'Done' ? 'line-through' : 'none' }}>{task.title}</strong>
+            <strong style={{ fontSize: 13, textDecoration: closed ? 'line-through' : 'none' }}>{task.title}</strong>
             <span style={statusStyle(status, S)}>{statusIcon(status)} {status}</span>
             {recurring && <span style={repeatBadgeStyle(task)}>🔁 {REPEAT_LABELS[task.repeat_type]}</span>}
           </div>
@@ -233,14 +258,18 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
           <div style={{ color: '#94a3b8', fontSize: 10, marginTop: 3 }}>Created by {task.created_by} on {new Date(task.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>
           {task.note && <div style={{ color: '#334155', fontSize: 12, marginTop: 5 }}>{task.note}</div>}
           {status === 'Done' && task.completed_by && <div style={{ color: '#166534', fontSize: 11, marginTop: 4, fontWeight: 700 }}>✅ Completed by {task.completed_by} on {task.completed_at ? new Date(task.completed_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : ''}</div>}
+          {status === 'Skipped' && task.skipped_by && <div style={{ color: '#92400e', fontSize: 11, marginTop: 4, fontWeight: 700 }}>⏭ Skipped by {task.skipped_by} on {task.skipped_at ? new Date(task.skipped_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : ''}</div>}
+          {task.recurrence_canceled_at && <div style={{ color: '#9f1239', fontSize: 11, marginTop: 4, fontWeight: 700 }}>🚫 Recurrence stopped by {task.recurrence_canceled_by} on {new Date(task.recurrence_canceled_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>}
         </div>
         <div style={{ display: 'flex', gap: 5, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 220 }}>
-          {status !== 'Done' && <>
+          {!closed && <>
             <button onClick={() => snooze(task, 15)} title="Snooze 15 minutes" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 15m</button>
             <button onClick={() => snooze(task, 60)} title="Snooze 1 hour" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 1h</button>
             <button onClick={() => snooze(task, 180)} title="Snooze 3 hours" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 3h</button>
             <button onClick={() => snoozeTomorrow(task)} title="Snooze until tomorrow morning" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 Tomorrow</button>
             <button onClick={() => snoozeCustom(task)} title="Choose a custom snooze time" style={{ padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 11 }}>Custom…</button>
+            {recurring && <button onClick={() => skip(task)} title="Skip only this occurrence; the series continues" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>⏭ Skip</button>}
+            {recurring && !task.recurrence_canceled_at && <button onClick={() => cancelRecurrence(task)} title="Stop all future occurrences" style={{ padding: '5px 8px', border: '1px solid #fecdd3', borderRadius: 6, background: '#fff7f7', color: '#9f1239', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>🚫 Stop repeating</button>}
           </>}
           <button onClick={() => { setEditingId(task.id); setForm(taskToForm(task)); setError('') }} style={{ padding: '5px 8px', border: '1px solid #dbe4ef', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 11 }}>Edit</button>
           <button onClick={() => removeTask(task)} style={{ padding: '5px 8px', border: '1px solid #fecdd3', borderRadius: 6, background: '#fff7f7', color: '#9f1239', cursor: 'pointer', fontSize: 11 }}>Delete</button>
@@ -278,7 +307,7 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
 export function StudentTasksDashboard({ tasks, students, openStudent, S }: { tasks: StudentTask[]; students: StudentRef[]; openStudent: (student: StudentRef, tab?: string) => void; S: StyleApi }) {
   const now = new Date()
   const studentById = new Map(students.map(student => [Number(student.id), student]))
-  const openTasks = tasks.filter(task => !task.completed_at && studentById.has(Number(task.student_id)))
+  const openTasks = tasks.filter(task => !task.completed_at && !task.skipped_at && studentById.has(Number(task.student_id)))
   const todayLimit = now.getTime() + 60 * 60 * 1000
   const groups = [
     { label: 'Needs Attention', tasks: openTasks.filter(task => getStudentTaskStatus(task, now) === 'Due') },

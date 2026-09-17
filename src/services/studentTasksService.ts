@@ -22,6 +22,10 @@ export type StudentTask = {
   updated_at: string
   completed_at: string | null
   completed_by: string | null
+  skipped_at: string | null
+  skipped_by: string | null
+  recurrence_canceled_at: string | null
+  recurrence_canceled_by: string | null
 }
 
 function mapTask(row: Record<string, unknown>): StudentTask {
@@ -44,6 +48,10 @@ function mapTask(row: Record<string, unknown>): StudentTask {
     updated_at: String(row.updated_at || ''),
     completed_at: row.completed_at ? String(row.completed_at) : null,
     completed_by: row.completed_by ? String(row.completed_by) : null,
+    skipped_at: row.skipped_at ? String(row.skipped_at) : null,
+    skipped_by: row.skipped_by ? String(row.skipped_by) : null,
+    recurrence_canceled_at: row.recurrence_canceled_at ? String(row.recurrence_canceled_at) : null,
+    recurrence_canceled_by: row.recurrence_canceled_by ? String(row.recurrence_canceled_by) : null,
   }
 }
 
@@ -52,9 +60,10 @@ export function getStudentTaskDueAt(task: StudentTask) {
   return initialDue
 }
 
-export type StudentTaskStatus = 'Upcoming' | 'Snoozed' | 'Due' | 'Overdue' | 'Done'
+export type StudentTaskStatus = 'Upcoming' | 'Snoozed' | 'Due' | 'Overdue' | 'Done' | 'Skipped'
 
 export function getStudentTaskStatus(task: StudentTask, now = new Date()): StudentTaskStatus {
+  if (task.skipped_at) return 'Skipped'
   if (task.completed_at) return 'Done'
   if (task.snoozed_until && new Date(task.snoozed_until).getTime() > now.getTime()) return 'Snoozed'
   if (task.reminder_start_at && new Date(task.reminder_start_at).getTime() > now.getTime()) return 'Upcoming'
@@ -63,6 +72,11 @@ export function getStudentTaskStatus(task: StudentTask, now = new Date()): Stude
 
 export function isRecurringTask(task: StudentTask) {
   return task.repeat_type !== 'one_time'
+}
+
+// A canceled recurrence stops future occurrences; the series otherwise continues indefinitely.
+export function canAdvanceSeries(task: StudentTask) {
+  return isRecurringTask(task) && !task.recurrence_canceled_at
 }
 
 export function getNextOccurrenceDueAt(task: StudentTask): Date | null {
@@ -128,7 +142,7 @@ export async function createStudentTask(input: {
   return created
 }
 
-export async function updateStudentTask(id: string, updates: Partial<Pick<StudentTask, 'title' | 'note' | 'due_at' | 'repeat_type' | 'completed_at' | 'completed_by' | 'reminder_start_at' | 'recurrence_days' | 'notification_preference' | 'snoozed_until' | 'series_id' | 'occurrence_number' | 'notification_cycle'>>): Promise<StudentTask> {
+export async function updateStudentTask(id: string, updates: Partial<Pick<StudentTask, 'title' | 'note' | 'due_at' | 'repeat_type' | 'completed_at' | 'completed_by' | 'reminder_start_at' | 'recurrence_days' | 'notification_preference' | 'snoozed_until' | 'series_id' | 'occurrence_number' | 'notification_cycle' | 'skipped_at' | 'skipped_by' | 'recurrence_canceled_at' | 'recurrence_canceled_by'>>): Promise<StudentTask> {
   const rescheduled = updates.due_at !== undefined || updates.reminder_start_at !== undefined
   const payload = {
     ...(updates.title !== undefined ? { title: String(updates.title).trim() } : {}),
@@ -144,6 +158,10 @@ export async function updateStudentTask(id: string, updates: Partial<Pick<Studen
     ...((updates.notification_cycle !== undefined || rescheduled) ? { notification_cycle: updates.notification_cycle || crypto.randomUUID() } : {}),
     ...(updates.completed_at !== undefined ? { completed_at: updates.completed_at } : {}),
     ...(updates.completed_by !== undefined ? { completed_by: updates.completed_by } : {}),
+    ...(updates.skipped_at !== undefined ? { skipped_at: updates.skipped_at } : {}),
+    ...(updates.skipped_by !== undefined ? { skipped_by: updates.skipped_by } : {}),
+    ...(updates.recurrence_canceled_at !== undefined ? { recurrence_canceled_at: updates.recurrence_canceled_at } : {}),
+    ...(updates.recurrence_canceled_by !== undefined ? { recurrence_canceled_by: updates.recurrence_canceled_by } : {}),
   }
   const { data, error } = await supabase.from('student_tasks').update(payload).eq('id', id).select('*').single()
   if (error) throw new Error(error.message || 'Unable to update student task')
@@ -156,11 +174,8 @@ export async function snoozeStudentTask(task: StudentTask, snoozedUntil: string,
   return updateStudentTask(task.id, { snoozed_until: snoozedUntil, notification_cycle: crypto.randomUUID() })
 }
 
-export async function completeStudentTask(task: StudentTask, completedBy: string): Promise<{ completed: StudentTask; next: StudentTask | null }> {
-  const completed = await updateStudentTask(task.id, { completed_at: new Date().toISOString(), completed_by: completedBy || 'Staff', snoozed_until: null })
-  const nextDue = getNextOccurrenceDueAt(task)
-  if (!nextDue) return { completed, next: null }
-  const next = await createStudentTask({
+async function createNextOccurrence(task: StudentTask, nextDue: Date): Promise<StudentTask> {
+  return createStudentTask({
     studentId: task.student_id,
     title: task.title,
     note: task.note,
@@ -173,7 +188,29 @@ export async function completeStudentTask(task: StudentTask, completedBy: string
     occurrenceNumber: task.occurrence_number + 1,
     createdBy: task.created_by,
   })
+}
+
+export async function completeStudentTask(task: StudentTask, completedBy: string): Promise<{ completed: StudentTask; next: StudentTask | null }> {
+  const completed = await updateStudentTask(task.id, { completed_at: new Date().toISOString(), completed_by: completedBy || 'Staff', snoozed_until: null })
+  const nextDue = canAdvanceSeries(task) ? getNextOccurrenceDueAt(task) : null
+  if (!nextDue) return { completed, next: null }
+  const next = await createNextOccurrence(task, nextDue)
   return { completed, next }
+}
+
+// Skip closes only this occurrence (kept in history) without marking it Done; the series still continues.
+export async function skipStudentTask(task: StudentTask, skippedBy: string): Promise<{ skipped: StudentTask; next: StudentTask | null }> {
+  const skipped = await updateStudentTask(task.id, { skipped_at: new Date().toISOString(), skipped_by: skippedBy || 'Staff', snoozed_until: null })
+  const nextDue = canAdvanceSeries(task) ? getNextOccurrenceDueAt(task) : null
+  if (!nextDue) return { skipped, next: null }
+  const next = await createNextOccurrence(task, nextDue)
+  return { skipped, next }
+}
+
+// Cancel recurrence stops all future occurrences; history for every prior occurrence is preserved.
+export async function cancelStudentTaskRecurrence(task: StudentTask, canceledBy: string): Promise<StudentTask> {
+  if (!isRecurringTask(task)) throw new Error('Only recurring tasks can cancel their recurrence.')
+  return updateStudentTask(task.id, { recurrence_canceled_at: new Date().toISOString(), recurrence_canceled_by: canceledBy || 'Staff' })
 }
 
 export async function deleteStudentTask(id: string): Promise<void> {

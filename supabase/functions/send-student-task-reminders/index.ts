@@ -38,6 +38,7 @@ Deno.serve(async request => {
     .from('student_tasks')
     .select('*, students(name)')
     .is('completed_at', null)
+    .is('skipped_at', null)
     .in('notification_preference', ['email', 'text', 'email_text'])
     .limit(1000)
 

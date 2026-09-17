@@ -18,6 +18,10 @@ const smsMigration = readFileSync(
   path.resolve(__dirname, '../../../supabase/migrations/20260917_student_task_sms_delivery.sql'),
   'utf8',
 )
+const recurrenceDurabilityMigration = readFileSync(
+  path.resolve(__dirname, '../../../supabase/migrations/20260917_student_task_recurrence_durability.sql'),
+  'utf8',
+)
 
 describe('student tasks schema', () => {
   it('uses a dedicated table with preserved completion history', () => {
@@ -54,5 +58,26 @@ describe('student tasks schema', () => {
     expect(smsMigration).toContain("check (channel in ('email', 'sms'))")
     expect(smsMigration).toContain('student_task_delivery_task_cycle_channel_uidx')
     expect(smsMigration).toContain('claim_student_task_delivery')
+  })
+
+  it('adds skip and recurrence-cancellation history without touching completion history', () => {
+    expect(recurrenceDurabilityMigration).toContain('add column if not exists skipped_at')
+    expect(recurrenceDurabilityMigration).toContain('add column if not exists skipped_by')
+    expect(recurrenceDurabilityMigration).toContain('add column if not exists recurrence_canceled_at')
+    expect(recurrenceDurabilityMigration).toContain('add column if not exists recurrence_canceled_by')
+    expect(recurrenceDurabilityMigration).not.toContain('drop table')
+    expect(recurrenceDurabilityMigration).not.toContain('completed_at')
+  })
+
+  it('makes duplicate occurrence creation impossible so client and server catch-up cannot double-create', () => {
+    expect(recurrenceDurabilityMigration).toContain('create unique index student_tasks_series_occurrence_unique_idx')
+    expect(recurrenceDurabilityMigration).toContain('on public.student_tasks (series_id, occurrence_number)')
+  })
+
+  it('exposes only the series tip through a service-role-only view for server-side catch-up', () => {
+    expect(recurrenceDurabilityMigration).toContain('create or replace view public.student_task_series_tips')
+    expect(recurrenceDurabilityMigration).toContain('order by series_id, occurrence_number desc')
+    expect(recurrenceDurabilityMigration).toContain('revoke all on public.student_task_series_tips from anon, authenticated')
+    expect(recurrenceDurabilityMigration).toContain('grant select on public.student_task_series_tips to service_role')
   })
 })

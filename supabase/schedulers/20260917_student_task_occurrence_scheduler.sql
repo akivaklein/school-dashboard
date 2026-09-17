@@ -1,0 +1,28 @@
+-- Advances calendar-based recurring student task series (every day / weekdays /
+-- specific days) server-side so a series stays scheduled indefinitely even if
+-- nobody opens the app for several days. This file intentionally does not
+-- enable cron. Run the commands below only after the Edge Function is
+-- deployed and TASK_OCCURRENCE_CRON_SECRET is configured.
+--
+-- Required extensions:
+--   create extension if not exists pg_cron;
+--   create extension if not exists pg_net;
+--
+-- Replace PROJECT_REF and CRON_SECRET before enabling:
+-- select cron.schedule(
+--   'student-task-occurrence-advance',
+--   '0 * * * *',
+--   $$
+--   select net.http_post(
+--     url := 'https://PROJECT_REF.supabase.co/functions/v1/advance-student-task-occurrences',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'x-task-occurrence-cron-secret', 'CRON_SECRET'
+--     ),
+--     body := '{}'::jsonb
+--   );
+--   $$
+-- );
+--
+-- Disable later with:
+-- select cron.unschedule('student-task-occurrence-advance');

@@ -7,6 +7,7 @@ export type ReminderTask = {
   reminder_start_at: string | null
   snoozed_until: string | null
   completed_at?: string | null
+  skipped_at?: string | null
   notification_preference: string
   notification_cycle: string
 }
@@ -32,7 +33,7 @@ export function getNotificationTime(task: ReminderTask) {
 }
 
 export function isReadyToSend(task: ReminderTask, now = new Date()) {
-  return !task.completed_at && (isEmailEligible(task) || isSmsEligible(task)) && getNotificationTime(task).getTime() <= now.getTime()
+  return !task.completed_at && !task.skipped_at && (isEmailEligible(task) || isSmsEligible(task)) && getNotificationTime(task).getTime() <= now.getTime()
 }
 
 export function hasAlreadySent(deliveries: DeliveryRecord[], task: ReminderTask) {
