@@ -10,7 +10,7 @@ vi.mock('../../supabaseClient', () => ({
   },
 }))
 
-import { createStudentRecord, normalizeStudentGrade } from '../studentsAdminService'
+import { createStudentRecord, normalizeStudentGrade, updateStudentRecord } from '../studentsAdminService'
 
 describe('studentsAdminService', () => {
   beforeEach(() => {
@@ -65,5 +65,21 @@ describe('studentsAdminService', () => {
         is_active: true,
       }),
     )
+  })
+
+  it('does not overwrite legacy class fields during a general student edit', async () => {
+    const updatedRow = { id: 12, name: 'Moshe Updated', class_name: '8th Grade', grade: '8' }
+    const singleMock = vi.fn().mockResolvedValue({ data: updatedRow, error: null })
+    const selectMock = vi.fn().mockReturnValue({ single: singleMock })
+    const eqMock = vi.fn().mockReturnValue({ select: selectMock })
+    const updateMock = vi.fn().mockReturnValue({ eq: eqMock })
+    fromMock.mockReturnValue({ update: updateMock, insert: vi.fn().mockResolvedValue({ error: null }) })
+
+    await updateStudentRecord(12, { name: 'Moshe Updated', className: '7th Grade', classId: 'yk-b', grade: '7' }, 'Admin User')
+
+    const patch = updateMock.mock.calls[0][0]
+    expect(patch).not.toHaveProperty('class_name')
+    expect(patch).not.toHaveProperty('class_id')
+    expect(patch).not.toHaveProperty('grade')
   })
 })

@@ -1,4 +1,4 @@
-import { studentBelongsToClass } from './dashboardData'
+import { CLASS_ID_BY_GRADE } from './dashboardData'
 import { getInstructionalGroupStudentIds } from '../utils/instructionalGroupUtils'
 
 type PrintableStudent = { id: string | number; name?: string; is_active?: boolean }
@@ -36,8 +36,9 @@ function getClassOrGroupRoster(students: PrintableStudent[], classOrGroupId: str
   return students.filter(student => {
     const savedPrimaryClassId = primaryClassIdsByStudent[Number(student.id)] || primaryClassIdsByStudent[student.id]
     const hasAdditionalMembership = (additionalClassIdsByStudent[Number(student.id)] || additionalClassIdsByStudent[student.id] || []).includes(classOrGroupId)
-    if (savedPrimaryClassId) return savedPrimaryClassId === classOrGroupId || hasAdditionalMembership
-    return studentBelongsToClass(student, classOrGroupId, additionalClassIdsByStudent)
+    if (savedPrimaryClassId === classOrGroupId) return true
+    if ((Object.values(CLASS_ID_BY_GRADE) as string[]).includes(classOrGroupId)) return false
+    return hasAdditionalMembership
   })
 }
 

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { applyStudentClassAssignments } from '../dashboardData'
 import { buildClassroomCoverageForecast, debugCoverageForecastMatching } from '../scheduleCoverageForecast'
 
 const classes = [
-  { id: 'a', name: 'Dargei Alef' },
-  { id: 'b', name: 'Dargei Beis' },
+  { id: 'a', name: 'Dargei Alef', grade: '8', teacher: 'Rabbi Klein' },
+  { id: 'b', name: 'Dargei Beis', grade: '7', teacher: 'Rabbi Goldstein' },
 ]
 
 const schedulePeriods = [
@@ -21,10 +22,13 @@ const alefRoster = [
   { id: 7, name: 'Feltman Daniel' },
 ]
 
-const students = [
+const students = applyStudentClassAssignments([
   ...alefRoster,
   { id: 101, name: 'Cohen Dovid', classId: 'b' },
-]
+], {
+  ...Object.fromEntries(alefRoster.map(student => [student.id, { classId: 'a', divisionKey: 'yeshiva_ketana' }])),
+  101: { classId: 'b', divisionKey: 'yeshiva_ketana' },
+}, classes)
 
 const nowTuesday = new Date('2026-08-04T10:15:00')
 
@@ -152,6 +156,15 @@ describe('schedule coverage forecast runtime integration', () => {
     const alef = classForecast(forecast, 'a')
     const wedStart = pointBy(alef, 'Wednesday', 10 * 60 + 10)
     expect(wedStart.expectedCount).toBe(6)
+  })
+
+  it('uses the current Student Class Assignment when a saved therapy row has a stale class', () => {
+    const forecast = forecastFor({
+      therapySchedule: [loadTherapyScheduleLikeRow({ classId: 'b', className: 'Dargei Beis' })],
+      horizonDays: 3,
+    })
+
+    expect(pointBy(classForecast(forecast, 'a'), 'Wednesday', 10 * 60 + 10).expectedCount).toBe(6)
   })
 
   it('does not require optional subject/period fields', () => {

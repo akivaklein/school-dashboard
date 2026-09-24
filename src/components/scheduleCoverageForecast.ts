@@ -193,15 +193,7 @@ function normalizeName(value: string) {
 }
 
 function resolveForecastStudentClassId(student: StudentLike, classes: ClassLike[]) {
-  const explicitClassId = String(student.classId || student.class_id || '').trim()
-  if (explicitClassId) return explicitClassId
-
-  const className = normalizeName(String(student.className || ''))
-  if (className) {
-    const classMatch = (classes || []).find(item => normalizeName(item.name) === className)
-    if (classMatch) return classMatch.id
-  }
-
+  void classes
   return resolveStudentClassId(student)
 }
 
@@ -341,16 +333,6 @@ function resolveStudentIdentity(row: TherapyRowLike, rosterMap: Map<number, Stud
   }
 
   return null
-}
-
-function rowClassHintMatches(row: TherapyRowLike, classInfo: ClassLike) {
-  const classId = String(row.classId || row.class_id || '').trim()
-  if (classId) return classId === classInfo.id
-
-  const className = normalizeName(String(row.className || row.class || ''))
-  if (className) return className === normalizeName(classInfo.name)
-
-  return true
 }
 
 function resolveAppointmentPeriodHint(row: TherapyRowLike) {
@@ -617,7 +599,6 @@ export function buildClassroomCoverageForecast({
             studentName: row.studentName,
           }, rosterMap, rosterNameMap)
           if (!identity) return null
-          if (!rowClassHintMatches({ classId: row.classIdHint, className: row.classNameHint }, classInfo)) return null
           const window = resolveAppointmentWindow({
             time: row.startTime,
             startTime: row.startTime,

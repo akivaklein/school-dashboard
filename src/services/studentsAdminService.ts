@@ -57,7 +57,7 @@ export function normalizeStudentGrade(value: string | number | null | undefined)
 
 const GRADE_CLASS_NAMES: Record<string, string> = { '7': '7th Grade', '8': '8th Grade' }
 
-// Grade is the source of truth; class_name is always derived from it so the two cannot diverge.
+// New rows retain normalized legacy metadata; active membership is owned by student_class_assignments.
 function resolveGradeAndClassName(payload: StudentMutationPayload) {
   const grade = normalizeStudentGrade(payload.grade) || normalizeStudentGrade(payload.className) || normalizeStudentGrade(payload.classId)
   const className = GRADE_CLASS_NAMES[grade] || String(payload.className || '').trim()
@@ -140,7 +140,6 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
   const family = normalizeFamilyDetails(payload.family)
   const teacherAssignments = normalizeAssignments(payload.teacherAssignments)
   const supportAssignments = normalizeAssignments(payload.supportAssignments)
-  const { grade, className } = resolveGradeAndClassName(payload)
 
   const services = [
     ...teacherAssignments.map(name => ({ role: 'teacher', staffName: name })),
@@ -152,14 +151,12 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
   // to "present"/in-class regardless of their real current attendance state.
   const patch = {
     name: String(payload.name || '').trim(),
-    class_name: className,
     family,
     services,
     assigned_therapist: String(payload.assignedTherapist || '').trim(),
     therapy_frequency: String(payload.therapyFrequency || '').trim(),
     therapy_notes: String(payload.therapyNotes || '').trim(),
     is_active: payload.isActive !== false,
-    grade,
     archived_at: payload.isActive === false ? new Date().toISOString() : null,
     archived_by: payload.isActive === false ? actorName : null,
   }
@@ -174,8 +171,6 @@ export async function updateStudentRecord(studentId: number, payload: StudentMut
   if (error) throw error
 
   await appendAuditLog('student_updated', studentId, actorName, {
-    className: patch.class_name,
-    grade,
     isActive: patch.is_active,
     teacherAssignments,
     supportAssignments,

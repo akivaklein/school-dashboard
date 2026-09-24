@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
 import { buildStudentListViewModel } from './studentListUtils'
-import { CLASS_ID_BY_GRADE, GRADE_LABELS, normalizeGradeValue, resolveStudentGrade } from './dashboardData'
+import { resolveStudentClassId } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
 import { getStudentStatusDisplay } from '../utils/attendancePresence'
 import { getStudentInstructionalGroup, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 
-const GRADE_OPTIONS = ['8', '7']
 const DAILY_STATUS_LABELS = {
   'not-arrived': 'Not Arrived',
   unconfirmed: 'Not Confirmed',
@@ -22,18 +21,9 @@ const LOCATION_STATUS_LABELS = {
   unknown: 'Location Unknown',
 }
 
-function gradeClassId(grade) {
-  return CLASS_ID_BY_GRADE[grade] || ''
-}
-
-function gradeClassName(grade) {
-  return GRADE_LABELS[grade] || ''
-}
-
 function defaultStudentForm() {
   return {
     name: '',
-    grade: '8',
     teacherAssignmentsText: '',
     supportAssignmentsText: '',
     fatherName: '',
@@ -53,17 +43,13 @@ function splitCsv(value) {
 }
 
 function studentClassId(student) {
-  const explicit = String(student?.classId || student?.class_id || '')
-  return explicit || gradeClassId(resolveStudentGrade(student))
+  return String(resolveStudentClassId(student) || '')
 }
 
 function studentClassName(student, classes) {
-  const gradeName = gradeClassName(resolveStudentGrade(student))
-  if (gradeName) return gradeName
-
   const classId = studentClassId(student)
   const configuredClass = (classes || []).find(entry => String(entry.id) === classId)
-  return String(student?.className || student?.class_name || configuredClass?.name || '')
+  return String(configuredClass?.name || student?.className || '')
 }
 
 function studentPhoneNumbers(student) {
@@ -194,7 +180,6 @@ export default function StudentsListPage({
   }
 
   function openEditForm(student) {
-    const classMatch = (classes || []).find(entry => entry.id === (student.classId || student.class_id))
     const family = (student.family && typeof student.family === 'object') ? student.family : {}
     const services = Array.isArray(student.services) ? student.services : []
 
@@ -210,11 +195,8 @@ export default function StudentsListPage({
 
     setEditingStudent(student)
     setFormError('')
-    const inferredGrade = resolveStudentGrade(student) || normalizeGradeValue(classMatch?.name) || '8'
-
     setFormState({
       name: student.name || '',
-      grade: inferredGrade,
       teacherAssignmentsText: teacherAssignments.join(', '),
       supportAssignmentsText: supportAssignments.join(', '),
       fatherName: String(family.fatherName || ''),
@@ -235,17 +217,9 @@ export default function StudentsListPage({
       return
     }
 
-    const safeGrade = normalizeGradeValue(formState.grade)
-    if (!safeGrade) {
-      setFormError('Grade is required.')
-      return
-    }
-
     const payload = {
       name: String(formState.name || '').trim(),
-      className: gradeClassName(safeGrade),
-      classId: gradeClassId(safeGrade),
-      grade: safeGrade,
+      className: '',
       isActive: formState.isActive !== false,
       teacherAssignments: splitCsv(formState.teacherAssignmentsText),
       supportAssignments: splitCsv(formState.supportAssignmentsText),
@@ -515,12 +489,6 @@ export default function StudentsListPage({
                 <label style={{ display: 'grid', gap: 4 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Student Name</span>
                   <input value={formState.name} onChange={event => setFormState(prev => ({ ...prev, name: event.target.value }))} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12 }} />
-                </label>
-                <label style={{ display: 'grid', gap: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Grade (class)</span>
-                  <select value={formState.grade} onChange={event => setFormState(prev => ({ ...prev, grade: event.target.value }))} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #d8dee9', fontSize: 12 }}>
-                    {GRADE_OPTIONS.map(grade => <option key={`grade-opt-${grade}`} value={grade}>{GRADE_LABELS[grade]}</option>)}
-                  </select>
                 </label>
                 <label style={{ display: 'grid', gap: 4 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Teachers/Rebbeim (comma-separated)</span>

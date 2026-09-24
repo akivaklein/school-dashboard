@@ -11,7 +11,6 @@ import RegisterAccountsSection from './RegisterAccountsSection'
 import DataCleanupSection from './DataCleanupSection'
 import SetupInstructionalGroupsSection from './SetupInstructionalGroupsSection'
 import { getSetupSectionMeta } from './setupCenterUtils'
-import { STUDENT_CLASSES } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
 
 export default function SetupCenterPage({
@@ -64,7 +63,6 @@ export default function SetupCenterPage({
   createFakeTherapySchedule,
   THERAPIST_OPTIONS,
   CLASSES,
-  STUDENT_CLASSES,
   CLASS_DIVISION,
   DIVISIONS,
   TEACHING_STAFF_OPTIONS,
@@ -269,7 +267,6 @@ export default function SetupCenterPage({
               createFakeTherapySchedule={createFakeTherapySchedule}
               THERAPIST_OPTIONS={THERAPIST_OPTIONS}
               CLASSES={CLASSES}
-              STUDENT_CLASSES={STUDENT_CLASSES}
               CLASS_DIVISION={CLASS_DIVISION}
               DIVISIONS={safeDivisions}
               SUPPORT_STAFF_OPTIONS={SUPPORT_STAFF_OPTIONS}
@@ -296,7 +293,6 @@ export default function SetupCenterPage({
             <SetupSchoolStructureSection
               S={S}
               students={students}
-              STUDENT_CLASSES_MAP={STUDENT_CLASSES}
               studentClassOverrides={studentClassOverrides}
               onSaveAssignment={onSaveStudentClassAssignment}
               onSaveAssignmentBatch={onSaveStudentClassAssignmentBatch}

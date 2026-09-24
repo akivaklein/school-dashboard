@@ -692,15 +692,6 @@ export const CLASSES = [
   { id: 'yk-b', name: '7th Grade', grade: '7th Grade', teacher: 'Rabbi Schimborski' },
 ]
 
-export const STUDENT_CLASSES = {
-  1: 'a', 2: 'a', 3: 'a', 4: 'a', 5: 'a', 6: 'a', 7: 'a',
-  8: 'b', 9: 'b', 10: 'b', 11: 'b', 12: 'b', 13: 'b', 14: 'b',
-  15: 'c', 16: 'c', 17: 'c', 18: 'c', 19: 'c', 20: 'c', 21: 'c',
-  22: 'd', 23: 'd', 24: 'd', 25: 'd', 26: 'd', 27: 'd', 28: 'd',
-  101: 'yk-a', 102: 'yk-a', 103: 'yk-a', 104: 'yk-a', 105: 'yk-a', 106: 'yk-a', 107: 'yk-a', 108: 'yk-a',
-  109: 'yk-b', 110: 'yk-b', 111: 'yk-b', 112: 'yk-b', 113: 'yk-b', 114: 'yk-b', 115: 'yk-b',
-}
-
 export const DIVISIONS = {
   yeshiva_ketana: { label: 'Yeshiva Ketana', shortLabel: 'YK' },
 }
@@ -714,33 +705,43 @@ export const CLASS_DIVISION = {
   'yk-b': 'yeshiva_ketana',
 }
 
-export function studentDivision(student) {
-  const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
+export function applyStudentClassAssignments(
+  students,
+  assignments: Record<string | number, { classId: string; divisionKey: string }> = {},
+  classes = CLASSES,
+) {
+  return (students || []).map(student => {
+    const assignment = assignments[Number(student.id)] || assignments[student.id]
+    const classId = String(assignment?.classId || '')
+    const classDefinition = classes.find(cls => String(cls.id) === classId)
+    const className = classDefinition?.name || (classId ? classId : '')
+    const grade = normalizeGradeValue(classDefinition?.grade || classDefinition?.name || '')
 
-  if (mappedClass) {
-    return CLASS_DIVISION[mappedClass] || 'yeshiva_ketana'
-  }
-
-  const explicitClassId = student.classId || student.class_id
-  if (explicitClassId && CLASS_DIVISION[explicitClassId]) {
-    return CLASS_DIVISION[explicitClassId]
-  }
-
-  if (student.className) {
-    const classMatch = CLASSES.find(cls => cls.name === student.className)
-    if (classMatch) {
-      return CLASS_DIVISION[classMatch.id] || 'yeshiva_ketana'
+    return {
+      ...student,
+      studentClassAssignmentId: classId || null,
+      studentClassAssignmentDivisionKey: assignment?.divisionKey || '',
+      classId: classId || null,
+      class_id: classId || null,
+      className,
+      class_name: className,
+      grade,
     }
-  }
+  })
+}
 
-  return 'yeshiva_ketana'
+export function studentDivision(student) {
+  const divisionKey = String(student?.studentClassAssignmentDivisionKey || '')
+  if (divisionKey) return divisionKey
+  const classId = resolveStudentClassId(student)
+  return classId ? CLASS_DIVISION[classId] || 'yeshiva_ketana' : 'yeshiva_ketana'
 }
 
 export function resolveLiveStudentPoints(tokenBalance) {
   return Number(tokenBalance ?? 0) || 0
 }
 
-// Grade is the single source of truth: '7' or '8'. Legacy Alef/Beis labels map to 8/7.
+// Normalize grade labels on class definitions; student membership comes only from Student Class Assignments.
 export function normalizeGradeValue(value) {
   const raw = String(value ?? '').trim().toLowerCase()
   if (!raw) return ''
@@ -759,33 +760,14 @@ export function gradeLabel(value) {
 }
 
 export function resolveStudentGrade(student) {
-  const direct = normalizeGradeValue(student?.grade)
-  if (direct) return direct
-
-  const explicitClassId = String(student?.classId || student?.class_id || '').trim().toLowerCase()
-  if (explicitClassId === 'yk-a') return '8'
-  if (explicitClassId === 'yk-b') return '7'
-
-  return normalizeGradeValue(student?.className || student?.class_name)
+  const assignedClassId = String(student?.studentClassAssignmentId || '').trim().toLowerCase()
+  if (!assignedClassId) return ''
+  const classDefinition = CLASSES.find(cls => String(cls.id).toLowerCase() === assignedClassId)
+  return normalizeGradeValue(classDefinition?.grade || classDefinition?.name || student?.grade)
 }
 
 export function resolveStudentClassId(student) {
-  const explicitClassId = student.classId || student.class_id
-  if (explicitClassId) return explicitClassId
-
-  const rawClassName = student.className || student.class_name
-  if (rawClassName) {
-    const classMatch = CLASSES.find(cls => cls.name === rawClassName)
-    if (classMatch) return classMatch.id
-  }
-
-  const gradeClassId = CLASS_ID_BY_GRADE[resolveStudentGrade(student)]
-  if (gradeClassId) return gradeClassId
-
-  const mappedClass = STUDENT_CLASSES[Number(student.id)] || STUDENT_CLASSES[student.id]
-  if (mappedClass) return mappedClass
-
-  return null
+  return student?.studentClassAssignmentId || null
 }
 
 export function isYeshivaKetanaStudent(student) {
@@ -803,7 +785,8 @@ export function resolveStudentClassIds(student, additionalClassIdsByStudent: Rec
   if (primary) ids.add(primary)
 
   const extra = additionalClassIdsByStudent[Number(student.id)] || additionalClassIdsByStudent[student.id] || []
-  extra.forEach(classId => { if (classId) ids.add(classId) })
+  const primaryGradeClassIds = new Set(Object.values(CLASS_ID_BY_GRADE))
+  extra.forEach(classId => { if (classId && !primaryGradeClassIds.has(classId)) ids.add(classId) })
 
   return Array.from(ids)
 }

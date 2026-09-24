@@ -13,6 +13,7 @@ const students = [
 ]
 const instructionalGroups = []
 const instructionalGroupMemberships = []
+const primaryClassIdsByStudent = { 1: 'yk-a', 2: 'yk-b', 3: 'yk-b', 4: 'yk-b' }
 
 describe('getPrintableRoster', () => {
   it('moves printable columns in the requested direction without changing other entries', () => {
@@ -21,7 +22,7 @@ describe('getPrintableRoster', () => {
   })
 
   it('uses the existing class resolver and excludes archived students', () => {
-    const roster = getPrintableRoster({ students, classes, scope: 'class', classId: 'yk-b', teacherName: '', additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships })
+    const roster = getPrintableRoster({ students, classes, scope: 'class', classId: 'yk-b', teacherName: '', primaryClassIdsByStudent, additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships })
 
     expect(roster.map(student => student.id)).toEqual([2, 4])
   })
@@ -34,7 +35,7 @@ describe('getPrintableRoster', () => {
   })
 
   it('uses student class assignments rather than teacher direct-student records', () => {
-    const roster = getPrintableRoster({ students, classes, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'all', additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships })
+    const roster = getPrintableRoster({ students, classes, scope: 'teacher', classId: '', teacherName: 'Rabbi Cohen', teacherClassId: 'all', primaryClassIdsByStudent, additionalClassIdsByStudent: {}, instructionalGroups, instructionalGroupMemberships })
 
     expect(roster.map(student => student.id)).toEqual([1])
   })

@@ -5,11 +5,12 @@ import {
   buildStudentSubjectHistory,
   getIncompleteBulkStudents,
 } from '../academicsReviewUtils'
+import { applyStudentClassAssignments } from '../dashboardData'
 import { archiveRecord, isArchivedRecord, isDeletedRecord, permanentlyDeleteRecord, restoreArchivedRecord } from '../../utils/archiveRecord'
 
 const ratingScore = { Weak: 1, Developing: 2, Good: 3, Great: 4 }
 
-const students = [
+const students = applyStudentClassAssignments([
   {
     id: 1,
     name: 'Avi',
@@ -46,7 +47,12 @@ const students = [
     is_active: false,
     testScores: [],
   },
-]
+], {
+  1: { classId: 'yk-a', divisionKey: 'yeshiva_ketana' },
+  2: { classId: 'yk-a', divisionKey: 'yeshiva_ketana' },
+  3: { classId: 'yk-b', divisionKey: 'yeshiva_ketana' },
+  4: { classId: 'yk-a', divisionKey: 'yeshiva_ketana' },
+})
 
 describe('academics review utilities', () => {
   it('blocks incomplete bulk grading while ignoring inactive students', () => {

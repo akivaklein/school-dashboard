@@ -23,7 +23,6 @@ export default function SetupTherapyScheduleSection({
   createFakeTherapySchedule,
   THERAPIST_OPTIONS,
   CLASSES,
-  STUDENT_CLASSES,
   CLASS_DIVISION,
   DIVISIONS,
   SUPPORT_STAFF_OPTIONS,
@@ -330,19 +329,15 @@ export default function SetupTherapyScheduleSection({
                                 CLASSES.find(
                                   cls =>
                                     cls.id ===
-                                    STUDENT_CLASSES[firstStudent.id]
+                                    firstStudent.classId
                                 )?.teacher || 'Unassigned Teacher',
                               classId:
-                                STUDENT_CLASSES[firstStudent.id] || '',
+                                firstStudent.classId || '',
                               className:
-                                CLASSES.find(
-                                  cls =>
-                                    cls.id ===
-                                    STUDENT_CLASSES[firstStudent.id]
-                                )?.name || 'Unassigned Class',
+                                firstStudent.className || 'Unassigned Class',
                               division:
                                 CLASS_DIVISION[
-                                  STUDENT_CLASSES[firstStudent.id]
+                                  firstStudent.classId
                                 ] || 'yeshiva-ketana',
                               note: ''
                             }
@@ -676,10 +671,8 @@ export default function SetupTherapyScheduleSection({
 
                           const rowsByClass = rowsInBlock.reduce<Record<string, TherapyScheduleRow[]>>(
                             (groups, row) => {
-                              const classId =
-                                row.classId ||
-                                STUDENT_CLASSES[row.studentId] ||
-                                'unassigned'
+                              const assignedStudent = students.find(student => Number(student.id) === Number(row.studentId))
+                              const classId = assignedStudent?.classId || 'unassigned'
 
                               if (!groups[classId]) {
                                 groups[classId] = []
@@ -701,8 +694,7 @@ export default function SetupTherapyScheduleSection({
                               const classStudents =
                                 students.filter(
                                   student =>
-                                    STUDENT_CLASSES[student.id] ===
-                                    classId
+                                    student.classId === classId
                                 )
 
                               const uniqueStudents =
@@ -717,7 +709,6 @@ export default function SetupTherapyScheduleSection({
                                 classId,
                                 className:
                                   classInfo?.name ||
-                                  classRows[0]?.className ||
                                   'Unassigned Class',
                                 teacher:
                                   block.teacher === 'class-teacher'
@@ -1482,7 +1473,7 @@ export default function SetupTherapyScheduleSection({
                                             }}>
                                               Missing{' '}
                                               {row.missedSubject ||
-                                                row.className ||
+                                                students.find(student => Number(student.id) === Number(row.studentId))?.className ||
                                                 'class'}
                                               {' '}with{' '}
                                               {row.teacherName ||

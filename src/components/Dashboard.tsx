@@ -161,9 +161,9 @@ import {
   getDashboardContextInfo,
   DAYS,
   CLASSES,
-  STUDENT_CLASSES,
   DIVISIONS,
   CLASS_DIVISION,
+  applyStudentClassAssignments,
   studentDivision,
   resolveLiveStudentPoints,
   resolveStudentClassId,
@@ -177,7 +177,6 @@ import {
   THERAPY_SCHEDULE,
   buildClassroomCoverageSnapshot,
   HISTORICAL_DATA,
-  initialStudents,
   STAFF,
   statusColor,
   statusLabel,
@@ -201,6 +200,8 @@ export type StudentLike = {
   className?: string
   classId?: string | number | null
   grade?: string | number | null
+  studentClassAssignmentId?: string | null
+  studentClassAssignmentDivisionKey?: string
   is_active?: boolean
   services?: Array<{ type?: string; [key: string]: unknown }>
   notes?: Array<Record<string, unknown>>
@@ -1439,6 +1440,26 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [students, setStudents] = useState<StudentLike[]>([])
   const [studentsLoaded, setStudentsLoaded] = useState(false)
   const [studentLoadError, setStudentLoadError] = useState<string | null>(null)
+  const [studentClassOverrides, setStudentClassOverrides] = useState<Record<number, { classId: string; divisionKey: string }>>({})
+  const [studentClassAssignmentsLoaded, setStudentClassAssignmentsLoaded] = useState(false)
+  const [studentClassAssignmentError, setStudentClassAssignmentError] = useState('')
+  const [persistedClasses, setPersistedClasses] = useState<PersistedClass[]>([])
+  const configuredClasses = useMemo(() => {
+    const classesById = new Map<string, { id: string; name: string; grade: string; teacher: string; divisionKey?: string }>()
+    CLASSES.forEach(classEntry => classesById.set(classEntry.id, classEntry))
+    persistedClasses.forEach(classEntry => classesById.set(classEntry.id, {
+      id: classEntry.id,
+      name: classEntry.name,
+      grade: classEntry.grade,
+      teacher: classEntry.teacher,
+      divisionKey: classEntry.division_key,
+    }))
+    return Array.from(classesById.values())
+  }, [persistedClasses])
+  const authoritativeStudents = useMemo(
+    () => applyStudentClassAssignments(students, studentClassOverrides, configuredClasses),
+    [students, studentClassOverrides, configuredClasses],
+  ) as StudentLike[]
   const [staffMembers, setStaffMembers] = useState<StaffMemberRecord[]>(FALLBACK_STAFF_MEMBERS)
   const [staffLoadError, setStaffLoadError] = useState<string | null>(null)
   const storePurchaseAttemptKeysRef = useRef<Record<string, string>>({})
@@ -2227,7 +2248,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       role: activeRole,
       userName: activeUserName,
       setupAssignments,
-      students,
+      students: authoritativeStudents,
       assignedStudentIds: assignedIdsForAccess,
     })) {
       alert('You can only access students in your assigned scope.')
@@ -2336,15 +2357,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
     const nextStudent = mapDatabaseStudentToDashboardStudent(created)
 
-    if (payload.classId) {
-      await upsertStudentClassAssignment(
-        Number(created.id),
-        payload.classId,
-        'yeshiva_ketana',
-        actor,
-      )
-    }
-
     setStudents(prev => {
       const withoutCurrent = prev.filter(student => Number(student.id) !== Number(nextStudent.id))
       return [...withoutCurrent, nextStudent].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
@@ -2369,15 +2381,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     const actor = (previewAs?.name || userName || 'Admin').trim() || 'Admin'
     const updated = await updateStudentRecord(Number(student.id), payload, actor)
     const nextStudent = mapDatabaseStudentToDashboardStudent(updated)
-
-    if (payload.classId) {
-      await upsertStudentClassAssignment(
-        Number(student.id),
-        payload.classId,
-        'yeshiva_ketana',
-        actor,
-      )
-    }
 
     setStudents(prev => prev.map(entry => Number(entry.id) === Number(student.id) ? nextStudent : entry))
   }
@@ -2737,12 +2740,16 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   useEffect(() => {
     let active = true
     loadStudentClassAssignments().then(rows => {
-      if (!active || !rows.length) return
-      setStudentClassOverrides(prev => {
-        const next = { ...prev }
-        rows.forEach(row => { next[row.student_id] = { classId: row.class_id, divisionKey: row.division_key } })
-        return next
-      })
+      if (!active) return
+      const next: Record<number, { classId: string; divisionKey: string }> = {}
+      rows.forEach(row => { next[row.student_id] = { classId: row.class_id, divisionKey: row.division_key } })
+      setStudentClassOverrides(next)
+      setStudentClassAssignmentError('')
+      setStudentClassAssignmentsLoaded(true)
+    }).catch(error => {
+      if (!active) return
+      setStudentClassAssignmentError(error instanceof Error ? error.message : 'Unable to load student class assignments.')
+      setStudentClassAssignmentsLoaded(true)
     })
 
     const channel = supabase
@@ -2885,14 +2892,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const filteredSetupStudents = useMemo(() => {
     const search = setupStudentSearch.trim().toLowerCase()
-    const activeSetupStudents = (students || []).filter(student => student?.is_active !== false)
+    const activeSetupStudents = (authoritativeStudents || []).filter(student => student?.is_active !== false)
     if (!search) return activeSetupStudents
 
     return activeSetupStudents.filter(student => {
       const haystack = `${student.name || ''} ${student.className || ''} ${student.id || ''}`.toLowerCase()
       return haystack.includes(search)
     })
-  }, [students, setupStudentSearch])
+  }, [authoritativeStudents, setupStudentSearch])
 
   const currentAssignment = useMemo(() => {
     if (!currentPerson?.name) return emptyAssignment
@@ -2937,10 +2944,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     const existingIds = setupAssignments?.[setupPerson]?.periods?.[period] || []
     const willBeActive = !existingIds.includes(studentId)
 
-    const student = students.find(item => Number(item.id) === normalizedStudentId)
+    const student = authoritativeStudents.find(item => Number(item.id) === normalizedStudentId)
     const classId = student ? resolveStudentClassId(student) || '' : ''
     const classLabel = classId
-      ? (CLASSES.find(cls => cls.id === classId)?.name || classId)
+      ? (configuredClasses.find(cls => cls.id === classId)?.name || classId)
       : (student?.className || 'Unassigned Class')
 
     const assignmentType = period === 1 ? 'primary' : 'additional'
@@ -3000,7 +3007,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     if (!updated) {
       setSetupAssignmentError('Unable to update teacher assignment status in Supabase.')
     }
-  }, [emptyAssignment, setupPerson, setupAssignments, students, userName])
+  }, [authoritativeStudents, emptyAssignment, setupPerson, setupAssignments, userName])
 
   const toggleCaseloadStudent = useCallback(async (studentId: number | string) => {
     if (!setupPerson) return
@@ -3048,10 +3055,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     periodOne.forEach(async rawStudentId => {
       const studentId = Number(rawStudentId)
       if (!Number.isFinite(studentId)) return
-      const student = students.find(item => Number(item.id) === studentId)
+      const student = authoritativeStudents.find(item => Number(item.id) === studentId)
       const classId = student ? resolveStudentClassId(student) || '' : ''
       const classLabel = classId
-        ? (CLASSES.find(cls => cls.id === classId)?.name || classId)
+        ? (configuredClasses.find(cls => cls.id === classId)?.name || classId)
         : (student?.className || 'Unassigned Class')
 
       await upsertTeacherRebbeAssignment({
@@ -3171,12 +3178,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const [instructionalGroups, setInstructionalGroups] = useState<InstructionalGroup[]>([])
   const [instructionalGroupMemberships, setInstructionalGroupMemberships] = useState<InstructionalGroupMembership[]>([])
 
-  // student_class_assignments from Supabase — keyed by student_id
-  const [studentClassOverrides, setStudentClassOverrides] = useState<Record<number, { classId: string; divisionKey: string }>>({})
-
-  // Persisted class definitions from Supabase (Setup > Classes & Divisions)
-  const [persistedClasses, setPersistedClasses] = useState<PersistedClass[]>([])
-
   // student_additional_classes from Supabase — a student's classes on top of their primary/homeroom class
   const [additionalClassMemberships, setAdditionalClassMemberships] = useState<StudentAdditionalClass[]>([])
 
@@ -3243,14 +3244,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const [THERAPY_SCHEDULE_STATE, setTHERAPY_SCHEDULE] = useState(THERAPY_SCHEDULE)
 
-  // Apply Supabase class overrides to the live STUDENT_CLASSES object so all scoping picks them up
-  useEffect(() => {
-    if (!Object.keys(studentClassOverrides).length) return
-    Object.entries(studentClassOverrides).forEach(([id, { classId }]) => {
-      (STUDENT_CLASSES as Record<string | number, string>)[Number(id)] = classId
-    })
-  }, [studentClassOverrides])
-
   const activeTeacherAssignmentIdsByName = useMemo(() => {
     const map = new Map<string, Set<number>>()
 
@@ -3280,7 +3273,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     activeTeacherAssignmentIdsByName.forEach((studentIds, teacherName) => {
       const classIds = Array.from(studentIds)
         .map(studentId => {
-          const student = students.find(item => Number(item.id) === Number(studentId))
+          const student = authoritativeStudents.find(item => Number(item.id) === Number(studentId))
           return student ? resolveStudentClassId(student) : null
         })
         .filter(Boolean) as string[]
@@ -3289,7 +3282,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     })
 
     return map
-  }, [activeTeacherAssignmentIdsByName, students])
+  }, [activeTeacherAssignmentIdsByName, authoritativeStudents])
 
   useEffect(() => {
     if (role !== 'teacher' && role !== 'rebbe') return
@@ -3549,7 +3542,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
       note = ''
     }) => {
       const classId = resolveStudentClassId(student)
-      const classInfo = CLASSES.find(cls => cls.id === classId)
+      const classInfo = configuredClasses.find(cls => cls.id === classId)
       const missed = missedClassForTime(time, classInfo)
 
       rows.push({
@@ -3578,7 +3571,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
      * Deterministic caseload generation:
      * each student keeps the same primary BT and supervising BCBA.
      */
-    initialStudents.forEach((student, studentIndex) => {
+    authoritativeStudents.filter(student => student?.is_active !== false && resolveStudentClassId(student)).forEach((student, studentIndex) => {
       const assignedBt = btNames[studentIndex % btNames.length]
       const assignedBcba = btBcbaMap[assignedBt]
       const btCaseloadPosition = Math.floor(studentIndex / btNames.length)
@@ -4811,7 +4804,14 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     )
   }
 
-  const activeStudents = students.filter(student => student?.is_active !== false && isYeshivaKetanaStudent(student))
+  const classIndependentRole = effectiveRole === 'register' || effectiveRole === 'store' || effectiveRole === 'canteen'
+  if (!studentClassAssignmentsLoaded && !classIndependentRole) return <PageLoadingFallback />
+  if (studentClassAssignmentError && !classIndependentRole) {
+    return <div style={{ padding: 24, color: '#9f1239', fontWeight: 700 }}>Unable to load Student Class Assignments. Refresh and try again.</div>
+  }
+
+  const allActiveStudents = authoritativeStudents.filter(student => student?.is_active !== false)
+  const activeStudents = allActiveStudents.filter(isYeshivaKetanaStudent)
 
   const userAccessForMode = getUserAccess(effectiveUserName, effectiveRole)
   const allowedDivisionSetForMode = new Set(userAccessForMode.divisions)
@@ -4840,7 +4840,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const isLeadershipRoleForMode = isLeadershipRole(effectiveRole)
   const assignedTeacherStudentSetForMode = new Set(assignedTeacherStudentIdsForMode)
   const studentsForCurrentRole = isStoreRoleForMode
-    ? students.filter(student => student?.is_active !== false)
+    ? allActiveStudents
     : isTeacherRoleForMode
       ? activeStudents.filter(s => assignedTeacherStudentSetForMode.has(Number(s.id)))
       : isLeadershipRoleForMode
@@ -4906,7 +4906,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
     : getTeacherAssignedStudentIds(effectiveUserName, setupAssignments)
   const assignedStaffStudentSet = new Set(assignedStaffStudentIds)
   const visibleStudents = isStoreRole
-    ? students.filter(student => student?.is_active !== false)
+    ? allActiveStudents
     : isTeacherRole
       ? assignedTeacherStudentIds.length > 0
         ? activeStudents.filter(s => assignedTeacherStudentSet.has(Number(s.id)))
@@ -4995,7 +4995,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
 
   const normalizedSearch = String(search || '').trim().toLowerCase()
   const studentsForStudentsPageBase = isLeadershipRole(effectiveRole)
-    ? students.filter(isYeshivaKetanaStudent)
+    ? authoritativeStudents
     : visibleStudents
   const studentsForStudentsPage = normalizedSearch
     ? studentsForStudentsPageBase.filter(s => String(s.name || '').trim().toLowerCase().includes(normalizedSearch))
@@ -5006,7 +5006,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
   const filteredStudents = attFilter === 'all' ? searchedStudents : searchedStudents.filter(s => s.status === attFilter)
   const studentNavigationSource = studentNavigationIds.length > 0
     ? studentNavigationIds
-      .map(id => students.find(entry => Number(entry.id) === Number(id)))
+      .map(id => authoritativeStudents.find(entry => Number(entry.id) === Number(id)))
       .filter((entry): entry is StudentLike => Boolean(entry))
     : studentsForStudentsPage
   const studentProfileNavigationList = buildStudentNavigationList(studentNavigationSource)
@@ -5406,13 +5406,12 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             createFakeTherapySchedule={createFakeTherapySchedule}
             THERAPIST_OPTIONS={THERAPIST_OPTIONS}
             CLASSES={CLASSES}
-            STUDENT_CLASSES={STUDENT_CLASSES}
             CLASS_DIVISION={CLASS_DIVISION}
             DIVISIONS={DIVISIONS}
             TEACHING_STAFF_OPTIONS={TEACHING_STAFF_OPTIONS}
             SUPPORT_STAFF_OPTIONS={SUPPORT_STAFF_OPTIONS}
             setupNavItems={setupNavItems}
-            students={activeStudents}
+            students={allActiveStudents}
             staffMembers={staffMembers}
             initials={initials}
             refreshStaffMembers={refreshStaffMembers}
@@ -5459,16 +5458,20 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             }}
             studentClassOverrides={studentClassOverrides}
             onSaveStudentClassAssignment={async (studentId: number, classId: string, divisionKey: string) => {
-              setStudentClassOverrides(prev => ({ ...prev, [studentId]: { classId, divisionKey } }))
-              await upsertStudentClassAssignment(studentId, classId, divisionKey, effectiveUserName || 'Admin')
+              const saved = await upsertStudentClassAssignment(studentId, classId, divisionKey, effectiveUserName || 'Admin')
+              if (saved) setStudentClassOverrides(prev => ({ ...prev, [studentId]: { classId, divisionKey } }))
+              return saved
             }}
             onSaveStudentClassAssignmentBatch={async (batch: Array<{ studentId: number; classId: string; divisionKey: string }>) => {
-              setStudentClassOverrides(prev => {
-                const next = { ...prev }
-                batch.forEach(({ studentId, classId, divisionKey }) => { next[studentId] = { classId, divisionKey } })
-                return next
-              })
-              await upsertStudentClassAssignmentBatch(batch.map(b => ({ ...b, updatedBy: effectiveUserName || 'Admin' })))
+              const saved = await upsertStudentClassAssignmentBatch(batch.map(b => ({ ...b, updatedBy: effectiveUserName || 'Admin' })))
+              if (saved) {
+                setStudentClassOverrides(prev => {
+                  const next = { ...prev }
+                  batch.forEach(({ studentId, classId, divisionKey }) => { next[studentId] = { classId, divisionKey } })
+                  return next
+                })
+              }
+              return saved
             }}
             additionalClassIdsByStudent={additionalClassIdsByStudent}
             onAddStudentToClass={handleAddStudentToClass}
@@ -5516,7 +5519,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             lateStudents={lateStudents}
             inTherapy={inTherapy}
             withBT={withBT}
-            students={students}
+            students={authoritativeStudents}
             leftEarlyStudents={leftEarlyStudents}
             absentTodayStudents={absentTodayStudents}
             setDrillDown={setDrillDown}
@@ -5527,16 +5530,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             openStudent={openStudent}
             studentFlags={studentFlags}
             setSupportInitialSection={setSupportInitialSection}
-            CLASSES={Array.from(new Map([
-              ...CLASSES.map(classEntry => [classEntry.id, classEntry]),
-              ...persistedClasses.map(classEntry => [classEntry.id, {
-                id: classEntry.id,
-                name: classEntry.name,
-                grade: classEntry.grade,
-                teacher: classEntry.teacher,
-              }]),
-            ]).values())}
-            STUDENT_CLASSES={STUDENT_CLASSES}
+            CLASSES={configuredClasses}
             improved={improved}
             needsAttention={needsAttention}
             vipStudents={vipStudents}
@@ -5551,9 +5545,6 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             physicalRooms={physicalRooms}
             instructionalGroups={instructionalGroups}
             instructionalGroupMemberships={instructionalGroupMemberships}
-            setupAssignments={setupAssignments}
-            additionalClassIdsByStudent={additionalClassIdsByStudent}
-            teacherAssignedStudentIdsByName={activeTeacherAssignmentIdsByName}
           />
           </Suspense>
         )}
@@ -5573,7 +5564,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             daysSince={daysSince}
             initials={initials}
             role={effectiveRole}
-            classes={CLASSES}
+            classes={configuredClasses}
             onCreateStudent={createStudentFromAdmin}
             onUpdateStudent={updateStudentFromAdmin}
             onArchiveStudent={archiveStudentFromAdmin}
@@ -5615,24 +5606,10 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             initials={initials}
             isVIP={checkIsVIP}
             DAYS={DAYS}
-            CLASSES={Array.from(new Map([
-              ...CLASSES.map(classEntry => [classEntry.id, classEntry]),
-              ...persistedClasses.map(classEntry => [classEntry.id, {
-                id: classEntry.id,
-                name: classEntry.name,
-                grade: classEntry.grade,
-                teacher: classEntry.teacher,
-              }]),
-              ...instructionalGroups.filter(group => group.status !== 'archived').map(group => [group.id, {
-                id: group.id,
-                name: group.name,
-                teacher: group.teacher_name,
-              }]),
-            ]).values())}
+            CLASSES={configuredClasses}
             statusColor={statusColor}
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
-            HISTORICAL_DATA={{}}
             instructionalPeriods={instructionalPeriods}
             instructionalGroups={instructionalGroups}
             instructionalGroupMemberships={instructionalGroupMemberships}
@@ -5657,7 +5634,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             ])).sort()}
             openStudent={openStudent}
             S={S}
-            CLASSES={CLASSES}
+            CLASSES={configuredClasses}
             CLASS_DIVISION={CLASS_DIVISION}
             ACADEMIC_AREAS={ACADEMIC_AREAS}
             academicCatalog={academicCatalog}
@@ -5692,7 +5669,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusColor={statusColor}
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
-            CLASSES={CLASSES}
+            CLASSES={configuredClasses}
             instructionalPeriods={instructionalPeriods}
             physicalRooms={physicalRooms}
             instructionalGroups={instructionalGroups}
@@ -5714,7 +5691,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
             statusEmoji={statusEmoji}
             statusLabel={statusLabel}
             onAdjustPoints={recordStudentPointsAction}
-            CLASSES={CLASSES}
+            CLASSES={configuredClasses}
             additionalClassIdsByStudent={additionalClassIdsByStudent}
           />
           </Suspense>
@@ -5807,7 +5784,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           title={drillDown.title}
           students={drillDown.students
             .map(savedStudent =>
-              students.find(currentStudent => currentStudent.id === savedStudent.id)
+              authoritativeStudents.find(currentStudent => currentStudent.id === savedStudent.id)
             )
             .filter(Boolean)
             .filter(student => {
@@ -5840,7 +5817,7 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
         <Suspense fallback={<PageLoadingFallback />}>
         <StudentProfile
         student={selectedStudent}
-        students={students}
+        students={authoritativeStudents}
         navigationStudents={studentProfileNavigationList}
         setStudents={setStudents}
         onClose={() => setSelectedStudent(null)}

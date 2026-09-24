@@ -43,7 +43,6 @@ export default function AdminMainDashboard({
   studentFlags,
   setSupportInitialSection,
   CLASSES,
-  STUDENT_CLASSES,
   improved,
   needsAttention,
   vipStudents,

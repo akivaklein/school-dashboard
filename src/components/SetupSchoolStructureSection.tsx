@@ -18,10 +18,9 @@ type SchoolDivision = {
 export default function SetupSchoolStructureSection({
   S,
   students = [],
-  STUDENT_CLASSES_MAP = {},
   studentClassOverrides = {},
-  onSaveAssignment = null as ((studentId: number, classId: string, divisionKey: string) => Promise<void>) | null,
-  onSaveAssignmentBatch = null as ((batch: Array<{ studentId: number; classId: string; divisionKey: string }>) => Promise<void>) | null,
+  onSaveAssignment = null as ((studentId: number, classId: string, divisionKey: string) => Promise<boolean>) | null,
+  onSaveAssignmentBatch = null as ((batch: Array<{ studentId: number; classId: string; divisionKey: string }>) => Promise<boolean>) | null,
   additionalClassIdsByStudent = {} as Record<number, string[]>,
   onAddStudentToClass = null as ((studentId: number, classId: string, className: string) => Promise<boolean>) | null,
   onRemoveStudentFromClass = null as ((studentId: number, classId: string) => Promise<boolean>) | null,
@@ -93,42 +92,31 @@ export default function SetupSchoolStructureSection({
 
   const defaultDivisionKey = Object.keys(schoolDivisions)[0] || 'yeshiva_ketana'
 
-  // Student assignment state — sourced from in-memory map + Supabase overrides.
-  const [studentClassMap, setStudentClassMap] = useState<Record<number, string>>(() => ({ ...STUDENT_CLASSES_MAP }))
+  const [studentClassMap, setStudentClassMap] = useState<Record<number, string>>({})
   const [selectedStudents, setSelectedStudents] = useState<Set<number>>(new Set())
   const [moveToClass, setMoveToClass] = useState('')
   const [addToClass, setAddToClass] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
   const [classViewFilter, setClassViewFilter] = useState('all')
+  const [assignmentError, setAssignmentError] = useState('')
 
-  // Merge Supabase overrides into local map whenever they arrive
   useEffect(() => {
-    if (!Object.keys(studentClassOverrides).length) return
-    setStudentClassMap(prev => {
-      const next = { ...prev }
-      Object.entries((studentClassOverrides || {}) as Record<string, { classId: string }>).forEach(([id, { classId }]) => {
-        next[Number(id)] = classId
-      })
-      return next
+    const next: Record<number, string> = {}
+    Object.entries((studentClassOverrides || {}) as Record<string, { classId: string }>).forEach(([id, { classId }]) => {
+      next[Number(id)] = classId
     })
+    setStudentClassMap(next)
   }, [studentClassOverrides])
-
-  useEffect(() => {
-    // Sync back to the live STUDENT_CLASSES_MAP object so the rest of the app picks it up
-    Object.keys(studentClassMap).forEach(id => {
-      STUDENT_CLASSES_MAP[Number(id)] = studentClassMap[Number(id)]
-    })
-  }, [studentClassMap, STUDENT_CLASSES_MAP])
 
   const filteredStudents = useMemo(() => {
     const q = studentSearch.trim().toLowerCase()
     return (students || []).filter(s => {
-      const classId = studentClassMap[s.id] || STUDENT_CLASSES_MAP[s.id] || ''
+      const classId = studentClassMap[s.id] || ''
       if (!matchesClassAssignmentFilter(s.id, classId, classViewFilter, instructionalGroupMemberships)) return false
       if (q && !s.name.toLowerCase().includes(q)) return false
       return true
     })
-  }, [students, studentClassMap, STUDENT_CLASSES_MAP, studentSearch, classViewFilter, instructionalGroupMemberships])
+  }, [students, studentClassMap, studentSearch, classViewFilter, instructionalGroupMemberships])
 
   function toggleStudent(id: number) {
     setSelectedStudents(prev => {
@@ -142,20 +130,22 @@ export default function SetupSchoolStructureSection({
     setSelectedStudents(new Set(filteredStudents.map(s => s.id)))
   }
 
-  function moveSelected() {
+  async function moveSelected() {
     if (!moveToClass || selectedStudents.size === 0) return
     const targetClass = schoolClasses.find(c => c.id === moveToClass)
     const divisionKey = targetClass?.divisionKey || CLASS_DIVISION[moveToClass] || ''
-    const batch: Array<{ studentId: number; classId: string; divisionKey: string }> = []
+    const batch = Array.from(selectedStudents).map(studentId => ({ studentId, classId: moveToClass, divisionKey }))
+    setAssignmentError('')
+    const saved = onSaveAssignmentBatch ? await onSaveAssignmentBatch(batch) : false
+    if (!saved) {
+      setAssignmentError('Unable to save student class assignments.')
+      return
+    }
     setStudentClassMap(prev => {
       const next = { ...prev }
-      selectedStudents.forEach(id => {
-        next[id] = moveToClass
-        batch.push({ studentId: id, classId: moveToClass, divisionKey })
-      })
+      batch.forEach(({ studentId, classId }) => { next[studentId] = classId })
       return next
     })
-    if (onSaveAssignmentBatch) onSaveAssignmentBatch(batch)
     setSelectedStudents(new Set())
     setMoveToClass('')
   }
@@ -491,9 +481,11 @@ export default function SetupSchoolStructureSection({
               : <span style={{ fontSize: 11, color: '#94a3b8' }}>Check students below to switch their homeroom or add them to another class.</span>}
           </div>
 
+          {assignmentError && <div style={{ color: '#9f1239', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>{assignmentError}</div>}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 6, maxHeight: 400, overflowY: 'auto' }}>
             {filteredStudents.map(student => {
-              const classId = studentClassMap[student.id] || STUDENT_CLASSES_MAP[student.id] || ''
+              const classId = studentClassMap[student.id] || ''
               const cls = schoolClasses.find(c => c.id === classId)
               const divKey = cls?.divisionKey || CLASS_DIVISION[classId] || ''
               const div = schoolDivisions[divKey]
@@ -538,17 +530,21 @@ export default function SetupSchoolStructureSection({
                   </div>
                   <select
                     value={classId}
-                    onChange={e => {
+                    onChange={async e => {
                       e.stopPropagation()
                       const newClassId = e.target.value
+                      if (!newClassId || !onSaveAssignment) return
                       const targetClass = schoolClasses.find(c => c.id === newClassId)
                       const divKey = targetClass?.divisionKey || CLASS_DIVISION[newClassId] || ''
-                      setStudentClassMap(prev => ({ ...prev, [student.id]: newClassId }))
-                      if (onSaveAssignment) onSaveAssignment(student.id, newClassId, divKey)
+                      setAssignmentError('')
+                      const saved = await onSaveAssignment(student.id, newClassId, divKey)
+                      if (saved) setStudentClassMap(prev => ({ ...prev, [student.id]: newClassId }))
+                      else setAssignmentError(`Unable to update ${student.name}'s class.`)
                     }}
                     onClick={e => e.stopPropagation()}
                     style={{ padding: '3px 6px', borderRadius: 6, border: '1px solid #dce4ed', fontSize: 10 }}
                   >
+                    <option value="">Unassigned</option>
                     {schoolClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>

@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest'
+import { applyStudentClassAssignments } from '../dashboardData'
 import { buildStudentNavigationList, getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from '../studentProfileNavigation'
 
 describe('buildStudentNavigationList', () => {
-  const roster = [
+  const roster = applyStudentClassAssignments([
     { id: 101, name: 'Current 8th', grade: '8', is_active: true },
     { id: 102, name: 'Current 7th', grade: '7', is_active: true },
     { id: 103, name: 'Archived 8th', grade: '8', is_active: false },
     { id: 104, name: 'Yair Bloom', grade: '', is_active: true },
     { id: 105, name: 'Mesivta Student', grade: '10', is_active: true },
-  ]
+  ], {
+    101: { classId: 'yk-a', divisionKey: 'yeshiva_ketana' },
+    102: { classId: 'yk-b', divisionKey: 'yeshiva_ketana' },
+    103: { classId: 'yk-a', divisionKey: 'yeshiva_ketana' },
+  })
 
   it('keeps only active grade 7/8 students in the visible order', () => {
     expect(buildStudentNavigationList(roster).map(student => student.id)).toEqual([101, 102])

@@ -160,7 +160,7 @@ export async function loadStudentClassAssignments(): Promise<StudentClassAssignm
 
   if (error) {
     console.error('Error loading student class assignments:', error)
-    return []
+    throw new Error(error.message || 'Unable to load student class assignments')
   }
   return (data || []) as StudentClassAssignment[]
 }

@@ -168,6 +168,7 @@ export default function StudentProfile({
               {s.name}{vip && <span style={{ background: '#fef9c3', color: '#854d0e', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>⭐ VIP</span>}
             </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+              <span style={{ ...S.tag('#536579', '#eef2f6'), fontSize: 11 }}>Class: {s.className || 'Unassigned'}</span>
               <span style={{ ...S.tag('#536579', '#eef2f6'), fontSize: 11 }}>Daily: {dailyAttendanceLabel}</span>
               <span style={{ ...S.tag('#536579', '#f4f6f8'), fontSize: 11 }}>Location: {currentLocationLabel}</span>
               {withStaffObj && <span style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', padding: '2px 8px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>👤 With {withStaffObj.name}</span>}
