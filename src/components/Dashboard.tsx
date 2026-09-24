@@ -1,20 +1,12 @@
 import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, type CSSProperties } from 'react'
 import { supabase } from '../supabaseClient'
 import playSound from '../utils/playSound'
-const AttendancePage = lazy(() => import('./AttendancePage'))
-const BehaviorPage = lazy(() => import('./BehaviorPage'))
 const TeachingMode = lazy(() => import('./TeachingMode'))
 const StudentProfile = lazy(() => import('./StudentProfile'))
 import { buildStudentNavigationList } from './studentProfileNavigation'
 import StudentNotes from './StudentNotes'
-const StudentSupport = lazy(() => import('./StudentSupport'))
-const SchedulePage = lazy(() => import('./SchedulePage'))
-const TokenStorePage = lazy(() => import('./TokenStorePage'))
-import AcademicsPage, { StudentScoresTab } from './AcademicsPage'
+import { StudentScoresTab } from './AcademicsPage'
 const SetupCenterPage = lazy(() => import('./SetupCenterPage'))
-const StudentsListPage = lazy(() => import('./StudentsListPage'))
-import StaffDirectoryPage from './StaffDirectoryPage'
-const AdminMainDashboard = lazy(() => import('./AdminMainDashboard'))
 import {
   applyPointsEventTx,
   listPointsEventsForStudent,
@@ -135,6 +127,7 @@ import {
   resolveRealtimeDailyAttendanceStatus,
 } from '../utils/attendancePresence'
 const DrillDown = lazy(() => import('./dashboard/DrillDown'))
+import DashboardPageRoutes from './dashboard/DashboardPageRoutes'
 import { buildLoginAccountRoleLabel, getLoginRoleKey } from './dashboard/loginUserSearch'
 const TrackingTabView = lazy(() => import('./dashboard/TrackingTab'))
 const StaffLoginPanel = lazy(() => import('./StaffLoginPanel'))
@@ -201,9 +194,8 @@ import {
 import { PageLoadingFallback, LiveClock } from './dashboard/DashboardSharedComponents'
 export type { StudentLike, AttendanceHistoryEntry, StaffMemberLike } from './dashboard/dashboardHelpers'
 import { FamilyEditorPopup, MedicalEditorPopup } from './dashboard/FamilyMedicalEditors'
-import { TeacherDashboard } from './dashboard/TeacherDashboard'
-import { TherapistDashboard } from './dashboard/TherapistDashboard'
-import { StudentFlagsPanel, FlagDashboardWidget } from './dashboard/StudentFlagsPanel'
+import { StudentFlagsPanel } from './dashboard/StudentFlagsPanel'
+import UnknownLocationsModal from './dashboard/UnknownLocationsModal'
 
 interface DashboardProps {
   teacherUser?: { role: string; name: string }
@@ -4183,33 +4175,135 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           </div>
         )}
 
-        {page === 'support' && effectiveRole !== 'store' && (
-          <Suspense fallback={<PageLoadingFallback />}>
-            <StudentSupport
-              students={visibleStudents}
-              setStudents={setStudents}
-              userName={effectiveUserName}
-              role={effectiveRole}
-              alerts={alerts}
-              openStudent={openStudent}
-              setPage={setPage}
-              flags={studentFlags}
-              setFlags={setStudentFlags}
-              initialSection={supportInitialSection}
-              staff={STAFF}
-              S={S}
-              initials={initials}
-              todos={todos}
-              setTodos={setTodos}
-              flagsLoadError={studentFlagsLoadError}
-              todosLoadError={todoLoadError}
-              parentCallsLoadError={studentLoadError ? describeSupportSourceError('Parent Calls', 'students.parent_calls', new Error(studentLoadError)) : null}
-            />
-          </Suspense>
-        )}
-
-        {page === 'dashboard' && (effectiveRole === 'teacher' || effectiveRole === 'rebbe') && <TeacherDashboard students={visibleStudents} allStudents={activeStudents} setStudents={setStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s)} setTeachingMode={setTeachingMode} setPage={setPage} initialClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null} setDrillDown={setDrillDown} recordStudentPointsAction={recordStudentPointsAction} isVIP={checkIsVIP} staffMembers={staffMembers} instructionalPeriods={instructionalPeriods} physicalRooms={physicalRooms} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />}
-        {page === 'dashboard' && effectiveRole === 'support_staff' && <TherapistDashboard students={visibleStudents} userName={effectiveUserName} setSelectedStudent={s => openStudent(s, 'therapy')} staffMembers={staffMembers} therapySchedule={THERAPY_SCHEDULE_STATE} />}
+        <DashboardPageRoutes
+          ACADEMIC_AREAS={ACADEMIC_AREAS}
+          CLASS_DIVISION={CLASS_DIVISION}
+          DAYS={DAYS}
+          DIVISIONS={DIVISIONS}
+          LiveClock={LiveClock}
+          RATING_SCORE={RATING_SCORE}
+          S={S}
+          SCHEDULE_PERIODS={SCHEDULE_PERIODS}
+          SKILL_RATINGS={SKILL_RATINGS}
+          STAFF={STAFF}
+          STORE_CATEGORY_OPTIONS={STORE_CATEGORY_OPTIONS}
+          TEACHING_STAFF_OPTIONS={TEACHING_STAFF_OPTIONS}
+          THERAPY_SCHEDULE_STATE={THERAPY_SCHEDULE_STATE}
+          academicCatalog={academicCatalog}
+          academicDisplay={academicDisplay}
+          academicPct={academicPct}
+          academicStatus={academicStatus}
+          academicStatusColor={academicStatusColor}
+          activeStudents={activeStudents}
+          additionalClassIdsByStudent={additionalClassIdsByStudent}
+          absentTodayStudents={absentTodayStudents}
+          addStoreItem={addStoreItem}
+          adjustStoreStock={adjustStoreStock}
+          alerts={alerts}
+          archiveStudentFromAdmin={archiveStudentFromAdmin}
+          assignedTeacherClassIds={assignedTeacherClassIds}
+          assignedTeacherStudentIds={assignedTeacherStudentIds}
+          attFilter={attFilter}
+          authoritativeStudents={authoritativeStudents}
+          buyItem={buyItem}
+          callsDueStudents={callsDueStudents}
+          cameToday={cameToday}
+          cameTodayRate={cameTodayRate}
+          checkIsVIP={checkIsVIP}
+          configuredClasses={configuredClasses}
+          createStudentFromAdmin={createStudentFromAdmin}
+          daysSince={daysSince}
+          deleteStudentFromAdmin={deleteStudentFromAdmin}
+          divisionLabel={divisionLabel}
+          divisionSummaries={divisionSummaries}
+          divisionView={divisionView}
+          effectiveRole={effectiveRole}
+          effectiveUserName={effectiveUserName}
+          filteredStudents={filteredStudents}
+          getDeletionImpactForStudent={getDeletionImpactForStudent}
+          getGreeting={getGreeting}
+          getImprovement={getImprovement}
+          improved={improved}
+          inClassrooms={inClassrooms}
+          inClassroomsStudents={inClassroomsStudents}
+          inTherapy={inTherapy}
+          initials={initials}
+          instructionalGroupMemberships={instructionalGroupMemberships}
+          instructionalGroups={instructionalGroups}
+          instructionalPeriods={instructionalPeriods}
+          isStoreItemRestrictedForStudent={isStoreItemRestrictedForStudent}
+          late={late}
+          lateStudents={lateStudents}
+          leftEarlyStudents={leftEarlyStudents}
+          needsAttention={needsAttention}
+          newStoreItem={newStoreItem}
+          openStudent={openStudent}
+          page={page}
+          persistStudentFields={persistStudentFields}
+          persistStudentFieldsBulk={persistStudentFieldsBulk}
+          physicalRooms={physicalRooms}
+          purchaseLog={purchaseLog}
+          recordGradeEntries={recordGradeEntries}
+          recordGradeEntry={recordGradeEntry}
+          recordStudentPointsAction={recordStudentPointsAction}
+          refreshStaffMembers={refreshStaffMembers}
+          refreshStoreData={refreshStoreData}
+          removeStoreItem={removeStoreItem}
+          restoreStarterStoreCatalog={restoreStarterStoreCatalog}
+          restoreStudentFromAdmin={restoreStudentFromAdmin}
+          reverseStoreRedemptionFromStore={reverseStoreRedemptionFromStore}
+          saveStoreItemEdits={saveStoreItemEdits}
+          searchedStudents={searchedStudents}
+          setAttFilter={setAttFilter}
+          setDrillDown={setDrillDown}
+          setNewStoreItem={setNewStoreItem}
+          setPage={setPage}
+          setShowStoreManager={setShowStoreManager}
+          setShowUnknownPopup={setShowUnknownPopup}
+          setStoreCategoryFilter={setStoreCategoryFilter}
+          setStoreItemSearch={setStoreItemSearch}
+          setStoreStudent={setStoreStudent}
+          setStudentFlags={setStudentFlags}
+          setStudentTasks={setStudentTasks}
+          setStudents={setStudents}
+          setSupportInitialSection={setSupportInitialSection}
+          setTeachingMode={setTeachingMode}
+          setTodos={setTodos}
+          setupAssignments={setupAssignments}
+          showStoreManager={showStoreManager}
+          staffMembers={staffMembers}
+          statusColor={statusColor}
+          statusEmoji={statusEmoji}
+          statusLabel={statusLabel}
+          stillInYeshiva={stillInYeshiva}
+          storeCategoryFilter={storeCategoryFilter}
+          storeItemSearch={storeItemSearch}
+          storeItems={storeItems}
+          storeLastLoadError={storeLastLoadError}
+          storePersistenceReady={storePersistenceReady}
+          storeStudent={storeStudent}
+          storeSyncDiagnostics={storeSyncDiagnostics}
+          storeSyncState={storeSyncState}
+          studentClassOverrides={studentClassOverrides}
+          studentFlags={studentFlags}
+          studentFlagsLoadError={studentFlagsLoadError}
+          studentLoadError={studentLoadError}
+          studentTasks={studentTasks}
+          studentsForStudentsPage={studentsForStudentsPage}
+          supportInitialSection={supportInitialSection}
+          teacherClassIds={teacherClassIds}
+          todoLoadError={todoLoadError}
+          todos={todos}
+          total={total}
+          unknown={unknown}
+          updateStoreItem={updateStoreItem}
+          updateStudentFromAdmin={updateStudentFromAdmin}
+          urgentStudents={urgentStudents}
+          userAccess={userAccess}
+          vipStudents={vipStudents}
+          visibleStudents={visibleStudents}
+          withBT={withBT}
+        />
 
         {page === 'setup' && effectiveRole !== 'register' && (
           <Suspense fallback={<PageLoadingFallback />}>
@@ -4352,287 +4446,20 @@ export default function Dashboard({ teacherUser, onTeacherSessionLogout }: Dashb
           </Suspense>
         )}
 
-        {page === 'dashboard' && effectiveRole !== 'register' && effectiveRole !== 'teacher' && effectiveRole !== 'rebbe' && effectiveRole !== 'support_staff' && (
-          <Suspense fallback={<PageLoadingFallback />}>
-          <AdminMainDashboard
-            S={S}
-            getGreeting={getGreeting}
-            userName={effectiveUserName}
-            total={total}
-            divisionLabel={divisionLabel}
-            divisionView={divisionView}
-            LiveClock={LiveClock}
-            cameToday={cameToday}
-            stillInYeshiva={stillInYeshiva}
-            unknown={unknown}
-            urgentStudents={urgentStudents}
-            setShowUnknownPopup={setShowUnknownPopup}
-            userAccess={userAccess}
-            divisionSummaries={divisionSummaries}
-            DIVISIONS={DIVISIONS}
-            inClassrooms={inClassrooms}
-            inClassroomsStudents={inClassroomsStudents}
-            late={late}
-            lateStudents={lateStudents}
-            inTherapy={inTherapy}
-            withBT={withBT}
-            students={authoritativeStudents}
-            leftEarlyStudents={leftEarlyStudents}
-            absentTodayStudents={absentTodayStudents}
-            setDrillDown={setDrillDown}
-            cameTodayRate={cameTodayRate}
-            setPage={setPage}
-            callsDueStudents={callsDueStudents}
-            alerts={alerts}
-            openStudent={openStudent}
-            studentFlags={studentFlags}
-            setSupportInitialSection={setSupportInitialSection}
-            CLASSES={configuredClasses}
-            improved={improved}
-            needsAttention={needsAttention}
-            vipStudents={vipStudents}
-            getImprovement={getImprovement}
-            initials={initials}
-            todos={todos}
-            setTodos={setTodos}
-            studentTasks={studentTasks}
-            setStudentTasks={setStudentTasks}
-            FlagDashboardWidget={FlagDashboardWidget}
-            instructionalPeriods={instructionalPeriods}
-            physicalRooms={physicalRooms}
-            instructionalGroups={instructionalGroups}
-            instructionalGroupMemberships={instructionalGroupMemberships}
-          />
-          </Suspense>
-        )}
-
-        {page === 'students' && (
-          <Suspense fallback={<PageLoadingFallback />}>
-          <StudentsListPage
-            searchedStudents={studentsForStudentsPage}
-            openStudent={openStudent}
-            S={S}
-            STAFF={STAFF}
-            getImprovement={getImprovement}
-            isVIP={checkIsVIP}
-            statusColor={statusColor}
-            statusEmoji={statusEmoji}
-            statusLabel={statusLabel}
-            daysSince={daysSince}
-            initials={initials}
-            role={effectiveRole}
-            classes={configuredClasses}
-            onCreateStudent={createStudentFromAdmin}
-            onUpdateStudent={updateStudentFromAdmin}
-            onArchiveStudent={archiveStudentFromAdmin}
-            onRestoreStudent={restoreStudentFromAdmin}
-            onDeleteStudent={deleteStudentFromAdmin}
-            onGetDeletionImpact={getDeletionImpactForStudent}
-            instructionalPeriods={instructionalPeriods}
-            instructionalGroups={instructionalGroups}
-            instructionalGroupMemberships={instructionalGroupMemberships}
-          />
-          </Suspense>
-        )}
-
-        {page === 'staff-directory' && effectiveRole !== 'register' && (
-          <StaffDirectoryPage
-            S={S}
-            staffMembers={staffMembers}
-            initials={initials}
-            onStaffChanged={refreshStaffMembers}
-            canManageStaff={isLeadershipRole(effectiveRole)}
-          />
-        )}
-
-        {page === 'attendance' && (
-          <Suspense fallback={<PageLoadingFallback />}>
-          <AttendancePage
-            students={visibleStudents}
-            setStudents={setStudents}
-            role={effectiveRole}
-            userName={effectiveUserName}
-            attFilter={attFilter}
-            setAttFilter={setAttFilter}
-            filteredStudents={filteredStudents}
-            openStudent={openStudent}
-            persistStudentFields={persistStudentFields}
-            persistStudentFieldsBulk={persistStudentFieldsBulk}
-            STAFF={STAFF}
-            S={S}
-            initials={initials}
-            isVIP={checkIsVIP}
-            DAYS={DAYS}
-            CLASSES={configuredClasses}
-            statusColor={statusColor}
-            statusEmoji={statusEmoji}
-            statusLabel={statusLabel}
-            instructionalPeriods={instructionalPeriods}
-            instructionalGroups={instructionalGroups}
-            instructionalGroupMemberships={instructionalGroupMemberships}
-            primaryClassIdsByStudent={Object.fromEntries(Object.entries(studentClassOverrides).map(([studentId, assignment]) => [studentId, assignment.classId]))}
-            additionalClassIdsByStudent={additionalClassIdsByStudent}
-          />
-          </Suspense>
-        )}
-
-        {page === 'academics' && (
-          <AcademicsPage
-            students={visibleStudents}
-            setStudents={setStudents}
-            role={effectiveRole}
-            userName={effectiveUserName}
-            teacherClass={teacherClassIds.length === 1 ? teacherClassIds[0] : null}
-            teacherAssignedStudentIds={assignedTeacherStudentIds}
-            teacherAssignedClassIds={assignedTeacherClassIds}
-            academicTeacherOptions={Array.from(new Set([
-              ...Object.keys(ACADEMIC_AREAS),
-              ...TEACHING_STAFF_OPTIONS
-            ])).sort()}
-            openStudent={openStudent}
-            S={S}
-            CLASSES={configuredClasses}
-            CLASS_DIVISION={CLASS_DIVISION}
-            ACADEMIC_AREAS={ACADEMIC_AREAS}
-            academicCatalog={academicCatalog}
-            SKILL_RATINGS={SKILL_RATINGS}
-            RATING_SCORE={RATING_SCORE}
-            academicPct={academicPct}
-            academicDisplay={academicDisplay}
-            academicStatus={academicStatus}
-            academicStatusColor={academicStatusColor}
-            persistStudentFields={persistStudentFields}
-            setupAssignments={setupAssignments}
-            onSaveGradeEntry={recordGradeEntry}
-            onSaveGradeEntries={recordGradeEntries}
-            additionalClassIdsByStudent={additionalClassIdsByStudent}
-            instructionalPeriods={instructionalPeriods}
-            physicalRooms={physicalRooms}
-            instructionalGroups={instructionalGroups}
-            instructionalGroupMemberships={instructionalGroupMemberships}
-          />
-        )}
-
-        {page === 'schedule' && (
-          <Suspense fallback={<PageLoadingFallback />}>
-          <SchedulePage
-            S={S}
-            students={visibleStudents}
-            STAFF={STAFF}
-            SCHEDULE_PERIODS={SCHEDULE_PERIODS}
-            THERAPY_SCHEDULE={THERAPY_SCHEDULE_STATE}
-            openStudent={openStudent}
-            initials={initials}
-            statusColor={statusColor}
-            statusEmoji={statusEmoji}
-            statusLabel={statusLabel}
-            CLASSES={configuredClasses}
-            instructionalPeriods={instructionalPeriods}
-            physicalRooms={physicalRooms}
-            instructionalGroups={instructionalGroups}
-            instructionalGroupMemberships={instructionalGroupMemberships}
-          />
-          </Suspense>
-        )}
-
-        {page === 'behavior' && (
-          <Suspense fallback={<PageLoadingFallback />}>
-          <BehaviorPage
-            students={visibleStudents}
-            searchedStudents={searchedStudents}
-            openStudent={openStudent}
-            initials={initials}
-            isVIP={checkIsVIP}
-            S={S}
-            statusColor={statusColor}
-            statusEmoji={statusEmoji}
-            statusLabel={statusLabel}
-            onAdjustPoints={recordStudentPointsAction}
-            CLASSES={configuredClasses}
-            additionalClassIdsByStudent={additionalClassIdsByStudent}
-          />
-          </Suspense>
-        )}
-
-        {page === 'store' && (
-          <Suspense fallback={<PageLoadingFallback />}>
-          <TokenStorePage
-            S={S}
-            userAccess={userAccess}
-            showStoreManager={showStoreManager}
-            setShowStoreManager={setShowStoreManager}
-            storeItems={storeItems}
-            updateStoreItem={updateStoreItem}
-            saveStoreItemEdits={saveStoreItemEdits}
-            adjustStoreStock={adjustStoreStock}
-            removeStoreItem={removeStoreItem}
-            newStoreItem={newStoreItem}
-            setNewStoreItem={setNewStoreItem}
-            addStoreItem={addStoreItem}
-            storeStudent={storeStudent}
-            setStoreStudent={setStoreStudent}
-            visibleStudents={visibleStudents}
-            isVIP={checkIsVIP}
-            students={visibleStudents}
-            storeCategoryFilter={storeCategoryFilter}
-            setStoreCategoryFilter={setStoreCategoryFilter}
-            storeItemSearch={storeItemSearch}
-            setStoreItemSearch={setStoreItemSearch}
-            buyItem={buyItem}
-            purchaseLog={purchaseLog}
-            isStoreItemRestrictedForStudent={isStoreItemRestrictedForStudent}
-            STORE_CATEGORY_OPTIONS={STORE_CATEGORY_OPTIONS}
-            storePersistenceReady={storePersistenceReady}
-            storeSyncState={storeSyncState}
-            storeLastLoadError={storeLastLoadError}
-            storeSyncDiagnostics={storeSyncDiagnostics}
-            refreshStoreData={refreshStoreData}
-            restoreStarterStoreCatalog={restoreStarterStoreCatalog}
-            onReverseStoreRedemption={reverseStoreRedemptionFromStore}
-          />
-          </Suspense>
-        )}
-
       </div>
 
       </div>
 
       {showUnknownPopup && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 760, maxHeight: '84vh', overflow: 'hidden', boxShadow: '0 24px 80px rgba(15,23,42,0.28)' }}>
-            <div style={{ padding: '18px 22px', borderBottom: '1px solid #eef0f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: '#263241' }}>Update Unknown Locations</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Mark each located boy and add an optional note.</div>
-              </div>
-              <button onClick={() => setShowUnknownPopup(false)} style={{ border: 'none', background: '#f4f5f8', color: '#263241', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', fontWeight: 700 }}>×</button>
-            </div>
-            <div style={{ padding: 18, overflow: 'auto', maxHeight: '68vh' }}>
-              {students.filter(s => s.status === 'unknown').length === 0 && (
-                <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No unknown locations right now.</div>
-              )}
-              {students.filter(s => s.status === 'unknown').map((s, i) => (
-                <div key={s.id} style={{ border: '1px solid #eef0f7', borderRadius: 12, padding: 16, marginBottom: 12, background: '#f8fafc' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                    <div style={S.avatar(i, 36)}>{initials(s.name)}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#263241' }}>{s.name}</div>
-                      <div style={{ fontSize: 12, color: '#9f1239', marginTop: 2 }}>Location unknown</div>
-                    </div>
-                  </div>
-                  <input value={unknownNotes[s.id] || ''} onChange={e => setUnknownNotes(prev => ({ ...prev, [s.id]: e.target.value }))} placeholder="Optional note, for example: found by office with Rabbi Baum" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #e1e7ef', borderRadius: 10, fontSize: 13, marginBottom: 12, outline: 'none' }} />
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    <button onClick={() => updateUnknownLocation(s.id, 'present', 'In Classroom')} style={S.btn('primary')}>Mark In Classroom</button>
-                    <button onClick={() => updateUnknownLocation(s.id, 'therapy', 'Therapy')} style={S.btn('purple')}>Mark Therapy</button>
-                    <button onClick={() => updateUnknownLocation(s.id, 'with-bt', 'With BT')} style={{ ...S.btn('ghost'), color: '#0369a1' }}>Mark With BT</button>
-                    <button onClick={() => updateUnknownLocation(s.id, 'absent', 'Absent')} style={{ ...S.btn('ghost'), color: '#9f1239' }}>Mark Absent</button>
-                    <button onClick={() => updateUnknownLocation(s.id, 'left-early', 'Left Early')} style={{ ...S.btn('ghost'), color: '#64748b' }}>Mark Left Early</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <UnknownLocationsModal
+          students={students}
+          unknownNotes={unknownNotes}
+          setUnknownNotes={setUnknownNotes}
+          onClose={() => setShowUnknownPopup(false)}
+          updateUnknownLocation={updateUnknownLocation}
+          S={S}
+          initials={initials}
+        />
       )}
 
       {drillDown && (
