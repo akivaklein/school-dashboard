@@ -2435,7 +2435,11 @@ export default function TeachingMode({
                     onClick={async e => {
                       e.stopPropagation()
                       if (!inClass) {
-                        if (!isInSchool(s)) return
+                        if (!isInSchool(s)) {
+                          // Explain why the switch didn't move instead of silently no-op'ing.
+                          setSaveErrorMessage(`${s.name} must be marked present on School Day before they can be added to class.`)
+                          return
+                        }
                         await saveClassroomAttendance([s], () => 'present')
                         return
                       }
@@ -2445,7 +2449,7 @@ export default function TeachingMode({
                       }
                       await saveClassroomAttendance([s], () => 'unmarked')
                     }}
-                    title={inClass ? 'Mark student as leaving class' : 'Return student to class'}
+                    title={inClass ? 'Mark student as leaving class' : (isInSchool(s) ? 'Return student to class' : `Not available — ${s.name} is not currently on campus`)}
                     style={{ width: 40, height: 22, borderRadius: 11, background: inClass ? '#56765f' : '#d1d5db', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
                   >
                     <div style={{ position: 'absolute', top: 2, left: inClass ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />

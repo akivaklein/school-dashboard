@@ -208,4 +208,50 @@ describe('Teaching Mode authoritative roster and classroom attendance', () => {
     const unrelated = { id: 99, name: 'Other Student', classLog: [] }
     expect(resolveCanonicalStudent(lookup, unrelated)).toBe(unrelated)
   })
+
+  it('Gavriel Stamler: Entire School and Class scope agree he is gray/not-in-class once School Day flips to Not Arrived, even with a stale location `status`', () => {
+    // AttendancePage's School-Day "Not Arrived" action only ever writes `dailyStatus`; it does
+    // not (and per this test, need not) touch the separate `status` field, which can remain a
+    // leftover 'present' from earlier in the day. isInSchool()/getClassroomAttendanceStatus()
+    // must still resolve correctly from dailyStatus alone.
+    const date = new Date('2026-09-24T09:00:00')
+    const entireSessionKey = buildClassroomSessionKey({ date, scopeType: 'entire', scopeValue: 'all', periodId: 1 })
+    const classSessionKey = buildClassroomSessionKey({ date, scopeType: 'class', scopeValue: 'yk-b', periodId: 1 })
+
+    const classes = [{ id: 'yk-a', grade: '8th Grade' }, { id: 'yk-b', grade: '7th Grade' }]
+    const assignments = { 42: { classId: 'yk-b', divisionKey: 'yeshiva_ketana' } }
+
+    const presentAndInClass = applyStudentClassAssignments(
+      [{ id: 42, name: 'Gavriel Stamler', dailyStatus: 'present', status: 'present', is_active: true, classLog: [] }],
+      assignments,
+      classes,
+    )[0]
+    const inClassGavriel = {
+      ...presentAndInClass,
+      ...buildClassroomAttendanceFields(presentAndInClass, { sessionKey: entireSessionKey, status: 'present', actingStaffName: 'Rabbi Cohen', recordedAt: '2026-09-24T09:05:00.000Z' }),
+    }
+
+    // Dashboard -> TeachingMode data path: schoolStudents (allStudents) and the per-scope roster
+    // both resolve through the same canonical lookup built from the fullest roster.
+    const schoolStudents = [inClassGavriel]
+    const studentLookup = buildStudentLookup(schoolStudents)
+
+    // Sanity check before the School Day correction: he reads as in-class in both scopes.
+    const classRosterBefore = getTeachingClassRoster({ schoolStudents, authorizedStudents: schoolStudents, selectedClass: 'yk-b' })
+    expect(getClassroomAttendanceStatus(resolveCanonicalStudent(studentLookup, schoolStudents[0]), entireSessionKey)).toBe('present')
+    expect(getClassroomAttendanceStatus(resolveCanonicalStudent(studentLookup, classRosterBefore[0]), classSessionKey)).toBe('present')
+
+    // School Day is corrected to Not Arrived — only dailyStatus changes; `status` is left stale.
+    const nowNotArrived = { ...inClassGavriel, dailyStatus: 'not-arrived' }
+    const schoolStudentsAfter = [nowNotArrived]
+    const studentLookupAfter = buildStudentLookup(schoolStudentsAfter)
+    const classRosterAfter = getTeachingClassRoster({ schoolStudents: schoolStudentsAfter, authorizedStudents: schoolStudentsAfter, selectedClass: 'yk-b' })
+
+    expect(nowNotArrived.status).toBe('present') // confirms the field really is left stale, as in production
+
+    // Entire School scope
+    expect(getClassroomAttendanceStatus(resolveCanonicalStudent(studentLookupAfter, schoolStudentsAfter[0]), entireSessionKey)).toBe('unmarked')
+    // Class scope must agree — no contradiction between scopes or across the stale `status` field.
+    expect(getClassroomAttendanceStatus(resolveCanonicalStudent(studentLookupAfter, classRosterAfter[0]), classSessionKey)).toBe('unmarked')
+  })
 })
