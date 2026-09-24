@@ -5,11 +5,13 @@ import {
   buildClassroomAttendanceFields,
   buildClassroomSessionKey,
   buildLateToClassFields,
+  buildStudentLookup,
   buildTeachingModeWriteFailureMessage,
   didTeachingModeWriteSucceed,
   getClassroomAttendanceStatus,
   getTeachingClassRoster,
   getTeachingGradeRoster,
+  resolveCanonicalStudent,
   summarizeTeachingModeWriteResults,
 } from './teachingModeUtils'
 import { getCurrentLocationStatus, getDailyAttendanceStatus, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
@@ -208,21 +210,17 @@ export default function TeachingMode({
     [instructionalPeriods],
   )
   const currentInstructionalPeriod = useCurrentInstructionalPeriod(activeInstructionalPeriods)
-  const classroomScopeValue = scopeType === 'class'
-    ? String(selectedClass || '')
-    : scopeType === 'teacher'
-      ? `${selectedTeacher}:${selectedTeacherClass || 'all'}`
-      : scopeType === 'grade'
-        ? selectedGrade
-        : scopeType === 'group'
-          ? selectedInstructionalGroup
-          : 'all'
+  // One physical-presence key per date/period, independent of which scope/roster filter is
+  // currently selected — otherwise the same student could read "in class" in one scope and
+  // "not in class" in another for the exact same moment.
   const classroomSessionKey = buildClassroomSessionKey({
-    scopeType,
-    scopeValue: classroomScopeValue,
     periodId: selectedPeriod || currentInstructionalPeriod?.id || null,
   })
-  const isStudentInClass = student => getClassroomAttendanceStatus(student, classroomSessionKey) === 'present'
+  // Canonical id -> student map built from the fullest available roster so every scope
+  // resolves the exact same, current attendance object for a given student id.
+  const studentLookup = useMemo(() => buildStudentLookup(schoolStudents), [schoolStudents])
+  const resolveCurrentStudent = student => resolveCanonicalStudent(studentLookup, student)
+  const isStudentInClass = student => getClassroomAttendanceStatus(resolveCurrentStudent(student), classroomSessionKey) === 'present'
   const periodOptions = activeInstructionalPeriods.map(period => String(period.id))
   const instructionalGroupOptions = useMemo(() => {
     const normalizedUserName = String(userName || '').trim().toLowerCase()
@@ -541,7 +539,10 @@ export default function TeachingMode({
   const filtered = classStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
 
   async function saveClassroomAttendance(targetStudents, statusForStudent: (student: Record<string, any>) => 'present' | 'unmarked') {
-    const changedStudents = targetStudents.filter(student => getClassroomAttendanceStatus(student, classroomSessionKey) !== statusForStudent(student))
+    // Resolve to the canonical current student object first — a scoped roster can otherwise
+    // hand back a stale copy that no longer reflects a just-changed School Day status.
+    const canonicalTargets = targetStudents.map(resolveCurrentStudent)
+    const changedStudents = canonicalTargets.filter(student => getClassroomAttendanceStatus(student, classroomSessionKey) !== statusForStudent(student))
     if (changedStudents.length === 0) return true
 
     const previousLogsById = Object.fromEntries(changedStudents.map(student => [Number(student.id), student.classLog || []]))
@@ -2307,7 +2308,10 @@ export default function TeachingMode({
           maxWidth: 1540,
           margin: '0 auto'
         }}>
-          {filtered.map((s, i) => {
+          {filtered.map((rawStudent, i) => {
+            // Always read/act on the canonical current student object, never whatever
+            // (possibly stale) copy this particular scope's roster filter produced.
+            const s = resolveCurrentStudent(rawStudent)
             const isSelected = selected.includes(s.id)
             const vip = isVIP(s)
             const inClass = isStudentInClass(s)

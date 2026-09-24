@@ -3,11 +3,13 @@ import {
   buildClassroomAttendanceFields,
   buildClassroomSessionKey,
   buildLateToClassFields,
+  buildStudentLookup,
   buildTeachingModeWriteFailureMessage,
   didTeachingModeWriteSucceed,
   getClassroomAttendanceStatus,
   getTeachingClassRoster,
   getTeachingGradeRoster,
+  resolveCanonicalStudent,
   summarizeTeachingModeWriteResults,
 } from '../teachingModeUtils'
 import { applyStudentClassAssignments } from '../dashboardData'
@@ -149,5 +151,61 @@ describe('Teaching Mode authoritative roster and classroom attendance', () => {
 
     const leftEarly = { id: 3, dailyStatus: 'left-early', status: 'present', ...inClassEntry }
     expect(getClassroomAttendanceStatus(leftEarly, sessionKey)).toBe('unmarked')
+  })
+
+  it('buildClassroomSessionKey resolves to the same key for the same date/period regardless of scope', () => {
+    const date = new Date('2026-09-24T10:00:00')
+    const entireKey = buildClassroomSessionKey({ date, scopeType: 'entire', scopeValue: 'all', periodId: 2 })
+    const classKey = buildClassroomSessionKey({ date, scopeType: 'class', scopeValue: 'yk-b', periodId: 2 })
+    const groupKey = buildClassroomSessionKey({ date, scopeType: 'group', scopeValue: 'gemara-level-b', periodId: 2 })
+    expect(classKey).toBe(entireKey)
+    expect(groupKey).toBe(entireKey)
+
+    // A different period is still a distinct session, regardless of scope.
+    const otherPeriodKey = buildClassroomSessionKey({ date, scopeType: 'entire', scopeValue: 'all', periodId: 3 })
+    expect(otherPeriodKey).not.toBe(entireKey)
+  })
+
+  it('switching scopes after a School Day attendance change cannot show contradictory in-class states for the same student', () => {
+    // Same physical period, viewed through two different scopes (e.g. Entire School vs a
+    // Class/Gemara group roster) must resolve to the exact same session key.
+    const date = new Date('2026-09-24T10:00:00')
+    const entireSessionKey = buildClassroomSessionKey({ date, scopeType: 'entire', scopeValue: 'all', periodId: 2 })
+    const gemaraSessionKey = buildClassroomSessionKey({ date, scopeType: 'group', scopeValue: 'gemara-level-b', periodId: 2 })
+
+    const markedInClass = {
+      id: 42,
+      name: 'Avi Eisenberg',
+      dailyStatus: 'present',
+      status: 'present',
+      classLog: [],
+    }
+    const withPresence = {
+      ...markedInClass,
+      ...buildClassroomAttendanceFields(markedInClass, { sessionKey: entireSessionKey, status: 'present', actingStaffName: 'Rabbi Cohen', recordedAt: '2026-09-24T10:01:00.000Z' }),
+    }
+    expect(getClassroomAttendanceStatus(withPresence, entireSessionKey)).toBe('present')
+    expect(getClassroomAttendanceStatus(withPresence, gemaraSessionKey)).toBe('present')
+
+    // School Day attendance is corrected to Not Arrived — both scopes must immediately agree.
+    const nowNotArrived = { ...withPresence, dailyStatus: 'not-arrived', status: 'not-arrived' }
+    expect(getClassroomAttendanceStatus(nowNotArrived, entireSessionKey)).toBe('unmarked')
+    expect(getClassroomAttendanceStatus(nowNotArrived, gemaraSessionKey)).toBe('unmarked')
+  })
+
+  it('resolveCanonicalStudent always reads the freshest copy of a student, even if a scoped roster still holds a stale one', () => {
+    const staleCopy = { id: 42, name: 'Avi Eisenberg', dailyStatus: 'present', status: 'present', classLog: [] }
+    const freshCopy = { ...staleCopy, dailyStatus: 'not-arrived', status: 'not-arrived' }
+
+    // The canonical lookup is built from the freshest full roster (e.g. schoolStudents).
+    const lookup = buildStudentLookup([freshCopy])
+
+    // A different scope's roster array still hands back the stale object reference.
+    expect(resolveCanonicalStudent(lookup, staleCopy)).toBe(freshCopy)
+    expect(resolveCanonicalStudent(lookup, staleCopy).dailyStatus).toBe('not-arrived')
+
+    // A student missing from the lookup (e.g. not in this particular roster) falls back to itself.
+    const unrelated = { id: 99, name: 'Other Student', classLog: [] }
+    expect(resolveCanonicalStudent(lookup, unrelated)).toBe(unrelated)
   })
 })

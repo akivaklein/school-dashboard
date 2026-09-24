@@ -43,8 +43,32 @@ function localDateKey(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
 }
 
-export function buildClassroomSessionKey({ date = new Date(), scopeType, scopeValue, periodId }: { date?: Date; scopeType: string; scopeValue: string; periodId?: string | number | null }) {
-  return [localDateKey(date), scopeType || 'entire', scopeValue || 'all', String(periodId || 'manual')].join(':')
+export function buildClassroomSessionKey({ date = new Date(), scopeType, scopeValue, periodId }: { date?: Date; scopeType?: string; scopeValue?: string; periodId?: string | number | null }) {
+  // Physical classroom presence is a single fact per student/date/period. It must NOT be
+  // fragmented by which roster/scope filter (Entire School, a class, a group, ...) a
+  // teacher happens to be viewing at the moment — that would let the same student read as
+  // simultaneously "in class" under one scope and "not in class" under another.
+  // scopeType/scopeValue are accepted for call-site convenience but intentionally excluded
+  // from the key.
+  void scopeType
+  void scopeValue
+  return [localDateKey(date), String(periodId || 'manual')].join(':')
+}
+
+// Canonical id -> student lookup so every scope reads the exact same, current attendance
+// object for a given student instead of whatever (possibly stale) copy a particular
+// scope/roster filter happened to carry.
+export function buildStudentLookup(students: TeachingStudent[]): Map<number, TeachingStudent> {
+  const lookup = new Map<number, TeachingStudent>()
+  ;(students || []).forEach(student => {
+    const id = Number(student?.id)
+    if (Number.isFinite(id)) lookup.set(id, student)
+  })
+  return lookup
+}
+
+export function resolveCanonicalStudent<T extends TeachingStudent>(lookup: Map<number, T>, student: T): T {
+  return lookup.get(Number(student?.id)) ?? student
 }
 
 export function getClassroomAttendanceStatus(student: TeachingStudent, sessionKey: string): 'present' | 'unmarked' {
