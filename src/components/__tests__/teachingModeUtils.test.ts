@@ -118,4 +118,36 @@ describe('Teaching Mode authoritative roster and classroom attendance', () => {
     const cleared = { ...classroomPresent, ...buildClassroomAttendanceFields(classroomPresent, { sessionKey, status: 'unmarked', actingStaffName: 'Rabbi Cohen', recordedAt: '2026-09-24T10:05:00.000Z' }) }
     expect(getClassroomAttendanceStatus(cleared, sessionKey)).toBe('unmarked')
   })
+
+  it('never resolves as in-class once the student is no longer in school, without erasing classroom history', () => {
+    const sessionKey = buildClassroomSessionKey({ date: new Date('2026-09-24T10:00:00'), scopeType: 'entire', scopeValue: 'all', periodId: null })
+
+    // 1) Present for school day
+    const presentForSchoolDay = { id: 1, dailyStatus: 'present', status: 'present', classLog: [] }
+
+    // 2) Marked In Class in Teaching Mode
+    const markedInClass = {
+      ...presentForSchoolDay,
+      ...buildClassroomAttendanceFields(presentForSchoolDay, { sessionKey, status: 'present', actingStaffName: 'Rabbi Cohen', recordedAt: '2026-09-24T10:01:00.000Z' }),
+    }
+    expect(getClassroomAttendanceStatus(markedInClass, sessionKey)).toBe('present')
+
+    // 3) School-day status later changes to Not Arrived (e.g. an attendance correction), classLog untouched
+    const nowNotArrived = { ...markedInClass, dailyStatus: 'not-arrived', status: 'not-arrived' }
+
+    // 4) Must resolve as unmarked/gray, and the stale classroom-attendance "present" entry remains in history
+    expect(getClassroomAttendanceStatus(nowNotArrived, sessionKey)).toBe('unmarked')
+    expect(nowNotArrived.classLog.some(entry => entry.type === 'classroom-attendance' && entry.classroomStatus === 'present')).toBe(true)
+  })
+
+  it('never resolves as in-class for absent or left-early students', () => {
+    const sessionKey = buildClassroomSessionKey({ date: new Date('2026-09-24T10:00:00'), scopeType: 'entire', scopeValue: 'all', periodId: null })
+    const inClassEntry = buildClassroomAttendanceFields({ classLog: [] }, { sessionKey, status: 'present', actingStaffName: 'Rabbi Cohen', recordedAt: '2026-09-24T10:01:00.000Z' })
+
+    const absent = { id: 2, dailyStatus: 'absent', status: 'absent', ...inClassEntry }
+    expect(getClassroomAttendanceStatus(absent, sessionKey)).toBe('unmarked')
+
+    const leftEarly = { id: 3, dailyStatus: 'left-early', status: 'present', ...inClassEntry }
+    expect(getClassroomAttendanceStatus(leftEarly, sessionKey)).toBe('unmarked')
+  })
 })

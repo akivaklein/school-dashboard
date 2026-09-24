@@ -48,6 +48,9 @@ export function buildClassroomSessionKey({ date = new Date(), scopeType, scopeVa
 }
 
 export function getClassroomAttendanceStatus(student: TeachingStudent, sessionKey: string): 'present' | 'unmarked' {
+  // A student who is currently not-arrived/absent/left-early can never resolve as "in class",
+  // even if an earlier classroom-attendance record for this session says otherwise.
+  if (!isInSchool(student)) return 'unmarked'
   const record = [...(student.classLog || [])].reverse().find(entry => (
     entry?.type === 'classroom-attendance' && entry?.classroomSessionKey === sessionKey
   ))

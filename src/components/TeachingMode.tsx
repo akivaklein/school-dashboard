@@ -700,83 +700,11 @@ export default function TeachingMode({
     }
   }
 
-  async function handleToggle(s) {
-    const now = new Date()
-    const timeStr = now.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    })
-
-    if (isInSchool(s) && getCurrentLocationStatus(s) === 'present') {
-      setLeavePopup(s.id)
-      setLeaveReason('therapy')
-      setLeaveStaffSearch('')
-      setLeaveStaffId('')
-      return
-    }
-
-    const original = s
-    const wasNotInSchool = !isInSchool(s)
-
-    const updatedClassLog = [
-      ...(s.classLog || []),
-      buildClassLogEntry(
-        'in',
-        wasNotInSchool
-          ? `Arrived late to yeshiva (marked by ${actingStaffName})`
-          : `Returned to class (marked by ${actingStaffName})`
-      )
-    ]
-
-    const fields = wasNotInSchool
-      ? { status: 'present', dailyStatus: 'late', withStaff: null, unknownSince: null, classLog: updatedClassLog }
-      : { status: 'present', withStaff: null, unknownSince: null, classLog: updatedClassLog }
-
-    setStudents(prev =>
-      prev.map(x => {
-        if (Number(x.id) !== Number(s.id)) return x
-
-        return {
-          ...x,
-          ...fields,
-          withStaff: null,
-          lateDetails: wasNotInSchool
-            ? {
-                timeArrived: timeStr,
-                reason: 'arrived-late',
-                note: 'Marked present from School-Wide Mode',
-                markedBy: actingStaffName,
-                markedAt: new Date().toISOString(),
-              }
-            : x.lateDetails
-        }
-      })
-    )
-
-    const fieldsWithAudit = wasNotInSchool
-      ? {
-          ...fields,
-          lateDetails: {
-            timeArrived: timeStr,
-            reason: 'arrived-late',
-            note: 'Marked present from School-Wide Mode',
-            markedBy: actingStaffName,
-            markedAt: new Date().toISOString(),
-          },
-        }
-      : fields
-
-    const success = await persistStudentFields(s.id, fieldsWithAudit)
-
-    if (!success) {
-      setStudents(prev =>
-        prev.map(x =>
-          Number(x.id) === Number(s.id) ? original : x
-        )
-      )
-      alert('Unable to save student status to Supabase.')
-    }
+  function openLeavePopupForStudent(s) {
+    setLeavePopup(s.id)
+    setLeaveReason('therapy')
+    setLeaveStaffSearch('')
+    setLeaveStaffId('')
   }
 
   async function confirmLeave() {
@@ -830,7 +758,20 @@ export default function TeachingMode({
         'out',
         `${note} (recorded by ${actingStaffName})`,
         { staffId: leaveStaffId || null }
-      )
+      ),
+      // Leaving class also clears this session's classroom-present flag; the earlier "present" entry stays in history.
+      ...(original && getClassroomAttendanceStatus(original, classroomSessionKey) === 'present'
+        ? [{
+            time: timeStr,
+            type: 'classroom-attendance',
+            classroomSessionKey,
+            classroomStatus: 'unmarked',
+            note: `Classroom attendance marked unmarked by ${actingStaffName}`,
+            staffId: null,
+            staffName: actingStaffName,
+            recordedAt: now.toISOString(),
+          }]
+        : []),
     ]
 
     setStudents(prev => prev.map(x =>
@@ -2489,10 +2430,18 @@ export default function TeachingMode({
                   <div
                     onClick={async e => {
                       e.stopPropagation()
-                      if (!isInSchool(s)) return
-                      await saveClassroomAttendance([s], () => inClass ? 'unmarked' : 'present')
+                      if (!inClass) {
+                        if (!isInSchool(s)) return
+                        await saveClassroomAttendance([s], () => 'present')
+                        return
+                      }
+                      if (getCurrentLocationStatus(s) === 'present') {
+                        openLeavePopupForStudent(s)
+                        return
+                      }
+                      await saveClassroomAttendance([s], () => 'unmarked')
                     }}
-                    title={inClass ? 'Clear classroom attendance for this session' : 'Mark classroom present for this session'}
+                    title={inClass ? 'Mark student as leaving class' : 'Return student to class'}
                     style={{ width: 40, height: 22, borderRadius: 11, background: inClass ? '#56765f' : '#d1d5db', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
                   >
                     <div style={{ position: 'absolute', top: 2, left: inClass ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
