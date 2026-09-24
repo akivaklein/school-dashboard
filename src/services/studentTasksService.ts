@@ -60,6 +60,11 @@ export function getStudentTaskDueAt(task: StudentTask) {
   return initialDue
 }
 
+export function getSnoozedUntil(minutes: number, now = new Date()) {
+  if (!Number.isFinite(minutes) || minutes <= 0) throw new Error('Snooze minutes must be greater than zero.')
+  return new Date(now.getTime() + minutes * 60000)
+}
+
 export type StudentTaskStatus = 'Upcoming' | 'Snoozed' | 'Due' | 'Overdue' | 'Done' | 'Skipped'
 
 export function getStudentTaskStatus(task: StudentTask, now = new Date()): StudentTaskStatus {

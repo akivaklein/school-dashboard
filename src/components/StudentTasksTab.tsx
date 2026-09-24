@@ -6,6 +6,7 @@ import {
   deleteStudentTask,
   getStudentTaskDueAt,
   getStudentTaskStatus,
+  getSnoozedUntil,
   skipStudentTask,
   snoozeStudentTask,
   updateStudentTask,
@@ -186,19 +187,7 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
 
   async function snooze(task: StudentTask, minutes: number) {
     try {
-      const updated = await snoozeStudentTask(task, new Date(Date.now() + minutes * 60000).toISOString(), userName || 'Staff')
-      setTasks(previous => previous.map(item => item.id === updated.id ? updated : item))
-    } catch (snoozeError) {
-      setError(snoozeError instanceof Error ? snoozeError.message : 'Unable to snooze task.')
-    }
-  }
-
-  async function snoozeTomorrow(task: StudentTask) {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    tomorrow.setHours(9, 0, 0, 0)
-    try {
-      const updated = await snoozeStudentTask(task, tomorrow.toISOString(), userName || 'Staff')
+      const updated = await snoozeStudentTask(task, getSnoozedUntil(minutes).toISOString(), userName || 'Staff')
       setTasks(previous => previous.map(item => item.id === updated.id ? updated : item))
     } catch (snoozeError) {
       setError(snoozeError instanceof Error ? snoozeError.message : 'Unable to snooze task.')
@@ -206,19 +195,9 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
   }
 
   async function snoozeCustom(task: StudentTask) {
-    const value = window.prompt('Snooze until (YYYY-MM-DDTHH:MM)', '')
+    const value = window.prompt('Snooze for how many minutes?', '')
     if (!value) return
-    const until = new Date(value)
-    if (Number.isNaN(until.getTime())) {
-      setError('Enter a valid snooze date and time.')
-      return
-    }
-    try {
-      const updated = await snoozeStudentTask(task, until.toISOString(), userName || 'Staff')
-      setTasks(previous => previous.map(item => item.id === updated.id ? updated : item))
-    } catch (snoozeError) {
-      setError(snoozeError instanceof Error ? snoozeError.message : 'Unable to snooze task.')
-    }
+    await snooze(task, Number(value))
   }
 
   async function removeTask(task: StudentTask) {
@@ -263,11 +242,9 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
         </div>
         <div style={{ display: 'flex', gap: 5, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 220 }}>
           {!closed && <>
-            <button onClick={() => snooze(task, 15)} title="Snooze 15 minutes" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 15m</button>
-            <button onClick={() => snooze(task, 60)} title="Snooze 1 hour" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 1h</button>
-            <button onClick={() => snooze(task, 180)} title="Snooze 3 hours" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 3h</button>
-            <button onClick={() => snoozeTomorrow(task)} title="Snooze until tomorrow morning" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 Tomorrow</button>
-            <button onClick={() => snoozeCustom(task)} title="Choose a custom snooze time" style={{ padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 11 }}>Custom…</button>
+            <button onClick={() => snooze(task, 5)} title="Snooze 5 minutes" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 5m</button>
+            <button onClick={() => snooze(task, 10)} title="Snooze 10 minutes" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>💤 10m</button>
+            <button onClick={() => snoozeCustom(task)} title="Enter custom snooze minutes" style={{ padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 11 }}>Custom…</button>
             {recurring && <button onClick={() => skip(task)} title="Skip only this occurrence; the series continues" style={{ padding: '5px 8px', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>⏭ Skip</button>}
             {recurring && !task.recurrence_canceled_at && <button onClick={() => cancelRecurrence(task)} title="Stop all future occurrences" style={{ padding: '5px 8px', border: '1px solid #fecdd3', borderRadius: 6, background: '#fff7f7', color: '#9f1239', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>🚫 Stop repeating</button>}
           </>}
