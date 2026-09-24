@@ -3,7 +3,7 @@ import StudentNotes from './StudentNotes'
 import { resolveActorName } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
 import { buildStudentNavigationList, getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
-import { getCurrentLocationStatus, getDailyAttendanceStatus } from '../utils/attendancePresence'
+import { getAttendanceHistory, getCurrentLocationStatus, getDailyAttendanceStatus, getWeeklyAttendanceCodes } from '../utils/attendancePresence'
 import { removeParentCall } from '../utils/parentCallUtils'
 import { getStudentInstructionalGroup, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 
@@ -82,13 +82,15 @@ export default function StudentProfile({
     ? physicalRooms.find(room => room.id === currentInstructionalGroup.room_id) || null
     : null
   const improvement = getImprovement(s)
-  const vip = isVIP(s)
-  const att = normalizedStudent.att
-  const breakfast = normalizedStudent.breakfast
+  const att = getWeeklyAttendanceCodes(s, new Date(), DAYS.length)
+  const attendanceHistory = getAttendanceHistory(s)
+  const vip = isVIP({ ...s, att })
   const parentCalls = normalizedStudent.parentCalls
   const behaviorLog = normalizedStudent.behaviorLog
   const absCount = att.filter(d => d === 'A').length
-  const lateCount = att.filter(d => d === 'L').length
+  const lateCount = att.filter(d => d === 'L' || d === 'L/LE').length
+  const presentCount = att.filter(d => d === 'P' || d === 'P/LE').length
+  const leftEarlyCount = att.filter(d => d === 'LE' || d.endsWith('/LE')).length
   const lastCall = parentCalls.length > 0 ? parentCalls[parentCalls.length - 1] : null
   const withStaffObj = s.withStaff ? STAFF.find(st => st.id === s.withStaff) : null
   const reversedEventIds = new Set(
@@ -207,7 +209,7 @@ export default function StudentProfile({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={S.card}>
                   <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>This Week Summary</div>
-                  {[['Present days', att.filter(d=>d==='P').length+'/6'],['Late arrivals', lateCount],['Absences', absCount],['Points', s.points+' pts'],['Reminders', s.reminders],['Last call', lastCall ? daysSince(lastCall.date)+'d ago' : 'Never']].map(([label, val]) => (
+                  {[['Present days', presentCount+'/'+DAYS.length],['Late arrivals', lateCount],['Absences', absCount],['Left early', leftEarlyCount],['Points', s.points+' pts'],['Reminders', s.reminders],['Last call', lastCall ? daysSince(lastCall.date)+'d ago' : 'Never']].map(([label, val]) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f8fafc', fontSize: 13 }}>
                       <span style={{ color: '#64748b' }}>{label}</span><span style={{ fontWeight: 600 }}>{val}</span>
                     </div>
@@ -224,7 +226,7 @@ export default function StudentProfile({
                       {DAYS.map((day, i) => (
                         <div key={day} style={{ flex: 1, textAlign: 'center' }}>
                           <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>{day}</div>
-                          <div style={{ width: 28, height: 28, borderRadius: 6, background: att[i]==='P'?'#dcfce7':att[i]==='A'?'#fee2e2':'#dbeafe', color: att[i]==='P'?'#56765f':att[i]==='A'?'#9f1239':'#4f6687', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, margin: '0 auto' }}>{att[i]}</div>
+                          <div style={{ minWidth: 28, height: 28, padding: '0 4px', borderRadius: 6, background: att[i]==='P'?'#dcfce7':att[i]==='A'?'#fee2e2':att[i]?.includes('LE')?'#f5f3ff':att[i]==='L'?'#fef3c7':'#f1f5f9', color: att[i]==='P'?'#56765f':att[i]==='A'?'#9f1239':att[i]?.includes('LE')?'#5b5f7a':att[i]==='L'?'#92400e':'#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 10, margin: '0 auto', boxSizing: 'border-box' }}>{att[i] || '—'}</div>
                         </div>
                       ))}
                     </div>
@@ -249,24 +251,32 @@ export default function StudentProfile({
           )}
           {effectiveTab === 'attendance' && (
             <div style={S.card}>
-              <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14 }}>Attendance Record</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead><tr style={{ borderBottom: '2px solid #e2e8f0' }}><th style={{ textAlign: 'left', padding: 10 }}>Day</th><th style={{ padding: 10, textAlign: 'center' }}>Status</th><th style={{ padding: 10, textAlign: 'center' }}>Breakfast</th></tr></thead>
-                <tbody>
-                  {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'].map((day, i) => (
-                    <tr key={day} style={{ borderBottom: '1px solid #f8fafc' }}>
-                      <td style={{ padding: 10 }}>{day}</td>
-                      <td style={{ padding: 10, textAlign: 'center' }}>
-                        <span style={S.badge(
-                          att[i]==='P'?'#4b6854':att[i]==='A'?'#9f1239':att[i]==='LE'?'#5b5f7a':'#1d4ed8',
-                          att[i]==='P'?'#dcfce7':att[i]==='A'?'#fee2e2':att[i]==='LE'?'#f5f3ff':'#dbeafe'
-                        )}>{att[i]==='P'?'Present':att[i]==='A'?'Absent':att[i]==='LE'?'Left Early':'Late'}</span>
-                      </td>
-                      <td style={{ padding: 10, textAlign: 'center' }}><span style={S.badge(breakfast[i]==='Y'?'#4b6854':'#9f1239', breakfast[i]==='Y'?'#dcfce7':'#fee2e2')}>{breakfast[i]==='Y'?'✓ Breakfast':'✗ Skipped'}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div style={{ fontWeight: 700, marginBottom: 4, fontSize: 14 }}>Attendance History</div>
+              <div style={{ color: '#64748b', fontSize: 12, marginBottom: 14 }}>All recorded attendance dates, newest first.</div>
+              {attendanceHistory.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: 13, padding: '16px 0' }}>No attendance history recorded yet.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead><tr style={{ borderBottom: '2px solid #e2e8f0' }}><th style={{ textAlign: 'left', padding: 10 }}>Date</th><th style={{ padding: 10, textAlign: 'left' }}>Status</th><th style={{ padding: 10, textAlign: 'left' }}>Late arrival</th><th style={{ padding: 10, textAlign: 'left' }}>Left early</th></tr></thead>
+                    <tbody>
+                      {attendanceHistory.map(record => {
+                        const statusText = record.status === 'present' ? 'Present' : record.status === 'absent' ? 'Absent' : record.status === 'late' ? 'Late' : record.status === 'left-early' ? 'Left Early' : record.status
+                        const statusColor = record.status === 'present' ? '#4b6854' : record.status === 'absent' ? '#9f1239' : record.status === 'late' ? '#92400e' : '#5b5f7a'
+                        const statusBackground = record.status === 'present' ? '#dcfce7' : record.status === 'absent' ? '#fee2e2' : record.status === 'late' ? '#fef3c7' : '#f5f3ff'
+                        return (
+                          <tr key={record.date} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: 10, whiteSpace: 'nowrap', fontWeight: 600 }}>{new Date(`${record.date}T00:00:00`).toLocaleDateString([], { dateStyle: 'medium' })}</td>
+                            <td style={{ padding: 10 }}><span style={S.badge(statusColor, statusBackground)}>{statusText}</span></td>
+                            <td style={{ padding: 10 }}>{record.status === 'late' ? record.arrivalTime || 'Recorded' : '—'}</td>
+                            <td style={{ padding: 10 }}>{record.leftEarly ? record.departureTime || 'Recorded' : '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
           {effectiveTab === 'tracking' && (

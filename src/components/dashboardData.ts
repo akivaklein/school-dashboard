@@ -1,3 +1,5 @@
+import { getAttendanceDateKey, getAttendanceDateRange, getAttendanceHistory } from '../utils/attendancePresence'
+
 type StudentServiceEntry = {
   staffId?: string | null
   type?: string
@@ -423,36 +425,37 @@ export function openAttendanceReportWindow({ rows, view, selectedStudent, filter
   win.document.close()
 }
 
-export function buildAttendanceReportRows(students) {
-  const reportDays = [
-    { key: 'today', label: 'Today', offset: 0 },
-    { key: 'yesterday', label: 'Yesterday', offset: 1 },
-    { key: 'twoDays', label: '2 Days Ago', offset: 2 },
-    { key: 'threeDays', label: '3 Days Ago', offset: 3 },
-    { key: 'fourDays', label: '4 Days Ago', offset: 4 },
-    { key: 'fiveDays', label: '5 Days Ago', offset: 5 },
-    { key: 'sixDays', label: '6 Days Ago', offset: 6 },
-  ]
+export function buildAttendanceReportRows(students, now = new Date()) {
+  const today = getAttendanceDateKey(now)
+  const rangeStart = new Date(now)
+  rangeStart.setDate(rangeStart.getDate() - 6)
+  const reportDates = getAttendanceDateRange(getAttendanceDateKey(rangeStart), today).reverse()
 
-  return students.map((student, index) => {
-    const history = reportDays.map((day, dayIndex) => {
-      let status = 'present'
-      if ((index + dayIndex) % 11 === 0) status = 'absent'
-      if ((index + dayIndex) % 13 === 0) status = 'late'
-      if ((index + dayIndex) % 17 === 0) status = 'left-early'
-      if (day.key === 'today') status = student.dailyStatus || student.status || 'present'
-      const leftEarly = day.key === 'today'
-        ? Boolean(student.departureDetails) || status === 'left-early'
-        : status === 'left-early'
-
+  return students.map(student => {
+    const recordsByDate = new Map(getAttendanceHistory(student, { startDate: getAttendanceDateKey(rangeStart), endDate: today }).map(record => [record.date, record]))
+    if (!recordsByDate.has(today) && ['present', 'absent', 'late', 'left-early'].includes(student.dailyStatus)) {
+      recordsByDate.set(today, {
+        date: today,
+        status: student.dailyStatus,
+        arrivalTime: student.dailyStatus === 'late' ? student.lateDetails?.timeArrived || '' : '',
+        departureTime: student.departureDetails?.timeDeparted || '',
+        leftEarly: Boolean(student.departureDetails) || student.dailyStatus === 'left-early',
+      })
+    }
+    const history = reportDates.map((date, offset) => {
+      const record = recordsByDate.get(date)
+      const status = record?.status || 'unconfirmed'
+      const leftEarly = Boolean(record?.leftEarly)
       return {
-        ...day,
-        date: day.offset === 0 ? 'Today' : `${day.offset} school day${day.offset === 1 ? '' : 's'} ago`,
+        key: offset === 0 ? 'today' : date,
+        label: offset === 0 ? 'Today' : new Date(`${date}T00:00:00`).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }),
+        offset,
+        date,
         status,
-        arrived: day.key === 'today' && student.lateDetails?.timeArrived ? student.lateDetails.timeArrived : status === 'late' ? '9:42 AM' : status === 'absent' ? '' : '8:54 AM',
-        left: day.key === 'today' && student.departureDetails?.timeDeparted ? student.departureDetails.timeDeparted : leftEarly ? '12:35 PM' : '',
+        arrived: record?.arrivalTime || '',
+        left: record?.departureTime || '',
         leftEarly,
-        note: status === 'absent' ? 'Parent notified office' : leftEarly && status === 'late' ? 'Arrived late; dismissed early' : status === 'late' ? 'Arrived late' : leftEarly ? 'Dismissed early' : 'Present'
+        note: status === 'unconfirmed' ? 'No attendance recorded' : leftEarly && status === 'late' ? 'Arrived late; dismissed early' : status === 'late' ? 'Arrived late' : leftEarly ? 'Dismissed early' : status === 'absent' ? 'Absent' : 'Present',
       }
     })
 
@@ -469,7 +472,7 @@ export function buildAttendanceReportRows(students) {
       lateDays,
       leftEarlyDays,
       cameToYeshivaDays: presentDays,
-      lastStatus: history[0]?.status || 'present',
+      lastStatus: history[0]?.status || 'unconfirmed',
       lastLeftEarly: Boolean(history[0]?.leftEarly)
     }
   })

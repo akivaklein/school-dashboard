@@ -10,7 +10,7 @@ vi.mock('../../supabaseClient', () => ({
   },
 }))
 
-import { persistParentCalls, persistStudentFields } from '../studentPersistenceService'
+import { persistParentCalls, persistStudentFields, persistStudentFieldsBulk } from '../studentPersistenceService'
 
 describe('persistStudentFields', () => {
   beforeEach(() => {
@@ -139,6 +139,34 @@ describe('persistStudentFields', () => {
       departure_details: { timeDeparted: '12:15' },
     })
     expect(eqMock).toHaveBeenCalledWith('id', 15)
+  })
+
+  it('saves classroom Late and Left Early changes into the shared attendance history', async () => {
+    const eqMock = vi.fn().mockResolvedValue({ error: null })
+    const updateMock = vi.fn().mockReturnValue({ eq: eqMock })
+    fromMock.mockReturnValue({ update: updateMock })
+    const classLog = [
+      { type: 'attendance-update', attendanceStatus: 'late', arrivalTime: '09:18', recordedAt: '2026-09-24T09:18:00.000Z' },
+      { type: 'departure-details', attendanceStatus: 'late', departureTime: '13:40', recordedAt: '2026-09-24T13:40:00.000Z' },
+    ]
+
+    const result = await persistStudentFieldsBulk([{
+      id: 15,
+      fields: {
+        dailyStatus: 'late',
+        lateDetails: { timeArrived: '09:18' },
+        departureDetails: { timeDeparted: '13:40' },
+        classLog,
+      },
+    }])
+
+    expect(result).toBe(true)
+    expect(updateMock).toHaveBeenCalledWith({
+      daily_status: 'late',
+      late_details: { timeArrived: '09:18' },
+      departure_details: { timeDeparted: '13:40' },
+      class_log: classLog,
+    })
   })
 
   it('persists parent-call actions without attendance or current-location fields', async () => {

@@ -3,8 +3,13 @@ import PrintClassList from './PrintClassList'
 import SecureDaveningTool from './SecureDaveningTool'
 import { resolveActorName, resolveStudentClassId, resolveStudentClassIds } from './dashboardData'
 import {
+  buildClassroomAttendanceScopeOptions,
+  getAttendanceCode,
+  getAttendanceDateKey,
+  getAttendanceDateRange,
+  getAttendanceHistory,
+  getAttendanceWeekRange,
   getDailyAttendanceStatus,
-  getWeeklyAttendanceCodes,
   getCurrentLocationStatus,
   hasConfirmedArrival,
   isInClassroom,
@@ -36,7 +41,6 @@ export default function AttendancePage({
   statusColor,
   statusEmoji,
   statusLabel,
-  HISTORICAL_DATA,
   instructionalPeriods = [],
   instructionalGroups = [],
   instructionalGroupMemberships = [],
@@ -61,7 +65,7 @@ export default function AttendancePage({
   const [showPrintClassList, setShowPrintClassList] = useState(false)
   const [showDaveningChecklist, setShowDaveningChecklist] = useState(false)
   const actingStaffName = resolveActorName(userName, role)
-  const dailyAttendanceStudents = students.filter(s => s?.is_active !== false)
+  const dailyAttendanceStudents = students.filter(student => student?.is_active !== false)
   const [selectedDailyStudentIds, setSelectedDailyStudentIds] = useState<Set<string>>(() => new Set())
   const selectedDailyCount = dailyAttendanceStudents.filter(student => selectedDailyStudentIds.has(String(student.id))).length
   const allDailyStudentsSelected = dailyAttendanceStudents.length > 0 && selectedDailyCount === dailyAttendanceStudents.length
@@ -71,11 +75,9 @@ export default function AttendancePage({
   const [classroomTeacherFilter, setClassroomTeacherFilter] = useState('')
   const [classroomScopeId, setClassroomScopeId] = useState('')
 
-  const classroomScopeOptions = (CLASSES || []).filter(cls => (
-    !classroomTeacherFilter || cls.teacher === classroomTeacherFilter
-  ))
+  const classroomScopeOptions = buildClassroomAttendanceScopeOptions(CLASSES || [], instructionalGroups || [], classroomTeacherFilter)
 
-  const classroomTeacherOptions = Array.from(new Set((CLASSES || []).map(cls => cls.teacher).filter(Boolean))).sort()
+  const classroomTeacherOptions = Array.from(new Set(buildClassroomAttendanceScopeOptions(CLASSES || [], instructionalGroups || []).map(scope => scope.teacher).filter(Boolean))).sort()
 
   function studentsInClassroomScope(list, scopeId) {
     if (!scopeId) return list
@@ -170,7 +172,7 @@ export default function AttendancePage({
     )
   }
 
-  function buildClassLogEntry(type, note, extra: { staffId?: number | string | null; attendanceStatus?: string } = {}) {
+  function buildClassLogEntry(type, note, extra: { staffId?: number | string | null; attendanceStatus?: string; arrivalTime?: string; departureTime?: string } = {}) {
     return {
       time: new Date().toLocaleTimeString('en-US', {
         hour: '2-digit',
@@ -183,6 +185,8 @@ export default function AttendancePage({
       staffName: actingStaffName,
       recordedAt: new Date().toISOString(),
       ...(extra.attendanceStatus ? { attendanceStatus: extra.attendanceStatus } : {}),
+      ...(extra.arrivalTime ? { arrivalTime: extra.arrivalTime } : {}),
+      ...(extra.departureTime ? { departureTime: extra.departureTime } : {}),
     }
   }
 
@@ -200,8 +204,8 @@ export default function AttendancePage({
       ? { ...(original.lateDetails || {}), timeArrived: value, markedBy: actingStaffName, markedAt: new Date().toISOString() }
       : { ...(original.departureDetails || {}), timeDeparted: value, markedBy: actingStaffName, markedAt: new Date().toISOString() }
     const fields = field === 'arrival'
-      ? { lateDetails: nextDetails }
-      : { departureDetails: nextDetails }
+      ? { lateDetails: nextDetails, classLog: [...(original.classLog || []), buildClassLogEntry('late-details', `Arrival time updated by ${actingStaffName}`, { arrivalTime: value })] }
+      : { departureDetails: nextDetails, classLog: [...(original.classLog || []), buildClassLogEntry('departure-details', `Departure time updated by ${actingStaffName}`, { departureTime: value })] }
 
     setStudents(previous => previous.map(entry => (
       Number(entry.id) === Number(student.id)
@@ -217,6 +221,7 @@ export default function AttendancePage({
               ...entry,
               lateDetails: original.lateDetails,
               departureDetails: original.departureDetails,
+              classLog: original.classLog,
             }
           : entry
       )))
@@ -253,7 +258,11 @@ export default function AttendancePage({
         status === 'left-early'
           ? `Left early marked by ${actingStaffName}`
           : `Attendance marked ${status} by ${actingStaffName}`,
-        { attendanceStatus: nextDailyStatus },
+        {
+          attendanceStatus: nextDailyStatus,
+          ...(status === 'late' ? { arrivalTime: bulkTimeValue } : {}),
+          ...(status === 'left-early' ? { departureTime: bulkTimeValue } : {}),
+        },
       )
       const dailyDetails = buildDailyDetailsForStatus(status, student, bulkTimeValue)
 
@@ -323,15 +332,19 @@ export default function AttendancePage({
     const nextDailyStatus = status === 'left-early'
       ? getDailyAttendanceStatus(original)
       : status
+    const actionTimeValue = currentLocalTimeValue()
     const classLogEntry = buildClassLogEntry(
       status === 'left-early' ? 'departure-details' : 'attendance-update',
       status === 'left-early'
         ? `Left early marked by ${actingStaffName}`
         : `Attendance marked ${status} by ${actingStaffName}`,
-      { attendanceStatus: nextDailyStatus },
+      {
+        attendanceStatus: nextDailyStatus,
+        ...(status === 'late' ? { arrivalTime: actionTimeValue } : {}),
+        ...(status === 'left-early' ? { departureTime: actionTimeValue } : {}),
+      },
     )
     const updatedClassLog = [...(original.classLog || []), classLogEntry]
-    const actionTimeValue = currentLocalTimeValue()
     const dailyDetails = buildDailyDetailsForStatus(status, original, actionTimeValue)
 
     setStudents(prev =>
@@ -443,7 +456,8 @@ export default function AttendancePage({
 
     const classLogEntry = buildClassLogEntry(
       'late-details',
-      `Late details saved by ${actingStaffName}`
+      `Late details saved by ${actingStaffName}`,
+      { arrivalTime: lateDetails.timeArrived },
     )
     const updatedClassLog = [...(original.classLog || []), classLogEntry]
 
@@ -492,7 +506,8 @@ export default function AttendancePage({
 
     const classLogEntry = buildClassLogEntry(
       'departure-details',
-      `Departure details saved by ${actingStaffName}`
+      `Departure details saved by ${actingStaffName}`,
+      { departureTime: departureDetails.timeDeparted },
     )
     const updatedClassLog = [...(original.classLog || []), classLogEntry]
 
@@ -572,10 +587,7 @@ export default function AttendancePage({
     } else {
       const original = s
       const wasNotInSchool = !isInSchool(s)
-      const arrivedNow = new Date().toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit'
-      })
+      const arrivedNow = currentLocalTimeValue()
 
       setStudents(prev => prev.map(x => {
         if (x.id !== s.id) return x
@@ -1009,7 +1021,7 @@ export default function AttendancePage({
               <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>Class / Group</div>
               <select value={classroomScopeId} onChange={e => setClassroomScopeId(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, minWidth: 200 }}>
                 <option value="">Choose a class or group…</option>
-                {classroomScopeOptions.map(cls => <option key={cls.id} value={cls.id}>{cls.name}{cls.teacher ? ` · ${cls.teacher}` : ''}</option>)}
+                {classroomScopeOptions.map(scope => <option key={`${scope.kind}:${scope.id}`} value={scope.id}>{scope.name}{scope.teacher ? ` · ${scope.teacher}` : ''}{scope.kind === 'group' ? ' · Group' : ''}</option>)}
               </select>
             </div>
             {undoStack.length > 0 && <button onClick={undo} style={{ ...S.btn('ghost'), padding: '8px 14px', fontSize: 12 }}>Undo</button>}
@@ -1259,15 +1271,12 @@ export default function AttendancePage({
       {dailyView === 'weekly' && (
         <div style={S.card}>
           <WeeklyRecord
-            students={students}
             filteredStudents={filteredStudents}
             openStudent={openStudent}
             S={S}
             initials={initials}
             DAYS={DAYS}
             CLASSES={CLASSES}
-            HISTORICAL_DATA={HISTORICAL_DATA}
-            isVIP={isVIP}
           />
         </div>
       )}
@@ -1275,66 +1284,101 @@ export default function AttendancePage({
   )
 }
 
-function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DAYS, CLASSES, HISTORICAL_DATA, isVIP }) {
+function WeeklyRecord({ filteredStudents, openStudent, S, initials, DAYS, CLASSES }) {
   const [view, setView] = useState('daily')
-  const dailyLabels = { 'P': 'P', 'A': 'A', 'L': 'L', 'LE': 'LE' }
+  const initialRange = getAttendanceWeekRange(new Date(), DAYS.length)
+  const [startDate, setStartDate] = useState(initialRange.startDate)
+  const [endDate, setEndDate] = useState(initialRange.endDate)
   const dailyColors = {
     'P': ['#4b6854','#dcfce7'],
     'A': ['#9f1239','#fee2e2'],
-    'L': ['#9a6a2a','#dbeafe'],
-    'LE': ['#5b5f7a','#f5f3ff']
+    'L': ['#92400e','#fef3c7'],
+    'LE': ['#5b5f7a','#f5f3ff'],
+    'P/LE': ['#5b5f7a','#f5f3ff'],
+    'L/LE': ['#5b5f7a','#f5f3ff'],
+  }
+  const dates = getAttendanceDateRange(startDate, endDate)
+
+  function setWeek(reference) {
+    const range = getAttendanceWeekRange(reference, DAYS.length)
+    setStartDate(range.startDate)
+    setEndDate(range.endDate)
+  }
+
+  function setMonth(reference) {
+    const start = new Date(reference.getFullYear(), reference.getMonth(), 1)
+    const end = new Date(reference.getFullYear(), reference.getMonth() + 1, 0)
+    setStartDate(getAttendanceDateKey(start))
+    setEndDate(getAttendanceDateKey(end))
+  }
+
+  function recordsFor(student) {
+    return getAttendanceHistory(student, { startDate, endDate })
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>📊 Weekly Record</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
+        <div><div style={{ fontWeight: 700, fontSize: 14 }}>📊 Attendance History</div><div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>Real saved attendance for the selected dates.</div></div>
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={() => setView('daily')} style={{ ...S.btn(view === 'daily' ? 'primary' : 'ghost'), padding: '5px 12px', fontSize: 12 }}>📅 Daily Attendance</button>
           <button onClick={() => setView('class')} style={{ ...S.btn(view === 'class' ? 'primary' : 'ghost'), padding: '5px 12px', fontSize: 12 }}>🏫 Class Attendance</button>
         </div>
       </div>
 
+      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 14, padding: '10px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+        <button onClick={() => setWeek(new Date())} style={{ ...S.btn('ghost'), padding: '6px 9px', fontSize: 11 }}>Current Week</button>
+        <button onClick={() => { const date = new Date(); date.setDate(date.getDate() - 7); setWeek(date) }} style={{ ...S.btn('ghost'), padding: '6px 9px', fontSize: 11 }}>Previous Week</button>
+        <button onClick={() => setMonth(new Date())} style={{ ...S.btn('ghost'), padding: '6px 9px', fontSize: 11 }}>This Month</button>
+        <button onClick={() => { const date = new Date(); date.setMonth(date.getMonth() - 1); setMonth(date) }} style={{ ...S.btn('ghost'), padding: '6px 9px', fontSize: 11 }}>Previous Month</button>
+        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>From<input type="date" value={startDate} onChange={event => setStartDate(event.target.value)} style={{ display: 'block', marginTop: 3, padding: '5px 7px', border: '1px solid #dbe4ef', borderRadius: 6, fontSize: 12 }} /></label>
+        <label style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>To<input type="date" value={endDate} onChange={event => setEndDate(event.target.value)} style={{ display: 'block', marginTop: 3, padding: '5px 7px', border: '1px solid #dbe4ef', borderRadius: 6, fontSize: 12 }} /></label>
+        <span style={{ color: '#64748b', fontSize: 11, paddingBottom: 7 }}>{dates.length} day{dates.length === 1 ? '' : 's'}</span>
+      </div>
+
       {view === 'daily' && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: Math.max(620, 260 + dates.length * 64) }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
               <th style={{ textAlign: 'left', padding: '10px 12px' }}>Student</th>
-              {DAYS.map(d => <th key={d} style={{ padding: 8, textAlign: 'center' }}>{d}</th>)}
+              {dates.map(date => <th key={date} style={{ padding: 8, textAlign: 'center', whiteSpace: 'nowrap' }}>{new Date(`${date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' })}</th>)}
               <th style={{ padding: 8, textAlign: 'center' }}>P</th>
               <th style={{ padding: 8, textAlign: 'center' }}>A</th>
               <th style={{ padding: 8, textAlign: 'center' }}>L</th>
+              <th style={{ padding: 8, textAlign: 'center' }}>LE</th>
             </tr>
           </thead>
           <tbody>
             {filteredStudents.map((s, i) => {
-              const attendanceCodes = getWeeklyAttendanceCodes(s, new Date(), DAYS.length)
+              const records = recordsFor(s)
+              const recordsByDate = new Map(records.map(record => [record.date, record]))
+              const attendanceCodes = dates.map(date => getAttendanceCode(recordsByDate.get(date)))
               return (
                 <tr key={s.id} onClick={() => openStudent(s)} style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}>
                   <td style={{ padding: '8px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={S.avatar(i, 26)}>{initials(s.name)}</div>
                       <span style={{ fontWeight: 500 }}>{s.name}</span>
-                      {(typeof isVIP === 'function' ? isVIP(s) : false) && <span style={{ fontSize: 10 }}>⭐</span>}
                     </div>
                   </td>
-                  {DAYS.map((_, j) => {
+                  {dates.map((date, j) => {
                     const code = attendanceCodes[j]
                     const [color, bg] = dailyColors[code] || ['#94a3b8', 'transparent']
                     return (
-                      <td key={j} style={{ padding: 8, textAlign: 'center' }}>
+                      <td key={date} style={{ padding: 8, textAlign: 'center' }}>
                         <span style={{ background: bg, color, padding: '2px 6px', borderRadius: 14, fontSize: 11, fontWeight: 600 }}>{code || '—'}</span>
                       </td>
                     )
                   })}
-                  <td style={{ textAlign: 'center', padding: 8, fontWeight: 600 }}>{attendanceCodes.filter(d => d === 'P').length}</td>
+                  <td style={{ textAlign: 'center', padding: 8, fontWeight: 600 }}>{attendanceCodes.filter(d => d === 'P' || d === 'P/LE').length}</td>
                   <td style={{ textAlign: 'center', padding: 8, color: '#9f1239', fontWeight: 600 }}>{attendanceCodes.filter(d => d === 'A').length}</td>
-                  <td style={{ textAlign: 'center', padding: 8, color: '#9a6a2a', fontWeight: 600 }}>{attendanceCodes.filter(d => d === 'L').length}</td>
+                  <td style={{ textAlign: 'center', padding: 8, color: '#9a6a2a', fontWeight: 600 }}>{attendanceCodes.filter(d => d === 'L' || d === 'L/LE').length}</td>
+                  <td style={{ textAlign: 'center', padding: 8, color: '#5b5f7a', fontWeight: 600 }}>{attendanceCodes.filter(d => d === 'LE' || d.endsWith('/LE')).length}</td>
                 </tr>
               )
             })}
           </tbody>
-        </table>
+        </table></div>
       )}
 
       {view === 'class' && (
@@ -1351,37 +1395,27 @@ function WeeklyRecord({ students, filteredStudents, openStudent, S, initials, DA
                   <thead>
                     <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
                       <th style={{ textAlign: 'left', padding: '8px 12px' }}>Student</th>
-                      {DAYS.map(d => <th key={d} style={{ padding: 6, textAlign: 'center' }}>{d}</th>)}
-                      <th style={{ padding: 6, textAlign: 'center' }}>Avg %</th>
+                      <th style={{ padding: 6, textAlign: 'center' }}>Present</th>
+                      <th style={{ padding: 6, textAlign: 'center' }}>Absent</th>
+                      <th style={{ padding: 6, textAlign: 'center' }}>Late</th>
+                      <th style={{ padding: 6, textAlign: 'center' }}>Left Early</th>
                     </tr>
                   </thead>
                   <tbody>
                     {clsStudents.map((s, i) => {
-                      const histData = HISTORICAL_DATA[s.id] || []
-                      const avgPct = histData.length > 0 ? Math.round(histData.reduce((acc, d) => acc + d.pct, 0) / histData.length) : null
+                      const records = recordsFor(s)
                       return (
-                        <tr key={s.id} onClick={() => openStudent(s, 'tracking')} style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}>
+                        <tr key={s.id} onClick={() => openStudent(s, 'attendance')} style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}>
                           <td style={{ padding: '7px 12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <div style={S.avatar(i, 24)}>{initials(s.name)}</div>
                               <span style={{ fontWeight: 500 }}>{s.name}</span>
                             </div>
                           </td>
-                          {DAYS.map((d, j) => {
-                            const dayData = histData.find(h => new Date(h.date).getDay() === j)
-                            return (
-                              <td key={j} style={{ padding: 6, textAlign: 'center' }}>
-                                {dayData ? (
-                                  <span style={{ background: dayData.pct >= 70 ? '#dcfce7' : dayData.pct >= 50 ? '#fef3c7' : '#fee2e2', color: dayData.pct >= 70 ? '#4b6854' : dayData.pct >= 50 ? '#92400e' : '#9f1239', padding: '2px 5px', borderRadius: 14, fontSize: 10, fontWeight: 600 }}>{dayData.pct}%</span>
-                                ) : <span style={{ color: '#d1d5db', fontSize: 10 }}>—</span>}
-                              </td>
-                            )
-                          })}
-                          <td style={{ textAlign: 'center', padding: 6 }}>
-                            {avgPct !== null ? (
-                              <span style={{ fontWeight: 700, fontSize: 12, color: avgPct >= 70 ? '#56765f' : avgPct >= 50 ? '#9a6a2a' : '#9f1239' }}>{avgPct}%</span>
-                            ) : <span style={{ color: '#94a3b8', fontSize: 10 }}>No data</span>}
-                          </td>
+                          <td style={{ textAlign: 'center', padding: 6, fontWeight: 700 }}>{records.filter(record => record.status === 'present').length}</td>
+                          <td style={{ textAlign: 'center', padding: 6, color: '#9f1239', fontWeight: 700 }}>{records.filter(record => record.status === 'absent').length}</td>
+                          <td style={{ textAlign: 'center', padding: 6, color: '#9a6a2a', fontWeight: 700 }}>{records.filter(record => record.status === 'late').length}</td>
+                          <td style={{ textAlign: 'center', padding: 6, color: '#5b5f7a', fontWeight: 700 }}>{records.filter(record => record.leftEarly).length}</td>
                         </tr>
                       )
                     })}

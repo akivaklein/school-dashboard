@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildClassroomAttendanceScopeOptions,
   cameToSchoolToday,
   getCurrentLocationStatus,
   getDailyAttendanceStatus,
+  getAttendanceHistory,
+  getAttendanceCode,
+  getAttendanceDateRange,
+  getAttendanceWeekRange,
+  getActiveAttendanceStudents,
   getStudentStatusDisplay,
   getWeeklyAttendanceCodes,
   hasDailyAttendanceRecordForDate,
@@ -182,5 +188,82 @@ describe('attendancePresence shared rules', () => {
     }
 
     expect(getWeeklyAttendanceCodes(student, new Date('2026-09-09T12:00:00'))).toEqual(['P', 'L', 'A', '', '', ''])
+  })
+
+  it('returns real attendance records from older months and a requested date range', () => {
+    const student = {
+      classLog: [
+        { type: 'attendance-update', attendanceStatus: 'present', recordedAt: '2026-06-02T08:00:00' },
+        { type: 'attendance-update', attendanceStatus: 'absent', recordedAt: '2026-07-15T08:00:00' },
+        { type: 'attendance-update', attendanceStatus: 'late', arrivalTime: '09:12', recordedAt: '2026-08-20T09:12:00' },
+      ],
+    }
+
+    expect(getAttendanceHistory(student).map(record => record.date)).toEqual(['2026-08-20', '2026-07-15', '2026-06-02'])
+    expect(getAttendanceHistory(student, { startDate: '2026-07-01', endDate: '2026-07-31' })).toEqual([
+      expect.objectContaining({ date: '2026-07-15', status: 'absent' }),
+    ])
+  })
+
+  it('builds week, specific-date, and cross-month attendance ranges', () => {
+    expect(getAttendanceWeekRange(new Date('2026-09-16T12:00:00'), 6)).toEqual({ startDate: '2026-09-13', endDate: '2026-09-18' })
+    expect(getAttendanceDateRange('2026-07-15', '2026-07-15')).toEqual(['2026-07-15'])
+    expect(getAttendanceDateRange('2026-07-30', '2026-08-02')).toEqual(['2026-07-30', '2026-07-31', '2026-08-01', '2026-08-02'])
+  })
+
+  it('keeps one student aligned between Weekly Record and profile attendance', () => {
+    const student = {
+      classLog: [
+        { type: 'attendance-update', attendanceStatus: 'present', recordedAt: '2026-09-13T08:05:00' },
+        { type: 'attendance-update', attendanceStatus: 'late', arrivalTime: '09:14', recordedAt: '2026-09-14T09:14:00' },
+        { type: 'departure-details', departureTime: '13:20', recordedAt: '2026-09-14T13:20:00' },
+        { type: 'attendance-update', attendanceStatus: 'absent', recordedAt: '2026-09-15T08:10:00' },
+        { type: 'attendance-update', attendanceStatus: 'present', recordedAt: '2026-06-02T08:00:00' },
+      ],
+    }
+    const range = getAttendanceWeekRange(new Date('2026-09-16T12:00:00'), 6)
+    const profileRecords = getAttendanceHistory(student, range)
+    const profileCodesByDate = new Map(profileRecords.map(record => [record.date, getAttendanceCode(record)]))
+    const profileCodes = getAttendanceDateRange(range.startDate, range.endDate).map(date => profileCodesByDate.get(date) || '')
+
+    expect(getWeeklyAttendanceCodes(student, new Date('2026-09-16T12:00:00'), 6)).toEqual(profileCodes)
+    expect(profileRecords.find(record => record.date === '2026-09-14')).toMatchObject({ status: 'late', arrivalTime: '09:14', leftEarly: true, departureTime: '13:20' })
+    expect(getAttendanceHistory(student).some(record => record.date === '2026-06-02')).toBe(true)
+  })
+
+  it('keeps historical Late and Left Early details independently on the same date', () => {
+    const student = {
+      classLog: [
+        { type: 'attendance-update', attendanceStatus: 'late', arrivalTime: '09:17', recordedAt: '2026-05-04T09:17:00' },
+        { type: 'departure-details', departureTime: '13:42', recordedAt: '2026-05-04T13:42:00' },
+      ],
+    }
+
+    expect(getAttendanceHistory(student)).toEqual([{
+      date: '2026-05-04',
+      status: 'late',
+      arrivalTime: '09:17',
+      departureTime: '13:42',
+      leftEarly: true,
+    }])
+  })
+
+  it('builds classroom class/group choices and excludes archived rosters', () => {
+    expect(getActiveAttendanceStudents([
+      { id: 1, is_active: true },
+      { id: 2, is_active: false },
+      { id: 3 },
+    ]).map(student => student.id)).toEqual([1, 3])
+
+    expect(buildClassroomAttendanceScopeOptions(
+      [{ id: 'class-7', name: '7th Grade', teacher: 'Rabbi A' }],
+      [
+        { id: 'group-a', name: 'Aleph', teacher_name: 'Rabbi B', status: 'active' },
+        { id: 'group-old', name: 'Old Group', teacher_name: 'Rabbi B', status: 'archived' },
+      ],
+    )).toEqual([
+      { id: 'class-7', name: '7th Grade', teacher: 'Rabbi A', kind: 'class' },
+      { id: 'group-a', name: 'Aleph', teacher: 'Rabbi B', kind: 'group' },
+    ])
   })
 })
