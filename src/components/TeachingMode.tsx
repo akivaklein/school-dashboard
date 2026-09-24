@@ -2,12 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import playSound from '../utils/playSound'
 import { getStaffNameOptions, resolveActorName, resolveStudentClassIds, studentBelongsToClass } from './dashboardData'
 import {
+  buildClassroomAttendanceFields,
+  buildClassroomSessionKey,
   buildLateToClassFields,
   buildTeachingModeWriteFailureMessage,
   didTeachingModeWriteSucceed,
+  getClassroomAttendanceStatus,
+  getTeachingClassRoster,
+  getTeachingGradeRoster,
   summarizeTeachingModeWriteResults,
 } from './teachingModeUtils'
-import { getCurrentLocationStatus, getDailyAttendanceStatus, isInClassroom, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
+import { getCurrentLocationStatus, getDailyAttendanceStatus, isInSchool, isOutOfSchool } from '../utils/attendancePresence'
 import { getInstructionalGroupStudentIds, useCurrentInstructionalPeriod } from '../utils/instructionalGroupUtils'
 
 const TEACHING_MODE_SCOPE_STATE_STORAGE_KEY = 'schoolDashboardTeachingModeScopeV1'
@@ -75,9 +80,6 @@ export default function TeachingMode({
   instructionalGroups = [],
   instructionalGroupMemberships = [],
 }) {
-
-  const isStudentInClass = student => isInClassroom(student)
-
 
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState([])
@@ -206,6 +208,21 @@ export default function TeachingMode({
     [instructionalPeriods],
   )
   const currentInstructionalPeriod = useCurrentInstructionalPeriod(activeInstructionalPeriods)
+  const classroomScopeValue = scopeType === 'class'
+    ? String(selectedClass || '')
+    : scopeType === 'teacher'
+      ? `${selectedTeacher}:${selectedTeacherClass || 'all'}`
+      : scopeType === 'grade'
+        ? selectedGrade
+        : scopeType === 'group'
+          ? selectedInstructionalGroup
+          : 'all'
+  const classroomSessionKey = buildClassroomSessionKey({
+    scopeType,
+    scopeValue: classroomScopeValue,
+    periodId: selectedPeriod || currentInstructionalPeriod?.id || null,
+  })
+  const isStudentInClass = student => getClassroomAttendanceStatus(student, classroomSessionKey) === 'present'
   const periodOptions = activeInstructionalPeriods.map(period => String(period.id))
   const instructionalGroupOptions = useMemo(() => {
     const normalizedUserName = String(userName || '').trim().toLowerCase()
@@ -459,11 +476,6 @@ export default function TeachingMode({
       const cls = effectiveClasses.find(item => item.id === classId)
       return cls?.teacher === teacherName
     })
-    const byGrade = (student, gradeName) => resolveStudentClassIds(student, additionalClassIdsByStudent).some(classId => {
-      const cls = effectiveClasses.find(item => item.id === classId)
-      return cls?.grade === gradeName
-    })
-
     if (scopeType === 'entire') {
       return canViewEntireSchool ? schoolStudents : scopeBaseStudents
     }
@@ -474,7 +486,12 @@ export default function TeachingMode({
 
     if (scopeType === 'class') {
       if (!selectedClass) return scopeBaseStudents
-      return scopeBaseStudents.filter(student => byClass(student, selectedClass))
+      return getTeachingClassRoster({
+        schoolStudents,
+        authorizedStudents: scopeBaseStudents,
+        selectedClass,
+        additionalClassIdsByStudent,
+      })
     }
 
     if (scopeType === 'teacher') {
@@ -486,7 +503,13 @@ export default function TeachingMode({
 
     if (scopeType === 'grade') {
       if (!selectedGrade) return scopeBaseStudents
-      return scopeBaseStudents.filter(student => byGrade(student, selectedGrade))
+      return getTeachingGradeRoster({
+        schoolStudents,
+        authorizedStudents: scopeBaseStudents,
+        selectedGrade,
+        classes: effectiveClasses,
+        additionalClassIdsByStudent,
+      })
     }
 
     if (scopeType === 'group') {
@@ -517,6 +540,41 @@ export default function TeachingMode({
   const classStudents = scopedStudents
   const filtered = classStudents.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
 
+  async function saveClassroomAttendance(targetStudents, statusForStudent: (student: Record<string, any>) => 'present' | 'unmarked') {
+    const changedStudents = targetStudents.filter(student => getClassroomAttendanceStatus(student, classroomSessionKey) !== statusForStudent(student))
+    if (changedStudents.length === 0) return true
+
+    const previousLogsById = Object.fromEntries(changedStudents.map(student => [Number(student.id), student.classLog || []]))
+    const updatesById = Object.fromEntries(changedStudents.map(student => [
+      Number(student.id),
+      buildClassroomAttendanceFields(student, {
+        sessionKey: classroomSessionKey,
+        status: statusForStudent(student),
+        actingStaffName,
+      }),
+    ]))
+
+    setStudents(previous => previous.map(student => {
+      const fields = updatesById[Number(student.id)]
+      return fields ? { ...student, ...fields } : student
+    }))
+
+    const success = await persistStudentFieldsBulk(changedStudents.map(student => ({
+      id: student.id,
+      fields: updatesById[Number(student.id)],
+    })))
+    if (!success) {
+      setStudents(previous => previous.map(student => (
+        previousLogsById[Number(student.id)]
+          ? { ...student, classLog: previousLogsById[Number(student.id)] }
+          : student
+      )))
+      alert('Unable to save classroom attendance to Supabase.')
+      return false
+    }
+    return true
+  }
+
   function openClassStartConfirmation() {
     const precheckedIds = filtered
       .filter(student => isStudentInClass(student) && isInSchool(student))
@@ -541,59 +599,13 @@ export default function TeachingMode({
     setStartingSession(true)
 
     const selectedSet = new Set(confirmedInClassIds.map(id => Number(id)))
-    const inSchoolStudents = filtered.filter(student => isInSchool(student))
-    const studentsToMarkPresent = inSchoolStudents.filter(student => (
-      selectedSet.has(Number(student.id)) && student.status !== 'present'
-    ))
-
-    if (studentsToMarkPresent.length > 0) {
-      const rollbackById = Object.fromEntries(
-        studentsToMarkPresent.map(student => [Number(student.id), student]),
-      )
-
-      const updateById = Object.fromEntries(
-        studentsToMarkPresent.map(student => {
-          const updatedClassLog = [
-            ...(student.classLog || []),
-            buildClassLogEntry(
-              'status-update',
-              `Confirmed in class at session start by ${actingStaffName}`,
-            ),
-          ]
-
-          return [
-            Number(student.id),
-            {
-              status: 'present',
-              withStaff: null,
-              unknownSince: null,
-              classLog: updatedClassLog,
-            },
-          ]
-        }),
-      )
-
-      setStudents(prev => prev.map(student => {
-        const fields = updateById[Number(student.id)]
-        return fields ? { ...student, ...fields } : student
-      }))
-
-      const success = await persistStudentFieldsBulk(
-        studentsToMarkPresent.map(student => ({
-          id: student.id,
-          fields: updateById[Number(student.id)],
-        })),
-      )
-
-      if (!success) {
-        setStudents(prev => prev.map(student => {
-          const rollback = rollbackById[Number(student.id)]
-          return rollback ? rollback : student
-        }))
-        setStartingSession(false)
-        alert('Unable to save confirmed in-class roster to Supabase.')
-        return
-      }
+    const success = await saveClassroomAttendance(
+      filtered,
+      student => isInSchool(student) && selectedSet.has(Number(student.id)) ? 'present' : 'unmarked',
+    )
+    if (!success) {
+      setStartingSession(false)
+      return
     }
 
     setShowClassStartConfirm(false)
@@ -696,7 +708,7 @@ export default function TeachingMode({
       hour12: false
     })
 
-    if (isStudentInClass(s)) {
+    if (isInSchool(s) && getCurrentLocationStatus(s) === 'present') {
       setLeavePopup(s.id)
       setLeaveReason('therapy')
       setLeaveStaffSearch('')
@@ -1844,7 +1856,7 @@ export default function TeachingMode({
 
             <button
               onClick={() => {
-                setSelected(filtered.filter(isStudentInClass).map(s => s.id))
+                setSelected(filtered.filter(isInSchool).map(s => s.id))
                 setShowTeachingActions(true)
               }}
               style={{
@@ -1863,26 +1875,7 @@ export default function TeachingMode({
 
             <button
               onClick={async () => {
-                const snapshot = students
-                setStudents(prev => prev.map(s => ({
-                  ...s,
-                  status: 'present',
-                  dailyStatus: 'present',
-                  withStaff: null
-                })))
-                const success = await persistStudentFieldsBulk(
-                  students.map(s => ({
-                    id: s.id,
-                    fields: {
-                      status: 'present',
-                      dailyStatus: 'present'
-                    }
-                  }))
-                )
-                if (!success) {
-                  setStudents(snapshot)
-                  alert('Unable to save all student statuses to Supabase.')
-                }
+                await saveClassroomAttendance(filtered.filter(isInSchool), () => 'present')
               }}
               style={{
                 padding: '9px 12px',
@@ -2494,11 +2487,12 @@ export default function TeachingMode({
                     {inClass && s.dailyStatus === 'late' && <button onClick={e => { e.stopPropagation(); setLateClassPopup(s.id); setLateClassStaffSearch(''); setLateClassStaffId(''); setLateClassNote(''); setLateClassApproval('approved') }} style={{ padding: '2px 6px', borderRadius: 14, border: '1px solid #e8d7b6', background: '#fbf7ef', color: '#8a6428', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>⏰ Arrived Late</button>}
                   </div>
                   <div
-                    onClick={e => {
+                    onClick={async e => {
                       e.stopPropagation()
-                      handleToggle(s)
+                      if (!isInSchool(s)) return
+                      await saveClassroomAttendance([s], () => inClass ? 'unmarked' : 'present')
                     }}
-                    title={inClass ? 'Mark student as leaving class' : 'Return student to class'}
+                    title={inClass ? 'Clear classroom attendance for this session' : 'Mark classroom present for this session'}
                     style={{ width: 40, height: 22, borderRadius: 11, background: inClass ? '#56765f' : '#d1d5db', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
                   >
                     <div style={{ position: 'absolute', top: 2, left: inClass ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
