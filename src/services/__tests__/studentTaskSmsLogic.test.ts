@@ -24,6 +24,6 @@ describe('student task SMS logic', () => {
     expect(isReadyToSend(task, new Date('2026-09-16T12:44:00.000Z'))).toBe(false)
     expect(isReadyToSend({ ...task, snoozed_until: '2026-09-16T14:00:00.000Z' }, new Date('2026-09-16T13:00:00.000Z'))).toBe(false)
     expect(isReadyToSend({ ...task, completed_at: '2026-09-16T12:30:00.000Z' }, new Date('2026-09-16T13:00:00.000Z'))).toBe(false)
-    expect(buildSmsText(task, 'Bloom Yair', 'https://yeshiva-ketana-secure.vercel.app')).toContain('Bloom Yair')
+    expect(buildSmsText(task, 'Bloom Yair', 'https://yeshiva-ketana-secure.vercel.app')).toMatch(/^Hadran Reminder: Bloom Yair/)
   })
 })

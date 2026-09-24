@@ -80,7 +80,7 @@ export function buildEmailHtml(task: ReminderTask, studentName: string, appUrl: 
 
 export function buildSmsText(task: ReminderTask, studentName: string, appUrl: string) {
   const due = new Date(task.due_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
-  return `School reminder: ${studentName} - ${task.title}. Due ${due}. ${appUrl}`
+  return `Hadran Reminder: ${studentName} - ${task.title}. Due ${due}. ${appUrl}`
 }
 
 export function providerFailureMessage(status: number, body: { message?: string } = {}) {

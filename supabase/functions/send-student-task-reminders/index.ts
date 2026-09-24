@@ -25,12 +25,10 @@ Deno.serve(async request => {
   const resendApiKey = Deno.env.get('RESEND_API_KEY') || ''
   const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || ''
   const recipientEmail = Deno.env.get('STUDENT_TASK_NOTIFICATION_EMAIL') || ''
-  const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID') || ''
-  const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') || ''
-  const twilioFromPhone = Deno.env.get('TWILIO_FROM_PHONE') || ''
-  const recipientPhone = Deno.env.get('STUDENT_TASK_NOTIFICATION_PHONE') || ''
+  const connextApiKey = Deno.env.get('CONNEXT_API_KEY') || ''
+  const connextReminderGroup = Number(Deno.env.get('CONNEXT_REMINDER_GROUP') || '')
   const appUrl = Deno.env.get('SECURE_APP_URL') || 'https://yeshiva-ketana-secure.vercel.app'
-  if (!supabaseUrl || !serviceRoleKey || (!resendApiKey && !twilioAccountSid)) return response({ error: 'Reminder server configuration is incomplete.' }, 500)
+  if (!supabaseUrl || !serviceRoleKey || (!resendApiKey && !connextApiKey)) return response({ error: 'Reminder server configuration is incomplete.' }, 500)
 
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const now = new Date()
@@ -56,9 +54,9 @@ Deno.serve(async request => {
       ...(isSmsEligible(row) ? ['sms'] : []),
     ]
     for (const channel of channels) {
-      const recipient = channel === 'email' ? recipientEmail : recipientPhone
-      const sender = channel === 'email' ? fromEmail : twilioFromPhone
-      if (!recipient || !sender) {
+      const recipient = channel === 'email' ? recipientEmail : `group:${connextReminderGroup}`
+      const sender = channel === 'email' ? fromEmail : 'connext'
+      if (!recipient || !sender || (channel === 'sms' && (!connextApiKey || !Number.isInteger(connextReminderGroup) || connextReminderGroup <= 0))) {
         summary.failed += 1
         continue
       }
@@ -92,14 +90,17 @@ Deno.serve(async request => {
       if (!resendResponse.ok) throw new Error(providerFailureMessage(resendResponse.status, resendBody))
           providerId = resendBody.id || ''
         } else {
-          const twilioResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`, {
+          const connextResponse = await fetch('https://api.connext.ms/api/v1/blasts/send', {
             method: 'POST',
-            headers: { Authorization: `Basic ${btoa(`${twilioAccountSid}:${twilioAuthToken}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ To: recipient, From: sender, Body: buildSmsText(row, row.students?.name || 'Student', appUrl) }),
+            headers: { Authorization: `Bearer ${connextApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              types: ['sms'],
+              groups: [connextReminderGroup],
+              message: buildSmsText(row, row.students?.name || 'Student', appUrl),
+            }),
           })
-          const twilioBody = await twilioResponse.json().catch(() => ({})) as { sid?: string; message?: string; code?: number }
-          if (!twilioResponse.ok) throw new Error(twilioBody.message || `Twilio returned ${twilioResponse.status}`)
-          providerId = twilioBody.sid || ''
+          const connextBody = await connextResponse.json().catch(() => ({})) as { message?: string }
+          if (!connextResponse.ok) throw new Error(connextBody.message || `Connext returned ${connextResponse.status}`)
         }
         await admin.from('student_task_email_deliveries').update({ status: 'sent', provider_message_id: providerId || null, sent_at: new Date().toISOString(), last_error: null }).eq('task_id', row.id).eq('notification_cycle', row.notification_cycle).eq('channel', channel)
         summary.sent += 1
