@@ -19,7 +19,9 @@ with supplied(names) as (
     (array['Gavriel Stamler', 'Stamler Gavriel']),
     (array['Yaakov Tennenbaum', 'Tennenbaum Yaakov']),
     (array['Isaac Weingarten', 'Weingarten Isaac']),
-    (array['Yosef Zachai', 'Zachai Yosef'])
+    (array['Yosef Zachai', 'Zachai Yosef']),
+    (array['David Goldberger', 'Goldberger David']),
+    (array['Benyamin Goldberger', 'Goldberger Benyamin'])
 ), active_roster as (
   select student.id, student.name
   from public.students student

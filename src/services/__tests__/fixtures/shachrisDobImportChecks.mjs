@@ -9,8 +9,10 @@ function runSql(input) {
   return execFileSync('docker', ['exec', '-i', container, 'psql', '-U', 'postgres', '-d', database, '-v', 'ON_ERROR_STOP=1'], { input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
 }
 
-assert.throws(() => runSql(source), error => /exactly 16 reviewed DOBs/.test(String(error.stderr)))
 const syntheticEntries = Array.from({ length: 16 }, (unused, index) => `(array['QA DOB Student ${index + 1}'], '2000-01-01')`).join(',\n')
+const incompleteEntries = syntheticEntries.split(',\n').slice(0, 14).join(',\n')
+const incompleteImport = source.replace(/insert into shachris_dob_input values[\s\S]*?;\n/, () => `insert into shachris_dob_input values\n${incompleteEntries};\n`)
+assert.throws(() => runSql(incompleteImport), error => /exactly 16 reviewed DOBs/.test(String(error.stderr)))
 const template = source.replace(/insert into shachris_dob_input values[\s\S]*?;\n/, () => `insert into shachris_dob_input values\n${syntheticEntries};\n`)
 const seed = 'insert into public.students(id,name,is_active) select 100+row_number() over(order by names[1]),names[1],true from shachris_dob_input;\n'
 const marker = 'create temporary table shachris_dob_matches'

@@ -15,12 +15,14 @@ insert into shachris_dob_input values
   (array['Gavriel Stamler', 'Stamler Gavriel'], '2013-07-01'),
   (array['Yaakov Tennenbaum', 'Tennenbaum Yaakov'], '2013-05-17'),
   (array['Isaac Weingarten', 'Weingarten Isaac'], '2014-10-12'),
-  (array['Yosef Zachai', 'Zachai Yosef'], '2015-03-24');
+  (array['Yosef Zachai', 'Zachai Yosef'], '2015-03-24'),
+  (array['David Goldberger', 'Goldberger David'], '2013-04-30'),
+  (array['Benyamin Goldberger', 'Goldberger Benyamin'], '2013-04-30');
 
 do $$
 begin
   if (select count(*) from shachris_dob_input) <> 16 then
-    raise exception 'DOB import stopped: exactly 16 reviewed DOBs are required. The two missing DOBs must be supplied before any import.';
+    raise exception 'DOB import stopped: exactly 16 reviewed DOBs are required before any import.';
   end if;
 end $$;
 

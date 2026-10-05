@@ -6,7 +6,7 @@ Branch: `yeshiva-ketana-secure`. Student Events and Weekly Record are not implem
 
 The Live Session, individual expectations/progression, basic settings, and editable regular DOB/age are implemented. The schema was exercised in an isolated PostgreSQL container. Browser verification used synthetic students and intercepted API responses, not school records.
 
-The migration and DOB import have NOT been applied to the school database: this environment has no Supabase management token or database connection. The import contains only the 14 supplied DOBs and is blocked until 16 reviewed DOBs and 16 unique active student matches are available. The two missing students cannot be verified without the real roster. Real-school refresh/persistence and existing production RLS still need verification after access is restored. No Hebrew DOB or optional contact fields were added.
+The migration and DOB import have NOT been applied to the school database: this environment has no Supabase management token or database connection. The import now contains all 16 supplied DOBs, including David Goldberger and Benyamin Goldberger, both 2013-04-30. Execution remains on hold until Supabase access is restored and all 16 unique active student matches are verified against the real roster. Real-school refresh/persistence and existing production RLS still need verification after access is restored. No Hebrew DOB or optional contact fields were added.
 
 ## Daily Workflow
 
@@ -49,10 +49,10 @@ npx --yes supabase@latest login --token "$SUPABASE_ACCESS_TOKEN"
 npx --yes supabase@latest db query --linked --file docs/20261005_shachris_roster_review.sql
 ```
 
-4. Confirm the real active roster contains 16 students, resolve exact-name discrepancies against real IDs, and identify the two missing DOBs. Supply those DOBs before completing/reviewing the import. No fuzzy matching or guessed dates.
+4. Confirm the real active roster contains 16 students and resolve exact-name discrepancies against real IDs. All 16 DOBs have been supplied; verify every match before reviewing/applying the import. No fuzzy matching or guessed dates.
 
 ### Targeted Rollout After Review
 
 After restoring Supabase access, verify the linked project is the secure dashboard's backing database and inspect the existing schema/permissions. Apply only `supabase/migrations/20261005_shachris_checkpoint.sql`; do not use an unrestricted `db push`, because unrelated migrations are pending.
 
-Review `docs/20261005_shachris_dob_import.sql` against actual student IDs before executing. It matches explicit supplied/reversed names, requires exactly 16 supplied entries and 16 unique active matches, and refuses conflicting existing DOBs. Do not apply it while the two DOBs are missing. Verify unrelated fields/history counts are unchanged and test refresh/save with authorized and read-only accounts before claiming the checkpoint is live. Use targeted `db query --linked --file <reviewed-file>` commands only; the import stays paused until review is complete.
+Review `docs/20261005_shachris_dob_import.sql` against actual student IDs before executing. It matches explicit supplied/reversed names, requires exactly 16 supplied entries and 16 unique active matches, and refuses conflicting existing DOBs. Do not apply it before access is restored and all roster matches are verified. Verify unrelated fields/history counts are unchanged and test refresh/save with authorized and read-only accounts before claiming the checkpoint is live. Use targeted `db query --linked --file <reviewed-file>` commands only; the import stays paused until review is complete.

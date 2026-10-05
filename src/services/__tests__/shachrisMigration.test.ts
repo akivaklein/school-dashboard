@@ -31,6 +31,9 @@ describe('Shachris additive foundation', () => {
     expect(migration).toContain('p_duration text')
   })
   it('blocks DOB import until 16 reviewed entries and unique active matches are available', () => {
+    expect(dobImport.match(/\(array\[/g)).toHaveLength(16)
+    expect(dobImport).toContain("(array['David Goldberger', 'Goldberger David'], '2013-04-30')")
+    expect(dobImport).toContain("(array['Benyamin Goldberger', 'Goldberger Benyamin'], '2013-04-30')")
     expect(dobImport).toContain('(select count(*) from shachris_dob_input) <> 16')
     expect(dobImport).toContain('(select count(distinct id) from shachris_dob_matches) <> 16')
     expect(dobImport).toContain('having count(matched.id) <> 1')
