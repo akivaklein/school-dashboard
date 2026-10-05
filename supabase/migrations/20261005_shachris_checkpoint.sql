@@ -27,6 +27,7 @@ create table public.shachris_expectations (
   actor_name text not null,
   created_by uuid not null default auth.uid() references auth.users(id),
   effective_date date not null,
+  duration text not null check (duration in ('today', 'future')),
   created_at timestamptz not null default clock_timestamp(),
   check ((mode = 'manual' and milestone_id is not null) or (mode = 'default' and milestone_id is null and section_ids is null))
 );
@@ -101,7 +102,7 @@ begin
     where student.id = p_student_id;
   if not found then raise exception 'Student not found'; end if;
   select * into assignment from public.shachris_expectations
-    where student_id = p_student_id and effective_date <= p_date
+    where student_id = p_student_id and effective_date <= p_date and (duration = 'future' or effective_date = p_date)
     order by effective_date desc, created_at desc, id desc limit 1;
   if assignment.mode = 'manual' then
     milestone_id := assignment.milestone_id;
@@ -117,7 +118,8 @@ begin
   if milestone is null then raise exception 'Assigned milestone is missing. Review Rules & Settings.'; end if;
   return jsonb_build_object('milestoneId', milestone_id, 'label', milestone->>'label',
     'sectionIds', case when assignment.mode = 'manual' then coalesce(assignment.section_ids, milestone->'sectionIds') else milestone->'sectionIds' end,
-    'source', case when assignment.mode = 'manual' then 'manual' else 'default' end);
+    'source', case when assignment.mode = 'manual' then 'manual' else 'default' end,
+    'duration', coalesce(assignment.duration, 'future'));
 end $$;
 revoke all on function public.shachris_resolve_expectation(bigint, date, jsonb) from public, anon, authenticated;
 
@@ -182,7 +184,7 @@ begin
   return saved;
 end $$;
 
-create or replace function public.shachris_set_expectation(p_student_id bigint, p_mode text, p_milestone_id text, p_section_ids jsonb, p_reason text, p_actor_name text, p_effective_date date, p_session_id uuid, p_record_revision integer)
+create or replace function public.shachris_set_expectation(p_student_id bigint, p_mode text, p_milestone_id text, p_section_ids jsonb, p_reason text, p_actor_name text, p_effective_date date, p_session_id uuid, p_record_revision integer, p_duration text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   config_value jsonb;
@@ -191,6 +193,7 @@ declare
   assignment_row public.shachris_expectations;
 begin
   if not public.dashboard_has_permission('attendance', 'edit') then raise exception 'Expectation editing denied'; end if;
+  if p_duration is null or p_duration not in ('today', 'future') then raise exception 'Choose Today only or Today and future'; end if;
   perform 1 from public.students where id = p_student_id and is_active is not false for update;
   if not found then raise exception 'Student is not active'; end if;
   select * into session_row from public.shachris_sessions where id = p_session_id;
@@ -205,8 +208,8 @@ begin
       select 1 from jsonb_array_elements_text(p_section_ids) section_id where not exists (select 1 from jsonb_array_elements(session_row.config->'sections') section where section->>'id' = section_id)
     )) then raise exception 'Choose at least one valid section'; end if;
   end if;
-  insert into public.shachris_expectations(student_id, mode, milestone_id, section_ids, reason, actor_name, effective_date)
-    values(p_student_id, p_mode, case when p_mode = 'manual' then p_milestone_id else null end, case when p_mode = 'manual' then p_section_ids else null end, p_reason, p_actor_name, p_effective_date)
+  insert into public.shachris_expectations(student_id, mode, milestone_id, section_ids, reason, actor_name, effective_date, duration)
+    values(p_student_id, p_mode, case when p_mode = 'manual' then p_milestone_id else null end, case when p_mode = 'manual' then p_section_ids else null end, p_reason, p_actor_name, p_effective_date, p_duration)
     returning * into assignment_row;
   update public.shachris_student_records set expectation = public.shachris_resolve_expectation(p_student_id, p_effective_date, session_row.config),
     revision = revision + 1, updated_by = auth.uid(), updated_by_name = p_actor_name, updated_at = clock_timestamp()
@@ -231,8 +234,8 @@ begin
   return to_jsonb(settings_row);
 end $$;
 
-revoke all on function public.shachris_open_session(date, bigint[]), public.shachris_save_records(uuid, jsonb, text), public.shachris_set_expectation(bigint, text, text, jsonb, text, text, date, uuid, integer), public.shachris_save_settings(jsonb, integer) from public, anon;
-grant execute on function public.shachris_open_session(date, bigint[]), public.shachris_save_records(uuid, jsonb, text), public.shachris_set_expectation(bigint, text, text, jsonb, text, text, date, uuid, integer), public.shachris_save_settings(jsonb, integer) to authenticated;
+revoke all on function public.shachris_open_session(date, bigint[]), public.shachris_save_records(uuid, jsonb, text), public.shachris_set_expectation(bigint, text, text, jsonb, text, text, date, uuid, integer, text), public.shachris_save_settings(jsonb, integer) from public, anon;
+grant execute on function public.shachris_open_session(date, bigint[]), public.shachris_save_records(uuid, jsonb, text), public.shachris_set_expectation(bigint, text, text, jsonb, text, text, date, uuid, integer, text), public.shachris_save_settings(jsonb, integer) to authenticated;
 
 notify pgrst, 'reload schema';
 commit;

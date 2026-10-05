@@ -12,7 +12,7 @@ begin
   opened := public.shachris_open_session(current_date, array[1,2]::bigint[]);
   session_id_value := (opened->'session'->>'id')::uuid;
   if jsonb_array_length(opened->'records') <> 2 then raise exception 'Roster was not created'; end if;
-  result := public.shachris_set_expectation(2, 'manual', 'full', null, 'Advance', 'QA', current_date, session_id_value, 0);
+  result := public.shachris_set_expectation(2, 'manual', 'full', null, 'Advance', 'QA', current_date, session_id_value, 0, 'future');
   if jsonb_array_length(result->'record'->'expectation'->'sectionIds') <> 4 then raise exception 'Manual expectation did not apply'; end if;
   result := public.shachris_save_records(session_id_value, jsonb_build_array(
     jsonb_build_object('student_id', 1, 'presence', 'present', 'said_section_ids', jsonb_build_array('baruch-sheamar'), 'rating_id', 'ni', 'revision', 0),
@@ -44,7 +44,7 @@ begin
   end;
   if (select presence from public.shachris_student_records where session_id = session_id_value and student_id = 1) <> 'present' then raise exception 'Bulk save was not atomic'; end if;
   perform public.shachris_open_session(current_date - 1, array[1,2]::bigint[]);
-  result := public.shachris_set_expectation(2, 'manual', 'ashrei', null, 'Lower', 'QA', current_date, session_id_value, 2);
+  result := public.shachris_set_expectation(2, 'manual', 'ashrei', null, 'Lower', 'QA', current_date, session_id_value, 2, 'future');
   if (select expectation->>'milestoneId' from public.shachris_student_records record join public.shachris_sessions session on session.id = record.session_id where session.session_date = current_date - 1 and record.student_id = 2) <> 'start' then raise exception 'Past expectation changed'; end if;
   if (select count(*) from public.shachris_expectations where student_id = 2) <> 2 then raise exception 'Progression history lost'; end if;
   select config into config_value from public.shachris_settings;
@@ -53,8 +53,17 @@ begin
   update public.students set date_of_birth = (current_date - interval '13 years')::date where id in (1,2);
   if public.shachris_resolve_expectation(1, current_date + 1, saved_config->'config')->>'milestoneId' <> 'full' then raise exception 'Age/grade default did not apply'; end if;
   if public.shachris_resolve_expectation(2, current_date + 1, saved_config->'config')->>'milestoneId' <> 'ashrei' then raise exception 'Default replaced manual expectation'; end if;
-  result := public.shachris_set_expectation(2, 'default', null, null, 'Default', 'QA', current_date, session_id_value, 3);
+  result := public.shachris_set_expectation(2, 'manual', 'full', null, 'Temporary', 'QA', current_date, session_id_value, 3, 'today');
+  if result->'record'->'expectation'->>'milestoneId' <> 'full' or result->'record'->'expectation'->>'duration' <> 'today' then raise exception 'Today-only expectation did not apply'; end if;
+  opened := public.shachris_open_session(current_date, array[1,2]::bigint[]);
+  if opened->'records'->1->'expectation'->>'milestoneId' <> 'full' then raise exception 'Today-only expectation did not survive refresh'; end if;
+  if public.shachris_resolve_expectation(2, current_date + 1, saved_config->'config')->>'milestoneId' <> 'ashrei' then raise exception 'Today-only change replaced the future expectation'; end if;
+  result := public.shachris_set_expectation(2, 'default', null, null, 'Temporary default', 'QA', current_date, session_id_value, 4, 'today');
+  if result->'record'->'expectation'->>'source' <> 'default' or public.shachris_resolve_expectation(2, current_date + 1, saved_config->'config')->>'milestoneId' <> 'ashrei' then raise exception 'Temporary default erased the continuing override'; end if;
+  if (select count(*) from public.shachris_expectations where student_id = 2 and duration = 'today') <> 2 then raise exception 'Temporary progression history was lost'; end if;
+  result := public.shachris_set_expectation(2, 'default', null, null, 'Default', 'QA', current_date, session_id_value, 5, 'future');
   if result->'record'->'expectation'->>'source' <> 'default' then raise exception 'Return to default failed'; end if;
+  if public.shachris_resolve_expectation(2, current_date + 1, saved_config->'config')->>'source' <> 'default' then raise exception 'Continuing default did not apply tomorrow'; end if;
   perform set_config('test.denied', 'edit', true);
   begin
     perform public.shachris_save_records(session_id_value, '[]'::jsonb, 'QA');

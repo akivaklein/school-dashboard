@@ -29,13 +29,14 @@ export async function saveShachrisRecords(sessionId: string, records: ShachrisRe
 
 export async function saveShachrisExpectation(input: {
   studentId: number; mode: 'manual' | 'default'; milestoneId: string; sectionIds: string[] | null;
-  reason: string; actorName: string; session: ShachrisSession; revision: number;
+  reason: string; actorName: string; session: ShachrisSession; revision: number; duration: 'today' | 'future';
 }): Promise<{ assignment: ShachrisAssignment; record: ShachrisRecord }> {
   if (input.session.session_date !== localDateKey()) throw new Error('Progression changes are available for today only. Historical expectations stay unchanged.')
   const { data, error } = await supabase.rpc('shachris_set_expectation', {
     p_student_id: input.studentId, p_mode: input.mode, p_milestone_id: input.milestoneId,
     p_section_ids: input.sectionIds, p_reason: input.reason.trim(), p_actor_name: input.actorName,
     p_effective_date: input.session.session_date, p_session_id: input.session.id, p_record_revision: input.revision,
+    p_duration: input.duration,
   })
   if (error) throw error
   return data as { assignment: ShachrisAssignment; record: ShachrisRecord }

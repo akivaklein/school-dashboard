@@ -4,8 +4,8 @@
 .shachris button{cursor:pointer}
 .shachris button:disabled{cursor:default;opacity:.5}
 .shachris button:focus-visible,.shachris input:focus-visible,.shachris select:focus-visible{outline:2px solid #18826a;outline-offset:3px}
-.shachris input:not([type=checkbox]),.shachris select{border:1px solid #c5d4cc;border-radius:5px;background:#fff;color:var(--sh-ink);padding:8px 10px;min-height:37px;min-width:0;max-width:100%}
-.shachris input[type=checkbox]{accent-color:var(--sh-green);width:16px;height:16px;flex-shrink:0}
+.shachris input:not([type=checkbox]):not([type=radio]),.shachris select{border:1px solid #c5d4cc;border-radius:5px;background:#fff;color:var(--sh-ink);padding:8px 10px;min-height:37px;min-width:0;max-width:100%}
+.shachris input[type=checkbox],.shachris input[type=radio]{accent-color:var(--sh-green);width:16px;height:16px;flex-shrink:0}
 .sh-heading-actions,.shachris-heading,.sh-summary,.sh-filters,.sh-bulk,.sh-progression-buttons{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .shachris-heading{justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--sh-line)}
 .shachris-heading h1{font-size:26px;line-height:1.2;margin:7px 0 3px;font-weight:750}
@@ -57,6 +57,7 @@
 .sh-drawer-content{padding:22px;display:grid;gap:16px}
 .sh-drawer fieldset{border:1px solid var(--sh-line);border-radius:5px;padding:12px;display:grid;gap:10px;font-size:13px}
 .sh-drawer legend{font-size:12px;padding:0 5px}
+.sh-drawer .sh-duration-choice{margin:18px 22px 0;display:flex;gap:12px;flex-wrap:wrap}
 .sh-drawer h3{font-size:14px;margin:12px 0 0}
 .sh-history-entry{display:grid;gap:5px;border-bottom:1px solid var(--sh-line);padding-bottom:12px;font-size:12px}
 .sh-history-entry>span{color:var(--sh-muted);font-size:11px}

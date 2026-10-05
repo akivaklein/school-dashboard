@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { calculateAge, completeShachrisExpectation, hasMetShachrisExpectation, INITIAL_SHACHRIS_CONFIG, nextShachrisSection, resolveShachrisExpectation, validateShachrisConfig, type ShachrisAssignment, type ShachrisRecord } from '../shachris'
+import { calculateAge, completePresentShachrisRequirements, completeShachrisExpectation, hasMetShachrisExpectation, INITIAL_SHACHRIS_CONFIG, nextShachrisSection, resolveShachrisExpectation, validateShachrisConfig, type ShachrisAssignment, type ShachrisRecord } from '../shachris'
 
-const assignment: ShachrisAssignment = { id: 'override', student_id: 1, mode: 'manual', milestone_id: 'ashrei', section_ids: null, reason: '', actor_name: 'Rebbe', effective_date: '2026-10-05', created_at: '2026-10-05T12:00:00Z' }
+const assignment: ShachrisAssignment = { id: 'override', student_id: 1, mode: 'manual', milestone_id: 'ashrei', section_ids: null, reason: '', actor_name: 'Rebbe', effective_date: '2026-10-05', duration: 'future', created_at: '2026-10-05T12:00:00Z' }
 
 describe('Shachris individual requirements', () => {
   it('calculates age on the birthday without UTC date conversion', () => {
@@ -36,5 +36,14 @@ describe('Shachris individual requirements', () => {
     expect(validateShachrisConfig(INITIAL_SHACHRIS_CONFIG)).toBeNull()
     expect(validateShachrisConfig({ ...INITIAL_SHACHRIS_CONFIG, fallbackMilestoneId: 'missing' })).toBeTruthy()
     expect(validateShachrisConfig({ ...INITIAL_SHACHRIS_CONFIG, milestones: [{ id: 'bad', label: 'Bad', sectionIds: ['missing'] }] })).toBeTruthy()
+  })
+  it('bulk completes only present students, leaving absent, left, and unmarked students untouched', () => {
+    const records: ShachrisRecord[] = (['present', 'present', 'absent', 'left', 'unmarked'] as const).map((presence, index) => ({ session_id: 'today', student_id: index + 1, expectation: resolveShachrisExpectation(INITIAL_SHACHRIS_CONFIG, { ...assignment, milestone_id: index ? 'full' : 'start' }, 13, '8'), presence, said_section_ids: [], rating_id: 'ni', note: '', revision: 0, updated_by_name: '' }))
+    const changed = completePresentShachrisRequirements(records)
+    expect(changed.map(record => record.student_id)).toEqual([1, 2])
+    expect(changed.map(record => record.said_section_ids.length)).toEqual([1, 4])
+    expect(changed.every(record => record.presence === 'present' && record.rating_id === 'ni')).toBe(true)
+    expect(records.every(record => record.said_section_ids.length === 0)).toBe(true)
+    expect(completePresentShachrisRequirements(changed)).toEqual([])
   })
 })

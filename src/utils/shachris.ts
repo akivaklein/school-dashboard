@@ -13,6 +13,7 @@ export type ShachrisExpectation = {
   label: string
   sectionIds: string[]
   source: 'manual' | 'default'
+  duration?: 'today' | 'future'
 }
 export type ShachrisAssignment = {
   id: string
@@ -23,6 +24,7 @@ export type ShachrisAssignment = {
   reason: string
   actor_name: string
   effective_date: string
+  duration: 'today' | 'future'
   created_at: string
 }
 export type ShachrisRecord = {
@@ -87,6 +89,10 @@ export function nextShachrisSection(config: ShachrisConfig, expectation: Shachri
 
 export function completeShachrisExpectation(record: ShachrisRecord): ShachrisRecord {
   return { ...record, said_section_ids: Array.from(new Set([...record.said_section_ids, ...record.expectation.sectionIds])) }
+}
+
+export function completePresentShachrisRequirements(records: ShachrisRecord[]): ShachrisRecord[] {
+  return records.filter(record => record.presence === 'present' && !hasMetShachrisExpectation(record)).map(completeShachrisExpectation)
 }
 
 export function hasMetShachrisExpectation(record: ShachrisRecord): boolean {

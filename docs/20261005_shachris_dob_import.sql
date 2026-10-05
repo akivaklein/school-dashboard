@@ -17,6 +17,13 @@ insert into shachris_dob_input values
   (array['Isaac Weingarten', 'Weingarten Isaac'], '2014-10-12'),
   (array['Yosef Zachai', 'Zachai Yosef'], '2015-03-24');
 
+do $$
+begin
+  if (select count(*) from shachris_dob_input) <> 16 then
+    raise exception 'DOB import stopped: exactly 16 reviewed DOBs are required. The two missing DOBs must be supplied before any import.';
+  end if;
+end $$;
+
 create temporary table shachris_dob_matches on commit drop as
 select student.id, student.name, student.date_of_birth as existing_dob, input.dob, input.names
 from public.students student join shachris_dob_input input
@@ -32,10 +39,13 @@ select id, name, existing_dob, dob as supplied_dob from shachris_dob_matches ord
 do $$
 begin
   if exists (select 1 from shachris_dob_input input left join shachris_dob_matches matched on matched.names = input.names group by input.names having count(matched.id) <> 1)
-    or (select count(distinct id) from shachris_dob_matches) <> 14 then
+    or (select count(distinct id) from shachris_dob_matches) <> 16 then
     raise exception 'DOB import stopped: verify missing or ambiguous names against real student IDs; no dates were changed.';
   end if;
   perform 1 from public.students where id in (select id from shachris_dob_matches) for update;
+  if (select count(*) from public.students where id in (select id from shachris_dob_matches) and is_active is not false) <> 16 then
+    raise exception 'DOB import stopped: the active roster changed during review; no dates were changed.';
+  end if;
   if exists (select 1 from public.students student join shachris_dob_matches matched on matched.id = student.id where student.date_of_birth is not null and student.date_of_birth <> matched.dob) then
     raise exception 'DOB import stopped: an existing date conflicts with the supplied DOB; no dates were changed.';
   end if;
