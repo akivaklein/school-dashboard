@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import PrintClassList from './PrintClassList'
 import SecureDaveningTool from './SecureDaveningTool'
+import ShachrisWorkspace from './ShachrisWorkspace'
 import { resolveActorName, resolveStudentClassId, resolveStudentClassIds } from './dashboardData'
 import {
   buildClassroomAttendanceScopeOptions,
@@ -64,6 +65,7 @@ export default function AttendancePage({
   const [departureNote, setDepartureNote] = useState('')
   const [showPrintClassList, setShowPrintClassList] = useState(false)
   const [showDaveningChecklist, setShowDaveningChecklist] = useState(false)
+  const [showShachris, setShowShachris] = useState(false)
   const actingStaffName = resolveActorName(userName, role)
   const dailyAttendanceStudents = students.filter(student => student?.is_active !== false)
   const [selectedDailyStudentIds, setSelectedDailyStudentIds] = useState<Set<string>>(() => new Set())
@@ -754,6 +756,8 @@ export default function AttendancePage({
 
   const leaveStudent = leavePopup ? students.find(s => s.id === leavePopup) : null
 
+  if (showShachris) return <ShachrisWorkspace students={students} classes={CLASSES} actorName={actingStaffName} role={role} onClose={() => setShowShachris(false)} primaryClassIdsByStudent={primaryClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />
+
   return (
     <div>
       {latePopup && (
@@ -895,6 +899,7 @@ export default function AttendancePage({
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button onClick={() => setShowPrintClassList(true)} style={{ ...S.btn('ghost'), padding: '7px 14px', fontSize: 12 }}>Print Class List</button>
+          <button onClick={() => setShowShachris(true)} style={{ ...S.btn('primary'), padding: '7px 14px', fontSize: 12 }}>Shachris Live Session</button>
           <button onClick={() => setShowDaveningChecklist(true)} style={{ ...S.btn('ghost'), padding: '7px 14px', fontSize: 12 }}>Davening Checklist</button>
           <button onClick={() => setDailyView('classroom')} style={{ ...S.btn(dailyView === 'classroom' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Classroom Mode</button>
           <button onClick={() => setDailyView('daily')} style={{ ...S.btn(dailyView === 'daily' ? 'primary' : 'ghost'), padding: '7px 14px', fontSize: 12 }}>Daily Check-In</button>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import StudentNotes from './StudentNotes'
+import StudentDobEditor from './StudentDobEditor'
 import { resolveActorName } from './dashboardData'
 import { isLeadershipRole } from '../utils/permissions'
 import { buildStudentNavigationList, getStudentById, getStudentNavigationPair, normalizeStudentProfileFields } from './studentProfileNavigation'
@@ -447,6 +448,8 @@ export default function StudentProfile({
 
           {effectiveTab === 'info' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              <StudentDobEditor key={s.id} studentId={s.id} dob={s.date_of_birth} editable={isLeadershipRole(role)} onSaved={dob => setStudents(prev => prev.map(entry => entry.id === s.id ? { ...entry, date_of_birth: dob } : entry))} />
 
               {/* Allergies alert */}
               {s.medical?.allergies?.length > 0 && (
