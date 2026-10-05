@@ -10,15 +10,15 @@ On 2026-10-05, `supabase/migrations/20261005_shachris_checkpoint.sql` and the re
 
 Existing-data counts and hashes matched before/after, excluding only the authorized new DOB field: 60 students, 28 staff, 17 primary class assignments, 224 teacher/rebbe assignments, 17 setup assignments, 8 classes, 4 instructional groups, 32 memberships, 2 legacy Davening templates, 5 legacy checklists, and 0 legacy marks. No Hebrew DOB or optional contact fields were added.
 
-The earlier secondary **Davening Progress** defaults remain grade-only, sourced exclusively from `student_class_assignments` (`yk-b` = 7th, `yk-a` = 8th); instructional groups only filter visibility. The new primary **stay requirement** rules use the actual ages 11/12/13 and the communal milestones. Manual individual stay overrides take priority. Its screen and age rules are implemented locally, but their new RPC/schema is still pending remote migration.
+The earlier secondary **Davening Progress** defaults remain grade-only, sourced exclusively from `student_class_assignments` (`yk-b` = 7th, `yk-a` = 8th); instructional groups only filter visibility. The new primary **stay requirement** rules use the actual ages 11/12/13 and the communal milestones. Manual individual stay overrides take priority.
 
 ## Daily Live Session Safe Checkpoint
 
 The local Daily Live Session now follows `.github/mockups/live-session.png`: Start Hodu, communal milestone strip, summary counts, compact student cards, and a collapsed secondary Davening Progress area. Requirements are age 11 → Shemoneh Esrei, age 12 → Chazaras HaShatz, age 13 → End Davening; manual overrides remain Today only or Today and future. Results are designed to be evaluated automatically at the communal milestone and remain Met if a student leaves afterward.
 
-The additive migration `supabase/migrations/20261005213145_shachris_live_attendance.sql` is **NOT applied remotely**. The browser fixture/screenshots use synthetic students. The Codespaces root preview still uses the older database schema and will not support the new live RPCs until this migration is reviewed and applied. Do not run a general `db push`.
+The additive migration `supabase/migrations/20261005213145_shachris_live_attendance.sql` was applied remotely on 2026-10-05 after the preservation/hash checks passed. The browser fixture/screenshots use synthetic students; production data is not included in screenshots. Do not run a general `db push`.
 
-Before stopping, the existing production session was checked read-only: session `005083f4-1fba-4bb6-91c8-228d66c9d418`, 16 student records, 13 events, seven marked present, three marked out, and six with section marks. Legacy-record hash: `6b03fd38b5a36a73869ef48926183009`; event hash: `69184df2d65a08c285fdda07f0f1f39b`. New stay-history table and `started_at` column were absent. Local seeded-upgrade SQL verified old section marks, ratings, notes, presence, and all 13 events survive; requirement snapshots are added without changing those fields. No production writes for this migration were performed.
+The existing production session `005083f4-1fba-4bb6-91c8-228d66c9d418` had 16 student records, 13 events, seven marked present, three marked out, and six with section marks before migration. Legacy-record hash `6b03fd38b5a36a73869ef48926183009` and event hash `69184df2d65a08c285fdda07f0f1f39b` matched afterward. The existing progress sections/milestones are unchanged; 16 age-based stay snapshots were added, and the session remains unstarted. The stay-history table has RLS, authenticated SELECT is permission-guarded, and anon SELECT is denied.
 
 ## Local Login Preview
 
@@ -26,7 +26,7 @@ The local Vite server reads `VITE_SUPABASE_YK_URL` and `VITE_SUPABASE_YK_ANON_KE
 
 Use the normal secure-site email/password login. The Codespaces forwarded port should remain private. Development skips service-worker registration and unregisters an existing local root worker to prevent activation reloads; production registration is unchanged.
 
-This preview uses the real secure project's Auth/backend, not an isolated data sandbox. The base checkpoint schema and DOB import are deployed. The updated Hodu/arrival/leave/milestone workflow needs the pending `shachris_live_attendance` migration before its new actions can run against production data. Browser workflow screenshots/tests use intercepted synthetic rows only.
+This preview uses the real secure project's Auth/backend, not an isolated data sandbox. Both the base checkpoint and live-attendance schema are deployed. Browser workflow screenshots/tests use intercepted synthetic rows only.
 
 ## Daily Workflow
 
@@ -50,6 +50,7 @@ Settings apply when creating new dated sessions. Existing sessions keep their se
 - Production build passes. Repository typecheck currently reports two unrelated errors in the unchanged `teachingModeUtils.test.ts`.
 - Deployed verification: all 16 DOBs, exact ID/name matches, schema-cache visibility, new-table RLS/grants, authenticated RPC save/reopen, manual override expiry, and grade-only 8/8 resolution passed. Remote test marks, settings changes, and overrides were rolled back; no test history was retained.
 - Local latest Live Session gates: 29 focused/neighboring tests, synthetic browser scenario, focused lint, production build, clean SQL workflow test, and pre-existing-session preservation test all pass.
+- Remote live migration check: all 16 stay snapshots present, legacy record/event hashes unchanged, session still unstarted, RLS enabled, and anon reads denied.
 - Advisory API access is unavailable with the scoped token (`advisors_read` denied). Targeted SQL permissions/RLS and anonymous Data API denial were inspected directly; no full-project advisory audit is claimed.
 
 ## Deployment Gate
@@ -76,6 +77,6 @@ npx --yes supabase@latest db query --linked --file docs/20261005_shachris_roster
 
 ### Targeted Rollout After Review
 
-Initial secure schema and reviewed DOB import completed on 2026-10-05. The new live-attendance migration is pending the user's review of the updated Daily Live Session screenshot. Before applying it, rerun the recorded read-only preservation query and confirm the current session hashes/counts still match. Then apply only `supabase/migrations/20261005213145_shachris_live_attendance.sql` with targeted `db query --linked --file`; do not use `db push`.
+Both targeted migrations and the reviewed DOB import are complete. The live session is still unstarted. Do not rerun either migration file or use `db push`.
 
 The deployed DOB import is complete. Student Events, Weekly Record, Summary/Rewards, and start/event-time correction remain deferred until the user reviews this Daily Live Session checkpoint.
