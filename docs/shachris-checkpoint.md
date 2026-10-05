@@ -4,9 +4,13 @@ Branch: `yeshiva-ketana-secure`. Student Events and Weekly Record are not implem
 
 ## Current Status
 
-The Live Session, individual expectations/progression, basic settings, and editable regular DOB/age are implemented. The schema was exercised in an isolated PostgreSQL container. Browser verification used synthetic students and intercepted API responses, not school records.
+The Live Session, individual expectations/progression, basic settings, and editable regular DOB/age are implemented and the targeted schema is deployed to the secure backing project `ednjpqtuttutoatahorn`. Browser layout verification uses synthetic students; deployed RPCs were also verified against the real roster under authenticated leadership permissions in a fully rolled-back transaction.
 
-The migration and DOB import have NOT been applied to the school database: this environment has no Supabase management token or database connection. The import now contains all 16 supplied DOBs, including David Goldberger and Benyamin Goldberger, both 2013-04-30. Execution remains on hold until Supabase access is restored and all 16 unique active student matches are verified against the real roster. Real-school refresh/persistence and existing production RLS still need verification after access is restored. No Hebrew DOB or optional contact fields were added.
+On 2026-10-05, only `supabase/migrations/20261005_shachris_checkpoint.sql` and the reviewed `docs/20261005_shachris_dob_import.sql` were applied via targeted `db query --linked --file` commands. All 16 DOBs were verified afterward. The active roster is eight students in 7th grade and eight in 8th grade. The user explicitly confirmed seven name aliases before import; each import row is pinned to its reviewed student ID. No fuzzy matching or student renaming was performed.
+
+Existing-data counts and hashes matched before/after, excluding only the authorized new DOB field: 60 students, 28 staff, 17 primary class assignments, 224 teacher/rebbe assignments, 17 setup assignments, 8 classes, 4 instructional groups, 32 memberships, 2 legacy Davening templates, 5 legacy checklists, and 0 legacy marks. No Hebrew DOB or optional contact fields were added.
+
+Defaults are grade-only, sourced exclusively from `student_class_assignments` (`yk-b` = 7th, `yk-a` = 8th). Mishna/Gemara/Math/Reading levels, teacher groups, and DOB/age are never default sources. Instructional groups may filter the visible roster without changing expectations. Manual overrides take priority. Settings permit one rule per actual grade; unconfigured grades use the explicit school fallback. Age remains informational only.
 
 ## Local Login Preview
 
@@ -14,7 +18,7 @@ The local Vite server reads `VITE_SUPABASE_YK_URL` and `VITE_SUPABASE_YK_ANON_KE
 
 Use the normal secure-site email/password login. The Codespaces forwarded port should remain private. Development skips service-worker registration and unregisters an existing local root worker to prevent activation reloads; production registration is unchanged.
 
-This preview uses the real secure project's Auth/backend, not an isolated data sandbox. Login configuration does not apply the Shachris migration: database-backed Live Session and DOB saving remain unavailable until the targeted migration is reviewed/applied. No database migration or DOB import was performed while fixing preview login.
+This preview uses the real secure project's Auth/backend, not an isolated data sandbox. The targeted migration and reviewed DOB import are now deployed, so Live Session and profile DOB saving are available. Normal workflow changes save real records. No database changes were performed during the earlier preview-login fix.
 
 ## Daily Workflow
 
@@ -36,6 +40,8 @@ Settings apply when creating new dated sessions. Existing sessions keep their se
 - `node src/services/__tests__/fixtures/shachrisDobImportChecks.mjs` tests the import on synthetic local rows only, including the incomplete-14 gate and the 16-entry success/missing/duplicate/conflict cases. Never point this script at the school database.
 - Desktop/mobile/progression screenshots are alongside this document. They contain synthetic students.
 - Production build passes. Repository typecheck currently reports two unrelated errors in the unchanged `teachingModeUtils.test.ts`.
+- Deployed verification: all 16 DOBs, exact ID/name matches, schema-cache visibility, new-table RLS/grants, authenticated RPC save/reopen, manual override expiry, and grade-only 8/8 resolution passed. Remote test marks, settings changes, and overrides were rolled back; no test history was retained.
+- Advisory API access is unavailable with the scoped token (`advisors_read` denied). Targeted SQL permissions/RLS and anonymous Data API denial were inspected directly; no full-project advisory audit is claimed.
 
 ## Deployment Gate
 
@@ -61,6 +67,6 @@ npx --yes supabase@latest db query --linked --file docs/20261005_shachris_roster
 
 ### Targeted Rollout After Review
 
-After restoring Supabase access, verify the linked project is the secure dashboard's backing database and inspect the existing schema/permissions. Apply only `supabase/migrations/20261005_shachris_checkpoint.sql`; do not use an unrestricted `db push`, because unrelated migrations are pending.
+Completed on 2026-10-05 after the read-only review and explicit alias confirmation. Do not rerun the schema file against the deployed tables. It was executed directly rather than through `db push`; unrelated pending migration history must not be pushed indiscriminately.
 
-Review `docs/20261005_shachris_dob_import.sql` against actual student IDs before executing. It matches explicit supplied/reversed names, requires exactly 16 supplied entries and 16 unique active matches, and refuses conflicting existing DOBs. Do not apply it before access is restored and all roster matches are verified. Verify unrelated fields/history counts are unchanged and test refresh/save with authorized and read-only accounts before claiming the checkpoint is live. Use targeted `db query --linked --file <reviewed-file>` commands only; the import stays paused until review is complete.
+The deployed import matches explicit approved names and pinned IDs, requires exactly 16 supplied entries and 16 unique active matches, and refuses conflicting existing DOBs. Existing values are never overwritten. Student Events and Weekly Record remain deferred until the user reviews this checkpoint.

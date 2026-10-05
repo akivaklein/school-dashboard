@@ -69,7 +69,7 @@
 .sh-settings-line>input{flex:1;width:0}
 .sh-milestone-edit{display:grid;gap:8px;border-bottom:1px solid var(--sh-line);padding-bottom:12px}
 .sh-milestone-checks{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:12px}
-.sh-rule{display:grid;grid-template-columns:minmax(60px,.7fr) minmax(60px,.6fr) minmax(60px,.6fr) minmax(100px,1.3fr) 37px;gap:5px;align-items:end;border-bottom:1px solid var(--sh-line);padding-bottom:12px}
+.sh-rule{display:grid;grid-template-columns:minmax(100px,1fr) minmax(130px,1.5fr) 37px;gap:8px;align-items:end;border-bottom:1px solid var(--sh-line);padding-bottom:12px}
 .sh-rule input,.sh-rule select{width:100%;font-size:12px}
 .sh-settings-save{grid-column:1/-1;display:flex;justify-content:flex-end;border-top:1px solid var(--sh-line);padding-top:14px}
 @media(max-width:1150px){.sh-column-head,.sh-student-row{grid-template-columns:minmax(170px,1fr) minmax(155px,.8fr) minmax(170px,1fr) minmax(110px,.6fr);gap:10px}.sh-section-checks{grid-template-columns:1fr}.sh-rule{grid-template-columns:1fr 1fr}.sh-rule>label:last-of-type{grid-column:1/-1}}

@@ -48,10 +48,23 @@ begin
   if (select expectation->>'milestoneId' from public.shachris_student_records record join public.shachris_sessions session on session.id = record.session_id where session.session_date = current_date - 1 and record.student_id = 2) <> 'start' then raise exception 'Past expectation changed'; end if;
   if (select count(*) from public.shachris_expectations where student_id = 2) <> 2 then raise exception 'Progression history lost'; end if;
   select config into config_value from public.shachris_settings;
-  config_value := jsonb_set(config_value, '{rules}', '[{"id":"older","grade":"8","minAge":12,"maxAge":null,"milestoneId":"full"}]');
+  config_value := jsonb_set(config_value, '{rules}', '[{"id":"eighth","grade":"8","milestoneId":"full"},{"id":"seventh","grade":"7","milestoneId":"shema"}]');
   saved_config := public.shachris_save_settings(config_value, 0);
   update public.students set date_of_birth = (current_date - interval '13 years')::date where id in (1,2);
-  if public.shachris_resolve_expectation(1, current_date + 1, saved_config->'config')->>'milestoneId' <> 'full' then raise exception 'Age/grade default did not apply'; end if;
+  if public.shachris_resolve_expectation(1, current_date + 1, saved_config->'config')->>'milestoneId' <> 'full' then raise exception 'Authoritative grade default did not apply'; end if;
+  update public.students set date_of_birth = (current_date - interval '7 years')::date where id = 1;
+  if public.shachris_resolve_expectation(1, current_date + 1, saved_config->'config')->>'milestoneId' <> 'full' then raise exception 'DOB changed the grade default'; end if;
+  update public.student_class_assignments set class_id = 'yk-b' where student_id = 1;
+  if public.shachris_resolve_expectation(1, current_date + 1, saved_config->'config')->>'milestoneId' <> 'shema' then raise exception 'Primary seventh grade assignment was ignored'; end if;
+  update public.student_class_assignments set class_id = 'gemara-level-8' where student_id = 1;
+  if public.shachris_resolve_expectation(1, current_date + 1, saved_config->'config')->>'milestoneId' <> 'start' then raise exception 'Instructional level was treated as actual grade'; end if;
+  update public.student_class_assignments set class_id = 'yk-a' where student_id = 1;
+  begin
+    perform public.shachris_save_settings(jsonb_set(config_value, '{rules}', '[{"id":"age","grade":"8","minAge":12,"milestoneId":"full"}]'), 1);
+    raise exception 'Age-based rule was accepted';
+  exception when others then
+    if sqlerrm not like 'Defaults must use one rule%' then raise; end if;
+  end;
   if public.shachris_resolve_expectation(2, current_date + 1, saved_config->'config')->>'milestoneId' <> 'ashrei' then raise exception 'Default replaced manual expectation'; end if;
   result := public.shachris_set_expectation(2, 'manual', 'full', null, 'Temporary', 'QA', current_date, session_id_value, 3, 'today');
   if result->'record'->'expectation'->>'milestoneId' <> 'full' or result->'record'->'expectation'->>'duration' <> 'today' then raise exception 'Today-only expectation did not apply'; end if;

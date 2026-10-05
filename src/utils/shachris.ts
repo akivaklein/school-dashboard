@@ -1,6 +1,6 @@
 export type ShachrisSection = { id: string; label: string }
 export type ShachrisMilestone = { id: string; label: string; sectionIds: string[] }
-export type ShachrisRule = { id: string; grade: string; minAge: number | null; maxAge: number | null; milestoneId: string }
+export type ShachrisRule = { id: string; grade: '7' | '8'; milestoneId: string }
 export type ShachrisConfig = {
   sections: ShachrisSection[]
   milestones: ShachrisMilestone[]
@@ -71,11 +71,14 @@ export function calculateAge(dob: string | null | undefined, onDate = localDateK
   return currentYear - year - (currentMonth < month || (currentMonth === month && currentDay < day) ? 1 : 0)
 }
 
-export function resolveShachrisExpectation(config: ShachrisConfig, assignment: ShachrisAssignment | undefined, age: number | null, grade: string): ShachrisExpectation {
+export function getShachrisGrade(primaryClassId: string | null | undefined): '7' | '8' | '' {
+  return primaryClassId === 'yk-a' ? '8' : primaryClassId === 'yk-b' ? '7' : ''
+}
+
+export function resolveShachrisExpectation(config: ShachrisConfig, assignment: ShachrisAssignment | undefined, primaryClassId: string | null | undefined): ShachrisExpectation {
   const manual = assignment?.mode === 'manual'
-  const rule = config.rules.find(entry => (!entry.grade || entry.grade === grade)
-    && (entry.minAge === null || (age !== null && age >= entry.minAge))
-    && (entry.maxAge === null || (age !== null && age <= entry.maxAge)))
+  const grade = getShachrisGrade(primaryClassId)
+  const rule = config.rules.find(entry => entry.grade === grade)
   const milestoneId = manual ? assignment.milestone_id : rule?.milestoneId || config.fallbackMilestoneId
   const milestone = config.milestones.find(entry => entry.id === milestoneId)
   if (!milestone) throw new Error('The assigned milestone no longer exists. Review this student in Rules & Settings.')
@@ -108,6 +111,7 @@ export function validateShachrisConfig(config: ShachrisConfig): string | null {
   const milestoneIds = new Set(config.milestones.map(milestone => milestone.id))
   if (!milestoneIds.has(config.fallbackMilestoneId)) return 'Choose a valid school fallback.'
   if (!config.ratings.length || !unique(config.ratings.map(rating => rating.id)) || config.ratings.some(rating => !rating.label.trim())) return 'Ratings need unique IDs and nonempty names.'
-  if (config.rules.some(rule => !milestoneIds.has(rule.milestoneId) || [rule.minAge, rule.maxAge].some(age => age !== null && (!Number.isInteger(age) || age < 0 || age > 120)) || (rule.minAge !== null && rule.maxAge !== null && rule.minAge > rule.maxAge))) return 'Check the ages and milestones in your default rules.'
+  if (!unique(config.rules.map(rule => rule.id)) || new Set(config.rules.map(rule => rule.grade)).size !== config.rules.length
+    || config.rules.some(rule => !['7', '8'].includes(rule.grade) || !milestoneIds.has(rule.milestoneId) || Object.keys(rule).some(key => !['id', 'grade', 'milestoneId'].includes(key)))) return 'Default rules must use one rule per actual grade (7th or 8th) and a valid milestone.'
   return null
 }

@@ -92,12 +92,10 @@ declare
   milestone jsonb;
   rule jsonb;
   milestone_id text;
-  student_age integer;
   student_grade text;
 begin
-  select case when student.date_of_birth <= p_date then extract(year from age(p_date, student.date_of_birth))::integer else null end,
-    case class_assignment.class_id when 'yk-a' then '8' when 'yk-b' then '7' else '' end
-    into student_age, student_grade
+  select case class_assignment.class_id when 'yk-a' then '8' when 'yk-b' then '7' else '' end
+    into student_grade
     from public.students student left join public.student_class_assignments class_assignment on class_assignment.student_id = student.id
     where student.id = p_student_id;
   if not found then raise exception 'Student not found'; end if;
@@ -108,9 +106,7 @@ begin
     milestone_id := assignment.milestone_id;
   else
     select entry into rule from jsonb_array_elements(p_config->'rules') entry
-      where (coalesce(entry->>'grade', '') = '' or entry->>'grade' = student_grade)
-        and ((entry->>'minAge') is null or student_age >= (entry->>'minAge')::integer)
-        and ((entry->>'maxAge') is null or student_age <= (entry->>'maxAge')::integer)
+      where entry->>'grade' = student_grade
       limit 1;
     milestone_id := coalesce(rule->>'milestoneId', p_config->>'fallbackMilestoneId');
   end if;
@@ -228,6 +224,13 @@ begin
   if jsonb_typeof(p_config->'sections') is distinct from 'array' or jsonb_typeof(p_config->'milestones') is distinct from 'array'
     or jsonb_typeof(p_config->'ratings') is distinct from 'array' or jsonb_typeof(p_config->'rules') is distinct from 'array'
     or jsonb_array_length(p_config->'sections') = 0 or jsonb_array_length(p_config->'milestones') = 0 then raise exception 'Invalid Shachris settings'; end if;
+  if exists (select 1 from jsonb_array_elements(p_config->'rules') rule
+    where jsonb_typeof(rule) <> 'object' or coalesce(rule->>'grade', '') not in ('7', '8')
+      or coalesce(rule->>'id', '') = '' or (rule - 'id' - 'grade' - 'milestoneId') <> '{}'::jsonb
+      or not exists (select 1 from jsonb_array_elements(p_config->'milestones') milestone where milestone->>'id' = rule->>'milestoneId'))
+    or exists (select 1 from jsonb_array_elements(p_config->'rules') rule group by rule->>'grade' having count(*) > 1)
+    or exists (select 1 from jsonb_array_elements(p_config->'rules') rule group by rule->>'id' having count(*) > 1)
+    then raise exception 'Defaults must use one rule per actual grade (7th or 8th) only'; end if;
   if exists (select 1 from jsonb_array_elements(settings_row.config->'sections') prior where not exists (select 1 from jsonb_array_elements(p_config->'sections') next where next->>'id' = prior->>'id'))
     or exists (select 1 from jsonb_array_elements(settings_row.config->'milestones') prior where not exists (select 1 from jsonb_array_elements(p_config->'milestones') next where next->>'id' = prior->>'id')) then raise exception 'Existing section and milestone IDs must be preserved'; end if;
   update public.shachris_settings set config = p_config, revision = revision + 1, updated_by = auth.uid(), updated_at = clock_timestamp() returning * into settings_row;
