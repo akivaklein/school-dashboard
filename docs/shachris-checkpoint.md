@@ -8,6 +8,14 @@ The Live Session, individual expectations/progression, basic settings, and edita
 
 The migration and DOB import have NOT been applied to the school database: this environment has no Supabase management token or database connection. The import now contains all 16 supplied DOBs, including David Goldberger and Benyamin Goldberger, both 2013-04-30. Execution remains on hold until Supabase access is restored and all 16 unique active student matches are verified against the real roster. Real-school refresh/persistence and existing production RLS still need verification after access is restored. No Hebrew DOB or optional contact fields were added.
 
+## Local Login Preview
+
+The local Vite server reads `VITE_SUPABASE_YK_URL` and `VITE_SUPABASE_YK_ANON_KEY` from ignored `.env.local`, using the secure project's public browser configuration. Never commit that file or put a service-role key in a browser variable. Restart Vite after changing environment values.
+
+Use the normal secure-site email/password login. The Codespaces forwarded port should remain private. Development skips service-worker registration and unregisters an existing local root worker to prevent activation reloads; production registration is unchanged.
+
+This preview uses the real secure project's Auth/backend, not an isolated data sandbox. Login configuration does not apply the Shachris migration: database-backed Live Session and DOB saving remain unavailable until the targeted migration is reviewed/applied. No database migration or DOB import was performed while fixing preview login.
+
 ## Daily Workflow
 
 1. Open School Day > Shachris Live Session and select a class/group.

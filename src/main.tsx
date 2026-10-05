@@ -19,9 +19,21 @@ createRoot(document.getElementById('root')!).render(
 )
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(error => {
-      console.warn('Service worker registration failed:', error)
+  if (import.meta.env.DEV) {
+    const controlledByAppWorker = navigator.serviceWorker.controller?.scriptURL === new URL('/sw.js', window.location.origin).href
+    void navigator.serviceWorker.getRegistrations()
+      .then(registrations => Promise.all(registrations
+        .filter(registration => registration.scope === new URL('/', window.location.origin).href)
+        .map(registration => registration.unregister())))
+      .then(unregistered => {
+        if (controlledByAppWorker && unregistered.some(Boolean)) window.location.reload()
+      })
+      .catch(error => console.warn('Local service worker cleanup failed:', error))
+  } else {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(error => {
+        console.warn('Service worker registration failed:', error)
+      })
     })
-  })
+  }
 }
