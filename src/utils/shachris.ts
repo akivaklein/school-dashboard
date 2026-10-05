@@ -1,12 +1,34 @@
 export type ShachrisSection = { id: string; label: string }
 export type ShachrisMilestone = { id: string; label: string; sectionIds: string[] }
 export type ShachrisRule = { id: string; grade: '7' | '8'; milestoneId: string }
+export type ShachrisStayMilestone = { id: string; label: string; order: number }
+export type ShachrisStayRule = { id: string; age: 11 | 12 | 13; milestoneId: string }
 export type ShachrisConfig = {
   sections: ShachrisSection[]
   milestones: ShachrisMilestone[]
   ratings: Array<{ id: string; label: string }>
   rules: ShachrisRule[]
   fallbackMilestoneId: string
+  stayMilestones: ShachrisStayMilestone[]
+  stayRules: ShachrisStayRule[]
+}
+export type ShachrisStayAssignment = {
+  id: string
+  student_id: number
+  mode: 'manual' | 'default'
+  required_until: string | null
+  reason: string
+  actor_name: string
+  effective_date: string
+  duration: 'today' | 'future'
+  created_at: string
+}
+export type ShachrisStayRequirement = {
+  age: number | null
+  requiredUntil: string | null
+  label: string
+  source: 'manual' | 'default' | 'unassigned'
+  duration?: 'today' | 'future'
 }
 export type ShachrisExpectation = {
   milestoneId: string
@@ -31,7 +53,14 @@ export type ShachrisRecord = {
   session_id: string
   student_id: number
   expectation: ShachrisExpectation
+  stay_requirement: ShachrisStayRequirement
   presence: 'unmarked' | 'present' | 'absent' | 'left'
+  arrival_at: string | null
+  last_return_at: string | null
+  leave_intervals: Array<{ leftAt: string; returnedAt: string | null; permission: 'with' | 'without' }>
+  requirement_result: 'pending' | 'met' | 'not_met'
+  requirement_met_at: string | null
+  requirement_met_milestone: string | null
   said_section_ids: string[]
   rating_id: string
   note: string
@@ -56,6 +85,17 @@ export const INITIAL_SHACHRIS_CONFIG: ShachrisConfig = {
   ratings: [{ id: 'vg', label: 'Very Good' }, { id: 'g', label: 'Good' }, { id: 'ni', label: 'Needs Improvement' }],
   rules: [],
   fallbackMilestoneId: 'start',
+  stayMilestones: [
+    { id: 'hodu', label: 'Start Hodu', order: 0 },
+    { id: 'shemoneh-esrei', label: 'After Shemoneh Esrei', order: 1 },
+    { id: 'chazaras-hashatz', label: 'After Chazaras HaShatz', order: 2 },
+    { id: 'end-davening', label: 'End Davening', order: 3 },
+  ],
+  stayRules: [
+    { id: 'age-11', age: 11, milestoneId: 'shemoneh-esrei' },
+    { id: 'age-12', age: 12, milestoneId: 'chazaras-hashatz' },
+    { id: 'age-13', age: 13, milestoneId: 'end-davening' },
+  ],
 }
 
 export function localDateKey(date = new Date()): string {
@@ -69,6 +109,52 @@ export function calculateAge(dob: string | null | undefined, onDate = localDateK
   const parsed = new Date(year, month - 1, day)
   if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day || dob > onDate) return null
   return currentYear - year - (currentMonth < month || (currentMonth === month && currentDay < day) ? 1 : 0)
+}
+
+export function resolveShachrisStayRequirement(config: ShachrisConfig, assignment: ShachrisStayAssignment | undefined, age: number | null): ShachrisStayRequirement {
+  const manual = assignment?.mode === 'manual'
+  const rule = manual ? null : config.stayRules.find(entry => entry.age === age)
+  const requiredUntil = manual ? assignment.required_until : rule?.milestoneId || null
+  const milestone = config.stayMilestones.find(entry => entry.id === requiredUntil)
+  return {
+    age,
+    requiredUntil,
+    label: milestone?.label || (manual ? 'Requirement not set' : 'No age default'),
+    source: manual ? 'manual' : rule ? 'default' : 'unassigned',
+    ...(manual ? { duration: assignment.duration } : {}),
+  }
+}
+
+export function evaluateShachrisRequirementAtMilestone(record: ShachrisRecord, milestoneId: string, evaluatedAt: string): ShachrisRecord {
+  if (record.requirement_result !== 'pending' || record.stay_requirement.requiredUntil !== milestoneId) return record
+  const met = record.presence === 'present'
+  return {
+    ...record,
+    requirement_result: met ? 'met' : 'not_met',
+    requirement_met_at: met ? evaluatedAt : null,
+    requirement_met_milestone: milestoneId,
+  }
+}
+
+function durationMinutes(start: string | null | undefined, end: string | null | undefined, now = Date.now()): number {
+  if (!start) return 0
+  const startMs = Date.parse(start)
+  const endMs = end ? Date.parse(end) : now
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return 0
+  return Math.floor((endMs - startMs) / 60000)
+}
+
+export function calculateShachrisMinutesLate(startedAt: string | null | undefined, arrivalAt: string | null | undefined): number | null {
+  if (!startedAt || !arrivalAt) return null
+  return durationMinutes(startedAt, arrivalAt)
+}
+
+export function calculateShachrisMinutesOut(intervals: ShachrisRecord['leave_intervals'], now = Date.now()): number {
+  return intervals.reduce((total, interval) => total + durationMinutes(interval.leftAt, interval.returnedAt, now), 0)
+}
+
+export function latestOpenShachrisLeave(intervals: ShachrisRecord['leave_intervals']) {
+  return [...intervals].reverse().find(interval => interval.returnedAt === null) || null
 }
 
 export function getShachrisGrade(primaryClassId: string | null | undefined): '7' | '8' | '' {
@@ -111,6 +197,10 @@ export function validateShachrisConfig(config: ShachrisConfig): string | null {
   const milestoneIds = new Set(config.milestones.map(milestone => milestone.id))
   if (!milestoneIds.has(config.fallbackMilestoneId)) return 'Choose a valid school fallback.'
   if (!config.ratings.length || !unique(config.ratings.map(rating => rating.id)) || config.ratings.some(rating => !rating.label.trim())) return 'Ratings need unique IDs and nonempty names.'
+  if (!config.stayMilestones.length || !unique(config.stayMilestones.map(milestone => milestone.id)) || !unique(config.stayMilestones.map(milestone => String(milestone.order)))
+    || config.stayMilestones.some(milestone => !milestone.label.trim() || !Number.isInteger(milestone.order))) return 'Communal Shachris milestones must have unique IDs, order, and names.'
+  if (new Set(config.stayRules.map(rule => rule.age)).size !== config.stayRules.length || !unique(config.stayRules.map(rule => rule.id))
+    || config.stayRules.some(rule => ![11, 12, 13].includes(rule.age) || !config.stayMilestones.some(milestone => milestone.id === rule.milestoneId && milestone.order > 0))) return 'Age requirements must map ages 11, 12, or 13 to a communal milestone after Hodu.'
   if (!unique(config.rules.map(rule => rule.id)) || new Set(config.rules.map(rule => rule.grade)).size !== config.rules.length
     || config.rules.some(rule => !['7', '8'].includes(rule.grade) || !milestoneIds.has(rule.milestoneId) || Object.keys(rule).some(key => !['id', 'grade', 'milestoneId'].includes(key)))) return 'Default rules must use one rule per actual grade (7th or 8th) and a valid milestone.'
   return null

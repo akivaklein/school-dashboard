@@ -4,18 +4,41 @@ import { chromium } from 'playwright'
 
 const migration = readFileSync('supabase/migrations/20261005_shachris_checkpoint.sql', 'utf8')
 const config = JSON.parse(migration.match(/values \('([\s\S]*?)'::jsonb\)/)[1])
+config.stayMilestones = [
+  { id: 'hodu', label: 'Start Hodu', order: 0 },
+  { id: 'shemoneh-esrei', label: 'After Shemoneh Esrei', order: 1 },
+  { id: 'chazaras-hashatz', label: 'After Chazaras HaShatz', order: 2 },
+  { id: 'end-davening', label: 'End Davening', order: 3 },
+]
+config.stayRules = [
+  { id: 'age-11', age: 11, milestoneId: 'shemoneh-esrei' },
+  { id: 'age-12', age: 12, milestoneId: 'chazaras-hashatz' },
+  { id: 'age-13', age: 13, milestoneId: 'end-davening' },
+]
 const settings = { config: structuredClone(config), revision: 0 }
 const now = new Date()
 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-const session = { id: 'qa-session', session_date: today, config }
+const session = { id: 'qa-session', session_date: today, config, started_at: null, started_by_name: '', milestone_times: {} }
 let permission = 'edit'
-let failSave = false
 let savedDob = '2014-11-28'
-const history = []
+let eventMinute = 1
+const progressionHistory = []
+const stayHistory = []
 const records = ['start', 'full', 'ashrei'].map((milestoneId, index) => {
-  const milestone = config.milestones.find(entry => entry.id === milestoneId)
-  return { session_id: session.id, student_id: 1001 + index, expectation: { milestoneId, label: milestone.label, sectionIds: [...milestone.sectionIds], source: index ? 'manual' : 'default' }, presence: ['present', 'unmarked', 'absent'][index], said_section_ids: [], rating_id: index ? '' : 'ni', note: '', revision: 0, updated_by_name: '' }
+  const progressMilestone = config.milestones.find(entry => entry.id === milestoneId)
+  const age = 11 + index
+  const stayMilestone = config.stayMilestones.find(entry => entry.id === config.stayRules.find(rule => rule.age === age).milestoneId)
+  return {
+    session_id: session.id,
+    student_id: 1001 + index,
+    expectation: { milestoneId, label: progressMilestone.label, sectionIds: [...progressMilestone.sectionIds], source: 'default' },
+    stay_requirement: { age, requiredUntil: stayMilestone.id, label: stayMilestone.label, source: 'default' },
+    presence: 'unmarked', arrival_at: null, last_return_at: null, leave_intervals: [],
+    requirement_result: 'pending', requirement_met_at: null, requirement_met_milestone: null,
+    said_section_ids: [], rating_id: '', note: '', revision: 0, updated_by_name: '',
+  }
 })
+
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
 await page.addInitScript(() => { window.__SHACHRIS_BROWSER_TEST__ = true })
@@ -30,13 +53,51 @@ await page.route('**/rest/v1/**', async route => {
   if (name === 'shachris_settings') response = settings
   else if (name === 'dashboard_current_permissions') response = { attendance: permission, setup: permission }
   else if (name === 'shachris_open_session') response = { session, records }
-  else if (name === 'shachris_expectations') response = history.filter(entry => entry.student_id === Number(url.searchParams.get('student_id')?.replace('eq.', '')))
-  else if (name === 'shachris_save_records') {
-    if (failSave) {
-      failSave = false
-      await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: 'Another staff member changed this session. Reload before saving.' }) })
-      return
+  else if (name === 'shachris_start_session') {
+    session.started_at ||= `${today}T07:00:00.000Z`
+    session.started_by_name = input.p_actor_name
+    session.milestone_times.hodu ||= session.started_at
+    response = session
+  } else if (name === 'shachris_bulk_arrive_at_start') {
+    response = input.p_student_ids.map(studentId => {
+      const record = records.find(entry => entry.student_id === studentId)
+      record.presence = 'present'
+      record.arrival_at ||= session.started_at
+      record.revision++
+      return record
+    })
+  } else if (name === 'shachris_record_presence_event') {
+    const record = records.find(entry => entry.student_id === input.p_student_id)
+    const at = `${today}T07:${String(eventMinute++).padStart(2, '0')}:00.000Z`
+    if (input.p_event_type === 'arrival') { record.presence = 'present'; record.arrival_at ||= at }
+    if (input.p_event_type === 'left') { record.presence = 'left'; record.leave_intervals.push({ leftAt: at, returnedAt: null, permission: input.p_permission }) }
+    if (input.p_event_type === 'returned') { record.presence = 'present'; record.last_return_at = at; record.leave_intervals.at(-1).returnedAt = at }
+    record.revision++
+    response = record
+  } else if (name === 'shachris_mark_milestone') {
+    const at = `${today}T07:${String(eventMinute++).padStart(2, '0')}:00.000Z`
+    session.milestone_times[input.p_milestone_id] = at
+    for (const record of records.filter(entry => entry.stay_requirement.requiredUntil === input.p_milestone_id && entry.requirement_result === 'pending')) {
+      record.requirement_result = record.presence === 'present' ? 'met' : 'not_met'
+      record.requirement_met_at = record.requirement_result === 'met' ? at : null
+      record.requirement_met_milestone = input.p_milestone_id
+      record.revision++
     }
+    response = { session, records, metCount: records.filter(record => record.requirement_met_milestone === input.p_milestone_id && record.requirement_result === 'met').length, notMetCount: records.filter(record => record.requirement_met_milestone === input.p_milestone_id && record.requirement_result === 'not_met').length, alreadyMarked: false }
+  } else if (name === 'shachris_set_stay_requirement') {
+    const record = records.find(entry => entry.student_id === input.p_student_id)
+    const milestone = config.stayMilestones.find(entry => entry.id === input.p_required_until)
+    record.stay_requirement = { age: record.stay_requirement.age, requiredUntil: input.p_required_until, label: milestone.label, source: input.p_mode, duration: input.p_duration }
+    record.requirement_result = 'pending'
+    record.requirement_met_at = null
+    record.requirement_met_milestone = null
+    record.revision++
+    const assignment = { id: `stay-${stayHistory.length}`, student_id: input.p_student_id, mode: input.p_mode, required_until: input.p_required_until, reason: input.p_reason, actor_name: input.p_actor_name, effective_date: today, duration: input.p_duration, created_at: now.toISOString() }
+    stayHistory.unshift(assignment)
+    response = { assignment, record }
+  } else if (name === 'shachris_stay_expectations') response = stayHistory.filter(entry => entry.student_id === Number(url.searchParams.get('student_id')?.replace('eq.', '')))
+  else if (name === 'shachris_expectations') response = progressionHistory.filter(entry => entry.student_id === Number(url.searchParams.get('student_id')?.replace('eq.', '')))
+  else if (name === 'shachris_save_records') {
     response = input.p_records.map(incoming => {
       const record = records.find(entry => entry.student_id === incoming.student_id)
       assert.equal(record.revision, incoming.revision)
@@ -45,12 +106,11 @@ await page.route('**/rest/v1/**', async route => {
     })
   } else if (name === 'shachris_set_expectation') {
     const record = records.find(entry => entry.student_id === input.p_student_id)
-    assert.equal(record.revision, input.p_record_revision)
     const milestone = config.milestones.find(entry => entry.id === (input.p_mode === 'manual' ? input.p_milestone_id : config.fallbackMilestoneId))
     record.expectation = { milestoneId: milestone.id, label: milestone.label, sectionIds: input.p_mode === 'manual' ? input.p_section_ids : milestone.sectionIds, source: input.p_mode, duration: input.p_duration }
     record.revision++
-    const assignment = { id: `qa-${history.length}`, student_id: input.p_student_id, mode: input.p_mode, milestone_id: milestone.id, section_ids: input.p_mode === 'manual' ? input.p_section_ids : null, reason: input.p_reason, actor_name: input.p_actor_name, effective_date: today, duration: input.p_duration, created_at: now.toISOString() }
-    history.unshift(assignment)
+    const assignment = { id: `progress-${progressionHistory.length}`, student_id: input.p_student_id, mode: input.p_mode, milestone_id: milestone.id, section_ids: input.p_mode === 'manual' ? input.p_section_ids : null, reason: input.p_reason, actor_name: input.p_actor_name, effective_date: today, duration: input.p_duration, created_at: now.toISOString() }
+    progressionHistory.unshift(assignment)
     response = { assignment, record }
   } else if (name === 'shachris_save_settings') {
     assert.equal(settings.revision, input.p_revision)
@@ -65,110 +125,125 @@ await page.route('**/rest/v1/**', async route => {
 })
 
 async function waitSaved() {
-  await page.getByRole('status').filter({ hasText: /All changes saved|Expectation saved/ }).waitFor()
+  await page.getByRole('status').filter({ hasText: /Hodu started|Marked .* In Shul|Arrival recorded|Departure recorded|Return recorded|Milestone marked|Stay requirement saved|Settings saved|All changes saved/ }).waitFor()
 }
 
 try {
   const base = process.env.SHACHRIS_TEST_URL || 'http://localhost:5190'
   const url = `${base}/src/components/__tests__/fixtures/shachris-preview.html`
+  await page.clock.install({ time: new Date(`${today}T07:30:00.000Z`) })
   await page.goto(url)
-  await page.getByRole('button', { name: 'Complete Present Requirements' }).waitFor()
-  const originalExpectations = JSON.stringify(records.map(record => record.expectation))
+  await page.getByRole('button', { name: 'Start Session' }).waitFor()
+  await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
+  assert.equal(await page.locator('.sh-live-card').count(), 3, await page.locator('body').innerText())
+  assert.match(await page.locator('.sh-live-card').filter({ hasText: 'Student Alef' }).textContent(), /Age 11.*Shemoneh Esrei/)
+  assert.match(await page.locator('.sh-live-card').filter({ hasText: 'Student Beis' }).textContent(), /Age 12.*Chazaras HaShatz/)
+  assert.match(await page.locator('.sh-live-card').filter({ hasText: 'Student Gimmel' }).textContent(), /Age 13.*End Davening/)
+
+  const expectedBeforeFilter = JSON.stringify(records.map(record => record.stay_requirement))
   await page.getByLabel('Class or group').selectOption('group:gemara-8')
-  assert.equal(await page.locator('.sh-student-row').count(), 2)
-  assert.match(await page.locator('.sh-student-row').filter({ hasText: 'Student Alef' }).textContent(), /7th Grade/)
-  assert.match(await page.locator('.sh-student-row').filter({ hasText: 'Student Gimmel' }).textContent(), /8th Grade/)
-  assert.equal(JSON.stringify(records.map(record => record.expectation)), originalExpectations)
-  await page.getByLabel('Class or group').selectOption('class:yk-b')
-  assert.equal(await page.locator('.sh-student-row').count(), 2)
-  await page.getByRole('button', { name: 'Complete Present Requirements' }).click()
-  await waitSaved()
-  assert.equal(records[0].said_section_ids.length, 1)
-  assert.equal(records[1].said_section_ids.length, 0)
-  assert.equal(records[2].said_section_ids.length, 0)
-  assert.deepEqual(records.map(record => record.presence), ['present', 'unmarked', 'absent'])
-  assert.equal(records[0].rating_id, 'ni')
-  await page.getByRole('button', { name: 'All In Shul' }).click()
-  await waitSaved()
-  assert.deepEqual(records.map(record => record.presence), ['present', 'present', 'absent'])
+  assert.equal(await page.locator('.sh-live-card').count(), 2)
+  assert.equal(JSON.stringify(records.map(record => record.stay_requirement)), expectedBeforeFilter)
   await page.getByLabel('Class or group').selectOption('all')
-  await page.getByRole('button', { name: 'Complete Present Requirements' }).click()
+
+  await page.getByRole('button', { name: 'Start Session' }).click()
   await waitSaved()
-  assert.equal(records[1].said_section_ids.length, 4)
-  assert.equal(records[2].said_section_ids.length, 0)
-  const studentRow = page.locator('.sh-student-row').filter({ hasText: 'Student Alef' })
-  await studentRow.getByRole('button', { name: 'Expectation / History' }).click()
-  await page.getByLabel('Current milestone').selectOption('ashrei')
-  await page.getByLabel('Expectation change reason').fill('Ready for Ashrei')
+  assert.equal(session.milestone_times.hodu, session.started_at)
+  await page.getByLabel('Class or group').selectOption('class:yk-b')
+  await page.getByRole('button', { name: 'Mark Visible In Shul at Hodu' }).click()
+  await waitSaved()
+  assert.equal(records[0].arrival_at, session.started_at)
+  assert.equal(records[1].arrival_at, session.started_at)
+  await page.getByLabel('Class or group').selectOption('all')
+
+  const age13Card = page.locator('.sh-live-card').filter({ hasText: 'Student Gimmel' })
+  await age13Card.getByRole('button', { name: 'In Shul / Arrived' }).click()
+  await waitSaved()
+  assert.ok(Date.parse(records[2].arrival_at) > Date.parse(session.started_at))
+  assert.match(await age13Card.textContent(), /min late/)
+
+  const age11Card = page.locator('.sh-live-card').filter({ hasText: 'Student Alef' })
+  await age11Card.getByRole('button', { name: 'Left With Permission' }).click()
+  await waitSaved()
+  await age11Card.getByRole('button', { name: 'Returned' }).click()
+  await waitSaved()
+  await age11Card.getByRole('button', { name: 'Left Without Permission' }).click()
+  await waitSaved()
+  await age11Card.getByRole('button', { name: 'Returned' }).click()
+  await waitSaved()
+  assert.equal(records[0].leave_intervals.length, 2)
+  assert.equal(records[0].leave_intervals[0].permission, 'with')
+  assert.equal(records[0].leave_intervals[1].permission, 'without')
+
+  const age12Card = page.locator('.sh-live-card').filter({ hasText: 'Student Beis' })
+  await age12Card.getByRole('button', { name: 'Change requirement' }).click()
+  await page.getByLabel('Required until milestone').selectOption('end-davening')
+  await page.getByLabel('Stay requirement reason').fill('Temporary full davening')
   await page.getByRole('radio', { name: 'Today and future', exact: true }).check()
   await page.getByRole('button', { name: 'Save Override' }).click()
   await waitSaved()
-  assert.equal(records[0].expectation.source, 'manual')
-  assert.equal(records[0].expectation.sectionIds.length, 2)
-  assert.equal(history[0].duration, 'future')
-  await page.screenshot({ path: 'docs/shachris-checkpoint-progression.png', fullPage: true })
-  await page.getByRole('button', { name: 'Close expectation' }).click()
-  await page.reload()
-  await page.locator('.sh-student-row').first().waitFor()
-  assert.match(await page.locator('.sh-student-row').filter({ hasText: 'Student Alef' }).textContent(), /Through Ashrei.*Manual/)
-  assert.match(await page.locator('.sh-student-row').filter({ hasText: 'Student Alef' }).textContent(), /Next: Shema/)
-  assert.equal(await page.getByLabel('Student Beis: Shema').isChecked(), true)
-  await page.locator('.sh-student-row').filter({ hasText: 'Student Beis' }).getByRole('button', { name: 'Expectation / History' }).click()
-  assert.equal(await page.getByRole('radio', { name: 'Today only', exact: true }).isChecked(), true)
-  await page.getByLabel('Current milestone').selectOption('ashrei')
+  assert.equal(records[1].stay_requirement.source, 'manual')
+  assert.equal(stayHistory[0].duration, 'future')
+  await page.getByRole('button', { name: 'Close stay requirement' }).click()
+
+  const age13Requirement = page.locator('.sh-live-card').filter({ hasText: 'Student Gimmel' })
+  await age13Requirement.getByRole('button', { name: 'Change requirement' }).click()
+  await page.getByLabel('Required until milestone').selectOption('shemoneh-esrei')
+  await page.getByRole('radio', { name: 'Today only', exact: true }).check()
   await page.getByRole('button', { name: 'Save Override' }).click()
   await waitSaved()
-  assert.equal(history[0].duration, 'today')
-  await page.getByRole('button', { name: 'Close expectation' }).click()
-  await page.reload()
-  await page.locator('.sh-student-row').first().waitFor()
-  assert.match(await page.locator('.sh-student-row').filter({ hasText: 'Student Beis' }).textContent(), /Today only/)
-  await page.getByLabel('Set rating for visible students').selectOption('g')
+  assert.equal(records[2].stay_requirement.duration, 'today')
+  await page.getByRole('button', { name: 'Close stay requirement' }).click()
+  await age13Requirement.getByRole('button', { name: 'Left Without Permission' }).click()
   await waitSaved()
-  assert.equal(records[0].rating_id, 'g')
-  assert.equal(records[2].presence, 'absent')
-  failSave = true
-  await page.locator('.sh-student-row').filter({ hasText: 'Student Alef' }).getByRole('button', { name: 'Left', exact: true }).click()
-  await page.getByRole('alert').filter({ hasText: 'Another staff member' }).waitFor()
-  assert.equal(records[0].presence, 'present')
-  assert.equal(await page.locator('.sh-student-row').filter({ hasText: 'Student Alef' }).getByRole('button', { name: 'In Shul', exact: true }).getAttribute('aria-pressed'), 'true')
-  await page.getByRole('button', { name: 'Reload saved session' }).click()
-  await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
-  await page.screenshot({ path: 'docs/shachris-checkpoint-desktop.png', fullPage: true })
+
+  await page.getByRole('button', { name: 'Mark Now' }).first().click()
+  await waitSaved()
+  assert.equal(records[0].requirement_result, 'met')
+  assert.equal(records[2].requirement_result, 'not_met')
+  await age11Card.getByRole('button', { name: 'Left With Permission' }).click()
+  await waitSaved()
+  assert.equal(records[0].requirement_result, 'met')
+  assert.equal(records[1].requirement_result, 'pending')
+
+  await age13Requirement.getByRole('button', { name: 'Returned' }).click()
+  await waitSaved()
+  await page.locator('.sh-communal-milestone').filter({ hasText: 'After Chazaras HaShatz' }).getByRole('button', { name: 'Mark Now' }).click()
+  await waitSaved()
+  assert.equal(records[1].requirement_result, 'pending')
+  await page.locator('.sh-communal-milestone').filter({ hasText: 'End Davening' }).getByRole('button', { name: 'Mark Now' }).click()
+  await waitSaved()
+  assert.equal(records[1].requirement_result, 'met')
+  assert.equal(records[2].requirement_result, 'not_met')
+
+  assert.equal(await age11Card.locator('details.sh-progress-card').evaluate(node => node.open), false)
+  await age11Card.locator('details.sh-progress-card > summary').click()
+  assert.equal(await page.getByLabel('Student Alef: Shema').count(), 1)
+  assert.match(await age11Card.locator('details.sh-progress-card').textContent(), /Next: Ashrei/)
+  await page.screenshot({ path: 'docs/shachris-live-session-desktop.png', fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-  await page.screenshot({ path: 'docs/shachris-checkpoint-mobile.png', fullPage: true })
-  await page.locator('.sh-student-row').filter({ hasText: 'Student Beis' }).getByRole('button', { name: 'Expectation / History' }).click()
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-  await page.getByRole('radio', { name: 'Today and future', exact: true }).check()
-  await page.getByRole('button', { name: 'Close expectation' }).click()
+  await page.screenshot({ path: 'docs/shachris-live-session-mobile.png', fullPage: true })
+
   await page.getByRole('button', { name: 'Rules & Settings' }).click()
+  assert.equal(await page.getByLabel('Age 11 required until').inputValue(), 'shemoneh-esrei')
+  assert.equal(await page.getByLabel('Age 12 required until').inputValue(), 'chazaras-hashatz')
+  assert.equal(await page.getByLabel('Age 13 required until').inputValue(), 'end-davening')
   assert.equal(await page.locator('input[type="number"]').count(), 0)
-  await page.getByRole('button', { name: 'Add Grade Default' }).click()
-  await page.getByLabel('Rule 1 milestone').selectOption('ashrei')
-  await page.getByRole('button', { name: 'Add Grade Default' }).click()
-  await page.getByLabel('Rule 2 milestone').selectOption('full')
-  assert.equal(await page.getByRole('button', { name: 'Add Grade Default' }).isDisabled(), true)
-  assert.equal(await page.getByLabel('Rule 1 grade').inputValue(), '7')
-  assert.equal(await page.getByLabel('Rule 2 grade').inputValue(), '8')
-  await page.getByLabel('School fallback milestone').selectOption('shema')
-  await page.getByRole('button', { name: 'Save Settings' }).click()
-  await page.getByRole('status').filter({ hasText: 'Settings saved' }).waitFor()
-  assert.equal(settings.config.fallbackMilestoneId, 'shema')
-  assert.deepEqual(settings.config.rules.map(rule => rule.grade), ['7', '8'])
-  assert.equal(settings.config.rules.some(rule => 'minAge' in rule || 'maxAge' in rule), false)
-  await page.getByRole('button', { name: 'Live Session', exact: true }).click()
+  await page.getByRole('button', { name: 'Live Session' }).click()
   permission = 'view'
   await page.reload()
   await page.getByRole('status').filter({ hasText: 'View only' }).waitFor()
-  assert.equal(await page.getByRole('button', { name: 'All In Shul' }).isDisabled(), true)
+  assert.equal(await page.getByRole('button', { name: 'Start Session' }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Mark Visible In Shul at Hodu' }).isDisabled(), true)
+
   await page.goto(`${url}?dob=1`)
   await page.getByLabel('Regular date of birth').fill('2013-10-06')
   await page.getByRole('button', { name: 'Save DOB' }).click()
   await page.getByRole('status').filter({ hasText: 'Date of birth saved.' }).waitFor()
   assert.equal(savedDob, '2013-10-06')
   assert.deepEqual(errors, [])
-  console.log('PASS: filtered bulk requirements, independent presence/rating, manual override/history, refresh, rollback, read-only access, DOB save, and mobile overflow. Screenshots in docs/. Browser APIs used synthetic fixtures; no school writes.')
+  console.log('PASS: Hodu start, bulk Hodu arrival, late arrival, repeated permission-tagged leave/return, today/future stay overrides, automatic milestone results, post-milestone lock, collapsed Davening Progress, age rules, DOB save, and mobile overflow. Screenshots are synthetic; no school writes.')
 } finally {
   await browser.close()
 }

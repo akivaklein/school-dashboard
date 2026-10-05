@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { INITIAL_SHACHRIS_CONFIG } from '../../utils/shachris'
 
 const migration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261005_shachris_checkpoint.sql'), 'utf8')
+const liveSessionMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261005213145_shachris_live_attendance.sql'), 'utf8')
 const dobImport = readFileSync(path.resolve(__dirname, '../../../docs/20261005_shachris_dob_import.sql'), 'utf8')
 
 describe('Shachris additive foundation', () => {
@@ -13,7 +14,12 @@ describe('Shachris additive foundation', () => {
   })
   it('keeps SQL and client initial configuration identical', () => {
     const seed = migration.match(/values \('([\s\S]*?)'::jsonb\)/)?.[1]
-    expect(JSON.parse(seed || '{}')).toEqual(INITIAL_SHACHRIS_CONFIG)
+    const { stayMilestones, stayRules, ...initialProgressConfig } = INITIAL_SHACHRIS_CONFIG
+    expect(JSON.parse(seed || '{}')).toEqual(initialProgressConfig)
+    expect(liveSessionMigration).toContain("'stayMilestones'")
+    expect(liveSessionMigration).toContain("'stayRules'")
+    expect(stayRules.map(rule => rule.age)).toEqual([11, 12, 13])
+    expect(stayMilestones.map(milestone => milestone.id)).toEqual(['hodu', 'shemoneh-esrei', 'chazaras-hashatz', 'end-davening'])
   })
   it('uses explicit RPCs, authenticated permissions, unique days and student snapshots', () => {
     expect(migration).toContain('session_date date not null unique')
@@ -47,5 +53,22 @@ describe('Shachris additive foundation', () => {
     expect(resolver).toContain('public.student_class_assignments')
     expect(resolver).not.toMatch(/date_of_birth|student_age|minAge|maxAge|instructional_group|student\.grade/)
     expect(migration).toContain("(rule - 'id' - 'grade' - 'milestoneId') <> '{}'::jsonb")
+  })
+  it('adds live attendance and communal-result state without replacing checklist data', () => {
+    expect(liveSessionMigration).toContain('add column if not exists started_at timestamptz')
+    expect(liveSessionMigration).toContain("add column if not exists leave_intervals jsonb not null default '[]'::jsonb")
+    expect(liveSessionMigration).toContain("add column if not exists requirement_result text not null default 'pending'")
+    expect(liveSessionMigration).toContain("requirement_result = case when presence = 'present' then 'met' else 'not_met' end")
+    expect(liveSessionMigration).toContain("and requirement_result = 'pending'")
+    expect(liveSessionMigration).toContain('public.shachris_stay_expectations')
+    expect(liveSessionMigration).toContain('public.dashboard_has_permission')
+    expect(liveSessionMigration).not.toMatch(/(?:drop|truncate) (?:table )?public\.(?:shachris_student_records|shachris_expectations|davening_)/i)
+  })
+  it('records Hodu, one-click arrival, permission-tagged intervals and communal requirement decisions', () => {
+    expect(liveSessionMigration).toContain("milestone_times = jsonb_set(milestone_times, '{hodu}'")
+    expect(liveSessionMigration).toContain("jsonb_build_object('at', session_row.started_at, 'bulkAtStart', true)")
+    expect(liveSessionMigration).toContain("jsonb_build_object('leftAt', happened_at, 'returnedAt', null, 'permission', p_permission)")
+    expect(liveSessionMigration).toContain("p_event_type not in ('arrival', 'left', 'returned')")
+    expect(liveSessionMigration).toContain("duration = 'future' or effective_date = p_date")
   })
 })
