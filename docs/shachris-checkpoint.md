@@ -55,6 +55,12 @@ Settings apply when creating new dated sessions. Existing sessions keep their se
 
 ## Deployment Gate
 
+### Temporary Standalone Demo (2026-10-06)
+
+Share https://shachris-daily-session-demo.vercel.app for the Shachris-only Daily Live Session. It reuses the dashboard's UI through a backend adapter, with a separate static Vercel deployment and simulated browser-local changes. Its sanitized roster contains names, age snapshots, grade assignments, and demo-local IDs only; no actual DOB, school API, login, real attendance history, or dashboard navigation is exposed. See [demo architecture, verification, and retirement instructions](../apps/shachris-demo/README.md).
+
+Fresh read-only checks confirmed the live migration and all 16 stay snapshots. The original school session has since been started; no demo action touches it. The main production domain still serves commit `3da4f9b`; the pushed October checkpoint was not deployed there as part of this task. Existing production aliases were not changed. Standalone login and multi-organization/division support remain future work.
+
 ### Restore Access Without Applying SQL
 
 1. Sign into the Supabase account that can manage project `ednjpqtuttutoatahorn` (the secure dashboard's backing project, historically named `school-dashboard-test`). At https://supabase.com/dashboard/account/tokens, create a scoped personal access token restricted to that project. Grant Project Settings Read and Database Read-write for the reviewed targeted migration/import workflow. Do not grant unrelated organization, billing, storage, or function access.
@@ -77,6 +83,6 @@ npx --yes supabase@latest db query --linked --file docs/20261005_shachris_roster
 
 ### Targeted Rollout After Review
 
-Both targeted migrations and the reviewed DOB import are complete. The live session is still unstarted. Do not rerun either migration file or use `db push`.
+Both targeted migrations and the reviewed DOB import are complete. Read-only verification on 2026-10-06 found that the original live session has since been started. Do not rerun either migration file or use `db push`.
 
 The deployed DOB import is complete. Student Events, Weekly Record, Summary/Rewards, and start/event-time correction remain deferred until the user reviews this Daily Live Session checkpoint.

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
+const screenshotDirectory = process.env.SHACHRIS_SCREENSHOT_DIR || 'docs'
+
 const migration = readFileSync('supabase/migrations/20261005_shachris_checkpoint.sql', 'utf8')
 const config = JSON.parse(migration.match(/values \('([\s\S]*?)'::jsonb\)/)[1])
 config.stayMilestones = [
@@ -220,10 +222,10 @@ try {
   await age11Card.locator('details.sh-progress-card > summary').click()
   assert.equal(await page.getByLabel('Student Alef: Shema').count(), 1)
   assert.match(await age11Card.locator('details.sh-progress-card').textContent(), /Next: Ashrei/)
-  await page.screenshot({ path: 'docs/shachris-live-session-desktop.png', fullPage: true })
+  await page.screenshot({ path: `${screenshotDirectory}/shachris-live-session-desktop.png`, fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-  await page.screenshot({ path: 'docs/shachris-live-session-mobile.png', fullPage: true })
+  await page.screenshot({ path: `${screenshotDirectory}/shachris-live-session-mobile.png`, fullPage: true })
 
   await page.getByRole('button', { name: 'Rules & Settings' }).click()
   assert.equal(await page.getByLabel('Age 11 required until').inputValue(), 'shemoneh-esrei')

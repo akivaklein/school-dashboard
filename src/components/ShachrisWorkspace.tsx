@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlarmClock, ArrowLeft, ArrowDown, ArrowUp, Check, CheckCheck, Clock3, LogIn, LogOut, Settings2, SlidersHorizontal, Users, X, RefreshCw, RotateCcw, CircleCheck, CircleAlert } from 'lucide-react'
-import { supabase } from '../supabaseClient'
-import { bulkArriveAtShachrisStart, loadShachrisProgression, loadShachrisSettings, loadShachrisStayHistory, markShachrisMilestone, openShachrisSession, recordShachrisPresenceEvent, saveShachrisExpectation, saveShachrisRecords, saveShachrisStayRequirement, startShachrisSession, type ShachrisSession, type ShachrisSettings } from '../services/shachrisService'
-import { calculateAge, calculateShachrisMinutesLate, calculateShachrisMinutesOut, completePresentShachrisRequirements, completeShachrisExpectation, hasMetShachrisExpectation, latestOpenShachrisLeave, localDateKey, nextShachrisSection, type ShachrisAssignment, type ShachrisRecord, type ShachrisStayAssignment } from '../utils/shachris'
-import { isLeadershipRole } from '../utils/permissions'
+import type { ShachrisSession, ShachrisSettings } from '../services/shachrisService'
+import type { ShachrisBackend } from '../services/shachrisBackend'
+import { calculateShachrisMinutesLate, calculateShachrisMinutesOut, completePresentShachrisRequirements, completeShachrisExpectation, hasMetShachrisExpectation, latestOpenShachrisLeave, localDateKey, nextShachrisSection, type ShachrisAssignment, type ShachrisRecord, type ShachrisStayAssignment } from '../utils/shachris'
 import ShachrisSettingsEditor from './ShachrisSettingsEditor'
 import './ShachrisWorkspace.css'
 
-type Student = { id: number | string; name?: string; is_active?: boolean; date_of_birth?: unknown; grade?: unknown }
+type Student = { id: number | string; name?: string; is_active?: boolean; age?: number | null }
 type Props = {
+  backend: ShachrisBackend
+  liveOnly?: boolean
   students: Student[]
   classes: Array<{ id: number | string; name: string }>
   primaryClassIdsByStudent: Record<string | number, string>
@@ -16,7 +17,7 @@ type Props = {
   instructionalGroupMemberships: Array<{ group_id: string; student_id: number }>
   actorName: string
   role: string
-  onClose: () => void
+  onClose?: () => void
 }
 
 function errorMessage(caught: unknown): string {
@@ -34,7 +35,8 @@ function formatMinutes(value: number): string {
   return `${value} min`
 }
 
-export default function ShachrisWorkspace({ students, classes, primaryClassIdsByStudent, instructionalGroups, instructionalGroupMemberships, actorName, role, onClose }: Props) {
+export default function ShachrisWorkspace({ backend, liveOnly = false, students, classes, primaryClassIdsByStudent, instructionalGroups, instructionalGroupMemberships, actorName, role, onClose }: Props) {
+  const { bulkArriveAtShachrisStart, loadShachrisProgression, loadShachrisSettings, loadShachrisStayHistory, markShachrisMilestone, openShachrisSession, recordShachrisPresenceEvent, saveShachrisExpectation, saveShachrisRecords, saveShachrisStayRequirement, startShachrisSession, loadAccess } = backend
   const [date, setDate] = useState(localDateKey)
   const [scope, setScope] = useState('all')
   const [search, setSearch] = useState('')
@@ -89,16 +91,12 @@ export default function ShachrisWorkspace({ students, classes, primaryClassIdsBy
     let canceled = false
     void (async () => {
       try {
-        const [loadedSettings, permissions] = await Promise.all([loadShachrisSettings(), supabase.rpc('dashboard_current_permissions')])
-        if (permissions.error) throw permissions.error
-        const permissionRank = ['none', 'view', 'add', 'edit', 'delete']
-        const editable = permissionRank.indexOf(String(permissions.data?.attendance)) >= 3
-        const manageable = isLeadershipRole(role) && permissionRank.indexOf(String(permissions.data?.setup)) >= 3
+        const [loadedSettings, permissions] = await Promise.all([loadShachrisSettings(), loadAccess(role)])
         const opened = await openShachrisSession(date, studentIdsKey ? studentIdsKey.split(',').map(Number) : [])
         if (canceled) return
         setSettings(loadedSettings)
-        setCanEdit(editable)
-        setCanManage(manageable)
+        setCanEdit(permissions.canEdit)
+        setCanManage(permissions.canManage)
         setSession(opened.session)
         setRecords(opened.records)
         setError('')
@@ -114,21 +112,21 @@ export default function ShachrisWorkspace({ students, classes, primaryClassIdsBy
       }
     })()
     return () => { canceled = true }
-  }, [date, studentIdsKey, reload, role])
+  }, [date, studentIdsKey, reload, role, loadShachrisSettings, loadAccess, openShachrisSession])
 
   useEffect(() => {
     if (!editingStudent) return
     let canceled = false
     void loadShachrisProgression(Number(editingStudent.id)).then(rows => { if (!canceled) setHistory(rows) }).catch(caught => { if (!canceled) setHistoryError(errorMessage(caught)) }).finally(() => { if (!canceled) setHistoryLoading(false) })
     return () => { canceled = true }
-  }, [editingStudent])
+  }, [editingStudent, loadShachrisProgression])
 
   useEffect(() => {
     if (!editingStayStudent) return
     let canceled = false
     void loadShachrisStayHistory(Number(editingStayStudent.id)).then(rows => { if (!canceled) setStayHistory(rows) }).catch(caught => { if (!canceled) setStayHistoryError(errorMessage(caught)) }).finally(() => { if (!canceled) setStayHistoryLoading(false) })
     return () => { canceled = true }
-  }, [editingStayStudent])
+  }, [editingStayStudent, loadShachrisStayHistory])
 
   async function updateRecords(changed: ShachrisRecord[]) {
     if (busyRef.current || locked || !session || !changed.length) return
@@ -292,11 +290,11 @@ export default function ShachrisWorkspace({ students, classes, primaryClassIdsBy
 
   return <div className="shachris sh-live-screen">
     <header className="shachris-heading sh-live-heading">
-      <div><button className="sh-back" disabled={saving} onClick={onClose}><ArrowLeft size={16} /> School Day</button><h1>Shachris Attendance</h1><span className="sh-subtitle">Track arrivals, departures, and communal requirement milestones.</span></div>
-      <div className="sh-heading-actions"><label className="sh-date-control"><span>Date</span><input type="date" aria-label="Session date" value={date} max={localDateKey()} disabled={saving || loading} onChange={event => { if (event.target.value) { setDate(event.target.value); setEditingStudent(null); setEditingStayStudent(null) } }} /></label><span role="status" className="sh-save-status">{loading ? 'Loading...' : saving ? 'Saving...' : status || (canEdit ? 'Ready' : 'View only')}</span><button className="sh-icon" title="Reload saved session" aria-label="Reload saved session" disabled={saving || loading} onClick={() => setReload(value => value + 1)}><RefreshCw size={18} /></button><button className={view === 'settings' ? 'sh-button active' : 'sh-button'} disabled={saving || loading || !settings} onClick={() => setView(view === 'settings' ? 'live' : 'settings')}>{view === 'settings' ? <Users size={17} /> : <Settings2 size={17} />}{view === 'settings' ? 'Live Session' : 'Rules & Settings'}</button></div>
+      <div>{onClose && <button className="sh-back" disabled={saving} onClick={onClose}><ArrowLeft size={16} /> School Day</button>}<h1>Shachris Attendance</h1><span className="sh-subtitle">Daily Live Session</span></div>
+      <div className="sh-heading-actions"><label className="sh-date-control"><span>Date</span><input type="date" aria-label="Session date" value={date} max={localDateKey()} disabled={liveOnly || saving || loading} onChange={event => { if (event.target.value) { setDate(event.target.value); setEditingStudent(null); setEditingStayStudent(null) } }} /></label><span role="status" className="sh-save-status">{loading ? 'Loading...' : saving ? 'Saving...' : status || (canEdit ? 'Ready' : 'View only')}</span><button className="sh-icon" title="Reload saved session" aria-label="Reload saved session" disabled={saving || loading} onClick={() => setReload(value => value + 1)}><RefreshCw size={18} /></button>{!liveOnly && <button className={view === 'settings' ? 'sh-button active' : 'sh-button'} disabled={saving || loading || !settings} onClick={() => setView(view === 'settings' ? 'live' : 'settings')}>{view === 'settings' ? <Users size={17} /> : <Settings2 size={17} />}{view === 'settings' ? 'Live Session' : 'Rules & Settings'}</button>}</div>
     </header>
     {error && <div className="sh-error" role="alert">{error}</div>}
-    {view === 'settings' && settings ? <ShachrisSettingsEditor key={settings.revision} settings={settings} canEdit={canManage} onSaved={saved => { setSettings(saved); setStatus('Shachris settings saved.') }} /> : <>
+    {!liveOnly && view === 'settings' && settings ? <ShachrisSettingsEditor key={settings.revision} settings={settings} canEdit={canManage} saveSettings={backend.saveShachrisSettings} onSaved={saved => { setSettings(saved); setStatus('Shachris settings saved.') }} /> : <>
       <div className="sh-live-filters"><label>Roster<select aria-label="Class or group" value={scope} disabled={saving} onChange={event => setScope(event.target.value)}><option value="all">Entire roster</option>{classes.map(entry => <option key={entry.id} value={`class:${entry.id}`}>{entry.name}</option>)}{instructionalGroups.filter(group => group.status !== 'archived').map(group => <option key={group.id} value={`group:${group.id}`}>{group.name || group.id}</option>)}</select></label><label className="sh-search"><span>Search students</span><input type="search" aria-label="Find student" placeholder="Search students..." value={search} disabled={saving} onChange={event => setSearch(event.target.value)} /></label></div>
       <section className="sh-communal-milestones" aria-label="Communal Shachris milestones">
         <div className={`sh-communal-milestone sh-hodu ${session?.started_at ? 'complete' : ''}`}><div><span className="sh-milestone-dot">{session?.started_at ? <Check size={16} /> : <AlarmClock size={17} />}</span><strong>Start Hodu</strong></div>{session?.started_at ? <time>{formatTime(session.started_at)}</time> : <button className="sh-start-hodu" disabled={locked || !today} onClick={() => void startSession()}>Start Session</button>}</div>
@@ -325,7 +323,7 @@ export default function ShachrisWorkspace({ students, classes, primaryClassIdsBy
         {visibleStudents.map(student => {
           const record = records.find(entry => entry.student_id === Number(student.id))
           if (!record || !config) return null
-          const age = record.stay_requirement.age ?? calculateAge(typeof student.date_of_birth === 'string' ? student.date_of_birth : null, date)
+          const age = record.stay_requirement.age ?? student.age ?? null
           const openLeave = latestOpenShachrisLeave(record.leave_intervals)
           const lateMinutes = calculateShachrisMinutesLate(session?.started_at, record.arrival_at)
           const minutesOut = calculateShachrisMinutesOut(record.leave_intervals, clockNow)

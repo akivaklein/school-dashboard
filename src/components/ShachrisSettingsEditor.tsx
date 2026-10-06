@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from 'lucide-react'
-import { saveShachrisSettings, type ShachrisSettings } from '../services/shachrisService'
+import type { ShachrisSettings } from '../services/shachrisService'
+import type { ShachrisBackend } from '../services/shachrisBackend'
 import { validateShachrisConfig } from '../utils/shachris'
 
-type Props = { settings: ShachrisSettings; canEdit: boolean; onSaved: (settings: ShachrisSettings) => void }
+type Props = { settings: ShachrisSettings; canEdit: boolean; onSaved: (settings: ShachrisSettings) => void; saveSettings: ShachrisBackend['saveShachrisSettings'] }
 
-export default function ShachrisSettingsEditor({ settings, canEdit, onSaved }: Props) {
+export default function ShachrisSettingsEditor({ settings, canEdit, onSaved, saveSettings }: Props) {
   const [config, setConfig] = useState(() => structuredClone(settings.config))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -18,7 +19,7 @@ export default function ShachrisSettingsEditor({ settings, canEdit, onSaved }: P
     setSaving(true)
     setError('')
     try {
-      onSaved(await saveShachrisSettings({ config, revision: settings.revision }))
+      onSaved(await saveSettings({ config, revision: settings.revision }))
     } catch (caught) {
       setError(caught && typeof caught === 'object' && 'message' in caught ? String(caught.message) : 'Unable to save settings.')
     } finally {

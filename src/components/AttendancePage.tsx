@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PrintClassList from './PrintClassList'
 import SecureDaveningTool from './SecureDaveningTool'
 import ShachrisWorkspace from './ShachrisWorkspace'
+import { secureShachrisBackend } from '../services/shachrisService'
 import { resolveActorName, resolveStudentClassId, resolveStudentClassIds } from './dashboardData'
 import {
   buildClassroomAttendanceScopeOptions,
@@ -756,7 +757,7 @@ export default function AttendancePage({
 
   const leaveStudent = leavePopup ? students.find(s => s.id === leavePopup) : null
 
-  if (showShachris) return <ShachrisWorkspace students={students} classes={CLASSES} actorName={actingStaffName} role={role} onClose={() => setShowShachris(false)} primaryClassIdsByStudent={primaryClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />
+  if (showShachris) return <ShachrisWorkspace backend={secureShachrisBackend} students={students} classes={CLASSES} actorName={actingStaffName} role={role} onClose={() => setShowShachris(false)} primaryClassIdsByStudent={primaryClassIdsByStudent} instructionalGroups={instructionalGroups} instructionalGroupMemberships={instructionalGroupMemberships} />
 
   return (
     <div>

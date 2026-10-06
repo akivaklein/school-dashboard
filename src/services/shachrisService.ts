@@ -1,5 +1,7 @@
 import { supabase } from '../supabaseClient'
 import { calculateAge, localDateKey, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord, type ShachrisStayAssignment } from '../utils/shachris'
+import { isLeadershipRole } from '../utils/permissions'
+import type { ShachrisBackend } from './shachrisBackend'
 
 export type ShachrisSettings = { config: ShachrisConfig; revision: number }
 export type ShachrisSession = { id: string; session_date: string; config: ShachrisConfig; started_at: string | null; started_by_name: string; milestone_times: Record<string, string> }
@@ -110,4 +112,20 @@ export async function saveStudentDob(studentId: number | string, dob: string | n
   const { data, error } = await supabase.from('students').update({ date_of_birth: dob }).eq('id', studentId).select('id,date_of_birth').single()
   if (error) throw error
   if (data.date_of_birth !== dob) throw new Error('The date of birth was not saved. Reload and try again.')
+}
+
+export const secureShachrisBackend: ShachrisBackend = {
+  loadShachrisSettings, openShachrisSession, saveShachrisRecords, startShachrisSession,
+  bulkArriveAtShachrisStart, recordShachrisPresenceEvent, markShachrisMilestone,
+  saveShachrisExpectation, loadShachrisProgression, loadShachrisStayHistory,
+  saveShachrisStayRequirement, saveShachrisSettings,
+  async loadAccess(role) {
+    const { data, error } = await supabase.rpc('dashboard_current_permissions')
+    if (error) throw error
+    const ranks = ['none', 'view', 'add', 'edit', 'delete']
+    return {
+      canEdit: ranks.indexOf(String(data?.attendance)) >= 3,
+      canManage: isLeadershipRole(role) && ranks.indexOf(String(data?.setup)) >= 3,
+    }
+  },
 }

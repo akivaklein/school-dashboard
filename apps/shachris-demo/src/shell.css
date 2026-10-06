@@ -1,0 +1,12 @@
+:root{font-family:'Segoe UI',sans-serif;color:#20352e;background:#f4f7fa;font-synthesis:none;letter-spacing:0}
+body{margin:0;min-width:320px;background:linear-gradient(180deg,#edf4f3 0,#f4f7fa 180px)}
+button{font:inherit}
+.demo-notice{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 24px;background:#eaf5ef;border-bottom:1px solid #c5d8cd;font-size:12px}
+.demo-notice span{color:#486056}
+.demo-notice button{margin-left:auto;width:34px;height:34px;display:grid;place-items:center;border:1px solid #c5d8cd;border-radius:5px;background:#fff;color:#145b48;cursor:pointer;flex:none}
+.demo-notice button:focus-visible{outline:2px solid #18826a;outline-offset:3px}
+.demo-main{max-width:1480px;margin:0 auto;padding:24px}
+.demo-main .sh-communal-milestone{flex-wrap:wrap}
+.demo-main .sh-live-heading{gap:16px}
+@media(max-width:760px){.demo-main{padding:16px 12px}.demo-notice{padding:10px 12px;gap:8px 12px}.demo-notice span{font-size:11px}.demo-main .sh-heading-actions{justify-content:flex-start}}
+@media(max-width:380px){.demo-main .sh-stay-requirement{grid-template-columns:1fr}.demo-main .sh-stay-requirement .sh-adjust{grid-column:1;grid-row:auto;white-space:normal}.demo-main .sh-live-card-head{flex-wrap:wrap}.demo-main .sh-presence-badge{margin-left:47px}}
