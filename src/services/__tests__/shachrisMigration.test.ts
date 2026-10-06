@@ -7,9 +7,17 @@ const migration = readFileSync(path.resolve(__dirname, '../../../supabase/migrat
 const liveSessionMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261005213145_shachris_live_attendance.sql'), 'utf8')
 const clearanceMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261006042222_shachris_personal_clearance.sql'), 'utf8')
 const startCorrectionMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261006050418_shachris_roster_grace_start_correction.sql'), 'utf8')
+const settingsTargetMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261006065220_shachris_settings_targeted_update.sql'), 'utf8')
 const dobImport = readFileSync(path.resolve(__dirname, '../../../docs/20261005_shachris_dob_import.sql'), 'utf8')
 
 describe('Shachris additive foundation', () => {
+  it('targets the singleton settings row without bypassing UPDATE safety', () => {
+    expect(settingsTargetMigration).toContain('from public.shachris_settings where id = true for update')
+    expect(settingsTargetMigration).toContain('where id = settings_row.id returning * into settings_row')
+    expect(settingsTargetMigration).toContain('Settings changed elsewhere. Reload before saving.')
+    expect(settingsTargetMigration).toContain("dashboard_has_permission('setup', 'edit')")
+    expect(settingsTargetMigration).not.toMatch(/disable|safeupdate|session_replication_role|grant /i)
+  })
   it('uses ordinary editing permission for audited start corrections and restricts the roster', () => {
     expect(startCorrectionMigration).not.toContain('dashboard_is_admin')
     expect(startCorrectionMigration).toContain("dashboard_has_permission('attendance', 'edit')")
