@@ -12,6 +12,40 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-06T08:
 afterEach(() => vi.useRealTimers())
 
 describe('standalone Shachris demo boundary', () => {
+  it('uses two-minute grace for individual arrivals but exact Hodu time for bulk arrivals', async () => {
+    const backend = createShachrisDemoBackend(roster)
+    const { session } = await backend.openShachrisSession(localDateKey(), [1, 2, 3])
+    const started = await backend.startShachrisSession(session.id, 'Demo')
+    vi.advanceTimersByTime(120000)
+    const onTime = await backend.recordShachrisPresenceEvent({ sessionId: session.id, studentId: 1, eventType: 'arrival', actorName: 'Demo' })
+    expect(onTime.late_minutes).toBe(0)
+    expect(onTime.late_reason).toBeNull()
+    vi.advanceTimersByTime(1000)
+    const late = await backend.recordShachrisPresenceEvent({ sessionId: session.id, studentId: 2, eventType: 'arrival', actorName: 'Demo' })
+    expect(late.late_minutes).toBe(2)
+    expect(late.late_reason).toBe('no_reason')
+    const bulk = await backend.bulkArriveAtShachrisStart(session.id, [3], 'Demo')
+    expect(bulk[0].arrival_at).toBe(started.started_at)
+  })
+  it('allows session editors to correct start and preserves activity during deliberate correction', async () => {
+    const backend = createShachrisDemoBackend(roster)
+    expect((await backend.loadAccess('teacher')).canCorrectStart).toBe(true)
+    const { session } = await backend.openShachrisSession(localDateKey(), [1, 2, 3])
+    const started = await backend.startShachrisSession(session.id, 'Teacher')
+    expect((await backend.loadShachrisStartCorrectionState(session.id)).hasActivity).toBe(false)
+    const reset = await backend.correctShachrisStart({ sessionId: session.id, mode: 'reset', expectedStart: started.started_at!, newStart: null, reason: 'Accidental click', actorName: 'Teacher', confirmed: true })
+    expect(reset.session.started_at).toBeNull()
+    const next = await backend.startShachrisSession(session.id, 'Admin')
+    vi.advanceTimersByTime(480000)
+    const arrived = await backend.recordShachrisPresenceEvent({ sessionId: session.id, studentId: 1, eventType: 'arrival', actorName: 'Admin' })
+    const input = { sessionId: session.id, mode: 'reset' as const, expectedStart: next.started_at!, newStart: null, reason: 'Testing', actorName: 'Admin', confirmed: true }
+    await expect(backend.correctShachrisStart(input)).rejects.toThrow('activity')
+    await expect(backend.correctShachrisStart({ ...input, mode: 'correct', newStart: arrived.arrival_at, confirmed: false })).rejects.toThrow('Confirm')
+    const corrected = await backend.correctShachrisStart({ ...input, mode: 'correct', newStart: arrived.arrival_at })
+    expect(corrected.records[0].arrival_at).toBe(arrived.arrival_at)
+    expect(corrected.records[0].late_minutes).toBe(0)
+    expect((await backend.loadShachrisStartCorrectionState(session.id)).audit.map(entry => entry.action)).toEqual(['corrected', 'started', 'reset', 'started'])
+  })
   it('exports only names, current ages, grade assignments, and local IDs', () => {
     expect(demoRoster).toHaveLength(16)
     for (const student of demoRoster) expect(Object.keys(student).sort()).toEqual(['age', 'classId', 'id', 'name'])
@@ -25,7 +59,7 @@ describe('standalone Shachris demo boundary', () => {
     expect(state.records.map(record => record.stay_requirement.requiredUntil)).toEqual(['shemoneh-esrei', 'end-davening'])
     expect(state.records.every(record => record.presence === 'unmarked')).toBe(true)
     expect(state.session.started_at).toBeNull()
-    expect(await backend.loadAccess('demo')).toEqual({ canEdit: true, canManage: false })
+    expect(await backend.loadAccess('demo')).toEqual({ canEdit: true, canManage: false, canCorrectStart: true })
   })
 
   it('requires Hodu and ordered milestones but only personal clearance makes Met', async () => {

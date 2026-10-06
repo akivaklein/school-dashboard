@@ -5,7 +5,8 @@ export type ShachrisBackend = Pick<typeof service,
   'startShachrisSession' | 'bulkArriveAtShachrisStart' | 'recordShachrisPresenceEvent' |
   'markShachrisMilestone' | 'saveShachrisExpectation' | 'loadShachrisProgression' |
   'loadShachrisStayHistory' | 'saveShachrisStayRequirement' | 'saveShachrisSettings' |
-  'saveShachrisLateReason' | 'setShachrisAbsence' | 'confirmShachrisClearance'
+  'saveShachrisLateReason' | 'setShachrisAbsence' | 'confirmShachrisClearance' |
+  'loadShachrisStartCorrectionState' | 'correctShachrisStart'
 > & {
-  loadAccess: (role: string) => Promise<{ canEdit: boolean; canManage: boolean }>
+  loadAccess: (role: string) => Promise<{ canEdit: boolean; canManage: boolean; canCorrectStart?: boolean }>
 }

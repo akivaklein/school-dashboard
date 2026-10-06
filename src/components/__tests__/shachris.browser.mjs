@@ -23,7 +23,7 @@ const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0'
 const session = { id: 'qa-session', session_date: today, config, started_at: null, started_by_name: '', milestone_times: {} }
 let permission = 'edit'
 let savedDob = '2014-11-28'
-let eventMinute = 1
+let eventMinute = 3
 const progressionHistory = []
 const stayHistory = []
 const records = ['start', 'full', 'ashrei'].map((milestoneId, index) => {
@@ -56,7 +56,10 @@ await page.route('**/rest/v1/**', async route => {
   let response
   if (name === 'shachris_settings') response = settings
   else if (name === 'dashboard_current_permissions') response = { attendance: permission, setup: permission }
-  else if (name === 'shachris_open_session') response = { session, records }
+  else if (name === 'shachris_open_session') {
+    assert.deepEqual(input.p_student_ids, [1001, 1002, 1003])
+    response = { session, records }
+  }
   else if (name === 'shachris_start_session') {
     session.started_at ||= `${today}T07:00:00.000Z`
     session.started_by_name = input.p_actor_name
@@ -161,8 +164,9 @@ try {
   assert.match(await page.locator('.sh-live-card').filter({ hasText: 'Student Gimmel' }).textContent(), /Age 13.*End Davening/)
 
   const expectedBeforeFilter = JSON.stringify(records.map(record => record.stay_requirement))
-  await page.getByLabel('Class or group').selectOption('group:gemara-8')
-  assert.equal(await page.locator('.sh-live-card').count(), 2)
+  assert.deepEqual(await page.getByLabel('Class or group').locator('option').allTextContents(), ['Entire roster', '7th Grade', '8th Grade'])
+  await page.getByLabel('Class or group').selectOption('class:yk-a')
+  assert.equal(await page.locator('.sh-live-card').count(), 1)
   assert.equal(JSON.stringify(records.map(record => record.stay_requirement)), expectedBeforeFilter)
   await page.getByLabel('Class or group').selectOption('all')
 
@@ -263,11 +267,12 @@ try {
   assert.equal(await page.getByLabel('Age 11 required until').inputValue(), 'shemoneh-esrei')
   assert.equal(await page.getByLabel('Age 12 required until').inputValue(), 'chazaras-hashatz')
   assert.equal(await page.getByLabel('Age 13 required until').inputValue(), 'end-davening')
-  assert.equal(await page.locator('input[type="number"]').count(), 0)
+  assert.equal(await page.getByLabel('Arrival grace minutes').inputValue(), '2')
   await page.getByRole('button', { name: 'Live Session' }).click()
   permission = 'view'
   await page.reload()
   await page.getByRole('status').filter({ hasText: 'View only' }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Correct Hodu Start', exact: true }).count(), 0)
   assert.equal(await page.getByRole('button', { name: 'Start Session' }).count(), 0)
   assert.equal(await page.getByRole('button', { name: 'Mark Visible In Shul at Hodu' }).isDisabled(), true)
 

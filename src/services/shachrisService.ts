@@ -6,6 +6,19 @@ import type { ShachrisBackend } from './shachrisBackend'
 export type ShachrisSettings = { config: ShachrisConfig; revision: number }
 export type ShachrisSession = { id: string; session_date: string; config: ShachrisConfig; started_at: string | null; started_by_name: string; milestone_times: Record<string, string> }
 export type ShachrisMilestoneResult = { session: ShachrisSession; records: ShachrisRecord[]; metCount: number; notMetCount: number; alreadyMarked: boolean }
+export type ShachrisStartCorrectionState = { hasActivity: boolean; audit: Array<{ id: string; action: string; previous_start: string | null; new_start: string | null; actor_name: string; reason: string; created_at: string }> }
+
+export async function loadShachrisStartCorrectionState(sessionId: string): Promise<ShachrisStartCorrectionState> {
+  const { data, error } = await supabase.rpc('shachris_start_correction_state', { p_session_id: sessionId })
+  if (error) throw error
+  return data as ShachrisStartCorrectionState
+}
+
+export async function correctShachrisStart(input: { sessionId: string; mode: 'reset' | 'correct'; newStart: string | null; expectedStart: string; reason: string; actorName: string; confirmed: boolean }): Promise<{ session: ShachrisSession; records: ShachrisRecord[] }> {
+  const { data, error } = await supabase.rpc('shachris_correct_start', { p_session_id: input.sessionId, p_mode: input.mode, p_new_start: input.newStart, p_expected_start: input.expectedStart, p_reason: input.reason.trim(), p_actor_name: input.actorName, p_confirmed: input.confirmed })
+  if (error) throw error
+  return data as { session: ShachrisSession; records: ShachrisRecord[] }
+}
 
 async function updateDailyFact(input: { sessionId: string; studentId: number; actorName: string; revision: number }, action: string, detail: Record<string, unknown>): Promise<ShachrisRecord> {
   const { data, error } = await supabase.rpc('shachris_update_daily_fact', { p_session_id: input.sessionId, p_student_id: input.studentId, p_action: action, p_detail: detail, p_actor_name: input.actorName, p_record_revision: input.revision })
@@ -138,6 +151,7 @@ export const secureShachrisBackend: ShachrisBackend = {
   saveShachrisExpectation, loadShachrisProgression, loadShachrisStayHistory,
   saveShachrisStayRequirement, saveShachrisSettings,
   saveShachrisLateReason, setShachrisAbsence, confirmShachrisClearance,
+  loadShachrisStartCorrectionState, correctShachrisStart,
   async loadAccess(role) {
     const { data, error } = await supabase.rpc('dashboard_current_permissions')
     if (error) throw error
@@ -145,6 +159,7 @@ export const secureShachrisBackend: ShachrisBackend = {
     return {
       canEdit: ranks.indexOf(String(data?.attendance)) >= 3,
       canManage: isLeadershipRole(role) && ranks.indexOf(String(data?.setup)) >= 3,
+      canCorrectStart: ranks.indexOf(String(data?.attendance)) >= 3,
     }
   },
 }

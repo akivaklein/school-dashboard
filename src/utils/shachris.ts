@@ -4,6 +4,7 @@ export type ShachrisRule = { id: string; grade: '7' | '8'; milestoneId: string }
 export type ShachrisStayMilestone = { id: string; label: string; order: number }
 export type ShachrisStayRule = { id: string; age: 11 | 12 | 13; milestoneId: string }
 export type ShachrisConfig = {
+  arrivalGraceMinutes?: number
   sections: ShachrisSection[]
   milestones: ShachrisMilestone[]
   ratings: Array<{ id: string; label: string }>
@@ -79,8 +80,16 @@ export type ShachrisRecord = {
   stayed_beyond_required?: boolean
 }
 
-export function isShachrisLate(startedAt: string | null | undefined, arrivalAt: string | null | undefined): boolean {
-  return Boolean(startedAt && arrivalAt && Date.parse(arrivalAt) > Date.parse(startedAt))
+export function isShachrisRosterStudent(student: { is_active?: boolean }, primaryClassId: string | null | undefined): boolean {
+  return student.is_active !== false && (primaryClassId === 'yk-a' || primaryClassId === 'yk-b')
+}
+
+export function shachrisGraceMinutes(config: Pick<ShachrisConfig, 'arrivalGraceMinutes'> | null | undefined): number {
+  return config?.arrivalGraceMinutes ?? 2
+}
+
+export function isShachrisLate(startedAt: string | null | undefined, arrivalAt: string | null | undefined, graceMinutes = 0): boolean {
+  return Boolean(startedAt && arrivalAt && Date.parse(arrivalAt) > Date.parse(startedAt) + graceMinutes * 60000)
 }
 
 export function isShachrisReadyForCheck(record: ShachrisRecord, milestoneTimes: Record<string, string>): boolean {
@@ -94,11 +103,11 @@ export function shachrisPresenceLabel(record: ShachrisRecord): string {
   return 'Not Marked'
 }
 
-export function needsShachrisAttention(record: ShachrisRecord, startedAt: string | null | undefined): boolean {
+export function needsShachrisAttention(record: ShachrisRecord, startedAt: string | null | undefined, graceMinutes = 0): boolean {
   if (!startedAt || record.absence_status === 'excused') return false
   return !record.stay_requirement.requiredUntil || record.presence === 'unmarked' || record.presence === 'absent'
     || record.presence === 'left' && !record.personally_cleared_at
-    || isShachrisLate(startedAt, record.arrival_at) && !record.late_excused
+    || isShachrisLate(startedAt, record.arrival_at, graceMinutes) && !record.late_excused
 }
 
 export function calculateShachrisExtraSeconds(record: ShachrisRecord, now = Date.now()): number {
@@ -180,8 +189,9 @@ function durationMinutes(start: string | null | undefined, end: string | null | 
   return Math.floor((endMs - startMs) / 60000)
 }
 
-export function calculateShachrisMinutesLate(startedAt: string | null | undefined, arrivalAt: string | null | undefined): number | null {
+export function calculateShachrisMinutesLate(startedAt: string | null | undefined, arrivalAt: string | null | undefined, graceMinutes = 0): number | null {
   if (!startedAt || !arrivalAt) return null
+  if (!isShachrisLate(startedAt, arrivalAt, graceMinutes)) return 0
   return durationMinutes(startedAt, arrivalAt)
 }
 
@@ -225,6 +235,7 @@ export function hasMetShachrisExpectation(record: ShachrisRecord): boolean {
 }
 
 export function validateShachrisConfig(config: ShachrisConfig): string | null {
+  if (config.arrivalGraceMinutes !== undefined && (!Number.isInteger(config.arrivalGraceMinutes) || config.arrivalGraceMinutes < 0 || config.arrivalGraceMinutes > 10)) return 'Arrival grace must be a whole number from 0 to 10 minutes.'
   const unique = (ids: string[]) => ids.every(Boolean) && new Set(ids).size === ids.length
   if (!config.sections.length || !unique(config.sections.map(section => section.id)) || config.sections.some(section => !section.label.trim())) return 'Sections must have unique IDs and nonempty names.'
   if (!config.milestones.length || !unique(config.milestones.map(milestone => milestone.id))) return 'Add at least one milestone with a unique ID.'

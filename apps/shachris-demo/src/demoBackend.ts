@@ -1,7 +1,8 @@
 import type { ShachrisBackend } from '../../../src/services/shachrisBackend'
-import type { ShachrisSession } from '../../../src/services/shachrisService'
+import type { ShachrisSession, ShachrisStartCorrectionState } from '../../../src/services/shachrisService'
 import { calculateShachrisMinutesLate, isShachrisLate, personallyClearShachrisRecord, INITIAL_SHACHRIS_CONFIG, latestOpenShachrisLeave, localDateKey, resolveShachrisExpectation, resolveShachrisStayRequirement, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord, type ShachrisStayAssignment } from '../../../src/utils/shachris'
 import type { DemoStudent } from './roster'
+import { shachrisGraceMinutes } from '../../../src/utils/shachris'
 
 export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: ShachrisConfig = INITIAL_SHACHRIS_CONFIG): ShachrisBackend {
   const config = structuredClone(initialConfig)
@@ -9,6 +10,7 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
   const sessions = new Map<string, { session: ShachrisSession; records: ShachrisRecord[] }>()
   const progressHistory: ShachrisAssignment[] = []
   const stayHistory: ShachrisStayAssignment[] = []
+  const startAudit = new Map<string, ShachrisStartCorrectionState['audit']>()
   const copy = <Value,>(value: Value): Value => structuredClone(value)
   const now = () => new Date().toISOString()
   const applies = (entry: ShachrisAssignment | ShachrisStayAssignment, date: string) => entry.effective_date <= date && (entry.duration === 'future' || entry.effective_date === date)
@@ -34,7 +36,7 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
   }
 
   return {
-    async loadAccess() { return { canEdit: true, canManage: false } },
+    async loadAccess() { return { canEdit: true, canManage: false, canCorrectStart: true } },
     async loadShachrisSettings() { return { config: copy(config), revision: 0 } },
     async saveShachrisSettings() { throw new Error('Settings are not available in this temporary demo.') },
     async openShachrisSession(date, studentIds) {
@@ -61,8 +63,10 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
       const { session } = getSession(id)
       if (!session.started_at) {
         session.started_at = now()
+        session.config.arrivalGraceMinutes = shachrisGraceMinutes(config)
         session.started_by_name = actorName
         session.milestone_times.hodu = session.started_at
+        startAudit.set(id, [{ id: crypto.randomUUID(), action: 'started', previous_start: null, new_start: session.started_at, actor_name: actorName, reason: '', created_at: now() }, ...(startAudit.get(id) || [])])
       }
       return copy(session)
     },
@@ -86,8 +90,8 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
         record.presence = 'present'
         record.absence_status = null
         record.arrival_at ||= at
-        record.late_minutes = calculateShachrisMinutesLate(session.started_at, record.arrival_at)
-        if (isShachrisLate(session.started_at, record.arrival_at)) record.late_reason ||= 'no_reason'
+        record.late_minutes = calculateShachrisMinutesLate(session.started_at, record.arrival_at, shachrisGraceMinutes(session.config))
+        if (isShachrisLate(session.started_at, record.arrival_at, shachrisGraceMinutes(session.config))) record.late_reason ||= 'no_reason'
       } else if (input.eventType === 'left') {
         if (record.presence !== 'present' || !input.permission) throw new Error('Only a present student can leave; choose permission.')
         record.presence = 'left'
@@ -167,7 +171,7 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
       const { session } = requireStarted(input.sessionId)
       const record = getRecord(input.sessionId, input.studentId)
       if (record.revision !== input.revision) throw new Error('Session changed. Reload and try again.')
-      if (!isShachrisLate(session.started_at, record.arrival_at)) throw new Error('Student did not arrive late.')
+      if (!isShachrisLate(session.started_at, record.arrival_at, shachrisGraceMinutes(session.config))) throw new Error('Student did not arrive late.')
       if (!['transportation', 'excused', 'no_reason', 'other'].includes(input.reason) || input.note.length > 500) throw new Error('Invalid late reason.')
       if (input.reason === 'no_reason' && input.excused) throw new Error('Choose Excused when excusing without a reason.')
       record.late_reason = input.reason
@@ -192,6 +196,34 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
       if (record.personally_cleared_at) return copy(record)
       Object.assign(record, personallyClearShachrisRecord(record, session.milestone_times, now(), input.actorName))
       return changed(record, input.actorName)
+    },
+    async loadShachrisStartCorrectionState(id) {
+      const state = getSession(id)
+      return copy({ hasActivity: state.records.some(record => record.revision > 0) || Object.keys(state.session.milestone_times).some(key => key !== 'hodu'), audit: startAudit.get(id) || [] })
+    },
+    async correctShachrisStart(input) {
+      const state = requireStarted(input.sessionId)
+      if (state.session.session_date !== localDateKey() || state.session.started_at !== input.expectedStart) throw new Error('Hodu start changed or is not today. Reload before correcting.')
+      if (!input.confirmed || !input.reason.trim() || input.reason.length > 500) throw new Error('Confirm the correction and provide a reason.')
+      const previous = state.session.started_at
+      if (input.mode === 'reset') {
+        if (state.records.some(record => record.revision > 0) || Object.keys(state.session.milestone_times).some(key => key !== 'hodu')) throw new Error('Attendance or milestone activity exists. Correct the start time instead.')
+        state.session.started_at = null
+        state.session.started_by_name = ''
+        delete state.session.milestone_times.hodu
+      } else {
+        if (!input.newStart || !Number.isFinite(Date.parse(input.newStart)) || localDateKey(new Date(input.newStart)) !== localDateKey() || Date.parse(input.newStart) > Date.now()) throw new Error('Choose a valid start time today, not in the future.')
+        if (Object.entries(state.session.milestone_times).some(([milestone, at]) => milestone !== 'hodu' && Date.parse(input.newStart!) > Date.parse(at))) throw new Error('Start time cannot be after a recorded communal milestone.')
+        state.session.started_at = input.newStart
+        state.session.milestone_times.hodu = input.newStart
+        state.session.config.arrivalGraceMinutes = shachrisGraceMinutes(config)
+        for (const record of state.records.filter(entry => entry.arrival_at)) {
+          record.late_minutes = calculateShachrisMinutesLate(input.newStart, record.arrival_at, shachrisGraceMinutes(state.session.config))
+          changed(record, input.actorName)
+        }
+      }
+      startAudit.set(input.sessionId, [{ id: crypto.randomUUID(), action: input.mode === 'reset' ? 'reset' : 'corrected', previous_start: previous, new_start: state.session.started_at, actor_name: input.actorName, reason: input.reason.trim(), created_at: now() }, ...(startAudit.get(input.sessionId) || [])])
+      return copy(state)
     },
   }
 }

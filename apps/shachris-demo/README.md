@@ -10,6 +10,8 @@ Changes are held only in memory in each visitor's browser. Refresh or the reset 
 
 ## Shared Daily Functionality (2026-10-06)
 
+The roster selector is limited to Entire roster, 7th Grade, and 8th Grade; the demo roster itself is unchanged. New starts use a 2-minute grace period: arrivals within it are On Time with no reason popup, while bulk Hodu marking retains the exact start timestamp. Correct Hodu Start is available to any session editor, not only admins. It requires confirmation/reason, allows reset only before meaningful activity, and otherwise retains attendance while correcting the recorded start. The demo simulates its start audit in memory; Hadran persists it server-side. No automatic correction of an existing school start was performed.
+
 The same shared UI now supports factual late arrival plus Transportation/Excused/No Reason/Other, independent late excusal, Not Marked/Absent/Excused from Shul/Not in Shul, communal-only milestones, Ready for Check, explicit personal completion, and an extra-stay star. The real adapter stores these daily facts in the school database; this adapter simulates them only in memory. Changing today's required milestone is blocked after personal clearance. Extra stay starts only after clearance, stops while out, and resumes on return; no rewards or weekly UI are implemented.
 
 ## Shared Architecture
@@ -58,4 +60,4 @@ Before implementation, branch `yeshiva-ketana-secure` and pushed checkpoints `52
 
 The main production domain was verified separately: `yeshiva-ketana-secure.vercel.app` serves September 24 commit `3da4f9b`, not the October checkpoint. No main deployment or alias was changed.
 
-All 345 repository tests pass after the personal-clearance update, as do the main/demo builds, standalone typecheck/privacy audit, focused Shachris lint, isolated SQL daily-fact save/reopen/security checks, dashboard synthetic browser regression, and public demo desktop/mobile workflow (including the late-reason popup). Root typecheck still reports the two previously documented errors in unchanged `teachingModeUtils.test.ts`. `AttendancePage.tsx` has seven pre-existing lint errors, confirmed against the pushed checkpoint; its adapter import/call change adds none. No full-project database advisory audit is claimed.
+All 350 repository tests pass after the roster/grace/start-correction update, as do the main/demo builds, standalone typecheck/privacy audit, focused Shachris lint, isolated SQL daily-fact and nonadmin correction/security checks, dashboard synthetic browser regression, and public demo desktop/mobile workflow (including late-reason and correction dialogs). Root typecheck still reports the two previously documented errors in unchanged `teachingModeUtils.test.ts`. `AttendancePage.tsx` has seven pre-existing lint errors, confirmed against the pushed checkpoint; its adapter import/call change adds none. No full-project database advisory audit is claimed.

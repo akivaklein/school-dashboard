@@ -1,10 +1,29 @@
 import { describe, expect, it } from 'vitest'
 import { calculateShachrisExtraSeconds, isShachrisLate, isShachrisReadyForCheck, needsShachrisAttention, personallyClearShachrisRecord, shachrisPresenceLabel } from '../shachris'
+import { isShachrisRosterStudent, shachrisGraceMinutes } from '../shachris'
 import { calculateAge, calculateShachrisMinutesLate, calculateShachrisMinutesOut, completePresentShachrisRequirements, completeShachrisExpectation, getShachrisGrade, hasMetShachrisExpectation, INITIAL_SHACHRIS_CONFIG, latestOpenShachrisLeave, nextShachrisSection, resolveShachrisExpectation, resolveShachrisStayRequirement, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord } from '../shachris'
 
 const assignment: ShachrisAssignment = { id: 'override', student_id: 1, mode: 'manual', milestone_id: 'ashrei', section_ids: null, reason: '', actor_name: 'Rebbe', effective_date: '2026-10-05', duration: 'future', created_at: '2026-10-05T12:00:00Z' }
 
 describe('Shachris individual requirements', () => {
+  it('admits only active authoritative YK 7th/8th assignments', () => {
+    expect(isShachrisRosterStudent({ is_active: true }, 'yk-b')).toBe(true)
+    expect(isShachrisRosterStudent({ is_active: true }, 'yk-a')).toBe(true)
+    expect(isShachrisRosterStudent({ is_active: false }, 'yk-a')).toBe(false)
+    for (const assignmentId of ['mesivta-8', 'yk-6', 'yk-9', 'Gemara 8', '', null]) expect(isShachrisRosterStudent({ is_active: true }, assignmentId)).toBe(false)
+  })
+  it('uses an inclusive configurable grace without changing the factual after-grace minutes', () => {
+    const start = '2026-10-06T07:00:00Z'
+    expect(shachrisGraceMinutes(INITIAL_SHACHRIS_CONFIG)).toBe(2)
+    for (const arrival of ['2026-10-06T07:00:10Z', '2026-10-06T07:01:59Z', '2026-10-06T07:02:00Z']) {
+      expect(isShachrisLate(start, arrival, 2)).toBe(false)
+      expect(calculateShachrisMinutesLate(start, arrival, 2)).toBe(0)
+    }
+    expect(isShachrisLate(start, '2026-10-06T07:02:01Z', 2)).toBe(true)
+    expect(calculateShachrisMinutesLate(start, '2026-10-06T07:08:00Z', 2)).toBe(8)
+    expect(isShachrisLate(start, '2026-10-06T07:01:00Z', 0)).toBe(true)
+    expect(validateShachrisConfig({ ...INITIAL_SHACHRIS_CONFIG, arrivalGraceMinutes: -1 })).toBeTruthy()
+  })
   it('calculates age on the birthday without UTC date conversion', () => {
     expect(calculateAge('2013-10-06', '2026-10-05')).toBe(12)
     expect(calculateAge('2013-10-06', '2026-10-06')).toBe(13)

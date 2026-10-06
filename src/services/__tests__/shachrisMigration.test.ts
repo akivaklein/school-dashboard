@@ -6,9 +6,22 @@ import { INITIAL_SHACHRIS_CONFIG } from '../../utils/shachris'
 const migration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261005_shachris_checkpoint.sql'), 'utf8')
 const liveSessionMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261005213145_shachris_live_attendance.sql'), 'utf8')
 const clearanceMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261006042222_shachris_personal_clearance.sql'), 'utf8')
+const startCorrectionMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261006050418_shachris_roster_grace_start_correction.sql'), 'utf8')
 const dobImport = readFileSync(path.resolve(__dirname, '../../../docs/20261005_shachris_dob_import.sql'), 'utf8')
 
 describe('Shachris additive foundation', () => {
+  it('uses ordinary editing permission for audited start corrections and restricts the roster', () => {
+    expect(startCorrectionMigration).not.toContain('dashboard_is_admin')
+    expect(startCorrectionMigration).toContain("dashboard_has_permission('attendance', 'edit')")
+    expect(startCorrectionMigration).toContain("assignment.class_id in ('yk-a', 'yk-b')")
+    expect(startCorrectionMigration).toContain('student.is_active is not false')
+    expect(startCorrectionMigration).toContain('public.shachris_start_has_activity(p_session_id)')
+    expect(startCorrectionMigration).toContain("p_confirmed is distinct from true")
+    expect(startCorrectionMigration).toContain('previousArrivals')
+    expect(startCorrectionMigration).toContain('"arrivalGraceMinutes":2')
+    expect(startCorrectionMigration).toContain('enable row level security')
+    expect(startCorrectionMigration).not.toMatch(/(?:delete from|truncate|drop table) public\./i)
+  })
   it('stores daily facts and requires personal clearance without rewriting historical results', () => {
     for (const field of ['late_minutes', 'late_reason', 'late_excused', 'absence_status', 'personally_cleared_at', 'personally_cleared_by_name', 'personally_cleared_milestone', 'extra_stay_intervals', 'stayed_beyond_required']) expect(clearanceMigration).toContain(`add column ${field}`)
     const marker = clearanceMigration.slice(clearanceMigration.indexOf('create or replace function public.shachris_mark_milestone'), clearanceMigration.indexOf('create function public.shachris_update_daily_fact'))
