@@ -95,7 +95,7 @@
 .sh-start-hodu,.sh-mark-milestone{border:0;border-radius:5px;background:#174f97;color:#fff;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap}
 .sh-hodu .sh-start-hodu{background:#167246}
 .sh-start-hodu:disabled,.sh-mark-milestone:disabled{opacity:.45;cursor:default}
-.sh-live-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.sh-live-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:0 0 14px}
 .sh-live-stat{display:flex;align-items:center;gap:11px;min-width:0;padding:12px 13px;border:1px solid #e1e7ee;border-radius:8px;background:#fff}
 .sh-stat-icon{width:42px;height:42px;display:grid;place-items:center;flex:none;border-radius:12px;background:#eff5fc;color:#276cb7}
 .sh-live-stat>div{display:grid;min-width:0;gap:1px}
@@ -162,6 +162,21 @@
 .sh-progress-rating select{flex:1}
 .sh-stay-rules{grid-column:1/-1}
 .sh-progress-rules{grid-column:1/-1}
+.sh-late-pill.excused,.sh-presence-badge.excused{background:#eef2f3;color:#52636a;white-space:normal}
+.sh-arrival-row{flex-wrap:wrap}
+.sh-late-reason-row{display:flex;justify-content:space-between;gap:8px;padding:7px 0;font-size:10px;color:var(--sh-muted)}
+.sh-late-reason-row>span{overflow-wrap:anywhere;min-width:0}
+.sh-late-reason-row>button{flex:none}
+.sh-nonattendance{display:flex;gap:8px;align-items:center;font-size:11px;padding:8px 0;color:var(--sh-muted)}
+.sh-nonattendance>select{flex:1;font-size:11px}
+.sh-requirement-result.ready{background:#edf3fc;color:#285e9c}
+.sh-clearance-button{width:100%;margin-bottom:9px}
+.sh-extra-stay{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:7px 0;color:#786116;font-size:10px}
+.sh-extra-stay>span{color:var(--sh-muted)}
+.sh-legacy-result{display:block;font-size:10px;color:var(--sh-muted);margin-bottom:9px}
+.sh-late-backdrop{align-items:center;justify-content:center;padding:12px}
+.sh-late-dialog{height:auto;max-height:90vh;width:min(100%,390px);border-radius:8px}
+.sh-late-dialog .sh-check-label{display:flex;align-items:center}
 .sh-drawer .sh-duration-choice{margin:0}
 @media(max-width:1150px){.sh-column-head,.sh-student-row{grid-template-columns:minmax(170px,1fr) minmax(155px,.8fr) minmax(170px,1fr) minmax(110px,.6fr);gap:10px}.sh-section-checks{grid-template-columns:1fr}.sh-rule{grid-template-columns:1fr 1fr}.sh-rule>label:last-of-type{grid-column:1/-1}}
 @media(max-width:1180px){.sh-live-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sh-live-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { calculateAge, calculateShachrisMinutesLate, calculateShachrisMinutesOut, completePresentShachrisRequirements, completeShachrisExpectation, evaluateShachrisRequirementAtMilestone, getShachrisGrade, hasMetShachrisExpectation, INITIAL_SHACHRIS_CONFIG, latestOpenShachrisLeave, nextShachrisSection, resolveShachrisExpectation, resolveShachrisStayRequirement, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord } from '../shachris'
+import { calculateShachrisExtraSeconds, isShachrisLate, isShachrisReadyForCheck, needsShachrisAttention, personallyClearShachrisRecord, shachrisPresenceLabel } from '../shachris'
+import { calculateAge, calculateShachrisMinutesLate, calculateShachrisMinutesOut, completePresentShachrisRequirements, completeShachrisExpectation, getShachrisGrade, hasMetShachrisExpectation, INITIAL_SHACHRIS_CONFIG, latestOpenShachrisLeave, nextShachrisSection, resolveShachrisExpectation, resolveShachrisStayRequirement, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord } from '../shachris'
 
 const assignment: ShachrisAssignment = { id: 'override', student_id: 1, mode: 'manual', milestone_id: 'ashrei', section_ids: null, reason: '', actor_name: 'Rebbe', effective_date: '2026-10-05', duration: 'future', created_at: '2026-10-05T12:00:00Z' }
 
@@ -66,18 +67,37 @@ describe('Shachris individual requirements', () => {
     expect(resolveShachrisStayRequirement(INITIAL_SHACHRIS_CONFIG, { id: 'today', student_id: 4, mode: 'manual', required_until: 'end-davening', reason: '', actor_name: 'Rebbe', effective_date: '2026-10-05', duration: 'today', created_at: '' }, 11)).toMatchObject({ requiredUntil: 'end-davening', source: 'manual', duration: 'today' })
     expect(resolveShachrisStayRequirement(INITIAL_SHACHRIS_CONFIG, undefined, null).source).toBe('unassigned')
   })
-  it('automatically locks a met result at the required communal milestone; later departure cannot undo it', () => {
-    const record: ShachrisRecord = { session_id: 'today', student_id: 5, expectation: resolveShachrisExpectation(INITIAL_SHACHRIS_CONFIG, undefined, 'yk-b'), stay_requirement: resolveShachrisStayRequirement(INITIAL_SHACHRIS_CONFIG, undefined, 11), presence: 'present', arrival_at: '2026-10-05T07:05:00Z', last_return_at: null, leave_intervals: [], requirement_result: 'pending', requirement_met_at: null, requirement_met_milestone: null, said_section_ids: [], rating_id: '', note: '', revision: 0, updated_by_name: '' }
-    const met = evaluateShachrisRequirementAtMilestone(record, 'shemoneh-esrei', '2026-10-05T07:30:00Z')
-    expect(met).toMatchObject({ requirement_result: 'met', requirement_met_at: '2026-10-05T07:30:00Z' })
-    expect(evaluateShachrisRequirementAtMilestone({ ...met, presence: 'left' }, 'shemoneh-esrei', '2026-10-05T07:31:00Z')).toEqual({ ...met, presence: 'left' })
-    expect(evaluateShachrisRequirementAtMilestone(record, 'chazaras-hashatz', '2026-10-05T07:30:00Z')).toBe(record)
-    expect(evaluateShachrisRequirementAtMilestone({ ...record, presence: 'left' }, 'shemoneh-esrei', '2026-10-05T07:30:00Z').requirement_result).toBe('not_met')
-  })
   it('calculates automatic lateness and multiple leave/return intervals, including an open leave', () => {
     expect(calculateShachrisMinutesLate('2026-10-05T07:00:00Z', '2026-10-05T07:08:59Z')).toBe(8)
     const intervals = [{ leftAt: '2026-10-05T07:10:00Z', returnedAt: '2026-10-05T07:15:00Z', permission: 'with' as const }, { leftAt: '2026-10-05T07:20:00Z', returnedAt: null, permission: 'without' as const }]
     expect(calculateShachrisMinutesOut(intervals, Date.parse('2026-10-05T07:27:00Z'))).toBe(12)
     expect(latestOpenShachrisLeave(intervals)).toEqual(intervals[1])
+  })
+  it('requires personal clearance, including arrivals after the communal milestone', () => {
+    const record: ShachrisRecord = { session_id: 'today', student_id: 5, expectation: resolveShachrisExpectation(INITIAL_SHACHRIS_CONFIG, undefined, 'yk-b'), stay_requirement: resolveShachrisStayRequirement(INITIAL_SHACHRIS_CONFIG, undefined, 11), presence: 'present', arrival_at: '2026-10-06T07:35:00Z', last_return_at: null, leave_intervals: [], requirement_result: 'pending', requirement_met_at: null, requirement_met_milestone: null, said_section_ids: [], rating_id: '', note: '', revision: 0, updated_by_name: '' }
+    const times = { 'shemoneh-esrei': '2026-10-06T07:30:00Z' }
+    expect(isShachrisReadyForCheck(record, times)).toBe(true)
+    expect(record.requirement_result).toBe('pending')
+    expect(() => personallyClearShachrisRecord(record, {}, '2026-10-06T07:40:00Z', 'Rebbe')).toThrow()
+    expect(() => personallyClearShachrisRecord({ ...record, presence: 'left' }, times, '2026-10-06T07:40:00Z', 'Rebbe')).toThrow()
+    const cleared = personallyClearShachrisRecord(record, times, '2026-10-06T07:40:00Z', 'Rebbe')
+    expect(cleared.personally_cleared_by_name).toBe('Rebbe')
+    expect(cleared.requirement_result).toBe('met')
+    expect(isShachrisReadyForCheck(cleared, times)).toBe(false)
+    expect(isShachrisReadyForCheck({ ...record, requirement_result: 'met' }, times)).toBe(true)
+    expect(calculateShachrisExtraSeconds(cleared, Date.parse('2026-10-06T07:43:00Z'))).toBe(180)
+    expect(calculateShachrisExtraSeconds({ ...cleared, extra_stay_intervals: [{ startedAt: '2026-10-06T07:40:00Z', endedAt: '2026-10-06T07:41:00Z' }, { startedAt: '2026-10-06T07:44:00Z', endedAt: null }] }, Date.parse('2026-10-06T07:45:00Z'))).toBe(120)
+    expect(needsShachrisAttention({ ...cleared, presence: 'left', late_excused: true }, '2026-10-06T07:00:00Z')).toBe(false)
+  })
+  it('keeps late facts separate from excusal and explicit nonattendance', () => {
+    const record = { presence: 'present', arrival_at: '2026-10-06T07:08:00Z', stay_requirement: { requiredUntil: 'shemoneh-esrei' } } as ShachrisRecord
+    expect(isShachrisLate('2026-10-06T07:00:00Z', '2026-10-06T07:00:10Z')).toBe(true)
+    expect(needsShachrisAttention(record, '2026-10-06T07:00:00Z')).toBe(true)
+    expect(needsShachrisAttention({ ...record, late_excused: true }, '2026-10-06T07:00:00Z')).toBe(false)
+    expect(calculateShachrisMinutesLate('2026-10-06T07:00:00Z', record.arrival_at)).toBe(8)
+    expect(shachrisPresenceLabel({ ...record, presence: 'unmarked' })).toBe('Not Marked')
+    expect(shachrisPresenceLabel({ ...record, presence: 'absent', absence_status: 'excused' })).toBe('Excused from Shul')
+    expect(shachrisPresenceLabel({ ...record, presence: 'absent', absence_status: 'not_in_shul' })).toBe('Not in Shul')
+    expect(needsShachrisAttention({ ...record, presence: 'absent', absence_status: 'excused' }, '2026-10-06T07:00:00Z')).toBe(false)
   })
 })

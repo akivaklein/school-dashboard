@@ -38,6 +38,8 @@ const records = ['start', 'full', 'ashrei'].map((milestoneId, index) => {
     presence: 'unmarked', arrival_at: null, last_return_at: null, leave_intervals: [],
     requirement_result: 'pending', requirement_met_at: null, requirement_met_milestone: null,
     said_section_ids: [], rating_id: '', note: '', revision: 0, updated_by_name: '',
+    late_minutes: null, late_reason: null, late_reason_note: '', late_excused: false, absence_status: null,
+    personally_cleared_at: null, personally_cleared_by_name: '', personally_cleared_milestone: null, extra_stay_intervals: [], stayed_beyond_required: false,
   }
 })
 
@@ -65,27 +67,43 @@ await page.route('**/rest/v1/**', async route => {
       const record = records.find(entry => entry.student_id === studentId)
       record.presence = 'present'
       record.arrival_at ||= session.started_at
+      record.late_minutes = 0
       record.revision++
       return record
     })
   } else if (name === 'shachris_record_presence_event') {
     const record = records.find(entry => entry.student_id === input.p_student_id)
     const at = `${today}T07:${String(eventMinute++).padStart(2, '0')}:00.000Z`
-    if (input.p_event_type === 'arrival') { record.presence = 'present'; record.arrival_at ||= at }
-    if (input.p_event_type === 'left') { record.presence = 'left'; record.leave_intervals.push({ leftAt: at, returnedAt: null, permission: input.p_permission }) }
-    if (input.p_event_type === 'returned') { record.presence = 'present'; record.last_return_at = at; record.leave_intervals.at(-1).returnedAt = at }
+    if (input.p_event_type === 'arrival') { record.presence = 'present'; record.arrival_at ||= at; record.late_minutes = Math.floor((Date.parse(record.arrival_at) - Date.parse(session.started_at)) / 60000); record.late_reason = 'no_reason'; record.absence_status = null }
+    if (input.p_event_type === 'left') { record.presence = 'left'; record.leave_intervals.push({ leftAt: at, returnedAt: null, permission: input.p_permission }); if (record.extra_stay_intervals.at(-1)?.endedAt === null) { record.extra_stay_intervals.at(-1).endedAt = at; record.stayed_beyond_required = true } }
+    if (input.p_event_type === 'returned') { record.presence = 'present'; record.last_return_at = at; record.leave_intervals.at(-1).returnedAt = at; if (record.personally_cleared_at) record.extra_stay_intervals.push({ startedAt: at, endedAt: null }) }
     record.revision++
     response = record
   } else if (name === 'shachris_mark_milestone') {
     const at = `${today}T07:${String(eventMinute++).padStart(2, '0')}:00.000Z`
     session.milestone_times[input.p_milestone_id] = at
-    for (const record of records.filter(entry => entry.stay_requirement.requiredUntil === input.p_milestone_id && entry.requirement_result === 'pending')) {
-      record.requirement_result = record.presence === 'present' ? 'met' : 'not_met'
-      record.requirement_met_at = record.requirement_result === 'met' ? at : null
-      record.requirement_met_milestone = input.p_milestone_id
-      record.revision++
+    response = { session, records, metCount: 0, notMetCount: 0, alreadyMarked: false }
+  } else if (name === 'shachris_update_daily_fact') {
+    const record = records.find(entry => entry.student_id === input.p_student_id)
+    assert.equal(input.p_record_revision, record.revision)
+    if (input.p_action === 'late-reason') {
+      record.late_reason = input.p_detail.reason
+      record.late_reason_note = input.p_detail.note
+      record.late_excused = input.p_detail.reason === 'excused' || input.p_detail.excused
+    } else if (input.p_action === 'nonattendance') {
+      record.presence = input.p_detail.status === 'unmarked' ? 'unmarked' : 'absent'
+      record.absence_status = input.p_detail.status === 'unmarked' ? null : input.p_detail.status
+    } else if (input.p_action === 'personal-clearance') {
+      assert.equal(record.presence, 'present')
+      assert.ok(session.milestone_times[record.stay_requirement.requiredUntil])
+      record.personally_cleared_at = `${today}T07:${String(eventMinute++).padStart(2, '0')}:00.000Z`
+      record.personally_cleared_by_name = input.p_actor_name
+      record.personally_cleared_milestone = record.stay_requirement.requiredUntil
+      record.requirement_result = 'met'
+      record.extra_stay_intervals.push({ startedAt: record.personally_cleared_at, endedAt: null })
     }
-    response = { session, records, metCount: records.filter(record => record.requirement_met_milestone === input.p_milestone_id && record.requirement_result === 'met').length, notMetCount: records.filter(record => record.requirement_met_milestone === input.p_milestone_id && record.requirement_result === 'not_met').length, alreadyMarked: false }
+    record.revision++
+    response = record
   } else if (name === 'shachris_set_stay_requirement') {
     const record = records.find(entry => entry.student_id === input.p_student_id)
     const milestone = config.stayMilestones.find(entry => entry.id === input.p_required_until)
@@ -127,7 +145,7 @@ await page.route('**/rest/v1/**', async route => {
 })
 
 async function waitSaved() {
-  await page.getByRole('status').filter({ hasText: /Hodu started|Marked .* In Shul|Arrival recorded|Departure recorded|Return recorded|Milestone marked|Stay requirement saved|Settings saved|All changes saved/ }).waitFor()
+  await page.getByRole('status').filter({ hasText: /Hodu started|Marked .* In Shul|Arrival recorded|Departure recorded|Return recorded|Communal milestone|Stay requirement saved|Settings saved|All changes saved|Late reason saved|Personal completion|Shul status saved/ }).waitFor()
 }
 
 try {
@@ -163,6 +181,11 @@ try {
   await waitSaved()
   assert.ok(Date.parse(records[2].arrival_at) > Date.parse(session.started_at))
   assert.match(await age13Card.textContent(), /min late/)
+  await page.getByLabel('Late arrival reason option').selectOption('excused')
+  await page.getByRole('button', { name: 'Save Reason' }).click()
+  await waitSaved()
+  assert.equal(records[2].late_excused, true)
+  assert.match(await age13Card.locator('.sh-late-pill.excused').textContent(), /min late/)
 
   const age11Card = page.locator('.sh-live-card').filter({ hasText: 'Student Alef' })
   await age11Card.getByRole('button', { name: 'Left With Permission' }).click()
@@ -201,8 +224,11 @@ try {
 
   await page.getByRole('button', { name: 'Mark Now' }).first().click()
   await waitSaved()
-  assert.equal(records[0].requirement_result, 'met')
-  assert.equal(records[2].requirement_result, 'not_met')
+  assert.equal(records[0].requirement_result, 'pending')
+  assert.equal(records[2].requirement_result, 'pending')
+  await age11Card.getByRole('button', { name: 'Confirm Completion' }).click()
+  await waitSaved()
+  assert.ok(records[0].personally_cleared_at)
   await age11Card.getByRole('button', { name: 'Left With Permission' }).click()
   await waitSaved()
   assert.equal(records[0].requirement_result, 'met')
@@ -210,13 +236,19 @@ try {
 
   await age13Requirement.getByRole('button', { name: 'Returned' }).click()
   await waitSaved()
+  await age13Requirement.getByRole('button', { name: 'Confirm Completion' }).click()
+  await waitSaved()
   await page.locator('.sh-communal-milestone').filter({ hasText: 'After Chazaras HaShatz' }).getByRole('button', { name: 'Mark Now' }).click()
   await waitSaved()
   assert.equal(records[1].requirement_result, 'pending')
   await page.locator('.sh-communal-milestone').filter({ hasText: 'End Davening' }).getByRole('button', { name: 'Mark Now' }).click()
   await waitSaved()
+  assert.equal(records[1].requirement_result, 'pending')
+  await age12Card.getByRole('button', { name: 'Confirm Completion' }).click()
+  await waitSaved()
   assert.equal(records[1].requirement_result, 'met')
-  assert.equal(records[2].requirement_result, 'not_met')
+  assert.equal(records[2].requirement_result, 'met')
+  assert.equal(records[0].stayed_beyond_required, true)
 
   assert.equal(await age11Card.locator('details.sh-progress-card').evaluate(node => node.open), false)
   await age11Card.locator('details.sh-progress-card > summary').click()
@@ -245,7 +277,7 @@ try {
   await page.getByRole('status').filter({ hasText: 'Date of birth saved.' }).waitFor()
   assert.equal(savedDob, '2013-10-06')
   assert.deepEqual(errors, [])
-  console.log('PASS: Hodu start, bulk Hodu arrival, late arrival, repeated permission-tagged leave/return, today/future stay overrides, automatic milestone results, post-milestone lock, collapsed Davening Progress, age rules, DOB save, and mobile overflow. Screenshots are synthetic; no school writes.')
+  console.log('PASS: shared secure adapter, late excusal, communal-only milestones, personal clearance, extra stay, repeated leave/return, stay overrides, view-only permissions, DOB save and mobile overflow. Synthetic data only; no school writes.')
 } finally {
   await browser.close()
 }

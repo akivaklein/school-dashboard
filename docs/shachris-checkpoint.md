@@ -14,7 +14,7 @@ The earlier secondary **Davening Progress** defaults remain grade-only, sourced 
 
 ## Daily Live Session Safe Checkpoint
 
-The local Daily Live Session now follows `.github/mockups/live-session.png`: Start Hodu, communal milestone strip, summary counts, compact student cards, and a collapsed secondary Davening Progress area. Requirements are age 11 → Shemoneh Esrei, age 12 → Chazaras HaShatz, age 13 → End Davening; manual overrides remain Today only or Today and future. Results are designed to be evaluated automatically at the communal milestone and remain Met if a student leaves afterward.
+The shared Daily Live Session follows `.github/mockups/live-session.png`: Start Hodu, communal milestone strip, summary counts, compact student cards, and a collapsed secondary Davening Progress area. Requirements are age 11 → Shemoneh Esrei, age 12 → Chazaras HaShatz, age 13 → End Davening; manual overrides remain Today only or Today and future. Since the 2026-10-06 personal-clearance update, communal milestones do not complete students: an In Shul student becomes Ready for Check, and only personal confirmation makes Requirement Met. Departure does not undo personal clearance. Earlier automatic results/events remain historical facts, not personal-clearance records.
 
 The additive migration `supabase/migrations/20261005213145_shachris_live_attendance.sql` was applied remotely on 2026-10-05 after the preservation/hash checks passed. The browser fixture/screenshots use synthetic students; production data is not included in screenshots. Do not run a general `db push`.
 
@@ -32,10 +32,22 @@ This preview uses the real secure project's Auth/backend, not an isolated data s
 
 1. Start Hodu once; the server records the shared session baseline.
 2. Use Mark Visible In Shul at Hodu to timestamp the boys already there against that baseline. Later arrivals get a server timestamp and calculated lateness.
-3. Use Left With Permission / Left Without Permission and Returned. Each leave-return interval is retained; an open interval remains Out and minutes continue accumulating.
-4. Mark the communal milestones in order. The server automatically marks each student's age/manual-required milestone Met when they are In Shul, or Not Met if not present. Subsequent departure does not change the result.
+3. A late arrival immediately opens a quick reason popup: Transportation, Excused, No Reason, or Other. Excusal never changes arrival time or factual minutes late. Excused lateness is neutral and does not add late-related Need Attention; independent unmarked/out/unconfigured issues remain separate. Not Marked, Absent, Excused from Shul, and Not in Shul are distinct nonattendance states, separate from lateness. Bulk Hodu arrival never overwrites explicit nonattendance choices.
+4. Use Left With Permission / Left Without Permission and Returned. Each leave-return interval is retained. Mark communal milestones in order; this marks only the shared milestone. Ready for Check requires In Shul and a passed required milestone, including late arrivals after that milestone. Confirm Completion records the personal clearance time, actor, and required milestone. Only this turns the student's requirement green.
 5. Use Change Requirement for Today only or Today and future. Expand Davening Progress for existing section marks, next section, ratings, and progress history.
-6. Presence events save immediately; a failed write is shown and the previous state remains. Session start time correction and event-time correction are intentionally deferred.
+6. Presence events save immediately; a failed write is shown and the previous state remains. Extra-stay intervals start at personal clearance, stop on departure, and reopen on return; time out is excluded. The live star/badge uses those intervals, and a departure stores the observed stayed-beyond-required flag. Open intervals remain explicit ongoing facts, not assumed finalized rewards. Once personally cleared, today's required snapshot is protected against changes. Session start time correction and event-time correction remain deferred.
+
+## Daily Facts And Personal Clearance (2026-10-06)
+
+Targeted migration `supabase/migrations/20261006042222_shachris_personal_clearance.sql` is applied to `ednjpqtuttutoatahorn`. It adds daily late minutes/reason/note/excusal, explicit nonattendance status, personal clearance time/user/name/required milestone, extra-stay intervals, and an observed extra-stay flag. Arrival, late-reason corrections, nonattendance changes, personal confirmation, and departures/returns are logged in the existing permission-guarded event ledger. This supports a future Weekly Record without building that view or reward values now.
+
+The new authenticated `shachris_update_daily_fact` RPC checks identity, Attendance Edit permission, today's started session, the student/session key, and expected revision. Personal clearance also requires In Shul and the required communal milestone. Attendance RPCs use server time; the generic checklist writer cannot change presence or forge clearance/extra-stay facts. Existing RLS and anonymous read denial remain in place. No extra anonymous database access is enabled for the demo.
+
+The original October 5 session's prior-record, event, and session hashes matched before/after rollout. Concurrent admin activity created a separate October 6 session before the migration ran; those records/events were left untouched. No old automatic result was converted into fabricated personal clearance. Only existing factual late minutes and existing Absent classifications were backfilled; unknown historical reasons and personal checks were not guessed.
+
+The shared screen and backend contract power both Hadran and the isolated in-memory demo. The demo link was updated and publicly browser-tested; the older main Hadran production alias was not repointed. The actual database migration is live, and current shared dashboard code uses it. Standalone login and organization/division isolation remain deferred, with server-authorized backend scoping still required before real multi-tenant use.
+
+Validation: 345 repository tests pass; main and demo builds, demo typecheck/privacy audit, focused lint, isolated SQL save/reopen/permission/stale-write checks, and both adapter browser workflows pass. Popup and session layouts were checked at desktop, 390px, and 320px widths. Root typecheck still has the two unchanged Teaching Mode test errors. The scoped token lacks `advisors_read`; direct RPC grant/RLS checks passed, but no full database advisor audit is claimed.
 
 Settings apply when creating new dated sessions. Existing sessions keep their settings and expectation snapshots. Section and milestone IDs cannot be removed through the settings service.
 
@@ -45,6 +57,7 @@ Settings apply when creating new dated sessions. Existing sessions keep their se
 - `npm run dev -- --host 0.0.0.0 --port 5190 --strictPort`
 - `node src/components/__tests__/shachris.browser.mjs`
 - Local SQL fixtures: `src/services/__tests__/fixtures/shachrisDatabaseSetup.sql`, `shachrisDatabaseChecks.sql`, `shachrisLiveSessionChecks.sql`, and the legacy-session seed/check files. Both clean migration tests and legacy-session upgrade test passed in isolated PostgreSQL; fixture permission helpers are test stubs.
+- Latest personal-clearance SQL fixture: `src/services/__tests__/fixtures/shachrisPersonalClearanceChecks.sql`, applied after all three targeted migrations on an isolated synthetic database. Earlier live-session fixtures document the pre-personal-clearance checkpoint, not the current semantics.
 - `node src/services/__tests__/fixtures/shachrisDobImportChecks.mjs` tests the import on synthetic local rows only, including the incomplete-14 gate and the 16-entry success/missing/duplicate/conflict cases. Never point this script at the school database.
 - [Presence-first Daily Live Session desktop](shachris-live-session-desktop.png) and [mobile](shachris-live-session-mobile.png) screenshots use synthetic students. Earlier checkpoint screenshots are also retained alongside this document.
 - Production build passes. Repository typecheck currently reports two unrelated errors in the unchanged `teachingModeUtils.test.ts`.

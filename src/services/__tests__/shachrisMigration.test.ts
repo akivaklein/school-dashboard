@@ -5,9 +5,20 @@ import { INITIAL_SHACHRIS_CONFIG } from '../../utils/shachris'
 
 const migration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261005_shachris_checkpoint.sql'), 'utf8')
 const liveSessionMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261005213145_shachris_live_attendance.sql'), 'utf8')
+const clearanceMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261006042222_shachris_personal_clearance.sql'), 'utf8')
 const dobImport = readFileSync(path.resolve(__dirname, '../../../docs/20261005_shachris_dob_import.sql'), 'utf8')
 
 describe('Shachris additive foundation', () => {
+  it('stores daily facts and requires personal clearance without rewriting historical results', () => {
+    for (const field of ['late_minutes', 'late_reason', 'late_excused', 'absence_status', 'personally_cleared_at', 'personally_cleared_by_name', 'personally_cleared_milestone', 'extra_stay_intervals', 'stayed_beyond_required']) expect(clearanceMigration).toContain(`add column ${field}`)
+    const marker = clearanceMigration.slice(clearanceMigration.indexOf('create or replace function public.shachris_mark_milestone'), clearanceMigration.indexOf('create function public.shachris_update_daily_fact'))
+    expect(marker).not.toContain('update public.shachris_student_records')
+    expect(clearanceMigration).toContain("'personal-clearance'")
+    expect(clearanceMigration).toContain('auth.uid() is null')
+    expect(clearanceMigration).toContain('from public, anon, authenticated')
+    expect(clearanceMigration).toContain('Use attendance actions to change presence')
+    expect(clearanceMigration).not.toMatch(/(?:drop table|truncate|delete from) public\./i)
+  })
   it('adds DOB without updating existing students or legacy Davening records', () => {
     expect(migration).toContain('add column if not exists date_of_birth date')
     expect(migration).not.toMatch(/(?:update|delete from|drop table|truncate) public\.(?:students|davening_|staff)/i)

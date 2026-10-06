@@ -7,6 +7,24 @@ export type ShachrisSettings = { config: ShachrisConfig; revision: number }
 export type ShachrisSession = { id: string; session_date: string; config: ShachrisConfig; started_at: string | null; started_by_name: string; milestone_times: Record<string, string> }
 export type ShachrisMilestoneResult = { session: ShachrisSession; records: ShachrisRecord[]; metCount: number; notMetCount: number; alreadyMarked: boolean }
 
+async function updateDailyFact(input: { sessionId: string; studentId: number; actorName: string; revision: number }, action: string, detail: Record<string, unknown>): Promise<ShachrisRecord> {
+  const { data, error } = await supabase.rpc('shachris_update_daily_fact', { p_session_id: input.sessionId, p_student_id: input.studentId, p_action: action, p_detail: detail, p_actor_name: input.actorName, p_record_revision: input.revision })
+  if (error) throw error
+  return data as ShachrisRecord
+}
+
+export function saveShachrisLateReason(input: { sessionId: string; studentId: number; reason: NonNullable<ShachrisRecord['late_reason']>; note: string; excused: boolean; actorName: string; revision: number }): Promise<ShachrisRecord> {
+  return updateDailyFact(input, 'late-reason', { reason: input.reason, note: input.note.trim(), excused: input.excused })
+}
+
+export function setShachrisAbsence(input: { sessionId: string; studentId: number; status: NonNullable<ShachrisRecord['absence_status']> | 'unmarked'; actorName: string; revision: number }): Promise<ShachrisRecord> {
+  return updateDailyFact(input, 'nonattendance', { status: input.status })
+}
+
+export function confirmShachrisClearance(input: { sessionId: string; studentId: number; actorName: string; revision: number }): Promise<ShachrisRecord> {
+  return updateDailyFact(input, 'personal-clearance', {})
+}
+
 export async function loadShachrisSettings(): Promise<ShachrisSettings> {
   const { data, error } = await supabase.from('shachris_settings').select('config,revision').single()
   if (error) throw error
@@ -119,6 +137,7 @@ export const secureShachrisBackend: ShachrisBackend = {
   bulkArriveAtShachrisStart, recordShachrisPresenceEvent, markShachrisMilestone,
   saveShachrisExpectation, loadShachrisProgression, loadShachrisStayHistory,
   saveShachrisStayRequirement, saveShachrisSettings,
+  saveShachrisLateReason, setShachrisAbsence, confirmShachrisClearance,
   async loadAccess(role) {
     const { data, error } = await supabase.rpc('dashboard_current_permissions')
     if (error) throw error

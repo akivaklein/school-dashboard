@@ -8,6 +8,10 @@ The roster is a sanitized snapshot from 2026-10-06: 16 names, integer ages calcu
 
 Changes are held only in memory in each visitor's browser. Refresh or the reset icon clears the entire demo. Reload Session reopens the current in-memory session. No changes are shared between visitors or saved to school data. Today/future choices simulate the existing UI contract; nothing survives a page refresh.
 
+## Shared Daily Functionality (2026-10-06)
+
+The same shared UI now supports factual late arrival plus Transportation/Excused/No Reason/Other, independent late excusal, Not Marked/Absent/Excused from Shul/Not in Shul, communal-only milestones, Ready for Check, explicit personal completion, and an extra-stay star. The real adapter stores these daily facts in the school database; this adapter simulates them only in memory. Changing today's required milestone is blocked after personal clearance. Extra stay starts only after clearance, stops while out, and resumes on return; no rewards or weekly UI are implemented.
+
 ## Shared Architecture
 
 - `src/components/ShachrisWorkspace.tsx` is the single session UI for both Hadran and this app. It receives a `ShachrisBackend` rather than importing a database client. `liveOnly` removes settings/date navigation, and the standalone shell supplies no dashboard back-navigation.
@@ -54,4 +58,4 @@ Before implementation, branch `yeshiva-ketana-secure` and pushed checkpoints `52
 
 The main production domain was verified separately: `yeshiva-ketana-secure.vercel.app` serves September 24 commit `3da4f9b`, not the October checkpoint. No main deployment or alias was changed.
 
-All 342 repository tests passed, as did the standalone typecheck/build/audit, focused Shachris lint, dashboard synthetic browser regression, and public demo desktop/mobile workflow. Root typecheck still reports the two previously documented errors in unchanged `teachingModeUtils.test.ts`. `AttendancePage.tsx` has seven pre-existing lint errors, confirmed against the pushed checkpoint; its adapter import/call change adds none. No full-project database advisory audit is claimed.
+All 345 repository tests pass after the personal-clearance update, as do the main/demo builds, standalone typecheck/privacy audit, focused Shachris lint, isolated SQL daily-fact save/reopen/security checks, dashboard synthetic browser regression, and public demo desktop/mobile workflow (including the late-reason popup). Root typecheck still reports the two previously documented errors in unchanged `teachingModeUtils.test.ts`. `AttendancePage.tsx` has seven pre-existing lint errors, confirmed against the pushed checkpoint; its adapter import/call change adds none. No full-project database advisory audit is claimed.

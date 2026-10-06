@@ -1,6 +1,6 @@
 import type { ShachrisBackend } from '../../../src/services/shachrisBackend'
 import type { ShachrisSession } from '../../../src/services/shachrisService'
-import { evaluateShachrisRequirementAtMilestone, INITIAL_SHACHRIS_CONFIG, latestOpenShachrisLeave, localDateKey, resolveShachrisExpectation, resolveShachrisStayRequirement, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord, type ShachrisStayAssignment } from '../../../src/utils/shachris'
+import { calculateShachrisMinutesLate, isShachrisLate, personallyClearShachrisRecord, INITIAL_SHACHRIS_CONFIG, latestOpenShachrisLeave, localDateKey, resolveShachrisExpectation, resolveShachrisStayRequirement, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord, type ShachrisStayAssignment } from '../../../src/utils/shachris'
 import type { DemoStudent } from './roster'
 
 export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: ShachrisConfig = INITIAL_SHACHRIS_CONFIG): ShachrisBackend {
@@ -48,6 +48,9 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
           presence: 'unmarked', arrival_at: null, last_return_at: null, leave_intervals: [],
           requirement_result: 'pending', requirement_met_at: null, requirement_met_milestone: null,
           said_section_ids: [], rating_id: '', note: '', revision: 0, updated_by_name: '',
+          late_minutes: null, late_reason: null, late_reason_note: '', late_excused: false, absence_status: null,
+          personally_cleared_at: null, personally_cleared_by_name: '', personally_cleared_milestone: null,
+          extra_stay_intervals: [], stayed_beyond_required: false,
         }))
         sessions.set(id, { session, records })
       }
@@ -67,34 +70,44 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
       const { session } = requireStarted(id)
       return studentIds.map(studentId => {
         const record = getRecord(id, studentId)
-        if (record.arrival_at || record.presence === 'left') return copy(record)
+        if (record.arrival_at || record.presence !== 'unmarked') return copy(record)
         record.presence = 'present'
         record.arrival_at = session.started_at
+        record.late_minutes = 0
         return changed(record, actorName)
       })
     },
     async recordShachrisPresenceEvent(input) {
-      requireStarted(input.sessionId)
+      const { session } = requireStarted(input.sessionId)
       const record = getRecord(input.sessionId, input.studentId)
       const at = now()
       if (input.eventType === 'arrival') {
-        if (record.presence === 'left') throw new Error('Use Returned for a student who is out.')
+        if (record.presence === 'left' || record.presence === 'present') throw new Error('Student is already present or must use Returned.')
         record.presence = 'present'
+        record.absence_status = null
         record.arrival_at ||= at
+        record.late_minutes = calculateShachrisMinutesLate(session.started_at, record.arrival_at)
+        if (isShachrisLate(session.started_at, record.arrival_at)) record.late_reason ||= 'no_reason'
       } else if (input.eventType === 'left') {
         if (record.presence !== 'present' || !input.permission) throw new Error('Only a present student can leave; choose permission.')
         record.presence = 'left'
         record.leave_intervals.push({ leftAt: at, returnedAt: null, permission: input.permission })
+        const extra = record.extra_stay_intervals?.at(-1)
+        if (extra && !extra.endedAt) {
+          extra.endedAt = at
+          record.stayed_beyond_required ||= Date.parse(at) > Date.parse(extra.startedAt)
+        }
       } else {
         const interval = latestOpenShachrisLeave(record.leave_intervals)
         if (record.presence !== 'left' || !interval) throw new Error('No open departure to return from.')
         interval.returnedAt = at
         record.last_return_at = at
         record.presence = 'present'
+        if (record.personally_cleared_at) record.extra_stay_intervals!.push({ startedAt: at, endedAt: null })
       }
       return changed(record, input.actorName)
     },
-    async markShachrisMilestone(id, milestoneId, actorName) {
+    async markShachrisMilestone(id, milestoneId) {
       const state = requireStarted(id)
       if (state.session.milestone_times[milestoneId]) return copy({ ...state, metCount: 0, notMetCount: 0, alreadyMarked: true })
       const milestone = config.stayMilestones.find(entry => entry.id === milestoneId)
@@ -102,21 +115,12 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
       if (!milestone || !previous || !state.session.milestone_times[previous.id]) throw new Error('Mark the previous milestone first.')
       const at = now()
       state.session.milestone_times[milestoneId] = at
-      let metCount = 0
-      let notMetCount = 0
-      state.records = state.records.map(record => {
-        const evaluated = evaluateShachrisRequirementAtMilestone(record, milestoneId, at)
-        if (evaluated === record) return record
-        if (evaluated.requirement_result === 'met') metCount++
-        else notMetCount++
-        changed(evaluated, actorName)
-        return evaluated
-      })
-      return copy({ ...state, metCount, notMetCount, alreadyMarked: false })
+      return copy({ ...state, metCount: 0, notMetCount: 0, alreadyMarked: false })
     },
     async saveShachrisRecords(id, incoming, actorName) {
       for (const entry of incoming) {
         if (getRecord(id, entry.student_id).revision !== entry.revision) throw new Error('Session changed. Reload and try again.')
+        if (getRecord(id, entry.student_id).presence !== entry.presence) throw new Error('Use attendance actions to change presence.')
       }
       return incoming.map(entry => {
         const record = getRecord(id, entry.student_id)
@@ -145,6 +149,7 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
     async saveShachrisStayRequirement(input) {
       if (input.session.session_date !== localDateKey()) throw new Error('Changes are available for today only.')
       const record = getRecord(input.session.id, input.studentId)
+      if (record.personally_cleared_at) throw new Error('A personally cleared requirement cannot be changed.')
       if (record.revision !== input.revision) throw new Error('Session changed. Reload and try again.')
       if (input.mode === 'manual' && !config.stayMilestones.some(entry => entry.id === input.requiredUntil && entry.order > 0)) throw new Error('Choose a valid stay milestone.')
       const assignment: ShachrisStayAssignment = {
@@ -157,6 +162,36 @@ export function createShachrisDemoBackend(roster: DemoStudent[], initialConfig: 
       record.requirement_met_at = null
       record.requirement_met_milestone = null
       return { assignment: copy(assignment), record: changed(record, input.actorName) }
+    },
+    async saveShachrisLateReason(input) {
+      const { session } = requireStarted(input.sessionId)
+      const record = getRecord(input.sessionId, input.studentId)
+      if (record.revision !== input.revision) throw new Error('Session changed. Reload and try again.')
+      if (!isShachrisLate(session.started_at, record.arrival_at)) throw new Error('Student did not arrive late.')
+      if (!['transportation', 'excused', 'no_reason', 'other'].includes(input.reason) || input.note.length > 500) throw new Error('Invalid late reason.')
+      if (input.reason === 'no_reason' && input.excused) throw new Error('Choose Excused when excusing without a reason.')
+      record.late_reason = input.reason
+      record.late_excused = input.reason === 'excused' || input.excused
+      record.late_reason_note = input.reason === 'other' ? input.note.trim() : ''
+      return changed(record, input.actorName)
+    },
+    async setShachrisAbsence(input) {
+      requireStarted(input.sessionId)
+      const record = getRecord(input.sessionId, input.studentId)
+      if (record.revision !== input.revision) throw new Error('Session changed. Reload and try again.')
+      if (record.arrival_at || !['unmarked', 'absent'].includes(record.presence)) throw new Error('Record a departure for a student who has arrived.')
+      if (!['unmarked', 'absent', 'excused', 'not_in_shul'].includes(input.status)) throw new Error('Invalid nonattendance status.')
+      record.presence = input.status === 'unmarked' ? 'unmarked' : 'absent'
+      record.absence_status = input.status === 'unmarked' ? null : input.status
+      return changed(record, input.actorName)
+    },
+    async confirmShachrisClearance(input) {
+      const { session } = requireStarted(input.sessionId)
+      const record = getRecord(input.sessionId, input.studentId)
+      if (record.revision !== input.revision) throw new Error('Session changed. Reload and try again.')
+      if (record.personally_cleared_at) return copy(record)
+      Object.assign(record, personallyClearShachrisRecord(record, session.milestone_times, now(), input.actorName))
+      return changed(record, input.actorName)
     },
   }
 }

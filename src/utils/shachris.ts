@@ -67,6 +67,53 @@ export type ShachrisRecord = {
   revision: number
   updated_by_name: string
   updated_at?: string
+  late_minutes?: number | null
+  late_reason?: 'transportation' | 'excused' | 'no_reason' | 'other' | null
+  late_reason_note?: string
+  late_excused?: boolean
+  absence_status?: 'absent' | 'excused' | 'not_in_shul' | null
+  personally_cleared_at?: string | null
+  personally_cleared_by_name?: string
+  personally_cleared_milestone?: string | null
+  extra_stay_intervals?: Array<{ startedAt: string; endedAt: string | null }>
+  stayed_beyond_required?: boolean
+}
+
+export function isShachrisLate(startedAt: string | null | undefined, arrivalAt: string | null | undefined): boolean {
+  return Boolean(startedAt && arrivalAt && Date.parse(arrivalAt) > Date.parse(startedAt))
+}
+
+export function isShachrisReadyForCheck(record: ShachrisRecord, milestoneTimes: Record<string, string>): boolean {
+  return Boolean(!record.personally_cleared_at && record.presence === 'present' && record.stay_requirement.requiredUntil && milestoneTimes[record.stay_requirement.requiredUntil])
+}
+
+export function shachrisPresenceLabel(record: ShachrisRecord): string {
+  if (record.presence === 'present') return 'In Shul'
+  if (record.presence === 'left') return 'Out / Left'
+  if (record.presence === 'absent') return record.absence_status === 'excused' ? 'Excused from Shul' : record.absence_status === 'not_in_shul' ? 'Not in Shul' : 'Absent'
+  return 'Not Marked'
+}
+
+export function needsShachrisAttention(record: ShachrisRecord, startedAt: string | null | undefined): boolean {
+  if (!startedAt || record.absence_status === 'excused') return false
+  return !record.stay_requirement.requiredUntil || record.presence === 'unmarked' || record.presence === 'absent'
+    || record.presence === 'left' && !record.personally_cleared_at
+    || isShachrisLate(startedAt, record.arrival_at) && !record.late_excused
+}
+
+export function calculateShachrisExtraSeconds(record: ShachrisRecord, now = Date.now()): number {
+  return (record.extra_stay_intervals || []).reduce((total, interval) => {
+    const seconds = Math.floor(((interval.endedAt ? Date.parse(interval.endedAt) : now) - Date.parse(interval.startedAt)) / 1000)
+    return total + (Number.isFinite(seconds) ? Math.max(0, seconds) : 0)
+  }, 0)
+}
+
+export function personallyClearShachrisRecord(record: ShachrisRecord, milestoneTimes: Record<string, string>, at: string, actorName: string): ShachrisRecord {
+  if (record.personally_cleared_at) return record
+  if (!isShachrisReadyForCheck(record, milestoneTimes)) throw new Error('Student must be In Shul and the required communal milestone must have passed.')
+  return { ...record, requirement_result: 'met', requirement_met_at: at, requirement_met_milestone: record.stay_requirement.requiredUntil,
+    personally_cleared_at: at, personally_cleared_by_name: actorName, personally_cleared_milestone: record.stay_requirement.requiredUntil,
+    extra_stay_intervals: [...(record.extra_stay_intervals || []), { startedAt: at, endedAt: null }] }
 }
 
 export const INITIAL_SHACHRIS_CONFIG: ShachrisConfig = {
@@ -122,17 +169,6 @@ export function resolveShachrisStayRequirement(config: ShachrisConfig, assignmen
     label: milestone?.label || (manual ? 'Requirement not set' : 'No age default'),
     source: manual ? 'manual' : rule ? 'default' : 'unassigned',
     ...(manual ? { duration: assignment.duration } : {}),
-  }
-}
-
-export function evaluateShachrisRequirementAtMilestone(record: ShachrisRecord, milestoneId: string, evaluatedAt: string): ShachrisRecord {
-  if (record.requirement_result !== 'pending' || record.stay_requirement.requiredUntil !== milestoneId) return record
-  const met = record.presence === 'present'
-  return {
-    ...record,
-    requirement_result: met ? 'met' : 'not_met',
-    requirement_met_at: met ? evaluatedAt : null,
-    requirement_met_milestone: milestoneId,
   }
 }
 
