@@ -2,10 +2,43 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }))
 vi.mock('../../supabaseClient', () => ({ supabase: mocks }))
-import { correctShachrisStart, endShachrisLiveSession, loadShachrisHistory, saveShachrisHistoricalDay } from '../shachrisService'
+import { correctShachrisStart, endShachrisLiveSession, loadShachrisDayAudit, loadShachrisHistory, saveShachrisHistoricalDay, undoShachrisArrival } from '../shachrisService'
 
 describe('read-only Shachris history', () => {
   beforeEach(() => vi.resetAllMocks())
+
+  it('uses a revision-checked audited RPC for arrival undo, never a departure or generic save', async () => {
+    const record = { student_id: 1, presence: 'unmarked', arrival_at: null, revision: 4, note: 'Kept note' }
+    mocks.rpc.mockResolvedValue({ data: record, error: null })
+    expect(await undoShachrisArrival({ sessionId: 'today', studentId: 1, revision: 3, reason: ' Accidental tap ', actorName: 'Editor', confirmed: true })).toEqual(record)
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('shachris_undo_arrival', {
+      p_session_id: 'today', p_student_id: 1, p_revision: 3, p_reason: 'Accidental tap', p_actor_name: 'Editor', p_confirmed: true,
+    })
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it('surfaces an unsafe/stale arrival undo instead of falling back to destructive writes', async () => {
+    const error = { message: 'Later attendance/completion facts exist.' }
+    mocks.rpc.mockResolvedValue({ data: null, error })
+    await expect(undoShachrisArrival({ sessionId: 'today', studentId: 1, revision: 3, reason: 'Accidental tap', actorName: 'Editor', confirmed: true })).rejects.toEqual(error)
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it('includes audited arrival corrections in the existing student day history', async () => {
+    const audit = [{ id: 'undo', detail: { action: 'undo-arrival', reason: 'Accidental tap' } }]
+    const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), order: vi.fn() }
+    query.select.mockReturnValue(query)
+    query.eq.mockReturnValue(query)
+    query.in.mockReturnValue(query)
+    query.order.mockReturnValueOnce(query).mockResolvedValueOnce({ data: audit, error: null })
+    mocks.from.mockReturnValue(query)
+    expect(await loadShachrisDayAudit('today', 1)).toEqual(audit)
+    expect(mocks.from).toHaveBeenCalledWith('shachris_events')
+    expect(query.eq.mock.calls).toEqual([['session_id', 'today'], ['student_id', 1]])
+    expect(query.in).toHaveBeenCalledWith('event_type', ['historical-day-edit', 'arrival-correction'])
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
 
   it('ends live timing through a separate RPC without marking a communal milestone', async () => {
     const session = { id: 'today', milestone_times: { 'live-session-ended': '2026-10-11T08:00:00Z' } }

@@ -5,7 +5,7 @@ import type { ShachrisBackend } from './shachrisBackend'
 
 export type ShachrisSettings = { config: ShachrisConfig; revision: number }
 export type ShachrisHistory = { sessions: ShachrisSession[]; records: ShachrisRecord[] }
-export type ShachrisDayAudit = { id: string; actor_name: string; created_at: string; detail: { reason: string; before: ShachrisRecord | null; after: ShachrisRecord } }
+export type ShachrisDayAudit = { id: string; actor_name: string; created_at: string; detail: { action?: 'undo-arrival'; reason: string; before: ShachrisRecord | null; after: ShachrisRecord } }
 export type ShachrisSession = { id: string; session_date: string; config: ShachrisConfig; started_at: string | null; started_by_name: string; milestone_times: Record<string, string>; voided_at?: string | null; restarted_from?: string | null }
 export type ShachrisMilestoneResult = { session: ShachrisSession; records: ShachrisRecord[]; metCount: number; notMetCount: number; alreadyMarked: boolean }
 export type ShachrisStartCorrectionState = { hasActivity: boolean; audit: Array<{ id: string; action: string; previous_start: string | null; new_start: string | null; actor_name: string; reason: string; created_at: string }> }
@@ -62,7 +62,7 @@ export async function loadShachrisHistory(from: string, through: string, student
 }
 
 export async function loadShachrisDayAudit(sessionId: string, studentId: number): Promise<ShachrisDayAudit[]> {
-  const { data, error } = await supabase.from('shachris_events').select('id,actor_name,created_at,detail').eq('session_id', sessionId).eq('student_id', studentId).eq('event_type', 'historical-day-edit').order('created_at', { ascending: false }).order('id', { ascending: false })
+  const { data, error } = await supabase.from('shachris_events').select('id,actor_name,created_at,detail').eq('session_id', sessionId).eq('student_id', studentId).in('event_type', ['historical-day-edit', 'arrival-correction']).order('created_at', { ascending: false }).order('id', { ascending: false })
   if (error) throw error
   return (data || []) as ShachrisDayAudit[]
 }
@@ -111,6 +111,15 @@ export async function markShachrisMilestone(sessionId: string, milestoneId: stri
   const { data, error } = await supabase.rpc('shachris_mark_milestone', { p_session_id: sessionId, p_milestone_id: milestoneId, p_actor_name: actorName })
   if (error) throw error
   return data as ShachrisMilestoneResult
+}
+
+export async function undoShachrisArrival(input: { sessionId: string; studentId: number; revision: number; reason: string; actorName: string; confirmed: boolean }): Promise<ShachrisRecord> {
+  const { data, error } = await supabase.rpc('shachris_undo_arrival', {
+    p_session_id: input.sessionId, p_student_id: input.studentId, p_revision: input.revision,
+    p_reason: input.reason.trim(), p_actor_name: input.actorName, p_confirmed: input.confirmed,
+  })
+  if (error) throw error
+  return data as ShachrisRecord
 }
 
 export async function endShachrisLiveSession(sessionId: string, actorName: string): Promise<ShachrisSession> {
@@ -180,7 +189,7 @@ export const secureShachrisBackend: ShachrisBackend = {
   saveShachrisHistoricalDay, loadShachrisDayAudit,
   loadShachrisHistory,
   loadShachrisSettings, openShachrisSession, saveShachrisRecords, startShachrisSession,
-  bulkArriveAtShachrisStart, recordShachrisPresenceEvent, markShachrisMilestone, endShachrisLiveSession,
+  bulkArriveAtShachrisStart, recordShachrisPresenceEvent, markShachrisMilestone, endShachrisLiveSession, undoShachrisArrival,
   saveShachrisExpectation, loadShachrisProgression, loadShachrisStayHistory,
   saveShachrisStayRequirement, saveShachrisSettings,
   saveShachrisLateReason, setShachrisAbsence, confirmShachrisClearance,

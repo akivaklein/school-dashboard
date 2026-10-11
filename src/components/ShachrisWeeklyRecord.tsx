@@ -182,7 +182,7 @@ export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, 
         <h3>Leave / Return History</h3>{!detailRecord.leave_intervals.length ? <p className="sh-muted">No departures recorded</p> : detailRecord.leave_intervals.map((interval, index) => <div className="sh-history-entry" key={index}><strong>Left {time(interval.leftAt)}</strong><span>{interval.permission === 'with' ? 'With permission' : 'Without permission'}</span><span>{interval.returnedAt ? `Returned ${time(interval.returnedAt)}` : 'No return recorded'}</span></div>)}
       </>}
       </>}
-      {loadAudit && detailSession && <><h3>Edit Audit</h3>{auditResolved !== auditKey ? <p>Loading edit audit...</p> : auditError ? <p role="alert">{auditError}</p> : !audit.length ? <p className="sh-muted">No historical edits</p> : audit.map(entry => <div className="sh-history-entry" key={entry.id}><strong>{entry.actor_name} / {new Date(entry.created_at).toLocaleString()}</strong><p>{entry.detail.reason}</p><span>Before: {auditSummary(entry.detail.before)}</span><span>After: {auditSummary(entry.detail.after)}</span></div>)}</>}
+      {loadAudit && detailSession && <><h3>Edit Audit</h3>{auditResolved !== auditKey ? <p>Loading edit audit...</p> : auditError ? <p role="alert">{auditError}</p> : !audit.length ? <p className="sh-muted">No historical edits</p> : audit.map(entry => <div className="sh-history-entry" key={entry.id}><strong>{entry.detail.action === 'undo-arrival' && 'Undo Arrival / '}{entry.actor_name} / {new Date(entry.created_at).toLocaleString()}</strong><p>{entry.detail.reason}</p><span>Before: {auditSummary(entry.detail.before)}</span><span>After: {auditSummary(entry.detail.after)}</span></div>)}</>}
     </div></section></div>}
   </section>
 }

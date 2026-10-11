@@ -57,6 +57,8 @@ const historicalAudits = []
 const backfillSessions = []
 const backfillRecords = []
 let rejectHistoricalSave = false
+let rejectArrivalUndo = false
+const preArrivalStatus = new Map()
 
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
@@ -84,7 +86,7 @@ await page.route('**/rest/v1/**', async route => {
     response = [...records, ...priorRecords, ...backfillRecords, ...voidedRecords].filter(record => ids.includes(record.session_id))
   } else if (name === 'shachris_events') {
     assert.equal(request.method(), 'GET')
-    assert.equal(url.searchParams.get('event_type'), 'eq.historical-day-edit')
+    assert.equal(url.searchParams.get('event_type'), 'in.(historical-day-edit,arrival-correction)')
     response = historicalAudits.filter(entry => entry.session_id === url.searchParams.get('session_id')?.slice(3) && entry.student_id === Number(url.searchParams.get('student_id')?.slice(3))).toReversed()
   } else if (name === 'shachris_save_historical_day') {
     assert.equal(permission, 'edit')
@@ -144,6 +146,7 @@ await page.route('**/rest/v1/**', async route => {
   } else if (name === 'shachris_bulk_arrive_at_start') {
     response = input.p_student_ids.map(studentId => {
       const record = records.find(entry => entry.student_id === studentId)
+      preArrivalStatus.set(studentId, record.absence_status)
       record.presence = 'present'
       record.arrival_at ||= session.started_at
       record.late_minutes = 0
@@ -153,10 +156,26 @@ await page.route('**/rest/v1/**', async route => {
   } else if (name === 'shachris_record_presence_event') {
     const record = records.find(entry => entry.student_id === input.p_student_id)
     const at = `${today}T07:${String(eventMinute++).padStart(2, '0')}:00.000Z`
-    if (input.p_event_type === 'arrival') { record.presence = 'present'; record.arrival_at ||= at; record.late_minutes = Math.floor((Date.parse(record.arrival_at) - Date.parse(session.started_at)) / 60000); record.late_reason = 'no_reason'; record.absence_status = null }
+    if (input.p_event_type === 'arrival') { preArrivalStatus.set(record.student_id, record.absence_status); record.presence = 'present'; record.arrival_at ||= at; record.late_minutes = Math.floor((Date.parse(record.arrival_at) - Date.parse(session.started_at)) / 60000); record.late_reason = 'no_reason'; record.absence_status = null }
     if (input.p_event_type === 'left') { record.presence = 'left'; record.leave_intervals.push({ leftAt: at, returnedAt: null, permission: input.p_permission }); if (record.extra_stay_intervals.at(-1)?.endedAt === null) { record.extra_stay_intervals.at(-1).endedAt = at; record.stayed_beyond_required = true } }
     if (input.p_event_type === 'returned') { record.presence = 'present'; record.last_return_at = at; record.leave_intervals.at(-1).returnedAt = at; if (record.personally_cleared_at) record.extra_stay_intervals.push({ startedAt: at, endedAt: null }) }
     record.revision++
+    response = record
+  } else if (name === 'shachris_undo_arrival') {
+    assert.equal(permission, 'edit')
+    assert.equal(input.p_session_id, session.id)
+    assert.equal(input.p_confirmed, true)
+    assert.ok(input.p_reason.trim())
+    assert.equal(session.milestone_times['live-session-ended'], undefined)
+    const record = records.find(entry => entry.student_id === input.p_student_id)
+    assert.equal(record.revision, input.p_revision)
+    if (rejectArrivalUndo) {
+      await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'Later attendance/completion facts exist. Use deliberate correction/history editing; Undo Arrival will not remove them.' }) })
+      return
+    }
+    const before = structuredClone(record)
+    Object.assign(record, { presence: preArrivalStatus.get(record.student_id) ? 'absent' : 'unmarked', absence_status: preArrivalStatus.get(record.student_id), arrival_at: null, late_minutes: null, late_reason: null, late_reason_note: '', late_excused: false, revision: record.revision + 1 })
+    historicalAudits.push({ id: `arrival-undo-${historicalAudits.length}`, session_id: session.id, student_id: record.student_id, actor_name: input.p_actor_name, created_at: new Date().toISOString(), detail: { action: 'undo-arrival', reason: input.p_reason, before, after: structuredClone(record) } })
     response = record
   } else if (name === 'shachris_end_live_session') {
     assert.equal(permission, 'edit')
@@ -413,6 +432,7 @@ try {
   await waitSaved()
   await page.getByRole('button', { name: 'End Live Session', exact: true }).click()
   await waitSaved()
+  assert.equal(await page.getByRole('button', { name: 'Undo Arrival', exact: true }).count(), 0)
   assert.ok(session.milestone_times['live-session-ended'])
   const outAtSessionEnd = await age11Card.locator('.sh-current-leave > strong').innerText()
   const extraAtSessionEnd = await age13Requirement.locator('.sh-extra-stay').innerText()
@@ -615,6 +635,51 @@ try {
 
   await page.getByRole('button', { name: 'Start Session', exact: true }).click()
   await waitSaved()
+  const undoCard = page.locator('.sh-live-card').filter({ hasText: 'Student Alef' })
+  records[0].note = 'Note preserved through undo'
+  await page.getByRole('button', { name: 'Mark Visible In Shul at Hodu', exact: true }).click()
+  await waitSaved()
+  await undoCard.getByRole('button', { name: 'Undo Arrival', exact: true }).click()
+  const undoDialog = page.getByRole('dialog', { name: 'Undo Arrival', exact: true })
+  assert.equal(await undoDialog.getByRole('button', { name: 'Confirm Undo Arrival', exact: true }).isDisabled(), true)
+  await page.getByLabel('Arrival correction reason').fill('Accidental bulk mark')
+  assert.equal(await undoDialog.getByRole('button', { name: 'Confirm Undo Arrival', exact: true }).isDisabled(), true)
+  await page.getByLabel('Confirm accidental arrival').check()
+  rejectArrivalUndo = true
+  const recordBeforeRefusedUndo = JSON.stringify(records)
+  await undoDialog.getByRole('button', { name: 'Confirm Undo Arrival', exact: true }).click()
+  await undoDialog.getByRole('alert').filter({ hasText: 'Later attendance/completion facts exist' }).waitFor()
+  assert.equal(JSON.stringify(records), recordBeforeRefusedUndo)
+  rejectArrivalUndo = false
+  await undoDialog.getByRole('button', { name: 'Confirm Undo Arrival', exact: true }).click()
+  await undoDialog.waitFor({ state: 'hidden' })
+  assert.equal(records[0].presence, 'unmarked')
+  assert.equal(records[0].arrival_at, null)
+  assert.equal(records[0].note, 'Note preserved through undo')
+  assert.equal(await undoCard.getByRole('button', { name: 'Undo Arrival', exact: true }).count(), 0)
+  await page.getByLabel('Student Alef: Shul status').selectOption('excused')
+  await waitSaved()
+  await undoCard.getByRole('button', { name: 'In Shul / Arrived', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Late arrival reason' }).waitFor()
+  await page.getByRole('button', { name: 'Close late reason' }).click()
+  await undoCard.getByRole('button', { name: 'Undo Arrival', exact: true }).click()
+  await page.getByLabel('Arrival correction reason').fill('Accidental individual arrival')
+  await page.getByLabel('Confirm accidental arrival').check()
+  await undoDialog.getByRole('button', { name: 'Confirm Undo Arrival', exact: true }).click()
+  await undoDialog.waitFor({ state: 'hidden' })
+  assert.equal(records[0].presence, 'absent')
+  assert.equal(records[0].absence_status, 'excused')
+  assert.equal(records[0].note, 'Note preserved through undo')
+  assert.equal(await page.getByLabel('Student Alef: Shul status').inputValue(), 'excused')
+  await page.getByRole('button', { name: 'Weekly Record / History', exact: true }).click()
+  await page.getByRole('button', { name: `Student Alef: ${today}`, exact: true }).click()
+  await page.getByText('Accidental individual arrival', { exact: true }).waitFor()
+  assert.match(await page.getByRole('dialog', { name: 'Saved Shachris day' }).innerText(), /Undo Arrival \/ QA Rebbe/)
+  await page.getByRole('button', { name: 'Close day details' }).click()
+  await page.getByRole('navigation', { name: 'Shachris views' }).getByRole('button', { name: 'Live Session', exact: true }).click()
+  records.forEach(record => Object.assign(record, { presence: 'unmarked', arrival_at: null, late_minutes: null, late_reason: null, absence_status: null, note: '' }))
+  await page.reload()
+  await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
   for (const label of ['After Shemoneh Esrei', 'After Chazaras HaShatz']) {
     await page.locator('.sh-communal-milestone').filter({ hasText: label }).getByRole('button', { name: 'Mark Now' }).click()
     await waitSaved()
@@ -716,7 +781,7 @@ try {
   await page.getByRole('status').filter({ hasText: 'Date of birth saved.' }).waitFor()
   assert.equal(savedDob, '2013-10-06')
   assert.deepEqual(errors, [])
-  console.log('PASS: ended live actions disabled with correction/history edits available, deliberate restart restores live controls; secure restart/audit/reopen/history, compact cards, historical editing and view-only regression. Synthetic data only; no school writes.')
+  console.log('PASS: reason/confirmation-required arrival undo, preserved notes, restored pre-arrival status and visible correction audit; ended live actions disabled with correction/history edits available, deliberate restart restores live controls; secure restart/audit/reopen/history, compact cards, historical editing and view-only regression. Synthetic data only; no school writes.')
 } finally {
   await browser.close()
 }

@@ -11,6 +11,23 @@ const settingsTargetMigration = readFileSync(path.resolve(__dirname, '../../../s
 const dobImport = readFileSync(path.resolve(__dirname, '../../../docs/20261005_shachris_dob_import.sql'), 'utf8')
 
 describe('Shachris additive foundation', () => {
+  it('adds a narrowly scoped live arrival correction without rewriting existing arrival RPCs or history', () => {
+    const undo = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261011215818_shachris_undo_arrival.sql'), 'utf8')
+    expect(undo).toContain("set search_path = ''")
+    expect(undo).toContain("dashboard_has_permission('attendance', 'edit')")
+    expect(undo).toContain('auth.uid() is null')
+    expect(undo).toContain('session_row.voided_at is not null')
+    expect(undo).toContain('session_row.session_date <> current_date')
+    expect(undo).toContain("session_row.milestone_times ? 'live-session-ended'")
+    expect(undo).toContain('record_row.revision is distinct from p_revision')
+    expect(undo).toContain("p_confirmed is distinct from true")
+    expect(undo).toContain('for update')
+    expect(undo).toContain("'previousAbsenceStatus'")
+    expect(undo).toContain("'arrival-correction'")
+    expect(undo).toContain("'before', before_record, 'after', to_jsonb(record_row)")
+    expect(undo).toContain('from public, anon')
+    expect(undo).not.toMatch(/delete from|truncate|drop table|update public\.shachris_events|set note|set leave_intervals|create or replace function/i)
+  })
   it('ends live timing separately with permission, idempotence, and existing audit events', () => {
     const endMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261011164817_shachris_end_live_session.sql'), 'utf8')
     expect(endMigration).toContain("set search_path = ''")
