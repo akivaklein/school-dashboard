@@ -62,9 +62,9 @@ export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, 
   const detail = selected && !loading && !error ? day(selected.studentId, selected.date) : null
   const detailRecord = detail?.record
   const detailSession = detail?.session
-  const end = detailSession?.milestone_times['end-davening']
+  const end = detailSession?.milestone_times['live-session-ended']
   const hasOpenLeave = detailRecord?.leave_intervals.some(interval => !interval.returnedAt)
-  const minutesOut = detailRecord ? calculateShachrisMinutesOut(detailRecord.leave_intervals.filter(interval => interval.returnedAt || end && interval.leftAt < end), end ? Date.parse(end) : 0) : 0
+  const minutesOut = detailRecord ? calculateShachrisMinutesOut(detailRecord.leave_intervals.filter(interval => interval.returnedAt || end && interval.leftAt < end), end ? Date.parse(end) : 0, end ? Date.parse(end) : Infinity) : 0
   const unknownOpenDuration = detailRecord?.leave_intervals.some(interval => !interval.returnedAt && (!end || interval.leftAt >= end))
   const lateMinutes = detailRecord?.late_minutes ?? calculateShachrisMinutesLate(detailSession?.started_at, detailRecord?.arrival_at, shachrisGraceMinutes(detailSession?.config))
   const originalLate = isShachrisLate(detailSession?.started_at, detailRecord?.arrival_at, shachrisGraceMinutes(detailSession?.config))
@@ -147,10 +147,12 @@ export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, 
           const tone = dates[index] > localDateKey() ? 'upcoming'
             : !session || !record || !result.required ? 'incomplete'
             : result.excusedAbsence ? 'excused'
-            : result.absence || result.entireStay === false || result.onTime === false && !lateExcused || record.leave_intervals.some(interval => interval.permission === 'without') ? 'failed'
+            : result.absence || result.onTime === false && !lateExcused || !record.historical_result && record.leave_intervals.some(interval => interval.permission === 'without') ? 'failed'
+            : !record.historical_result && record.leave_intervals.some(interval => interval.permission === 'with') ? 'mixed'
+            : result.entireStay === false ? 'failed'
             : result.onTime === null || result.entireStay === null ? 'incomplete'
             : result.onTime === false && lateExcused ? 'excused'
-            : !record.historical_result && record.leave_intervals.length > 0 ? 'mixed' : 'good'
+            : 'good'
           const cellClass = `sh-week-day sh-week-${tone}`
           return <td className="sh-week-day-cell" key={dates[index]}>{session || dates[index] < localDateKey() ? <button className={cellClass} disabled={saving} aria-label={`${student.name}: ${dates[index]}`} onClick={() => openDay(Number(student.id), dates[index])}>
             {!session ? <span>No saved session</span> : !result.required ? <span>Not started</span> : !record ? <span>No student record</span> : <><span className={result.onTime === true ? 'sh-week-pass' : ''}>{arrival}{result.onTime === false && lateExcused && <small>Excused</small>}</span><span className={result.entireStay === true ? 'sh-week-pass' : ''}>{stay}</span></>}
@@ -176,7 +178,7 @@ export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, 
         {detailRecord?.historical_result && <div className="sh-history-entry"><strong>Entered / corrected result</strong><span>{auditSummary(detailRecord)}</span></div>}
       {!detailRecord ? <p>No student record saved.</p> : <>
         {detailRecord.historical_result && <h3>Original Recorded Facts</h3>}
-        <dl className="sh-week-facts"><dt>Status</dt><dd>{shachrisPresenceLabel(detailRecord)}</dd><dt>Arrival time</dt><dd>{time(detailRecord.arrival_at)}</dd><dt>Minutes late</dt><dd>{lateMinutes === null ? 'Not recorded' : lateMinutes === 0 && originalLate ? '<1' : lateMinutes}</dd><dt>Late reason</dt><dd>{detailRecord.late_reason?.replaceAll('_', ' ') || 'Not recorded'}{detailRecord.late_reason_note && `: ${detailRecord.late_reason_note}`}</dd><dt>Excused lateness</dt><dd>{detailRecord.late_excused ? 'Yes' : 'No'}</dd><dt>Note</dt><dd>{detailRecord.note || 'None'}</dd><dt>Required until</dt><dd>{detailRecord.stay_requirement.label}</dd><dt>Saved stay result</dt><dd>{detailRecord.requirement_result.replaceAll('_', ' ')}</dd><dt>Personal clearance</dt><dd>{time(detailRecord.personally_cleared_at)}</dd><dt>Total time out</dt><dd>{minutesOut} min{unknownOpenDuration ? ' known time only; open duration unknown' : hasOpenLeave ? ' through End Davening; no return recorded' : ''}</dd></dl>
+        <dl className="sh-week-facts"><dt>Status</dt><dd>{shachrisPresenceLabel(detailRecord)}</dd><dt>Arrival time</dt><dd>{time(detailRecord.arrival_at)}</dd><dt>Minutes late</dt><dd>{lateMinutes === null ? 'Not recorded' : lateMinutes === 0 && originalLate ? '<1' : lateMinutes}</dd><dt>Late reason</dt><dd>{detailRecord.late_reason?.replaceAll('_', ' ') || 'Not recorded'}{detailRecord.late_reason_note && `: ${detailRecord.late_reason_note}`}</dd><dt>Excused lateness</dt><dd>{detailRecord.late_excused ? 'Yes' : 'No'}</dd><dt>Note</dt><dd>{detailRecord.note || 'None'}</dd><dt>Required until</dt><dd>{detailRecord.stay_requirement.label}</dd><dt>Saved stay result</dt><dd>{detailRecord.requirement_result.replaceAll('_', ' ')}</dd><dt>Personal clearance</dt><dd>{time(detailRecord.personally_cleared_at)}</dd><dt>Live session ended</dt><dd>{time(end)}</dd><dt>Total time out</dt><dd>{minutesOut} min{unknownOpenDuration ? ' known time only; open duration unknown' : hasOpenLeave ? ' through session end; no return recorded' : ''}</dd></dl>
         <h3>Leave / Return History</h3>{!detailRecord.leave_intervals.length ? <p className="sh-muted">No departures recorded</p> : detailRecord.leave_intervals.map((interval, index) => <div className="sh-history-entry" key={index}><strong>Left {time(interval.leftAt)}</strong><span>{interval.permission === 'with' ? 'With permission' : 'Without permission'}</span><span>{interval.returnedAt ? `Returned ${time(interval.returnedAt)}` : 'No return recorded'}</span></div>)}
       </>}
       </>}

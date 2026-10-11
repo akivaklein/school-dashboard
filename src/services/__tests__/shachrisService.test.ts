@@ -2,10 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }))
 vi.mock('../../supabaseClient', () => ({ supabase: mocks }))
-import { correctShachrisStart, loadShachrisHistory, saveShachrisHistoricalDay } from '../shachrisService'
+import { correctShachrisStart, endShachrisLiveSession, loadShachrisHistory, saveShachrisHistoricalDay } from '../shachrisService'
 
 describe('read-only Shachris history', () => {
   beforeEach(() => vi.resetAllMocks())
+
+  it('ends live timing through a separate RPC without marking a communal milestone', async () => {
+    const session = { id: 'today', milestone_times: { 'live-session-ended': '2026-10-11T08:00:00Z' } }
+    mocks.rpc.mockResolvedValue({ data: session, error: null })
+    expect(await endShachrisLiveSession('today', 'Editor')).toEqual(session)
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('shachris_end_live_session', { p_session_id: 'today', p_actor_name: 'Editor' })
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
 
   function sessionsQuery(data: unknown[], error: unknown = null) {
     const query = { select: vi.fn(), gte: vi.fn(), lte: vi.fn(), is: vi.fn(), order: vi.fn().mockResolvedValue({ data, error }) }

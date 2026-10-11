@@ -7,6 +7,22 @@ import { calculateAge, calculateShachrisMinutesLate, calculateShachrisMinutesOut
 const assignment: ShachrisAssignment = { id: 'override', student_id: 1, mode: 'manual', milestone_id: 'ashrei', section_ids: null, reason: '', actor_name: 'Rebbe', effective_date: '2026-10-05', duration: 'future', created_at: '2026-10-05T12:00:00Z' }
 
 describe('Shachris individual requirements', () => {
+  it('caps open and corrected closed durations at the saved session end without changing intervals', () => {
+    const finishedAt = Date.parse('2026-10-05T07:30:00Z')
+    const now = Date.parse('2026-10-05T09:00:00Z')
+    const intervals: ShachrisRecord['leave_intervals'] = [
+      { leftAt: '2026-10-05T07:20:00Z', returnedAt: null, permission: 'with' },
+      { leftAt: '2026-10-05T07:25:00Z', returnedAt: '2026-10-05T08:00:00Z', permission: 'without' },
+      { leftAt: '2026-10-05T07:35:00Z', returnedAt: null, permission: 'with' },
+    ]
+    const before = structuredClone(intervals)
+    expect(calculateShachrisMinutesOut(intervals, now, finishedAt)).toBe(15)
+    expect(calculateShachrisMinutesOut(intervals, now + 60000, finishedAt)).toBe(15)
+    const record = { extra_stay_intervals: intervals.map(interval => ({ startedAt: interval.leftAt, endedAt: interval.returnedAt })) } as ShachrisRecord
+    expect(calculateShachrisExtraSeconds(record, now, finishedAt)).toBe(900)
+    expect(calculateShachrisExtraSeconds(record, now + 60000, finishedAt)).toBe(900)
+    expect(intervals).toEqual(before)
+  })
   it('builds Sunday-Friday weeks across year boundaries', () => {
     expect(shachrisWeekDates('2026-10-11')).toEqual(['2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'])
     expect(shachrisWeekDates('2026-01-01')[0]).toBe('2025-12-28')

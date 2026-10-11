@@ -93,6 +93,8 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
   const locked = loading || saving || !canEdit || !session || date !== localDateKey() || view !== 'live'
   const today = date === localDateKey()
   const graceMinutes = shachrisGraceMinutes(session?.config)
+  const finishedAt = session?.milestone_times['live-session-ended']
+  const timerEnd = finishedAt ? Date.parse(finishedAt) : Infinity
 
   useEffect(() => {
     const firstTick = window.setTimeout(() => setClockNow(Date.now()), 0)
@@ -221,6 +223,26 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
       setSession(result.session)
       setRecords(result.records)
       setStatus(result.alreadyMarked ? 'Milestone was already recorded.' : 'Communal milestone marked. Individual checks remain separate.')
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      busyRef.current = false
+      setSaving(false)
+    }
+  }
+
+  async function endLiveSession() {
+    const endSession = backend.endShachrisLiveSession
+    if (!endSession || !session?.started_at || finishedAt || locked || busyRef.current) return
+    const unmarked = records.filter(record => record.presence === 'unmarked').length
+    if (unmarked && !window.confirm(`${unmarked} student${unmarked === 1 ? ' is' : 's are'} still Not Marked. End Live Session anyway? You can still edit afterward.`)) return
+    busyRef.current = true
+    setSaving(true)
+    setError('')
+    setStatus('')
+    try {
+      setSession(await endSession(session.id, actorName))
+      setStatus('Live session ended. Student records remain editable.')
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -369,8 +391,8 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
           const previousId = milestone.order === 1 ? 'hodu' : config?.stayMilestones.find(entry => entry.order === milestone.order - 1)?.id
           const ready = Boolean(session?.started_at && previousId && session.milestone_times?.[previousId])
           return <div key={milestone.id} className={`sh-communal-milestone ${markedAt ? 'complete' : ''} ${ready && !markedAt ? 'next' : ''}`}>
-            <div><span className="sh-milestone-dot">{markedAt ? <Check size={16} /> : <Clock3 size={17} />}</span><strong>{milestone.label}</strong></div>
-            {markedAt ? <time>{formatTime(markedAt)}</time> : <button className="sh-mark-milestone" disabled={locked || !today || !ready} onClick={() => void markCommunalMilestone(milestone.id)}>Mark Now</button>}
+            <div><span className="sh-milestone-dot">{markedAt ? <Check size={16} /> : <Clock3 size={17} />}</span><strong>{milestone.id === 'end-davening' ? 'Finish Davening' : milestone.label}</strong></div>
+            {markedAt ? <time>{formatTime(markedAt)}</time> : <button className={`sh-mark-milestone${milestone.id === 'end-davening' ? ' sh-finish-davening' : ''}`} disabled={locked || !today || !ready} onClick={() => void markCommunalMilestone(milestone.id)}>{milestone.id === 'end-davening' ? <><CircleCheck size={14} /> Finish Davening</> : 'Mark Now'}</button>}
           </div>
         })}
       </section>
@@ -384,7 +406,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
           { label: 'Need Attention', value: visibleRecords.filter(record => needsShachrisAttention(record, session?.started_at, graceMinutes)).length, detail: 'unmarked, unexcused, or out', tone: 'orange', icon: <CircleAlert size={21} /> },
         ].map(stat => <div className={`sh-live-stat ${stat.tone}`} key={stat.label}><span className="sh-stat-icon">{stat.icon}</span><div><strong>{stat.value}</strong><b>{stat.label}</b><small>{stat.detail}</small></div></div>)}
       </div>
-      <div className="sh-live-toolbar"><strong>{visibleRecords.length} students</strong><button className="sh-button sh-primary" disabled={locked || !today || !session?.started_at || !visibleRecords.some(record => !record.arrival_at && record.presence === 'unmarked')} onClick={() => void bulkArriveAtStart()}><Users size={16} /> Mark Visible In Shul at Hodu</button></div>
+      <div className="sh-live-toolbar"><strong>{visibleRecords.length} students</strong><button className="sh-button sh-primary" disabled={locked || !today || !session?.started_at || !visibleRecords.some(record => !record.arrival_at && record.presence === 'unmarked')} onClick={() => void bulkArriveAtStart()}><Users size={16} /> Mark Visible In Shul at Hodu</button>{finishedAt ? <span className="sh-save-status">Live session ended <time>{formatTime(finishedAt)}</time></span> : backend.endShachrisLiveSession && <button className="sh-button" disabled={locked || !today || !session?.started_at} onClick={() => void endLiveSession()}><CircleCheck size={16} /> End Live Session</button>}</div>
       <details className="sh-progress-bulk"><summary><CheckCheck size={15} /> Davening Progress Tools <span>Secondary checklist actions</span></summary><div><strong>{visibleRecords.length} visible students</strong><button className="sh-button" disabled={locked || !presentRequirements.length} onClick={() => void updateRecords(presentRequirements)}><CheckCheck size={16} /> Complete Present Sections</button><select aria-label="Set rating for visible students" disabled={locked || !visibleRecords.length} value="" onChange={event => { const rating = event.target.value; void updateRecords(visibleRecords.map(record => ({ ...record, rating_id: rating }))) }}><option value="" disabled>Rate visible students</option>{config?.ratings.map(rating => <option key={rating.id} value={rating.id}>{rating.label}</option>)}</select></div></details>
       <div className="sh-live-grid" aria-busy={saving || loading}>
         {visibleStudents.map(student => {
@@ -395,8 +417,8 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
           const lateMinutes = record.late_minutes ?? calculateShachrisMinutesLate(session?.started_at, record.arrival_at, graceMinutes)
           const late = isShachrisLate(session?.started_at, record.arrival_at, graceMinutes)
           const readyForCheck = isShachrisReadyForCheck(record, session?.milestone_times || {})
-          const extraSeconds = calculateShachrisExtraSeconds(record, clockNow)
-          const minutesOut = calculateShachrisMinutesOut(record.leave_intervals, clockNow)
+          const extraSeconds = calculateShachrisExtraSeconds(record, clockNow, timerEnd)
+          const minutesOut = calculateShachrisMinutesOut(record.leave_intervals, clockNow, timerEnd)
           const lastReturnedLeave = [...record.leave_intervals].reverse().find(interval => interval.returnedAt !== null)
           const totalOutClass = record.leave_intervals.some(interval => interval.permission === 'without') ? 'sh-out-unpermitted' : ''
           const next = nextShachrisSection(config, record.expectation)

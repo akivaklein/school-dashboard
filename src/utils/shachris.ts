@@ -112,9 +112,9 @@ export function needsShachrisAttention(record: ShachrisRecord, startedAt: string
     || isShachrisLate(startedAt, record.arrival_at, graceMinutes) && !record.late_excused
 }
 
-export function calculateShachrisExtraSeconds(record: ShachrisRecord, now = Date.now()): number {
+export function calculateShachrisExtraSeconds(record: ShachrisRecord, now = Date.now(), finishedAt = Infinity): number {
   return (record.extra_stay_intervals || []).reduce((total, interval) => {
-    const seconds = Math.floor(((interval.endedAt ? Date.parse(interval.endedAt) : now) - Date.parse(interval.startedAt)) / 1000)
+    const seconds = Math.floor((Math.min(interval.endedAt ? Date.parse(interval.endedAt) : now, finishedAt) - Date.parse(interval.startedAt)) / 1000)
     return total + (Number.isFinite(seconds) ? Math.max(0, seconds) : 0)
   }, 0)
 }
@@ -197,8 +197,8 @@ export function calculateShachrisMinutesLate(startedAt: string | null | undefine
   return durationMinutes(startedAt, arrivalAt)
 }
 
-export function calculateShachrisMinutesOut(intervals: ShachrisRecord['leave_intervals'], now = Date.now()): number {
-  return intervals.reduce((total, interval) => total + durationMinutes(interval.leftAt, interval.returnedAt, now), 0)
+export function calculateShachrisMinutesOut(intervals: ShachrisRecord['leave_intervals'], now = Date.now(), finishedAt = Infinity): number {
+  return intervals.reduce((total, interval) => total + durationMinutes(interval.leftAt, null, Math.min(interval.returnedAt ? Date.parse(interval.returnedAt) : now, finishedAt)), 0)
 }
 
 export function latestOpenShachrisLeave(intervals: ShachrisRecord['leave_intervals']) {

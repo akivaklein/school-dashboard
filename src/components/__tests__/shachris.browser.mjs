@@ -158,6 +158,12 @@ await page.route('**/rest/v1/**', async route => {
     if (input.p_event_type === 'returned') { record.presence = 'present'; record.last_return_at = at; record.leave_intervals.at(-1).returnedAt = at; if (record.personally_cleared_at) record.extra_stay_intervals.push({ startedAt: at, endedAt: null }) }
     record.revision++
     response = record
+  } else if (name === 'shachris_end_live_session') {
+    assert.equal(permission, 'edit')
+    assert.equal(input.p_session_id, session.id)
+    assert.ok(session.started_at)
+    session.milestone_times['live-session-ended'] ||= await page.evaluate(() => new Date().toISOString())
+    response = session
   } else if (name === 'shachris_mark_milestone') {
     const at = `${today}T07:${String(eventMinute++).padStart(2, '0')}:00.000Z`
     session.milestone_times[input.p_milestone_id] = at
@@ -224,7 +230,7 @@ await page.route('**/rest/v1/**', async route => {
 })
 
 async function waitSaved() {
-  await page.getByRole('status').filter({ hasText: /Hodu started|Marked .* In Shul|Arrival recorded|Departure recorded|Return recorded|Communal milestone|Stay requirement saved|Settings saved|All changes saved|Late reason saved|Personal completion|Shul status saved/ }).waitFor()
+  await page.getByRole('status').filter({ hasText: /Hodu started|Live session ended|Marked .* In Shul|Arrival recorded|Departure recorded|Return recorded|Communal milestone|Stay requirement saved|Settings saved|All changes saved|Late reason saved|Personal completion|Shul status saved/ }).waitFor()
 }
 
 try {
@@ -234,6 +240,7 @@ try {
   await page.goto(url)
   await page.getByRole('button', { name: 'Start Session' }).waitFor()
   await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
+  assert.equal(await page.locator('.sh-communal-milestone').last().locator('strong').innerText(), 'Finish Davening')
   assert.equal(await page.locator('.sh-live-card').count(), 3, await page.locator('body').innerText())
   assert.equal(await page.locator('.sh-live-grid').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length), 4)
   const compactHeight = await page.locator('.sh-live-card').first().evaluate(node => node.getBoundingClientRect().height)
@@ -271,6 +278,11 @@ try {
     await page.setViewportSize({ width, height: 900 })
     assert.equal(await page.locator('.sh-live-grid').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length), columns, `Grid columns at ${width}px`)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    assert.ok(await page.getByRole('button', { name: 'Finish Davening', exact: true }).evaluate(button => {
+      const control = button.getBoundingClientRect()
+      const tile = button.parentElement.getBoundingClientRect()
+      return control.left >= tile.left && control.right <= tile.right
+    }), `Finish control stays inside its milestone at ${width}px`)
     assert.ok(await page.locator('.sh-live-actions .sh-button').first().evaluate(node => node.getBoundingClientRect().height >= 44))
     assert.equal(await page.locator('.sh-progress-card').first().evaluate(node => node.open), false)
     assert.ok(await page.locator('.sh-live-card').first().evaluate(node => Array.from(node.querySelectorAll('button, .sh-card-name, .sh-presence-badge')).every(element => element.scrollWidth <= element.clientWidth + 1)), `Card content fits at ${width}px`)
@@ -384,11 +396,31 @@ try {
   await page.locator('.sh-communal-milestone').filter({ hasText: 'After Chazaras HaShatz' }).getByRole('button', { name: 'Mark Now' }).click()
   await waitSaved()
   assert.equal(records[1].requirement_result, 'pending')
-  await page.locator('.sh-communal-milestone').filter({ hasText: 'End Davening' }).getByRole('button', { name: 'Mark Now' }).click()
+  await page.getByRole('button', { name: 'Finish Davening', exact: true }).click()
   await waitSaved()
+  assert.ok(session.milestone_times['end-davening'])
+  assert.equal(session.milestone_times['live-session-ended'], undefined)
+  const outAtFinish = await age11Card.locator('.sh-current-leave > strong').innerText()
+  const extraAtFinish = await age13Requirement.locator('.sh-extra-stay').innerText()
+  await page.clock.fastForward(120000)
+  assert.notEqual(await age11Card.locator('.sh-current-leave > strong').innerText(), outAtFinish)
+  assert.notEqual(await age13Requirement.locator('.sh-extra-stay').innerText(), extraAtFinish)
+  assert.equal(await page.getByRole('button', { name: 'End Live Session', exact: true }).isEnabled(), true)
+  assert.equal(await age13Requirement.getByRole('button', { name: 'Late reason', exact: true }).isEnabled(), true)
+  assert.equal(await age11Card.getByRole('button', { name: 'Returned', exact: true }).isEnabled(), true)
   assert.equal(records[1].requirement_result, 'pending')
   await age12Card.getByRole('button', { name: 'Confirm Completion' }).click()
   await waitSaved()
+  await page.getByRole('button', { name: 'End Live Session', exact: true }).click()
+  await waitSaved()
+  assert.ok(session.milestone_times['live-session-ended'])
+  const outAtSessionEnd = await age11Card.locator('.sh-current-leave > strong').innerText()
+  const extraAtSessionEnd = await age13Requirement.locator('.sh-extra-stay').innerText()
+  await page.clock.fastForward(120000)
+  assert.equal(await age11Card.locator('.sh-current-leave > strong').innerText(), outAtSessionEnd)
+  assert.equal(await age13Requirement.locator('.sh-extra-stay').innerText(), extraAtSessionEnd)
+  assert.equal(await age13Requirement.getByRole('button', { name: 'Late reason', exact: true }).isEnabled(), true)
+  assert.equal(await age11Card.getByRole('button', { name: 'Returned', exact: true }).isEnabled(), true)
   assert.equal(records[1].requirement_result, 'met')
   assert.equal(records[2].requirement_result, 'met')
   assert.equal(records[0].stayed_beyond_required, true)
@@ -425,7 +457,7 @@ try {
   assert.equal(await page.locator('.sh-week-upcoming').first().evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)')
   await page.getByRole('button', { name: 'Last Week', exact: true }).click()
   await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).waitFor()
-  for (const [student, tone, background] of [['Student Alef', 'mixed', 'rgb(255, 248, 235)'], ['Student Beis', 'excused', 'rgb(239, 244, 248)'], ['Student Gimmel', 'good', 'rgb(240, 248, 242)']]) {
+  for (const [student, tone, background] of [['Student Alef', 'mixed', 'rgb(255, 248, 235)'], ['Student Beis', 'excused', 'rgb(255, 248, 235)'], ['Student Gimmel', 'good', 'rgb(240, 248, 242)']]) {
     const cell = page.getByRole('button', { name: `${student}: ${priorDay}`, exact: true })
     assert.ok((await cell.getAttribute('class')).includes(`sh-week-${tone}`))
     assert.equal(await cell.evaluate(node => getComputedStyle(node).backgroundColor), background)
@@ -580,6 +612,45 @@ try {
   await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
   assert.equal(session.id, restartedId)
   assert.equal(await page.getByRole('button', { name: 'Start Session', exact: true }).count(), 1)
+
+  await page.getByRole('button', { name: 'Start Session', exact: true }).click()
+  await waitSaved()
+  for (const label of ['After Shemoneh Esrei', 'After Chazaras HaShatz']) {
+    await page.locator('.sh-communal-milestone').filter({ hasText: label }).getByRole('button', { name: 'Mark Now' }).click()
+    await waitSaved()
+  }
+  await page.getByLabel('Class or group').selectOption('class:yk-a')
+  const unexpectedDialog = async dialog => { await dialog.dismiss(); throw new Error('Communal Finish Davening must not warn about Not Marked students') }
+  page.on('dialog', unexpectedDialog)
+  await page.getByRole('button', { name: 'Finish Davening', exact: true }).click()
+  await waitSaved()
+  page.off('dialog', unexpectedDialog)
+  assert.ok(session.milestone_times['end-davening'])
+  assert.equal(session.milestone_times['live-session-ended'], undefined)
+  const writesBeforeCancel = requests.length
+  page.once('dialog', async dialog => {
+    assert.match(dialog.message(), /3 students are still Not Marked/)
+    await dialog.dismiss()
+  })
+  await page.getByRole('button', { name: 'End Live Session', exact: true }).click()
+  assert.equal(session.milestone_times['live-session-ended'], undefined)
+  assert.equal(requests.length, writesBeforeCancel)
+  page.once('dialog', async dialog => {
+    assert.match(dialog.message(), /3 students are still Not Marked/)
+    await dialog.accept()
+  })
+  await page.getByRole('button', { name: 'End Live Session', exact: true }).click()
+  await waitSaved()
+  const savedEnd = session.milestone_times['live-session-ended']
+  assert.ok(savedEnd)
+  await page.getByLabel('Student Gimmel: Shul status').selectOption('excused')
+  await waitSaved()
+  assert.equal(records[2].absence_status, 'excused')
+  await page.getByRole('button', { name: 'Reload saved session', exact: true }).click()
+  await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
+  assert.equal(session.milestone_times['live-session-ended'], savedEnd)
+  assert.match(await page.locator('.sh-live-toolbar').innerText(), /Live session ended/)
+  assert.equal(await page.getByRole('button', { name: 'Correct Hodu Start', exact: true }).isEnabled(), true)
 
   await page.goto(`${url}?dob=1`)
   await page.getByLabel('Regular date of birth').fill('2013-10-06')

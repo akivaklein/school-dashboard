@@ -82,6 +82,39 @@ begin
   if not exists(select 1 from public.shachris_sessions where id = (opened->'session'->>'id')::uuid and voided_at is null) then raise exception 'Restart changed another date'; end if;
   if has_function_privilege('anon', 'public.shachris_correct_start(uuid,text,timestamptz,timestamptz,text,text,boolean)', 'execute')
     or has_function_privilege('authenticated', 'public.shachris_correct_start_before_restart(uuid,text,timestamptz,timestamptz,text,text,boolean)', 'execute') then raise exception 'Unsafe RPC grants'; end if;
+  new_id := (restarted->'session'->>'id')::uuid;
+  begin
+    perform public.shachris_end_live_session(new_id, 'Editor');
+    raise exception 'Unstarted live session ended';
+  exception when raise_exception then if sqlerrm <> 'Start today Hodu session first' then raise; end if; end;
+  begin
+    perform public.shachris_end_live_session(old_id, 'Editor');
+    raise exception 'Voided live session ended';
+  exception when raise_exception then if sqlerrm <> 'Start today Hodu session first' then raise; end if; end;
+  perform public.shachris_start_session(new_id, 'Editor');
+  perform public.shachris_mark_milestone(new_id, 'shemoneh-esrei', 'Editor');
+  perform public.shachris_mark_milestone(new_id, 'chazaras-hashatz', 'Editor');
+  perform public.shachris_mark_milestone(new_id, 'end-davening', 'Editor');
+  if (select milestone_times ? 'live-session-ended' from public.shachris_sessions where id = new_id) then raise exception 'Communal finish ended live session'; end if;
+  select jsonb_agg(to_jsonb(record) order by student_id) into records_before from public.shachris_student_records record where session_id = new_id;
+  perform set_config('test.denied', 'edit', true);
+  begin
+    perform public.shachris_end_live_session(new_id, 'Viewer');
+    raise exception 'Viewer ended live session';
+  exception when raise_exception then if sqlerrm <> 'Shachris editing denied' then raise; end if; end;
+  perform set_config('test.denied', '', true);
+  started := public.shachris_end_live_session(new_id, 'Editor');
+  if not started->'milestone_times' ? 'live-session-ended' then raise exception 'Live end timestamp missing'; end if;
+  if public.shachris_end_live_session(new_id, 'Editor') <> started then raise exception 'End timestamp is not idempotent'; end if;
+  if (select jsonb_agg(to_jsonb(record) order by student_id) from public.shachris_student_records record where session_id = new_id) <> records_before then raise exception 'End changed student facts'; end if;
+  if (select count(*) from public.shachris_events where session_id = new_id and event_type = 'live-session-ended' and actor_name = 'Editor' and detail->>'notMarked' = 'true') <> 2 then raise exception 'End audit missing or duplicated'; end if;
+  if public.shachris_open_session(current_date, array[1,2]::bigint[])->'session'->'milestone_times' <> started->'milestone_times' then raise exception 'Reopen lost live end'; end if;
+  perform public.shachris_update_daily_fact(new_id, 1, 'nonattendance', '{"status":"excused"}', 'Editor', 0);
+  perform public.shachris_save_records(new_id, '[{"student_id":1,"revision":1,"said_section_ids":[],"rating_id":"","note":"Correction after session end"}]', 'Editor');
+  if (select note from public.shachris_student_records where session_id = new_id and student_id = 1) <> 'Correction after session end' then raise exception 'End locked corrections'; end if;
+  restarted := public.shachris_correct_start(new_id, 'restart', null, (started->>'started_at')::timestamptz, 'Restart ended session', 'Editor', true);
+  if restarted->'session'->'milestone_times' ? 'live-session-ended' then raise exception 'Restart inherited live end'; end if;
+  if has_function_privilege('anon', 'public.shachris_end_live_session(uuid,text)', 'execute') then raise exception 'Anonymous end grant'; end if;
 end $$;
 rollback;
 select 'PASS: nonadmin today restart, fresh defaults, immutable old records/events, active date reopen, restart audit, permission/confirmation/stale guards; rolled back' as result;

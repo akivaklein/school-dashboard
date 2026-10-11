@@ -11,6 +11,18 @@ const settingsTargetMigration = readFileSync(path.resolve(__dirname, '../../../s
 const dobImport = readFileSync(path.resolve(__dirname, '../../../docs/20261005_shachris_dob_import.sql'), 'utf8')
 
 describe('Shachris additive foundation', () => {
+  it('ends live timing separately with permission, idempotence, and existing audit events', () => {
+    const endMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261011164817_shachris_end_live_session.sql'), 'utf8')
+    expect(endMigration).toContain("set search_path = ''")
+    expect(endMigration).toContain("dashboard_has_permission('attendance', 'edit')")
+    expect(endMigration).toContain('auth.uid() is null')
+    expect(endMigration).toContain('session_row.voided_at is not null')
+    expect(endMigration).toContain('for update')
+    expect(endMigration).toContain("milestone_times ? 'live-session-ended' then return")
+    expect(endMigration).toContain('insert into public.shachris_events')
+    expect(endMigration).toContain('from public, anon')
+    expect(endMigration).not.toMatch(/end-davening|update public\.shachris_student_records|delete from|drop table/i)
+  })
   it('restarts through the existing correction RPC and audit without deleting history', () => {
     const restartMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261011055815_shachris_restart_today.sql'), 'utf8')
     expect(restartMigration).toContain('where voided_at is null')

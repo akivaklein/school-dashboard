@@ -113,6 +113,12 @@ export async function markShachrisMilestone(sessionId: string, milestoneId: stri
   return data as ShachrisMilestoneResult
 }
 
+export async function endShachrisLiveSession(sessionId: string, actorName: string): Promise<ShachrisSession> {
+  const { data, error } = await supabase.rpc('shachris_end_live_session', { p_session_id: sessionId, p_actor_name: actorName })
+  if (error) throw error
+  return data as ShachrisSession
+}
+
 export async function saveShachrisExpectation(input: {
   studentId: number; mode: 'manual' | 'default'; milestoneId: string; sectionIds: string[] | null;
   reason: string; actorName: string; session: ShachrisSession; revision: number; duration: 'today' | 'future';
@@ -174,7 +180,7 @@ export const secureShachrisBackend: ShachrisBackend = {
   saveShachrisHistoricalDay, loadShachrisDayAudit,
   loadShachrisHistory,
   loadShachrisSettings, openShachrisSession, saveShachrisRecords, startShachrisSession,
-  bulkArriveAtShachrisStart, recordShachrisPresenceEvent, markShachrisMilestone,
+  bulkArriveAtShachrisStart, recordShachrisPresenceEvent, markShachrisMilestone, endShachrisLiveSession,
   saveShachrisExpectation, loadShachrisProgression, loadShachrisStayHistory,
   saveShachrisStayRequirement, saveShachrisSettings,
   saveShachrisLateReason, setShachrisAbsence, confirmShachrisClearance,

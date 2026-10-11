@@ -8,6 +8,7 @@ export type ShachrisBackend = Pick<typeof service,
   'saveShachrisLateReason' | 'setShachrisAbsence' | 'confirmShachrisClearance' |
   'loadShachrisStartCorrectionState' | 'correctShachrisStart'
 > & {
+  endShachrisLiveSession?: typeof service.endShachrisLiveSession
   supportsSessionRestart?: boolean
   loadShachrisHistory?: typeof service.loadShachrisHistory
   saveShachrisHistoricalDay?: typeof service.saveShachrisHistoricalDay
