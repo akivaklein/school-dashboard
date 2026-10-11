@@ -43,6 +43,21 @@ const records = ['start', 'full', 'ashrei'].map((milestoneId, index) => {
   }
 })
 
+const priorDate = new Date(`${today}T12:00:00`)
+priorDate.setDate(priorDate.getDate() - priorDate.getDay() - 6)
+const priorDay = `${priorDate.getFullYear()}-${String(priorDate.getMonth() + 1).padStart(2, '0')}-${String(priorDate.getDate()).padStart(2, '0')}`
+const priorSession = { ...session, id: 'qa-history', session_date: priorDay, config: { ...structuredClone(config), arrivalGraceMinutes: 0 }, started_at: `${priorDay}T07:00:00Z`, milestone_times: { 'shemoneh-esrei': `${priorDay}T07:30:00Z`, 'chazaras-hashatz': `${priorDay}T07:40:00Z`, 'end-davening': `${priorDay}T07:50:00Z` } }
+const priorRecords = records.map((record, index) => ({ ...structuredClone(record), session_id: priorSession.id, presence: 'present', arrival_at: `${priorDay}T07:0${index === 1 ? 3 : 0}:00Z`, requirement_result: 'met', late_minutes: index === 1 ? 3 : 0, late_reason: index === 1 ? 'transportation' : null, late_excused: index === 1, note: 'Saved history note', leave_intervals: index === 0 ? [{ leftAt: `${priorDay}T07:35:00Z`, returnedAt: `${priorDay}T07:37:00Z`, permission: 'with' }] : [] }))
+const requests = []
+const freshRecordsTemplate = structuredClone(records)
+const restartAudit = []
+const voidedSessions = []
+const voidedRecords = []
+const historicalAudits = []
+const backfillSessions = []
+const backfillRecords = []
+let rejectHistoricalSave = false
+
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
 await page.addInitScript(() => { window.__SHACHRIS_BROWSER_TEST__ = true })
@@ -52,15 +67,76 @@ await page.route('**/rest/v1/**', async route => {
   const request = route.request()
   const url = new URL(request.url())
   const name = url.pathname.split('/').at(-1)
+  requests.push({ name, method: request.method() })
   const input = request.postDataJSON() || {}
   let response
-  if (name === 'shachris_settings') response = settings
+  if (name === 'shachris_sessions') {
+    assert.equal(request.method(), 'GET')
+    assert.equal(url.searchParams.get('voided_at'), 'is.null')
+    const bounds = url.searchParams.getAll('session_date')
+    const from = bounds.find(value => value.startsWith('gte.'))?.slice(4)
+    const through = bounds.find(value => value.startsWith('lte.'))?.slice(4)
+    response = [session, priorSession, ...backfillSessions, ...voidedSessions].filter(entry => !entry.voided_at && entry.session_date >= from && entry.session_date <= through)
+  } else if (name === 'shachris_student_records') {
+    assert.equal(request.method(), 'GET')
+    assert.equal(url.searchParams.get('student_id'), 'in.(1001,1002,1003)')
+    const ids = url.searchParams.get('session_id')
+    response = [...records, ...priorRecords, ...backfillRecords, ...voidedRecords].filter(record => ids.includes(record.session_id))
+  } else if (name === 'shachris_events') {
+    assert.equal(request.method(), 'GET')
+    assert.equal(url.searchParams.get('event_type'), 'eq.historical-day-edit')
+    response = historicalAudits.filter(entry => entry.session_id === url.searchParams.get('session_id')?.slice(3) && entry.student_id === Number(url.searchParams.get('student_id')?.slice(3))).toReversed()
+  } else if (name === 'shachris_save_historical_day') {
+    assert.equal(permission, 'edit')
+    assert.ok(input.p_date < today)
+    assert.ok(input.p_reason.trim())
+    if (rejectHistoricalSave) {
+      await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'Day changed. Reload before saving.' }) })
+      return
+    }
+    let savedSession = [priorSession, ...backfillSessions].find(entry => entry.session_date === input.p_date)
+    if (!savedSession) {
+      savedSession = { ...structuredClone(session), id: `backfill-${input.p_date}`, session_date: input.p_date, started_at: null, started_by_name: '', milestone_times: {} }
+      backfillSessions.push(savedSession)
+    }
+    let record = [...priorRecords, ...backfillRecords].find(entry => entry.session_id === savedSession.id && entry.student_id === input.p_student_id)
+    const before = record ? structuredClone(record) : null
+    assert.equal(input.p_revision, record?.revision ?? null)
+    if (!record) {
+      record = { ...structuredClone(records[0]), session_id: savedSession.id, student_id: input.p_student_id, presence: 'unmarked', arrival_at: null, last_return_at: null, leave_intervals: [], requirement_result: 'pending', requirement_met_at: null, requirement_met_milestone: null, personally_cleared_at: null, personally_cleared_by_name: '', personally_cleared_milestone: null, late_minutes: null, late_reason: null, late_reason_note: '', late_excused: false, extra_stay_intervals: [], stayed_beyond_required: false, note: '', revision: 0 }
+      backfillRecords.push(record)
+    }
+    record.historical_result = input.p_result
+    record.revision++
+    historicalAudits.push({ id: `audit-${historicalAudits.length}`, session_id: savedSession.id, student_id: record.student_id, actor_name: input.p_actor_name, created_at: new Date().toISOString(), detail: { reason: input.p_reason, before, after: structuredClone(record) } })
+    response = { session: savedSession, record }
+  } else if (name === 'shachris_settings') response = settings
   else if (name === 'dashboard_current_permissions') response = { attendance: permission, setup: permission }
   else if (name === 'shachris_open_session') {
     assert.deepEqual(input.p_student_ids, [1001, 1002, 1003])
     response = { session, records }
   }
-  else if (name === 'shachris_start_session') {
+  else if (name === 'shachris_start_correction_state') {
+    assert.equal(permission, 'edit')
+    assert.equal(input.p_session_id, session.id)
+    response = { hasActivity: records.some(record => record.revision > 0) || Object.keys(session.milestone_times).some(id => id !== 'hodu'), audit: restartAudit }
+  } else if (name === 'shachris_correct_start') {
+    assert.equal(permission, 'edit')
+    assert.equal(input.p_session_id, session.id)
+    assert.equal(input.p_expected_start, session.started_at)
+    assert.equal(input.p_mode, 'restart')
+    assert.equal(input.p_confirmed, true)
+    assert.ok(input.p_reason.trim())
+    const oldSession = structuredClone(session)
+    const oldRecords = structuredClone(records)
+    const oldId = session.id
+    voidedSessions.push({ ...oldSession, voided_at: new Date().toISOString() })
+    voidedRecords.push(...oldRecords)
+    Object.assign(session, { id: `qa-restarted-${voidedSessions.length}`, started_at: null, started_by_name: '', milestone_times: {}, config: structuredClone(settings.config), restarted_from: oldId })
+    records.splice(0, records.length, ...freshRecordsTemplate.map(record => ({ ...structuredClone(record), session_id: session.id })))
+    restartAudit.push({ id: `restart-${voidedSessions.length}`, action: 'restarted', previous_start: oldSession.started_at, new_start: null, actor_name: input.p_actor_name, reason: input.p_reason, created_at: new Date().toISOString() })
+    response = { session, records }
+  } else if (name === 'shachris_start_session') {
     session.started_at ||= `${today}T07:00:00.000Z`
     session.started_by_name = input.p_actor_name
     session.milestone_times.hodu ||= session.started_at
@@ -159,6 +235,48 @@ try {
   await page.getByRole('button', { name: 'Start Session' }).waitFor()
   await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
   assert.equal(await page.locator('.sh-live-card').count(), 3, await page.locator('body').innerText())
+  assert.equal(await page.locator('.sh-live-grid').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length), 4)
+  const compactHeight = await page.locator('.sh-live-card').first().evaluate(node => node.getBoundingClientRect().height)
+  const topBefore = await page.locator('.sh-communal-milestones').evaluate(node => node.getBoundingClientRect().height)
+  const originalCardStyle = await page.addStyleTag({ content: `
+    .sh-live-grid > .sh-live-card { padding:13px }
+    .sh-live-card .sh-card-attendance:has(.sh-nonattendance) { display:block }
+    .sh-live-card .sh-live-card-head { gap:9px; margin-bottom:12px }
+    .sh-live-card .sh-student-avatar { width:38px; height:38px }
+    .sh-live-card .sh-presence-badge { padding:5px 8px }
+    .sh-live-card .sh-stay-requirement { padding:9px 10px; gap:2px 6px }
+    .sh-live-card .sh-stay-requirement > span { grid-column:1/-1; font-size:9px }
+    .sh-live-card .sh-stay-requirement .sh-adjust { grid-row:2; min-height:0 }
+    .sh-live-card .sh-arrival-row, .sh-live-card .sh-current-leave, .sh-live-card .sh-return-row { min-height:34px; gap:6px }
+    .sh-live-card .sh-requirement-result { min-height:48px; gap:8px; margin:9px 0; padding:8px 9px }
+    .sh-live-card .sh-requirement-result > div { gap:2px }
+    .sh-live-card .sh-requirement-result span { font-size:10px; line-height:1.3 }
+    .sh-live-card .sh-live-actions .sh-button { min-height:37px; padding:7px 6px }
+    .sh-live-card .sh-clearance-button { min-height:37px; padding:8px 11px; margin-bottom:9px }
+    .sh-live-card .sh-progress-card { margin-top:11px; padding-top:8px }
+    .sh-live-card .sh-progress-card > summary { min-height:0 }
+    .sh-live-card .sh-nonattendance { padding:8px 0 }
+  ` })
+  const originalHeight = await page.locator('.sh-live-card').first().evaluate(node => node.getBoundingClientRect().height)
+  const reduction = 1 - compactHeight / originalHeight
+  console.log(`Card heights: original ${originalHeight}px, compact ${compactHeight}px, reduction ${(reduction * 100).toFixed(1)}%`)
+  assert.ok(reduction >= 0.28, `Card reduction ${(reduction * 100).toFixed(1)}%`)
+  assert.ok(compactHeight < 237, `Cards should be denser than previous 237px: ${compactHeight}px`)
+  assert.equal(await page.locator('.sh-communal-milestones').evaluate(node => node.getBoundingClientRect().height), topBefore)
+  await originalCardStyle.evaluate(node => node.remove())
+  assert.ok(await page.locator('.sh-live-actions .sh-button').first().evaluate(node => node.getBoundingClientRect().height >= 44))
+  assert.equal(await page.locator('.sh-progress-card').first().evaluate(node => node.open), false)
+  await page.screenshot({ path: `${screenshotDirectory}/shachris-compact-cards-1440.png`, fullPage: true })
+  for (const [width, columns] of [[1440, 4], [1180, 4], [1024, 4], [960, 3], [820, 2], [640, 2], [390, 1], [320, 1]]) {
+    await page.setViewportSize({ width, height: 900 })
+    assert.equal(await page.locator('.sh-live-grid').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length), columns, `Grid columns at ${width}px`)
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    assert.ok(await page.locator('.sh-live-actions .sh-button').first().evaluate(node => node.getBoundingClientRect().height >= 44))
+    assert.equal(await page.locator('.sh-progress-card').first().evaluate(node => node.open), false)
+    assert.ok(await page.locator('.sh-live-card').first().evaluate(node => Array.from(node.querySelectorAll('button, .sh-card-name, .sh-presence-badge')).every(element => element.scrollWidth <= element.clientWidth + 1)), `Card content fits at ${width}px`)
+    await page.screenshot({ path: `${screenshotDirectory}/shachris-compact-cards-${width}.png`, fullPage: true })
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 })
   assert.match(await page.locator('.sh-live-card').filter({ hasText: 'Student Alef' }).textContent(), /Age 11.*Shemoneh Esrei/)
   assert.match(await page.locator('.sh-live-card').filter({ hasText: 'Student Beis' }).textContent(), /Age 12.*Chazaras HaShatz/)
   assert.match(await page.locator('.sh-live-card').filter({ hasText: 'Student Gimmel' }).textContent(), /Age 13.*End Davening/)
@@ -180,6 +298,21 @@ try {
   assert.equal(records[1].arrival_at, session.started_at)
   await page.getByLabel('Class or group').selectOption('all')
 
+  for (const width of [1024, 960, 820, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    const permissionStyles = await page.locator('.sh-live-card').first().evaluate(node => {
+      const permitted = node.querySelector('.sh-leave-permitted')
+      const unpermitted = node.querySelector('.sh-leave-unpermitted')
+      return [permitted, unpermitted].map(button => ({ background: getComputedStyle(button).backgroundColor, color: getComputedStyle(button).color, height: button.getBoundingClientRect().height, fits: button.scrollWidth <= button.clientWidth + 1 }))
+    })
+    assert.equal(permissionStyles[0].background, 'rgb(248, 249, 248)')
+    assert.equal(permissionStyles[1].background, permissionStyles[0].background)
+    assert.equal(permissionStyles[1].color, permissionStyles[0].color)
+    assert.ok(permissionStyles.every(style => style.height >= 44 && style.fits))
+    await page.screenshot({ path: `${screenshotDirectory}/shachris-leave-buttons-${width}.png`, fullPage: true })
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+
   const age13Card = page.locator('.sh-live-card').filter({ hasText: 'Student Gimmel' })
   await age13Card.getByRole('button', { name: 'In Shul / Arrived' }).click()
   await waitSaved()
@@ -194,12 +327,18 @@ try {
   const age11Card = page.locator('.sh-live-card').filter({ hasText: 'Student Alef' })
   await age11Card.getByRole('button', { name: 'Left With Permission' }).click()
   await waitSaved()
+  assert.equal(await age11Card.locator('.sh-current-leave').evaluate(node => getComputedStyle(node).color), 'rgb(121, 100, 59)')
   await age11Card.getByRole('button', { name: 'Returned' }).click()
   await waitSaved()
+  assert.equal(await age11Card.locator('.sh-return-row > span').last().evaluate(node => getComputedStyle(node).color), 'rgb(121, 100, 59)')
   await age11Card.getByRole('button', { name: 'Left Without Permission' }).click()
   await waitSaved()
+  assert.equal(await age11Card.locator('.sh-current-leave').evaluate(node => getComputedStyle(node).color), 'rgb(175, 48, 60)')
+  assert.equal(await age11Card.locator('.sh-current-leave > strong').evaluate(node => getComputedStyle(node).color), 'rgb(175, 48, 60)')
   await age11Card.getByRole('button', { name: 'Returned' }).click()
   await waitSaved()
+  assert.equal(await age11Card.locator('.sh-return-row > span').last().evaluate(node => getComputedStyle(node).color), 'rgb(175, 48, 60)')
+  await page.screenshot({ path: `${screenshotDirectory}/shachris-returned-without-permission.png`, fullPage: true })
   assert.equal(records[0].leave_intervals.length, 2)
   assert.equal(records[0].leave_intervals[0].permission, 'with')
   assert.equal(records[0].leave_intervals[1].permission, 'without')
@@ -253,6 +392,9 @@ try {
   assert.equal(records[1].requirement_result, 'met')
   assert.equal(records[2].requirement_result, 'met')
   assert.equal(records[0].stayed_beyond_required, true)
+  assert.equal(await age11Card.locator('.sh-current-leave').evaluate(node => getComputedStyle(node).color), 'rgb(121, 100, 59)')
+  assert.equal(await age11Card.locator('.sh-current-leave > strong').evaluate(node => getComputedStyle(node).color), 'rgb(175, 48, 60)')
+  assert.equal(await age11Card.locator('.sh-return-row').evaluate(node => getComputedStyle(node).color), 'rgb(175, 48, 60)')
 
   assert.equal(await age11Card.locator('details.sh-progress-card').evaluate(node => node.open), false)
   await age11Card.locator('details.sh-progress-card > summary').click()
@@ -268,13 +410,176 @@ try {
   assert.equal(await page.getByLabel('Age 12 required until').inputValue(), 'chazaras-hashatz')
   assert.equal(await page.getByLabel('Age 13 required until').inputValue(), 'end-davening')
   assert.equal(await page.getByLabel('Arrival grace minutes').inputValue(), '2')
-  await page.getByRole('button', { name: 'Live Session' }).click()
+  assert.equal(await page.getByLabel('Require On Time every required day', { exact: true }).isChecked(), true)
+  await page.getByLabel('Excused lateness may count as On Time', { exact: true }).check()
+  await page.getByLabel('Allowed exceptions per week').fill('1')
+  await page.getByRole('button', { name: 'Save Settings' }).click()
+  await page.getByRole('status').filter({ hasText: 'Shachris settings saved.' }).waitFor()
+  assert.deepEqual(settings.config.weeklyEligibility, { requireOnTime: true, requireEntireStay: true, excusedLateCountsOnTime: true, ignoreExcusedAbsence: false, allowedExceptions: 1 })
+  const savedBeforeHistory = JSON.stringify({ records, priorRecords, session, priorSession })
+  const requestsBeforeHistory = requests.length
+  await page.getByRole('button', { name: 'Weekly Record / History' }).click()
+  await page.locator('.sh-week-table').waitFor()
+  assert.equal(await page.locator('.sh-week-table tbody tr').count(), 3)
+  assert.equal(await page.locator('.sh-week-table').evaluate(node => getComputedStyle(node).borderCollapse), 'separate')
+  assert.equal(await page.locator('.sh-week-upcoming').first().evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)')
+  await page.getByRole('button', { name: 'Last Week', exact: true }).click()
+  await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).waitFor()
+  for (const [student, tone, background] of [['Student Alef', 'mixed', 'rgb(255, 248, 235)'], ['Student Beis', 'excused', 'rgb(239, 244, 248)'], ['Student Gimmel', 'good', 'rgb(240, 248, 242)']]) {
+    const cell = page.getByRole('button', { name: `${student}: ${priorDay}`, exact: true })
+    assert.ok((await cell.getAttribute('class')).includes(`sh-week-${tone}`))
+    assert.equal(await cell.evaluate(node => getComputedStyle(node).backgroundColor), background)
+    assert.match(await cell.innerText(), /On Time|Late/)
+    assert.match(await cell.innerText(), /Stayed Entire Time/)
+    assert.ok(await cell.evaluate(node => node.getBoundingClientRect().height >= 44 && node.scrollWidth <= node.clientWidth + 1))
+  }
+  assert.equal(await page.locator('.sh-week-incomplete').first().evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(243, 244, 244)')
+  assert.equal(await page.locator('.sh-week-table tbody tr').filter({ hasText: 'Student Alef' }).locator('td').last().locator('strong').innerText(), 'Yes')
+  assert.equal(await page.locator('.sh-week-table tbody tr').filter({ hasText: 'Student Beis' }).locator('td').last().locator('strong').innerText(), 'Yes')
+  await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).click()
+  const dayDialog = page.getByRole('dialog', { name: 'Saved Shachris day' })
+  assert.match(await dayDialog.innerText(), /Saved history note/)
+  assert.match(await dayDialog.innerText(), /2 min/)
+  assert.match(await dayDialog.innerText(), /With permission/)
+  assert.equal(await dayDialog.locator('input, select').count(), 0)
+  await page.getByRole('button', { name: 'Close day details' }).click()
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    await page.screenshot({ path: `${screenshotDirectory}/shachris-weekly-${width}.png`, fullPage: true })
+  }
+  await page.getByRole('button', { name: 'Previous week', exact: true }).click()
+  await page.getByText('No required days recorded', { exact: true }).first().waitFor()
+  assert.equal(await page.locator('.sh-week-table tbody tr').first().locator('td').last().locator('strong').innerText(), 'No')
+  await page.getByRole('button', { name: 'Next week', exact: true }).click()
+  await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).waitFor()
+  assert.ok(requests.slice(requestsBeforeHistory).every(request => request.method === 'GET'))
+  assert.equal(JSON.stringify({ records, priorRecords, session, priorSession }), savedBeforeHistory)
+
+  await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).click()
+  const beforeCancel = requests.length
+  await dayDialog.getByRole('button', { name: 'Edit Day', exact: true }).click()
+  await page.getByLabel('Historical day note').fill('Canceled change')
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  assert.ok(requests.slice(beforeCancel).every(request => request.method === 'GET'))
+  assert.equal(JSON.stringify({ records, priorRecords, session, priorSession }), savedBeforeHistory)
+  await dayDialog.getByRole('button', { name: 'Edit Day', exact: true }).click()
+  await page.getByLabel('Historical arrival result').selectOption('false')
+  await page.getByLabel('Historical late reason', { exact: true }).selectOption('other')
+  await page.getByLabel('Historical late reason note').fill('Paper log correction')
+  await page.getByLabel('Historical late excused').check()
+  await page.getByLabel('Historical required stay').selectOption('false')
+  await page.getByLabel('Historical day note').fill('Corrected saved results')
+  await page.getByLabel('Historical edit reason').fill('Reviewed last week paper log')
+  await page.screenshot({ path: `${screenshotDirectory}/shachris-historical-edit-form-320.png`, fullPage: true })
+  await page.getByRole('button', { name: 'Save Day', exact: true }).click()
+  await dayDialog.getByText('Reviewed last week paper log', { exact: true }).waitFor()
+  assert.equal(historicalAudits.length, 1)
+  assert.equal(priorRecords[0].arrival_at, historicalAudits[0].detail.before.arrival_at)
+  assert.deepEqual(priorRecords[0].leave_intervals, historicalAudits[0].detail.before.leave_intervals)
+  assert.equal(priorRecords[0].note, 'Saved history note')
+  assert.equal(priorRecords[0].historical_result.note, 'Corrected saved results')
+  assert.equal(await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(252, 240, 241)')
+  assert.match(await dayDialog.innerText(), /Before: Recorded facts/)
+  assert.match(await dayDialog.innerText(), /After: present \/ Late \/ Did Not Stay Required Time/)
+  assert.equal(await dayDialog.locator('dt').filter({ hasText: 'Minutes late' }).evaluate(node => node.nextElementSibling.textContent), '0')
+  rejectHistoricalSave = true
+  await dayDialog.getByRole('button', { name: 'Edit Day', exact: true }).click()
+  await page.getByLabel('Historical edit reason').fill('Stale test')
+  await page.getByRole('button', { name: 'Save Day', exact: true }).click()
+  await dayDialog.getByRole('alert').filter({ hasText: 'Day changed.' }).waitFor()
+  assert.equal(historicalAudits.length, 1)
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  rejectHistoricalSave = false
+  await page.getByRole('button', { name: 'Close day details' }).click()
+  await page.getByRole('button', { name: 'Previous week', exact: true }).click()
+  await page.getByText('No required days recorded', { exact: true }).first().waitFor()
+  const backfillButton = page.locator('.sh-week-table tbody tr').first().locator('.sh-week-day').first()
+  const backfillDate = (await backfillButton.getAttribute('aria-label')).split(': ')[1]
+  await backfillButton.click()
+  assert.equal(await dayDialog.locator('input, select').count(), 0)
+  await dayDialog.getByRole('button', { name: 'Edit Day', exact: true }).click()
+  await page.getByLabel('Historical arrival result').selectOption('true')
+  await page.getByLabel('Historical required stay').selectOption('true')
+  await page.getByLabel('Historical day note').fill('No tablet yet')
+  await page.getByLabel('Historical edit reason').fill('Backfilled from paper')
+  await page.getByRole('button', { name: 'Save Day', exact: true }).click()
+  await dayDialog.getByText('Backfilled from paper', { exact: true }).waitFor()
+  assert.equal(backfillRecords.length, 1)
+  assert.equal(backfillSessions[0].started_at, null)
+  assert.equal(backfillRecords[0].arrival_at, null)
+  await page.getByRole('button', { name: 'Close day details' }).click()
+  assert.equal(await page.locator('.sh-week-table tbody tr').first().locator('td').last().locator('strong').innerText(), 'Yes')
+  await page.getByRole('button', { name: `Student Alef: ${backfillDate}`, exact: true }).click()
+  await dayDialog.getByRole('button', { name: 'Edit Day', exact: true }).click()
+  await page.getByLabel('Historical attendance status').selectOption('excused')
+  await page.getByLabel('Historical edit reason').fill('Absence was excused')
+  await page.getByRole('button', { name: 'Save Day', exact: true }).click()
+  await dayDialog.getByText('Absence was excused', { exact: true }).waitFor()
+  assert.equal(backfillRecords[0].historical_result.onTime, null)
+  assert.equal(backfillRecords[0].historical_result.stayedRequired, null)
+  assert.equal(historicalAudits.length, 3)
+  assert.match(await dayDialog.innerText(), /Original Recorded Facts/)
+  await page.screenshot({ path: `${screenshotDirectory}/shachris-historical-edit-audit-320.png`, fullPage: true })
+  await page.getByRole('button', { name: 'Close day details' }).click()
+  await page.getByRole('button', { name: 'Last Week', exact: true }).click()
+  await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).waitFor()
+  await page.getByRole('navigation', { name: 'Shachris views' }).getByRole('button', { name: 'Live Session', exact: true }).click()
+  await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
+  const beforeOldDate = requests.length
+  await page.getByLabel('Session date').fill(priorDay)
+  await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Mark Visible In Shul at Hodu' }).isDisabled(), true)
+  assert.ok(!requests.slice(beforeOldDate).some(request => request.name === 'shachris_open_session'))
   permission = 'view'
   await page.reload()
   await page.getByRole('status').filter({ hasText: 'View only' }).waitFor()
   assert.equal(await page.getByRole('button', { name: 'Correct Hodu Start', exact: true }).count(), 0)
   assert.equal(await page.getByRole('button', { name: 'Start Session' }).count(), 0)
   assert.equal(await page.getByRole('button', { name: 'Mark Visible In Shul at Hodu' }).isDisabled(), true)
+  await page.getByRole('button', { name: 'Weekly Record / History' }).click()
+  await page.getByRole('button', { name: 'Last Week', exact: true }).click()
+  await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).click()
+  assert.equal(await dayDialog.getByRole('button', { name: 'Edit Day', exact: true }).count(), 0)
+  assert.equal(await dayDialog.locator('input, select').count(), 0)
+
+  await page.getByRole('button', { name: 'Close day details' }).click()
+  permission = 'edit'
+  await page.reload()
+  await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
+  const beforeRestart = structuredClone({ session, records })
+  await page.getByRole('button', { name: 'Correct Hodu Start', exact: true }).click()
+  await page.getByLabel('Hodu correction mode').selectOption('restart')
+  const restartButton = page.getByRole('button', { name: "Restart Today's Session", exact: true })
+  assert.equal(await restartButton.isDisabled(), true)
+  await page.getByLabel('Hodu correction reason').fill('Testing cleanup: fresh today')
+  assert.equal(await restartButton.isDisabled(), true)
+  await page.getByLabel('Confirm Hodu correction').check()
+  await page.screenshot({ path: `${screenshotDirectory}/shachris-restart-confirmation.png`, fullPage: true })
+  await restartButton.click()
+  await page.getByRole('status').filter({ hasText: "Today's session restarted." }).waitFor()
+  assert.notEqual(session.id, beforeRestart.session.id)
+  assert.equal(session.started_at, null)
+  assert.deepEqual(session.milestone_times, {})
+  assert.deepEqual(voidedRecords, beforeRestart.records)
+  assert.equal(voidedSessions.length, 1)
+  assert.equal(restartAudit.length, 1)
+  assert.ok(records.every(record => record.presence === 'unmarked' && record.arrival_at === null && record.late_reason === null && record.leave_intervals.length === 0 && record.absence_status === null && record.personally_cleared_at === null && record.requirement_result === 'pending' && record.note === ''))
+  assert.equal(await page.getByRole('button', { name: 'Start Session', exact: true }).count(), 1)
+  await page.getByRole('button', { name: 'Weekly Record / History' }).click()
+  await page.locator('.sh-week-table').waitFor()
+  assert.equal(await page.locator('.sh-week-table tbody tr').first().locator('td').last().locator('strong').innerText(), 'No')
+  assert.match(await page.locator('.sh-week-table tbody tr').first().innerText(), /Not started/)
+  await page.getByRole('navigation', { name: 'Shachris views' }).getByRole('button', { name: 'Live Session', exact: true }).click()
+  await page.getByRole('button', { name: 'Session Corrections', exact: true }).click()
+  await page.getByText('Testing cleanup: fresh today', { exact: true }).waitFor()
+  assert.equal(await page.getByLabel('Hodu correction mode').inputValue(), 'restart')
+  await page.getByRole('button', { name: 'Close start correction' }).click()
+  const restartedId = session.id
+  await page.reload()
+  await page.getByRole('status').filter({ hasText: 'Ready' }).waitFor()
+  assert.equal(session.id, restartedId)
+  assert.equal(await page.getByRole('button', { name: 'Start Session', exact: true }).count(), 1)
 
   await page.goto(`${url}?dob=1`)
   await page.getByLabel('Regular date of birth').fill('2013-10-06')
@@ -282,7 +587,7 @@ try {
   await page.getByRole('status').filter({ hasText: 'Date of birth saved.' }).waitFor()
   assert.equal(savedDob, '2013-10-06')
   assert.deepEqual(errors, [])
-  console.log('PASS: shared secure adapter, late excusal, communal-only milestones, personal clearance, extra stay, repeated leave/return, stay overrides, view-only permissions, DOB save and mobile overflow. Synthetic data only; no school writes.')
+  console.log('PASS: secure today restart with reason/confirmation, fresh state, preserved voided records, audit/reopen/history exclusion; compact cards, leave colors, weekly cells, historical editing and view-only regression. Synthetic data only; no school writes.')
 } finally {
   await browser.close()
 }

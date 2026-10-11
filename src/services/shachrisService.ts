@@ -1,10 +1,12 @@
 import { supabase } from '../supabaseClient'
-import { calculateAge, localDateKey, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord, type ShachrisStayAssignment } from '../utils/shachris'
+import { calculateAge, localDateKey, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord, type ShachrisStayAssignment, type ShachrisHistoricalResult } from '../utils/shachris'
 import { isLeadershipRole } from '../utils/permissions'
 import type { ShachrisBackend } from './shachrisBackend'
 
 export type ShachrisSettings = { config: ShachrisConfig; revision: number }
-export type ShachrisSession = { id: string; session_date: string; config: ShachrisConfig; started_at: string | null; started_by_name: string; milestone_times: Record<string, string> }
+export type ShachrisHistory = { sessions: ShachrisSession[]; records: ShachrisRecord[] }
+export type ShachrisDayAudit = { id: string; actor_name: string; created_at: string; detail: { reason: string; before: ShachrisRecord | null; after: ShachrisRecord } }
+export type ShachrisSession = { id: string; session_date: string; config: ShachrisConfig; started_at: string | null; started_by_name: string; milestone_times: Record<string, string>; voided_at?: string | null; restarted_from?: string | null }
 export type ShachrisMilestoneResult = { session: ShachrisSession; records: ShachrisRecord[]; metCount: number; notMetCount: number; alreadyMarked: boolean }
 export type ShachrisStartCorrectionState = { hasActivity: boolean; audit: Array<{ id: string; action: string; previous_start: string | null; new_start: string | null; actor_name: string; reason: string; created_at: string }> }
 
@@ -14,7 +16,7 @@ export async function loadShachrisStartCorrectionState(sessionId: string): Promi
   return data as ShachrisStartCorrectionState
 }
 
-export async function correctShachrisStart(input: { sessionId: string; mode: 'reset' | 'correct'; newStart: string | null; expectedStart: string; reason: string; actorName: string; confirmed: boolean }): Promise<{ session: ShachrisSession; records: ShachrisRecord[] }> {
+export async function correctShachrisStart(input: { sessionId: string; mode: 'reset' | 'correct' | 'restart'; newStart: string | null; expectedStart: string | null; reason: string; actorName: string; confirmed: boolean }): Promise<{ session: ShachrisSession; records: ShachrisRecord[] }> {
   const { data, error } = await supabase.rpc('shachris_correct_start', { p_session_id: input.sessionId, p_mode: input.mode, p_new_start: input.newStart, p_expected_start: input.expectedStart, p_reason: input.reason.trim(), p_actor_name: input.actorName, p_confirmed: input.confirmed })
   if (error) throw error
   return data as { session: ShachrisSession; records: ShachrisRecord[] }
@@ -48,6 +50,28 @@ export async function openShachrisSession(date: string, studentIds: number[]): P
   const { data, error } = await supabase.rpc('shachris_open_session', { p_date: date, p_student_ids: studentIds })
   if (error) throw error
   return data as { session: ShachrisSession; records: ShachrisRecord[] }
+}
+
+export async function loadShachrisHistory(from: string, through: string, studentIds: number[]): Promise<ShachrisHistory> {
+  const { data: sessions, error: sessionError } = await supabase.from('shachris_sessions').select('*').gte('session_date', from).lte('session_date', through).is('voided_at', null).order('session_date')
+  if (sessionError) throw sessionError
+  if (!sessions?.length || !studentIds.length) return { sessions: (sessions || []) as ShachrisSession[], records: [] }
+  const { data: records, error: recordError } = await supabase.from('shachris_student_records').select('*').in('session_id', sessions.map(session => session.id)).in('student_id', studentIds)
+  if (recordError) throw recordError
+  return { sessions: sessions as ShachrisSession[], records: (records || []) as ShachrisRecord[] }
+}
+
+export async function loadShachrisDayAudit(sessionId: string, studentId: number): Promise<ShachrisDayAudit[]> {
+  const { data, error } = await supabase.from('shachris_events').select('id,actor_name,created_at,detail').eq('session_id', sessionId).eq('student_id', studentId).eq('event_type', 'historical-day-edit').order('created_at', { ascending: false }).order('id', { ascending: false })
+  if (error) throw error
+  return (data || []) as ShachrisDayAudit[]
+}
+
+export async function saveShachrisHistoricalDay(input: { date: string; studentId: number; result: ShachrisHistoricalResult; revision: number | null; reason: string; actorName: string }): Promise<{ session: ShachrisSession; record: ShachrisRecord }> {
+  if (input.date >= localDateKey()) throw new Error('Choose a previous school day.')
+  const { data, error } = await supabase.rpc('shachris_save_historical_day', { p_date: input.date, p_student_id: input.studentId, p_result: input.result, p_revision: input.revision, p_reason: input.reason.trim(), p_actor_name: input.actorName })
+  if (error) throw error
+  return data as { session: ShachrisSession; record: ShachrisRecord }
 }
 
 export async function saveShachrisRecords(sessionId: string, records: ShachrisRecord[], actorName: string): Promise<ShachrisRecord[]> {
@@ -146,6 +170,9 @@ export async function saveStudentDob(studentId: number | string, dob: string | n
 }
 
 export const secureShachrisBackend: ShachrisBackend = {
+  supportsSessionRestart: true,
+  saveShachrisHistoricalDay, loadShachrisDayAudit,
+  loadShachrisHistory,
   loadShachrisSettings, openShachrisSession, saveShachrisRecords, startShachrisSession,
   bulkArriveAtShachrisStart, recordShachrisPresenceEvent, markShachrisMilestone,
   saveShachrisExpectation, loadShachrisProgression, loadShachrisStayHistory,

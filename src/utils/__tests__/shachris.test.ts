@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_SHACHRIS_WEEKLY_RULES, shachrisDayResult, shachrisWeekDates, shachrisWeeklyEligibility } from '../shachris'
 import { calculateShachrisExtraSeconds, isShachrisLate, isShachrisReadyForCheck, needsShachrisAttention, personallyClearShachrisRecord, shachrisPresenceLabel } from '../shachris'
 import { isShachrisRosterStudent, shachrisGraceMinutes } from '../shachris'
 import { calculateAge, calculateShachrisMinutesLate, calculateShachrisMinutesOut, completePresentShachrisRequirements, completeShachrisExpectation, getShachrisGrade, hasMetShachrisExpectation, INITIAL_SHACHRIS_CONFIG, latestOpenShachrisLeave, nextShachrisSection, resolveShachrisExpectation, resolveShachrisStayRequirement, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord } from '../shachris'
@@ -6,6 +7,39 @@ import { calculateAge, calculateShachrisMinutesLate, calculateShachrisMinutesOut
 const assignment: ShachrisAssignment = { id: 'override', student_id: 1, mode: 'manual', milestone_id: 'ashrei', section_ids: null, reason: '', actor_name: 'Rebbe', effective_date: '2026-10-05', duration: 'future', created_at: '2026-10-05T12:00:00Z' }
 
 describe('Shachris individual requirements', () => {
+  it('builds Sunday-Friday weeks across year boundaries', () => {
+    expect(shachrisWeekDates('2026-10-11')).toEqual(['2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'])
+    expect(shachrisWeekDates('2026-01-01')[0]).toBe('2025-12-28')
+    expect(shachrisWeekDates('2026-10-11', -1)[0]).toBe('2026-10-04')
+  })
+  it('derives weekly facts without changing saved records, and counts exceptions per day', () => {
+    const session = { id: 'saved', session_date: '2026-10-05', config: { ...INITIAL_SHACHRIS_CONFIG, arrivalGraceMinutes: 0 }, started_at: '2026-10-05T07:00:00Z', milestone_times: { 'shemoneh-esrei': '2026-10-05T07:30:00Z' } }
+    const record: ShachrisRecord = { session_id: 'saved', student_id: 1, expectation: resolveShachrisExpectation(INITIAL_SHACHRIS_CONFIG, undefined, 'yk-b'), stay_requirement: resolveShachrisStayRequirement(INITIAL_SHACHRIS_CONFIG, undefined, 11), presence: 'present', arrival_at: session.started_at, last_return_at: null, leave_intervals: [], requirement_result: 'met', requirement_met_at: '2026-10-05T07:31:00Z', requirement_met_milestone: 'shemoneh-esrei', said_section_ids: [], rating_id: '', note: '', revision: 0, updated_by_name: '' }
+    const before = structuredClone(record)
+    expect(shachrisWeeklyEligibility([{ session, record }], DEFAULT_SHACHRIS_WEEKLY_RULES).eligible).toBe(true)
+    const interrupted = { ...record, arrival_at: '2026-10-05T07:03:00Z', leave_intervals: [{ leftAt: '2026-10-05T07:10:00Z', returnedAt: '2026-10-05T07:12:00Z', permission: 'with' as const }] }
+    expect(shachrisDayResult(session, interrupted)).toMatchObject({ onTime: false, entireStay: false })
+    expect(shachrisDayResult(session, { ...interrupted, requirement_result: 'pending' }).entireStay).toBe(false)
+    expect(shachrisWeeklyEligibility([{ session, record: interrupted }], { ...DEFAULT_SHACHRIS_WEEKLY_RULES, allowedExceptions: 1 })).toMatchObject({ eligible: true, exceptions: 1 })
+    expect(shachrisDayResult(session, { ...record, leave_intervals: [{ leftAt: '2026-10-05T07:32:00Z', returnedAt: null, permission: 'with' }] }).entireStay).toBe(true)
+    expect(shachrisWeeklyEligibility([{ session }], { ...DEFAULT_SHACHRIS_WEEKLY_RULES, allowedExceptions: 10 }).eligible).toBe(false)
+    expect(shachrisWeeklyEligibility([], DEFAULT_SHACHRIS_WEEKLY_RULES).eligible).toBe(false)
+    expect(shachrisDayResult(session, { ...record, requirement_result: 'pending' }).entireStay).toBeNull()
+    expect(shachrisDayResult(session, { ...record, arrival_at: '2026-10-05T07:35:00Z' }).entireStay).toBe(false)
+    expect(record).toEqual(before)
+    const backfilled = { ...record, presence: 'unmarked' as const, arrival_at: null, historical_result: { status: 'present' as const, onTime: true, stayedRequired: true, lateReason: 'no_reason' as const, lateExcused: false, lateReasonNote: '', note: 'Backfilled' } }
+    expect(shachrisDayResult({ ...session, started_at: null }, backfilled)).toMatchObject({ required: true, onTime: true, entireStay: true })
+    expect(shachrisWeeklyEligibility([{ session: { ...session, started_at: null }, record: backfilled }], DEFAULT_SHACHRIS_WEEKLY_RULES).eligible).toBe(true)
+    expect(shachrisWeeklyEligibility([{ session: { ...session, voided_at: '2026-10-05T08:00:00Z' }, record: backfilled }], DEFAULT_SHACHRIS_WEEKLY_RULES)).toMatchObject({ eligible: false, requiredDays: 0 })
+    expect(shachrisWeeklyEligibility([{ session, record: { ...backfilled, historical_result: { ...backfilled.historical_result, status: 'excused', onTime: null, stayedRequired: null } } }, { session, record }], { ...DEFAULT_SHACHRIS_WEEKLY_RULES, ignoreExcusedAbsence: true })).toMatchObject({ eligible: true, requiredDays: 1 })
+    const late = { ...record, arrival_at: '2026-10-05T07:03:00Z', late_excused: true }
+    expect(shachrisWeeklyEligibility([{ session, record: late }], DEFAULT_SHACHRIS_WEEKLY_RULES).eligible).toBe(false)
+    expect(shachrisWeeklyEligibility([{ session, record: late }], { ...DEFAULT_SHACHRIS_WEEKLY_RULES, excusedLateCountsOnTime: true }).eligible).toBe(true)
+    const absent = { ...record, arrival_at: null, presence: 'absent' as const, absence_status: 'excused' as const }
+    expect(shachrisWeeklyEligibility([{ session, record }, { session, record: absent }], { ...DEFAULT_SHACHRIS_WEEKLY_RULES, ignoreExcusedAbsence: true })).toMatchObject({ eligible: true, requiredDays: 1 })
+    expect(shachrisWeeklyEligibility([{ session, record: absent }], DEFAULT_SHACHRIS_WEEKLY_RULES).eligible).toBe(false)
+    expect(validateShachrisConfig({ ...INITIAL_SHACHRIS_CONFIG, weeklyEligibility: { ...DEFAULT_SHACHRIS_WEEKLY_RULES, allowedExceptions: -1 } })).toBeTruthy()
+  })
   it('admits only active authoritative YK 7th/8th assignments', () => {
     expect(isShachrisRosterStudent({ is_active: true }, 'yk-b')).toBe(true)
     expect(isShachrisRosterStudent({ is_active: true }, 'yk-a')).toBe(true)

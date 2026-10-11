@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from 'lucide-react'
 import type { ShachrisSettings } from '../services/shachrisService'
 import type { ShachrisBackend } from '../services/shachrisBackend'
-import { validateShachrisConfig } from '../utils/shachris'
+import { DEFAULT_SHACHRIS_WEEKLY_RULES, validateShachrisConfig } from '../utils/shachris'
 
-type Props = { settings: ShachrisSettings; canEdit: boolean; onSaved: (settings: ShachrisSettings) => void; saveSettings: ShachrisBackend['saveShachrisSettings'] }
+type Props = { settings: ShachrisSettings; canEdit: boolean; onSaved: (settings: ShachrisSettings) => void; saveSettings: ShachrisBackend['saveShachrisSettings']; enableWeekly?: boolean }
 
-export default function ShachrisSettingsEditor({ settings, canEdit, onSaved, saveSettings }: Props) {
+export default function ShachrisSettingsEditor({ settings, canEdit, onSaved, saveSettings, enableWeekly = false }: Props) {
   const [config, setConfig] = useState(() => structuredClone(settings.config))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -38,6 +38,12 @@ export default function ShachrisSettingsEditor({ settings, canEdit, onSaved, sav
 
   return <div className="sh-settings">
     {error && <div role="alert" className="sh-error">{error}</div>}
+    {enableWeekly && <section><h2>Weekly Treat Eligibility</h2>{([
+      ['requireOnTime', 'Require On Time every required day'],
+      ['requireEntireStay', 'Require Stayed Entire Time every required day'],
+      ['excusedLateCountsOnTime', 'Excused lateness may count as On Time'],
+      ['ignoreExcusedAbsence', 'Excused absence may be ignored for eligibility'],
+    ] as const).map(([key, label]) => <label className="sh-check-label" key={key}><input type="checkbox" disabled={disabled} checked={(config.weeklyEligibility || DEFAULT_SHACHRIS_WEEKLY_RULES)[key]} onChange={event => setConfig(previous => ({ ...previous, weeklyEligibility: { ...(previous.weeklyEligibility || DEFAULT_SHACHRIS_WEEKLY_RULES), [key]: event.target.checked } }))} />{label}</label>)}<label>Allowed exceptions per week<input type="number" min="0" step="1" aria-label="Allowed exceptions per week" disabled={disabled} value={(config.weeklyEligibility || DEFAULT_SHACHRIS_WEEKLY_RULES).allowedExceptions} onChange={event => setConfig(previous => ({ ...previous, weeklyEligibility: { ...(previous.weeklyEligibility || DEFAULT_SHACHRIS_WEEKLY_RULES), allowedExceptions: Number(event.target.value) } }))} /></label></section>}
     <section><h2>Arrival Grace</h2><label>Minutes after Hodu<input type="number" min="0" max="10" step="1" aria-label="Arrival grace minutes" disabled={disabled} value={config.arrivalGraceMinutes ?? 2} onChange={event => setConfig(previous => ({ ...previous, arrivalGraceMinutes: Number(event.target.value) }))} /></label></section>
     <section><h2>Sections</h2>{config.sections.map((section, index) => <div key={section.id} className="sh-settings-line"><input aria-label={`Section ${index + 1} name`} value={section.label} disabled={disabled} onChange={event => setConfig(previous => ({ ...previous, sections: previous.sections.map(entry => entry.id === section.id ? { ...entry, label: event.target.value } : entry) }))} /><button className="sh-icon" title="Move section up" aria-label={`Move ${section.label} up`} disabled={disabled || index === 0} onClick={() => moveSection(index, -1)}><ArrowUp size={16} /></button><button className="sh-icon" title="Move section down" aria-label={`Move ${section.label} down`} disabled={disabled || index === config.sections.length - 1} onClick={() => moveSection(index, 1)}><ArrowDown size={16} /></button></div>)}<button className="sh-button" disabled={disabled} onClick={() => setConfig(previous => ({ ...previous, sections: [...previous.sections, { id: crypto.randomUUID(), label: 'New section' }] }))}><Plus size={16} /> Add Section</button></section>
     <section><h2>Milestones</h2>{config.milestones.map((milestone, index) => <div className="sh-milestone-edit" key={milestone.id}><input aria-label={`Milestone ${index + 1} name`} value={milestone.label} disabled={disabled} onChange={event => setConfig(previous => ({ ...previous, milestones: previous.milestones.map(entry => entry.id === milestone.id ? { ...entry, label: event.target.value } : entry) }))} /><div className="sh-milestone-checks">{config.sections.map(section => <label className="sh-check-label" key={section.id}><input type="checkbox" disabled={disabled} checked={milestone.sectionIds.includes(section.id)} onChange={event => setConfig(previous => ({ ...previous, milestones: previous.milestones.map(entry => entry.id === milestone.id ? { ...entry, sectionIds: event.target.checked ? [...entry.sectionIds, section.id] : entry.sectionIds.filter(id => id !== section.id) } : entry) }))} />{section.label}</label>)}</div></div>)}<button className="sh-button" disabled={disabled} onClick={() => setConfig(previous => ({ ...previous, milestones: [...previous.milestones, { id: crypto.randomUUID(), label: 'New milestone', sectionIds: [previous.sections[0].id] }] }))}><Plus size={16} /> Add Milestone</button></section>

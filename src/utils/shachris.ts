@@ -4,6 +4,7 @@ export type ShachrisRule = { id: string; grade: '7' | '8'; milestoneId: string }
 export type ShachrisStayMilestone = { id: string; label: string; order: number }
 export type ShachrisStayRule = { id: string; age: 11 | 12 | 13; milestoneId: string }
 export type ShachrisConfig = {
+  weeklyEligibility?: ShachrisWeeklyRules
   arrivalGraceMinutes?: number
   sections: ShachrisSection[]
   milestones: ShachrisMilestone[]
@@ -51,6 +52,7 @@ export type ShachrisAssignment = {
   created_at: string
 }
 export type ShachrisRecord = {
+  historical_result?: ShachrisHistoricalResult | null
   session_id: string
   student_id: number
   expectation: ShachrisExpectation
@@ -235,6 +237,11 @@ export function hasMetShachrisExpectation(record: ShachrisRecord): boolean {
 }
 
 export function validateShachrisConfig(config: ShachrisConfig): string | null {
+  if (config.weeklyEligibility) {
+    const rules = config.weeklyEligibility
+    if (['requireOnTime', 'requireEntireStay', 'excusedLateCountsOnTime', 'ignoreExcusedAbsence'].some(key => typeof rules[key as keyof ShachrisWeeklyRules] !== 'boolean')
+      || !Number.isInteger(rules.allowedExceptions) || rules.allowedExceptions < 0) return 'Weekly rules need On/Off choices and a nonnegative whole number of exceptions.'
+  }
   if (config.arrivalGraceMinutes !== undefined && (!Number.isInteger(config.arrivalGraceMinutes) || config.arrivalGraceMinutes < 0 || config.arrivalGraceMinutes > 10)) return 'Arrival grace must be a whole number from 0 to 10 minutes.'
   const unique = (ids: string[]) => ids.every(Boolean) && new Set(ids).size === ids.length
   if (!config.sections.length || !unique(config.sections.map(section => section.id)) || config.sections.some(section => !section.label.trim())) return 'Sections must have unique IDs and nonempty names.'
@@ -251,4 +258,82 @@ export function validateShachrisConfig(config: ShachrisConfig): string | null {
   if (!unique(config.rules.map(rule => rule.id)) || new Set(config.rules.map(rule => rule.grade)).size !== config.rules.length
     || config.rules.some(rule => !['7', '8'].includes(rule.grade) || !milestoneIds.has(rule.milestoneId) || Object.keys(rule).some(key => !['id', 'grade', 'milestoneId'].includes(key)))) return 'Default rules must use one rule per actual grade (7th or 8th) and a valid milestone.'
   return null
+}
+
+export type ShachrisWeeklyRules = {
+  requireOnTime: boolean
+  requireEntireStay: boolean
+  excusedLateCountsOnTime: boolean
+  ignoreExcusedAbsence: boolean
+  allowedExceptions: number
+}
+
+export type ShachrisHistoricalResult = {
+  status: 'present' | 'absent' | 'excused' | 'not_in_shul'
+  onTime: boolean | null
+  stayedRequired: boolean | null
+  lateReason: NonNullable<ShachrisRecord['late_reason']>
+  lateExcused: boolean
+  lateReasonNote: string
+  note: string
+}
+
+export const DEFAULT_SHACHRIS_WEEKLY_RULES: ShachrisWeeklyRules = {
+  requireOnTime: true, requireEntireStay: true, excusedLateCountsOnTime: false,
+  ignoreExcusedAbsence: false, allowedExceptions: 0,
+}
+
+export type ShachrisHistorySession = {
+  voided_at?: string | null
+  id: string; session_date: string; config: ShachrisConfig; started_at: string | null
+  milestone_times: Record<string, string>
+}
+
+export function shachrisWeekDates(date: string, offset = 0): string[] {
+  const current = new Date(`${date}T12:00:00`)
+  current.setDate(current.getDate() - current.getDay() + offset * 7)
+  return Array.from({ length: 6 }, (_, index) => {
+    const day = new Date(current)
+    day.setDate(day.getDate() + index)
+    return localDateKey(day)
+  })
+}
+
+export function shachrisDayResult(session: ShachrisHistorySession | undefined, record: ShachrisRecord | undefined) {
+  if (session?.voided_at) return { required: false, onTime: null, entireStay: null, absence: false, excusedAbsence: false }
+  if (record?.historical_result) {
+    const result = record.historical_result
+    return { required: true, onTime: result.onTime, entireStay: result.status === 'present' ? result.stayedRequired : false,
+      absence: result.status !== 'present', excusedAbsence: result.status === 'excused' }
+  }
+  const required = Boolean(session?.started_at)
+  const absence = record?.presence === 'absent'
+  const onTime = required && record?.arrival_at ? !isShachrisLate(session?.started_at, record.arrival_at, shachrisGraceMinutes(session?.config)) : null
+  const cutoff = record?.stay_requirement.requiredUntil ? session?.milestone_times[record.stay_requirement.requiredUntil] : undefined
+  let entireStay: boolean | null = null
+  if (required && record) {
+    if (absence || record.requirement_result === 'not_met') entireStay = false
+    else if (cutoff && record.arrival_at) {
+      const interrupted = Date.parse(record.arrival_at) > Date.parse(cutoff) || record.leave_intervals.some(interval =>
+        Date.parse(interval.leftAt) < Date.parse(cutoff) && (!interval.returnedAt || Date.parse(interval.returnedAt) > Date.parse(interval.leftAt)))
+      entireStay = interrupted ? false : record.requirement_result === 'met' ? true : null
+    }
+  }
+  return { required, onTime, entireStay, absence, excusedAbsence: absence && record?.absence_status === 'excused' }
+}
+
+export function shachrisWeeklyEligibility(days: Array<{ session?: ShachrisHistorySession; record?: ShachrisRecord }>, rules: ShachrisWeeklyRules) {
+  let requiredDays = 0
+  let exceptions = 0
+  let unresolved = false
+  for (const { session, record } of days) {
+    const result = shachrisDayResult(session, record)
+    if (!result.required || result.excusedAbsence && rules.ignoreExcusedAbsence) continue
+    requiredDays++
+    if (!record || !record.historical_result && record.presence === 'unmarked') { unresolved = true; continue }
+    const onTime = result.onTime === true || result.onTime === false && (record.historical_result?.lateExcused ?? record.late_excused) && rules.excusedLateCountsOnTime
+    if (rules.requireOnTime && result.onTime === null && !result.absence || rules.requireEntireStay && result.entireStay === null && !result.absence) unresolved = true
+    if (rules.requireOnTime && !onTime || rules.requireEntireStay && result.entireStay === false) exceptions++
+  }
+  return { eligible: requiredDays > 0 && !unresolved && exceptions <= rules.allowedExceptions, requiredDays, exceptions, unresolved }
 }

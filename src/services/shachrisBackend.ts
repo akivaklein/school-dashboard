@@ -8,5 +8,9 @@ export type ShachrisBackend = Pick<typeof service,
   'saveShachrisLateReason' | 'setShachrisAbsence' | 'confirmShachrisClearance' |
   'loadShachrisStartCorrectionState' | 'correctShachrisStart'
 > & {
+  supportsSessionRestart?: boolean
+  loadShachrisHistory?: typeof service.loadShachrisHistory
+  saveShachrisHistoricalDay?: typeof service.saveShachrisHistoricalDay
+  loadShachrisDayAudit?: typeof service.loadShachrisDayAudit
   loadAccess: (role: string) => Promise<{ canEdit: boolean; canManage: boolean; canCorrectStart?: boolean }>
 }

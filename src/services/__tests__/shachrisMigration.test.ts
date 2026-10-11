@@ -11,6 +11,27 @@ const settingsTargetMigration = readFileSync(path.resolve(__dirname, '../../../s
 const dobImport = readFileSync(path.resolve(__dirname, '../../../docs/20261005_shachris_dob_import.sql'), 'utf8')
 
 describe('Shachris additive foundation', () => {
+  it('restarts through the existing correction RPC and audit without deleting history', () => {
+    const restartMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261011055815_shachris_restart_today.sql'), 'utf8')
+    expect(restartMigration).toContain('where voided_at is null')
+    expect(restartMigration).toContain("'restarted'")
+    expect(restartMigration).toContain('shachris_correct_start_before_restart')
+    expect(restartMigration).toContain("dashboard_has_permission('attendance', 'edit')")
+    expect(restartMigration).toContain('session_row.session_date <> current_date')
+    expect(restartMigration).toContain('session_row.started_at is distinct from p_expected_start')
+    expect(restartMigration).toContain('shachris_records_preserve_voided')
+    expect(restartMigration).not.toMatch(/delete from|truncate|drop table|dashboard_is_admin/i)
+  })
+  it('isolates historical overrides from live facts and appends before/after events', () => {
+    const historyMigration = readFileSync(path.resolve(__dirname, '../../../supabase/migrations/20261011050804_shachris_historical_day_results.sql'), 'utf8')
+    expect(historyMigration).toContain('add column historical_result jsonb')
+    expect(historyMigration).toContain("'historical-day-edit'")
+    expect(historyMigration).toContain("'before', before_record, 'after', to_jsonb(record_row)")
+    expect(historyMigration).toContain("dashboard_has_permission('attendance', 'edit')")
+    expect(historyMigration).toContain('record_row.revision is distinct from p_revision')
+    expect(historyMigration).toContain('auth.uid() is null')
+    expect(historyMigration).not.toMatch(/set (arrival_at|started_at|presence|note|requirement_result)|delete from|drop table|disable trigger/i)
+  })
   it('targets the singleton settings row without bypassing UPDATE safety', () => {
     expect(settingsTargetMigration).toContain('from public.shachris_settings where id = true for update')
     expect(settingsTargetMigration).toContain('where id = settings_row.id returning * into settings_row')

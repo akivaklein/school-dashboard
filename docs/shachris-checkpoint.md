@@ -1,6 +1,54 @@
 # Shachris: First Checkpoint
 
-Branch: `yeshiva-ketana-secure`. Student Events and Weekly Record are not implemented yet.
+Branch: `yeshiva-ketana-secure`. Today's complete Shachris release is authorized; Student Events remains deferred.
+
+## Authorized Secure Release (2026-10-11)
+
+This release includes Weekly Record / History, editable weekly treat-eligibility settings, audited historical Edit Day, compact landscape-tablet cards with a 4/3/2/1 responsive grid, neutral leave action buttons with permission-colored saved leave information, separated softly shaded daily cells, and Restart Today's Session with preserved voided history. The dated local-review sections below describe earlier checkpoints, not the current deployment authorization.
+
+Only `20261011050804_shachris_historical_day_results.sql` and `20261011055815_shachris_restart_today.sql` were applied to the live secure backing project `ednjpqtuttutoatahorn`, in that order, using targeted database queries. Do not rerun them or use a general `db push`. No attendance restart, historical entry, settings change, or class-assignment change was performed during release verification.
+
+Before/after counts and hashes match: sessions 6 (`f38a266cf9e06a237bc2ed0d8993a8d5`), student records 96 (`cd39f29c034d5acf46eda37b929f377c`), events 172 (`c18f2c1d16c0f3d0be9bcef2790c3805`), and start audits 5 (`5e3d3f5644c479dbc693eb4be03739ac`). Session/record hashes exclude only the newly added nullable columns. Settings, progression/stay expectations, and Student Class Assignments hashes also match. No existing session was voided and no historical override was created.
+
+Release checks: 35 focused tests, focused lint, secure build, and synthetic desktop/tablet/mobile browser workflows pass. The live Weekly Record date/void filter is valid under the authenticated database role; without a user identity RLS returns no rows. Anonymous restart/historical writes and direct authenticated record updates are denied. The token lacks `advisors_read`, so a full security-advisor audit is unavailable. Root typecheck retains the two previously documented unrelated Teaching Mode test errors. Deploy only to `school-dashboard-secure` / `yeshiva-ketana-secure.vercel.app`; main and public-demo projects remain untouched.
+
+## Restart Today Review Checkpoint (2026-10-11)
+
+Restart Today's Session is available inside the existing Correct Hodu Start area to anyone with Attendance Edit permission, today only. An unstarted today session exposes the same drawer as Session Corrections. The secure-only restart choice requires a reason and explicit confirmation that today's active attendance will be replaced. The public/demo backend does not expose this option.
+
+Migration `supabase/migrations/20261011055815_shachris_restart_today.sql` is **local-only, not applied remotely**. It adds void markers and a replacement-session link, changes the date uniqueness rule to one nonvoided session per date, and reuses `shachris_correct_start`, `shachris_open_session`, and the existing `shachris_start_audit` ledger. Restart marks the old session voided, leaves all its records/events untouched, creates a new same-date session using current settings/normal expectation resolution, and appends exactly one restarted audit entry containing old/new session IDs, actor, authenticated user, reason, and server timestamp. No records or events are hard-deleted; class assignments and continuing/individual expectation assignments are not changed.
+
+The fresh session has no Hodu/milestone times and newly defaulted active-roster records: Not Marked, no arrival/late/leave/return/absence/clearance/checklist/rating/note/daily facts. Database guards reject writes against voided sessions and their records/events, including stale browser writes. Reopening selects the new active session. Weekly/history queries and weekly eligibility ignore voided sessions; the existing correction drawer shows the day's preserved start/restart audit across session generations.
+
+The existing empty-start reset and start-time correction remain unchanged behind a private wrapper. The historical-edit RPC's reviewed date lookup/conflict clauses are updated in place to target only the active session. Apply the reviewed historical-result migration first, then this restart migration; do not run a general `db push` or apply either to the school backend before review.
+
+Verification: 35 focused tests; isolated, rolled-back restart SQL checks for nonadmin permissions, today-only/reason/confirmation/stale guards, fresh fields, immutable prior records/events, active-date uniqueness, and linked audit; neighboring historical-edit and roster/grace/start-correction SQL checks; synthetic browser reason/confirmation/restart/audit/reopen/history exclusion; focused lint and secure build pass. Root typecheck retains only the two known Teaching Mode test errors. Preview http://localhost:5192/. No remote database writes, push, main/public-demo edits, or deployment were performed.
+
+## Historical Editing And Compact Cards Review (2026-10-11)
+
+Weekly day details remain read-only until an Attendance Editor explicitly chooses Edit Day. Past Sunday-Friday dates, including dates with no saved session/record, support On Time/Late, late reason/note/excusal, Stayed Required Time, Attended/Absent/Excused from Shul/Not in Shul, and a day note. Save requires a separate entry/correction reason. Cancel writes nothing; stale saves show an error and retain the draft.
+
+The new migration `supabase/migrations/20261011050804_shachris_historical_day_results.sql` is **local-only and NOT applied to the school database**. It adds one nullable `historical_result` JSON column on the existing student-record table and one explicit historical-save RPC. No new table is required. Existing attendance fields, timestamps, stay snapshots, clearances, events, checklist marks, and notes are preserved. Every save appends an existing `shachris_events` entry containing the full before/after record, correction reason, authenticated user ID, actor name, and server timestamp. The drawer displays entered results separately from Original Recorded Facts and shows the edit audit.
+
+The RPC checks authenticated identity, Attendance Edit permission, active authoritative `yk-a`/`yk-b` membership, a past school date, validated result fields, and an expected record revision. An explicit Save may create only the selected missing student/day record and a dated unstarted session; it never fabricates Hodu, arrival, leave/return, or clearance timestamps. Weekly eligibility uses this explicit result for that student/day even if there was no live session. Other students are not automatically marked or treated as present. Live Session RPC guards remain unchanged.
+
+Only student-card layout was compressed: tighter padding/gaps, compact Required Until, compact secondary results, and side-by-side arrival/nonattendance controls. Primary attendance buttons remain at least 44px tall. Davening Progress stays collapsed by default. The original grid/responsive breakpoints, top milestones, summary, and attendance actions/data logic were preserved. Synthetic browser measurement: 348.6px original versus 237px compact, **32% shorter**.
+
+Verification: 33 focused tests and isolated PostgreSQL transaction checks pass for backfill/correction, complete audit snapshots, preservation, stale saves, dates, roster, identity, permissions, and validation. The synthetic browser workflow verifies read-only viewing/cancel, explicit edit/save, backfill without timestamps, audit, failure feedback, recalculated eligibility, view-only restrictions, card-height reduction, and desktop/tablet/mobile layouts. Focused lint and secure build pass; typecheck retains only the two pre-existing Teaching Mode test errors. Review preview: http://localhost:5192/. No school database writes, push, main/public-demo changes, or deployment were performed. After review, apply only the reviewed new migration before expecting historical Save to work against the school backend; never run a general `db push`.
+
+## Weekly Record Review Checkpoint (2026-10-11)
+
+The secure Shachris backend now provides a SELECT-only Weekly Record / History tab, This Week / Last Week and previous/next navigation, Sunday-Friday columns, and saved day details for the existing active authoritative `yk-b` / `yk-a` roster. Older dates in Live Session also use the read-only loader rather than `shachris_open_session`; historical attendance/checklist actions are disabled. No database schema, session, record, event, assignment, or production deployment was changed by this implementation.
+
+Required days are the saved sessions with Hodu started. There is no saved Shachris school-day/holiday calendar: a date without a saved session is shown as such, not treated as an absence or a successful attendance day. A required session with a missing/unmarked student record or an unconfirmed required result cannot earn eligibility via the exceptions allowance. Weeks with no applicable required days return No. This Week is provisional and uses only saved facts, not predicted future attendance.
+
+On Time uses each session's saved start and grace snapshot, separately from excusal. Stayed Entire Time requires the saved stay result to be met, arrival no later than the student's saved required milestone, and no positive-duration departure before that milestone, with or without permission. A known interruption/absence is a failed stay; pending confirmation is not invented. Departures after the individual required milestone do not invalidate completion. Day details retain the saved result and personal clearance separately from this derived weekly result.
+
+The five editable eligibility controls live in existing Rules & Settings and save through the existing revision-guarded RPC in `config.weeklyEligibility`. Defaults require both On Time and Entire Stay, do not ignore excused lateness/absence, and allow zero exceptions. Exceptions count failed days, not individual conditions. Current rules recalculate all viewed weeks; eligibility is not a historical reward award or a stored snapshot. No treat-given tracking, points, prizes, streaks, or rewards tables were added.
+
+Known returned intervals contribute their saved duration to time out. An unreturned interval is bounded by saved End Davening if available; otherwise its unknown duration is labeled, never accumulated through subsequent days. The standalone/public demo has no history loader, so it gains neither the tab nor weekly rule controls. No demo files were changed.
+
+Verification: 30 focused utility/service/schema-contract tests, focused lint, secure production build, and the existing synthetic browser workflow pass. Browser checks cover Live Session regression, history GET-only requests and unchanged fixture snapshots, editable settings JSON, day details, empty weeks, previous/next navigation, historical-date read-only behavior, and 1440px/390px/320px viewports. Root typecheck still has only the two existing Teaching Mode test errors. No real school reads/writes were used for browser verification. Local preview: http://localhost:5190/. Stop for review before any push that could trigger deployment or any manual deployment.
 
 ## Current Status
 
@@ -110,4 +158,4 @@ npx --yes supabase@latest db query --linked --file docs/20261005_shachris_roster
 
 Both targeted migrations and the reviewed DOB import are complete. Read-only verification on 2026-10-06 found that the original live session has since been started. Do not rerun either migration file or use `db push`.
 
-The deployed DOB import is complete. Student Events, Weekly Record, Summary/Rewards, and start/event-time correction remain deferred until the user reviews this Daily Live Session checkpoint.
+The deployed DOB import is complete. Weekly Record is now local-only pending review; Student Events, Summary/Rewards, and individual event-time correction remain deferred. Do not deploy this weekly checkpoint before review.

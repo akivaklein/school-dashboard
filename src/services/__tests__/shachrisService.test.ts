@@ -1,0 +1,79 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }))
+vi.mock('../../supabaseClient', () => ({ supabase: mocks }))
+import { correctShachrisStart, loadShachrisHistory, saveShachrisHistoricalDay } from '../shachrisService'
+
+describe('read-only Shachris history', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  function sessionsQuery(data: unknown[], error: unknown = null) {
+    const query = { select: vi.fn(), gte: vi.fn(), lte: vi.fn(), is: vi.fn(), order: vi.fn().mockResolvedValue({ data, error }) }
+    query.select.mockReturnValue(query)
+    query.gte.mockReturnValue(query)
+    query.lte.mockReturnValue(query)
+    query.is.mockReturnValue(query)
+    mocks.from.mockReturnValueOnce(query)
+    return query
+  }
+
+  it('selects only the requested week and roster, never calling an RPC', async () => {
+    const sessions = [{ id: 'saved', session_date: '2026-10-05' }]
+    const records = [{ session_id: 'saved', student_id: 1 }]
+    const sessionQuery = sessionsQuery(sessions)
+    const studentFilter = vi.fn().mockResolvedValue({ data: records, error: null })
+    const sessionFilter = vi.fn().mockReturnValue({ in: studentFilter })
+    mocks.from.mockReturnValueOnce({ select: vi.fn().mockReturnValue({ in: sessionFilter }) })
+    expect(await loadShachrisHistory('2026-10-04', '2026-10-09', [1])).toEqual({ sessions, records })
+    expect(sessionQuery.gte).toHaveBeenCalledWith('session_date', '2026-10-04')
+    expect(sessionQuery.lte).toHaveBeenCalledWith('session_date', '2026-10-09')
+    expect(sessionQuery.is).toHaveBeenCalledWith('voided_at', null)
+    expect(sessionFilter).toHaveBeenCalledWith('session_id', ['saved'])
+    expect(studentFilter).toHaveBeenCalledWith('student_id', [1])
+    expect(mocks.from.mock.calls).toEqual([['shachris_sessions'], ['shachris_student_records']])
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('returns an empty week without creating sessions or student records', async () => {
+    sessionsQuery([])
+    expect(await loadShachrisHistory('2026-10-04', '2026-10-09', [1])).toEqual({ sessions: [], records: [] })
+    expect(mocks.from).toHaveBeenCalledTimes(1)
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('does not read unrelated records when the active roster is empty', async () => {
+    sessionsQuery([{ id: 'saved' }])
+    expect((await loadShachrisHistory('2026-10-04', '2026-10-09', [])).records).toEqual([])
+    expect(mocks.from).toHaveBeenCalledTimes(1)
+  })
+
+  it('surfaces read failures instead of reporting eligibility from partial history', async () => {
+    const error = { message: 'Read denied' }
+    sessionsQuery([], error)
+    await expect(loadShachrisHistory('2026-10-04', '2026-10-09', [1])).rejects.toEqual(error)
+    expect(mocks.from).toHaveBeenCalledTimes(1)
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('uses only the explicit audited RPC for historical saves', async () => {
+    const result = { status: 'present' as const, onTime: true, stayedRequired: true, lateReason: 'no_reason' as const, lateExcused: false, lateReasonNote: '', note: 'Paper record' }
+    mocks.rpc.mockResolvedValue({ data: { session: { id: 'past' }, record: { historical_result: result } }, error: null })
+    await saveShachrisHistoricalDay({ date: '2020-01-05', studentId: 1, result, revision: null, reason: ' Paper backfill ', actorName: 'QA' })
+    expect(mocks.rpc).toHaveBeenCalledWith('shachris_save_historical_day', { p_date: '2020-01-05', p_student_id: 1, p_result: result, p_revision: null, p_reason: 'Paper backfill', p_actor_name: 'QA' })
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it('reuses the existing correction RPC for a confirmed today restart, including an unstarted session', async () => {
+    mocks.rpc.mockResolvedValue({ data: { session: { id: 'fresh', started_at: null }, records: [] }, error: null })
+    await correctShachrisStart({ sessionId: 'old', mode: 'restart', newStart: null, expectedStart: null, reason: ' Restart testing ', actorName: 'Editor', confirmed: true })
+    expect(mocks.rpc).toHaveBeenCalledWith('shachris_correct_start', { p_session_id: 'old', p_mode: 'restart', p_new_start: null, p_expected_start: null, p_reason: 'Restart testing', p_actor_name: 'Editor', p_confirmed: true })
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it('surfaces historical save errors without falling back to live writes', async () => {
+    const error = { message: 'Day changed. Reload before saving.' }
+    mocks.rpc.mockResolvedValue({ data: null, error })
+    await expect(saveShachrisHistoricalDay({ date: '2020-01-05', studentId: 1, result: { status: 'absent', onTime: null, stayedRequired: null, lateReason: 'no_reason', lateExcused: false, lateReasonNote: '', note: '' }, revision: 1, reason: 'Correction', actorName: 'QA' })).rejects.toEqual(error)
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+})
