@@ -94,6 +94,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
   const today = date === localDateKey()
   const graceMinutes = shachrisGraceMinutes(session?.config)
   const finishedAt = session?.milestone_times['live-session-ended']
+  const liveActionsLocked = locked || Boolean(finishedAt)
   const timerEnd = finishedAt ? Date.parse(finishedAt) : Infinity
 
   useEffect(() => {
@@ -169,7 +170,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
     }
   }
 
-  async function runAttendanceAction(action: () => Promise<ShachrisRecord[] | ShachrisRecord>, successMessage: string) {
+  async function runRecordEdit(action: () => Promise<ShachrisRecord[] | ShachrisRecord>, successMessage: string) {
     if (busyRef.current || locked) return
     busyRef.current = true
     setSaving(true)
@@ -190,8 +191,13 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
     }
   }
 
+  async function runAttendanceAction(action: () => Promise<ShachrisRecord[] | ShachrisRecord>, successMessage: string) {
+    if (liveActionsLocked) return
+    return runRecordEdit(action, successMessage)
+  }
+
   async function startSession() {
-    if (!session || locked || !today || busyRef.current) return
+    if (!session || liveActionsLocked || !today || busyRef.current) return
     busyRef.current = true
     setSaving(true)
     setError('')
@@ -214,7 +220,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
   }
 
   async function markCommunalMilestone(milestoneId: string) {
-    if (!session || locked || busyRef.current) return
+    if (!session || liveActionsLocked || busyRef.current) return
     busyRef.current = true
     setSaving(true)
     setError('')
@@ -242,7 +248,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
     setStatus('')
     try {
       setSession(await endSession(session.id, actorName))
-      setStatus('Live session ended. Student records remain editable.')
+      setStatus('Live session ended. Live actions are disabled; correction and history tools remain available.')
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -335,7 +341,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
   }
   async function saveLateReason() {
     if (!session || !currentLateRecord || !today) return
-    const saved = await runAttendanceAction(() => backend.saveShachrisLateReason({ sessionId: session.id, studentId: currentLateRecord.student_id, reason: lateReason, note: lateReasonNote, excused: lateReason === 'excused' || lateExcused, actorName, revision: currentLateRecord.revision }), 'Late reason saved.')
+    const saved = await runRecordEdit(() => backend.saveShachrisLateReason({ sessionId: session.id, studentId: currentLateRecord.student_id, reason: lateReason, note: lateReasonNote, excused: lateReason === 'excused' || lateExcused, actorName, revision: currentLateRecord.revision }), 'Late reason saved.')
     if (saved) setEditingLateStudent(null)
   }
   async function openStartCorrection() {
@@ -385,14 +391,14 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
     {!liveOnly && view === 'weekly' && settings && backend.loadShachrisHistory ? <ShachrisWeeklyRecord loadHistory={backend.loadShachrisHistory} saveDay={backend.saveShachrisHistoricalDay} loadAudit={backend.loadShachrisDayAudit} canEdit={canEdit} actorName={actorName} settings={settings} students={activeStudents} /> : !liveOnly && view === 'settings' && settings ? <ShachrisSettingsEditor key={settings.revision} settings={settings} canEdit={canManage} enableWeekly={Boolean(backend.loadShachrisHistory)} saveSettings={backend.saveShachrisSettings} onSaved={saved => { setSettings(saved); setStatus('Shachris settings saved.') }} /> : <>
       <div className="sh-live-filters"><label>Roster<select aria-label="Class or group" value={scope} disabled={saving} onChange={event => setScope(event.target.value)}><option value="all">Entire roster</option><option value="class:yk-b">7th Grade</option><option value="class:yk-a">8th Grade</option></select></label><label className="sh-search"><span>Search students</span><input type="search" aria-label="Find student" placeholder="Search students..." value={search} disabled={saving} onChange={event => setSearch(event.target.value)} /></label></div>
       <section className="sh-communal-milestones" aria-label="Communal Shachris milestones">
-        <div className={`sh-communal-milestone sh-hodu ${session?.started_at ? 'complete' : ''}`}><div><span className="sh-milestone-dot">{session?.started_at ? <Check size={16} /> : <AlarmClock size={17} />}</span><strong>Start Hodu</strong></div>{session?.started_at ? <time>{formatTime(session.started_at)}</time> : <button className="sh-start-hodu" disabled={locked || !today} onClick={() => void startSession()}>Start Session</button>}</div>
+        <div className={`sh-communal-milestone sh-hodu ${session?.started_at ? 'complete' : ''}`}><div><span className="sh-milestone-dot">{session?.started_at ? <Check size={16} /> : <AlarmClock size={17} />}</span><strong>Start Hodu</strong></div>{session?.started_at ? <time>{formatTime(session.started_at)}</time> : <button className="sh-start-hodu" disabled={liveActionsLocked || !today} onClick={() => void startSession()}>Start Session</button>}</div>
         {(config?.stayMilestones || []).filter(milestone => milestone.id !== 'hodu').map(milestone => {
           const markedAt = session?.milestone_times?.[milestone.id]
           const previousId = milestone.order === 1 ? 'hodu' : config?.stayMilestones.find(entry => entry.order === milestone.order - 1)?.id
           const ready = Boolean(session?.started_at && previousId && session.milestone_times?.[previousId])
           return <div key={milestone.id} className={`sh-communal-milestone ${markedAt ? 'complete' : ''} ${ready && !markedAt ? 'next' : ''}`}>
             <div><span className="sh-milestone-dot">{markedAt ? <Check size={16} /> : <Clock3 size={17} />}</span><strong>{milestone.id === 'end-davening' ? 'Finish Davening' : milestone.label}</strong></div>
-            {markedAt ? <time>{formatTime(markedAt)}</time> : <button className={`sh-mark-milestone${milestone.id === 'end-davening' ? ' sh-finish-davening' : ''}`} disabled={locked || !today || !ready} onClick={() => void markCommunalMilestone(milestone.id)}>{milestone.id === 'end-davening' ? <><CircleCheck size={14} /> Finish Davening</> : 'Mark Now'}</button>}
+            {markedAt ? <time>{formatTime(markedAt)}</time> : <button className={`sh-mark-milestone${milestone.id === 'end-davening' ? ' sh-finish-davening' : ''}`} disabled={liveActionsLocked || !today || !ready} onClick={() => void markCommunalMilestone(milestone.id)}>{milestone.id === 'end-davening' ? <><CircleCheck size={14} /> Finish Davening</> : 'Mark Now'}</button>}
           </div>
         })}
       </section>
@@ -406,7 +412,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
           { label: 'Need Attention', value: visibleRecords.filter(record => needsShachrisAttention(record, session?.started_at, graceMinutes)).length, detail: 'unmarked, unexcused, or out', tone: 'orange', icon: <CircleAlert size={21} /> },
         ].map(stat => <div className={`sh-live-stat ${stat.tone}`} key={stat.label}><span className="sh-stat-icon">{stat.icon}</span><div><strong>{stat.value}</strong><b>{stat.label}</b><small>{stat.detail}</small></div></div>)}
       </div>
-      <div className="sh-live-toolbar"><strong>{visibleRecords.length} students</strong><button className="sh-button sh-primary" disabled={locked || !today || !session?.started_at || !visibleRecords.some(record => !record.arrival_at && record.presence === 'unmarked')} onClick={() => void bulkArriveAtStart()}><Users size={16} /> Mark Visible In Shul at Hodu</button>{finishedAt ? <span className="sh-save-status">Live session ended <time>{formatTime(finishedAt)}</time></span> : backend.endShachrisLiveSession && <button className="sh-button" disabled={locked || !today || !session?.started_at} onClick={() => void endLiveSession()}><CircleCheck size={16} /> End Live Session</button>}</div>
+      <div className="sh-live-toolbar"><strong>{visibleRecords.length} students</strong><button className="sh-button sh-primary" disabled={liveActionsLocked || !today || !session?.started_at || !visibleRecords.some(record => !record.arrival_at && record.presence === 'unmarked')} onClick={() => void bulkArriveAtStart()}><Users size={16} /> Mark Visible In Shul at Hodu</button>{finishedAt ? <span className="sh-save-status">Live session ended <time>{formatTime(finishedAt)}</time>. Use correction/history tools to edit, or Restart Today for a new live session.</span> : backend.endShachrisLiveSession && <button className="sh-button" disabled={locked || !today || !session?.started_at} onClick={() => void endLiveSession()}><CircleCheck size={16} /> End Live Session</button>}</div>
       <details className="sh-progress-bulk"><summary><CheckCheck size={15} /> Davening Progress Tools <span>Secondary checklist actions</span></summary><div><strong>{visibleRecords.length} visible students</strong><button className="sh-button" disabled={locked || !presentRequirements.length} onClick={() => void updateRecords(presentRequirements)}><CheckCheck size={16} /> Complete Present Sections</button><select aria-label="Set rating for visible students" disabled={locked || !visibleRecords.length} value="" onChange={event => { const rating = event.target.value; void updateRecords(visibleRecords.map(record => ({ ...record, rating_id: rating }))) }}><option value="" disabled>Rate visible students</option>{config?.ratings.map(rating => <option key={rating.id} value={rating.id}>{rating.label}</option>)}</select></div></details>
       <div className="sh-live-grid" aria-busy={saving || loading}>
         {visibleStudents.map(student => {
@@ -429,7 +435,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
             <div className="sh-stay-requirement"><span>Required until</span><strong>{record.stay_requirement.label}</strong>{record.stay_requirement.source === 'manual' && <small>{manualUntil} · Manual</small>}<button className="sh-adjust" disabled={saving || !today || Boolean(record.personally_cleared_at)} onClick={() => openStayRequirement(student, record)}><SlidersHorizontal size={14} /> Change requirement</button></div>
             <div className="sh-card-attendance"><div className="sh-arrival-row"><Clock3 size={15} /><span>Arrived</span><strong>{formatTime(record.arrival_at)}</strong>{lateMinutes !== null && <b className={late ? `sh-late-pill ${record.late_excused ? 'excused' : ''}` : 'sh-present-pill'}>{late ? `${lateMinutes || '<1'} min late${record.late_excused ? ' - Excused' : ''}` : 'On time'}</b>}</div>
             {late && <div className="sh-late-reason-row"><span>{record.late_reason === 'transportation' ? 'Transportation' : record.late_reason === 'excused' ? 'Excused' : record.late_reason === 'other' ? record.late_reason_note || 'Other' : 'No Reason'}</span><button className="sh-adjust" disabled={locked || !today} onClick={() => openLateReason(student, record)}><SlidersHorizontal size={13} /> Late reason</button></div>}
-            {!record.arrival_at && record.presence !== 'left' && <label className="sh-nonattendance">Status<select aria-label={`${student.name}: Shul status`} value={record.presence === 'unmarked' ? 'unmarked' : record.absence_status || 'absent'} disabled={locked || !today || !session?.started_at} onChange={event => session && void runAttendanceAction(() => backend.setShachrisAbsence({ sessionId: session.id, studentId: record.student_id, status: event.target.value as NonNullable<ShachrisRecord['absence_status']> | 'unmarked', actorName, revision: record.revision }), 'Shul status saved.')}><option value="unmarked">Not Marked</option><option value="absent">Absent</option><option value="excused">Excused from Shul</option><option value="not_in_shul">Not in Shul</option></select></label>}
+            {!record.arrival_at && record.presence !== 'left' && <label className="sh-nonattendance">Status<select aria-label={`${student.name}: Shul status`} value={record.presence === 'unmarked' ? 'unmarked' : record.absence_status || 'absent'} disabled={liveActionsLocked || !today || !session?.started_at} onChange={event => session && void runAttendanceAction(() => backend.setShachrisAbsence({ sessionId: session.id, studentId: record.student_id, status: event.target.value as NonNullable<ShachrisRecord['absence_status']> | 'unmarked', actorName, revision: record.revision }), 'Shul status saved.')}><option value="unmarked">Not Marked</option><option value="absent">Absent</option><option value="excused">Excused from Shul</option><option value="not_in_shul">Not in Shul</option></select></label>}
             </div>
             {record.presence === 'left' && openLeave && <div className={`sh-current-leave ${openLeave.permission === 'without' ? 'without' : 'with'}`}><LogOut size={15} /><span>Left {formatTime(openLeave.leftAt)}</span><b>{openLeave.permission === 'with' ? 'With permission' : 'Without permission'}</b><strong className={totalOutClass}>{formatMinutes(minutesOut)} total out</strong></div>}
             {record.presence === 'left' && !openLeave && <div className="sh-current-leave unknown"><LogOut size={15} /><span>Currently out</span><b>Departure time / permission not recorded</b><strong className={totalOutClass}>{formatMinutes(minutesOut)} total out</strong></div>}
@@ -438,10 +444,10 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
               {record.personally_cleared_at ? <><CircleCheck size={18} /><div><strong>Requirement Met</strong><span>Cleared by {record.personally_cleared_by_name} - {formatTime(record.personally_cleared_at)}</span></div></> : readyForCheck ? <><CheckCheck size={18} /><div><strong>Ready for Check</strong><span>Awaiting personal clearance</span></div></> : record.stay_requirement.requiredUntil ? <><Clock3 size={18} /><div><strong>{record.presence === 'present' ? 'On Track' : record.presence === 'left' ? 'Awaiting Return' : shachrisPresenceLabel(record)}</strong><span>Personal check after {record.stay_requirement.label}</span></div></> : <><CircleAlert size={18} /><div><strong>Requirement Needs Review</strong><span>Set a manual stay requirement for this age</span></div></>}
             </div>
             {!record.personally_cleared_at && record.requirement_result !== 'pending' && <small className="sh-legacy-result">Earlier automatic result: {record.requirement_result === 'met' ? 'Met' : 'Not Met'}; no personal clearance recorded.</small>}
-            {readyForCheck && <button className="sh-button sh-primary sh-clearance-button" disabled={locked || !today} onClick={() => session && void runAttendanceAction(() => backend.confirmShachrisClearance({ sessionId: session.id, studentId: record.student_id, actorName, revision: record.revision }), 'Personal completion confirmed.')}><CircleCheck size={16} /> Confirm Completion</button>}
+            {readyForCheck && <button className="sh-button sh-primary sh-clearance-button" disabled={liveActionsLocked || !today} onClick={() => session && void runAttendanceAction(() => backend.confirmShachrisClearance({ sessionId: session.id, studentId: record.student_id, actorName, revision: record.revision }), 'Personal completion confirmed.')}><CircleCheck size={16} /> Confirm Completion</button>}
             {(record.stayed_beyond_required || extraSeconds > 0) && <div className="sh-extra-stay"><Star size={15} /><strong>Extra Stay</strong><span>{extraSeconds >= 60 ? `${Math.floor(extraSeconds / 60)} min` : '<1 min'} after clearance</span></div>}
             <div className="sh-live-actions">
-              {record.presence === 'left' ? <button className="sh-button sh-return-button" disabled={locked || !today || !session?.started_at} onClick={() => recordEvent('returned')}><RotateCcw size={16} /> Returned</button> : record.presence !== 'present' ? <button className="sh-button sh-arrive-button" disabled={locked || !today || !session?.started_at} onClick={() => recordEvent('arrival')}><LogIn size={16} /> In Shul / Arrived</button> : <><button className="sh-button sh-leave-permitted" disabled={locked || !today} onClick={() => recordEvent('left', 'with')}><LogOut size={15} /> Left With Permission</button><button className="sh-button sh-leave-unpermitted" disabled={locked || !today} onClick={() => recordEvent('left', 'without')}><LogOut size={15} /> Left Without Permission</button></>}
+              {record.presence === 'left' ? <button className="sh-button sh-return-button" disabled={liveActionsLocked || !today || !session?.started_at} onClick={() => recordEvent('returned')}><RotateCcw size={16} /> Returned</button> : record.presence !== 'present' ? <button className="sh-button sh-arrive-button" disabled={liveActionsLocked || !today || !session?.started_at} onClick={() => recordEvent('arrival')}><LogIn size={16} /> In Shul / Arrived</button> : <><button className="sh-button sh-leave-permitted" disabled={liveActionsLocked || !today} onClick={() => recordEvent('left', 'with')}><LogOut size={15} /> Left With Permission</button><button className="sh-button sh-leave-unpermitted" disabled={liveActionsLocked || !today} onClick={() => recordEvent('left', 'without')}><LogOut size={15} /> Left Without Permission</button></>}
             </div>
             <details className="sh-progress-card"><summary><CheckCheck size={15} /><span>Davening Progress</span><small>Next: {next?.label || 'Checklist complete'}</small></summary><div className="sh-progress-card-body"><div className="sh-section-checks">{config.sections.map(section => <label key={section.id} className={record.expectation.sectionIds.includes(section.id) ? 'required' : 'extra'}><input type="checkbox" aria-label={`${student.name}: ${section.label}`} checked={record.said_section_ids.includes(section.id)} disabled={locked} onChange={event => void updateRecords([{ ...record, said_section_ids: event.target.checked ? [...record.said_section_ids, section.id] : record.said_section_ids.filter(id => id !== section.id) }])} />{section.label}{!record.expectation.sectionIds.includes(section.id) && <span>extra</span>}</label>)}</div><button disabled={locked || hasMetShachrisExpectation(record)} className="sh-complete" onClick={() => void updateRecords([completeShachrisExpectation(record)])}><Check size={14} />{hasMetShachrisExpectation(record) ? 'Sections complete' : 'Complete required sections'}</button><label className="sh-progress-rating">Rating<select aria-label={`${student.name}: progress rating`} value={record.rating_id} disabled={locked} onChange={event => void updateRecords([{ ...record, rating_id: event.target.value }])}><option value="">Unrated</option>{config.ratings.map(rating => <option key={rating.id} value={rating.id}>{rating.label}</option>)}</select></label><button className="sh-adjust" onClick={() => openExpectation(student, record)} disabled={saving}><SlidersHorizontal size={14} /> Progression history / edit</button></div></details>
           </article>

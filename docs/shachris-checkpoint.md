@@ -2,6 +2,12 @@
 
 Branch: `yeshiva-ketana-secure`. Today's complete Shachris release is authorized; Student Events remains deferred.
 
+## Ended Live Controls (2026-10-11)
+
+Frontend follow-up: the existing `live-session-ended` marker also disables normal arrival, nonattendance, leave, return, personal-completion, communal-milestone, and bulk-Hodu controls. Live action handlers reject submissions after ending, independently of the disabled controls. Deliberate late-reason corrections, stay/progression editing, start corrections, confirmed Restart Today, and Weekly Record / History editing remain available under existing permissions. A deliberate restart clears the ended state and restores live controls once Hodu starts. This follow-up requires no database change.
+
+Frontend follow-up verification: 24 focused utility/service tests, focused lint, production build, and the synthetic secure-browser regression pass. Browser checks cover all disabled live controls, reload persistence, absence-handler rejection even if the DOM control is re-enabled, saving a late-reason correction, accessible stay/progression/history edit tools, and restoring live controls only through confirmed Restart Today. Root typecheck retains only the two known unrelated Teaching Mode test errors. Deployment targets only `school-dashboard-secure` and its `yeshiva-ketana-secure.vercel.app` alias; no database change is required.
+
 ## Authorized Secure Release (2026-10-11)
 
 This release includes Weekly Record / History, editable weekly treat-eligibility settings, audited historical Edit Day, compact landscape-tablet cards with a 4/3/2/1 responsive grid, neutral leave action buttons with permission-colored saved leave information, separated softly shaded daily cells, and Restart Today's Session with preserved voided history. The dated local-review sections below describe earlier checkpoints, not the current deployment authorization.
