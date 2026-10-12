@@ -179,7 +179,46 @@ export async function snoozeStudentTask(task: StudentTask, snoozedUntil: string,
   return updateStudentTask(task.id, { snoozed_until: snoozedUntil, notification_cycle: crypto.randomUUID() })
 }
 
+async function findSeriesOccurrence(seriesId: string, occurrenceNumber: number): Promise<StudentTask | null> {
+  const { data, error } = await supabase
+    .from('student_tasks')
+    .select('*')
+    .eq('series_id', seriesId)
+    .eq('occurrence_number', occurrenceNumber)
+    .maybeSingle()
+  if (error) throw new Error(error.message || 'Unable to load next occurrence')
+  return data ? mapTask(data) : null
+}
+
+// The hourly advance job may already have created this occurrence, so reuse it instead of
+// inserting a duplicate (student_tasks_series_occurrence_unique would reject it with a 409).
 async function createNextOccurrence(task: StudentTask, nextDue: Date): Promise<StudentTask> {
+  const occurrenceNumber = task.occurrence_number + 1
+  if (task.series_id) {
+    const existing = await findSeriesOccurrence(task.series_id, occurrenceNumber)
+    if (existing) return existing
+    const { data, error } = await supabase
+      .from('student_tasks')
+      .upsert({
+        student_id: task.student_id,
+        title: task.title,
+        note: String(task.note || '').trim() || null,
+        due_at: nextDue.toISOString(),
+        repeat_type: task.repeat_type,
+        reminder_start_at: task.reminder_start_at ? new Date(new Date(task.reminder_start_at).getTime() + (nextDue.getTime() - new Date(task.due_at).getTime())).toISOString() : null,
+        recurrence_days: task.recurrence_days,
+        notification_preference: task.notification_preference,
+        series_id: task.series_id,
+        occurrence_number: occurrenceNumber,
+        created_by: String(task.created_by || 'Staff').trim() || 'Staff',
+      }, { onConflict: 'series_id,occurrence_number', ignoreDuplicates: true })
+      .select('*')
+    if (error) throw new Error(error.message || 'Unable to create next occurrence')
+    if (data && data.length > 0) return mapTask(data[0])
+    const raced = await findSeriesOccurrence(task.series_id, occurrenceNumber)
+    if (raced) return raced
+    throw new Error('Unable to create next occurrence')
+  }
   return createStudentTask({
     studentId: task.student_id,
     title: task.title,

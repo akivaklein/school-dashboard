@@ -149,6 +149,12 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
     }
   }
 
+  // The next occurrence may already be in the list (pre-created by the advance job), so replace instead of appending.
+  function mergeClosedOccurrence(previous: StudentTask[], closed: StudentTask, next: StudentTask | null) {
+    const updated = previous.map(item => item.id === closed.id ? closed : next && item.id === next.id ? next : item)
+    return next && !previous.some(item => item.id === next.id) ? [...updated, next] : updated
+  }
+
   async function setDone(task: StudentTask, done: boolean) {
     try {
       if (!done) {
@@ -158,7 +164,7 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
         return
       }
       const result = await completeStudentTask(task, userName || 'Staff')
-      setTasks(previous => [...previous.map(item => item.id === result.completed.id ? result.completed : item), ...(result.next ? [result.next] : [])])
+      setTasks(previous => mergeClosedOccurrence(previous, result.completed, result.next))
       setNextOccurrenceNote(result.next ? `“${task.title}” is done. Next occurrence: ${formatDue(result.next)}.` : '')
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Unable to update task.')
@@ -168,7 +174,7 @@ export default function StudentTasksTab({ studentId, tasks, setTasks, userName, 
   async function skip(task: StudentTask) {
     try {
       const result = await skipStudentTask(task, userName || 'Staff')
-      setTasks(previous => [...previous.map(item => item.id === result.skipped.id ? result.skipped : item), ...(result.next ? [result.next] : [])])
+      setTasks(previous => mergeClosedOccurrence(previous, result.skipped, result.next))
       setNextOccurrenceNote(result.next ? `“${task.title}” skipped. Next occurrence: ${formatDue(result.next)}.` : '')
     } catch (skipError) {
       setError(skipError instanceof Error ? skipError.message : 'Unable to skip task.')
