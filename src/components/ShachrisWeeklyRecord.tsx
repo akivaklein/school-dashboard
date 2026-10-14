@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, Pencil, Save, RefreshCw, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Pencil, Save, RefreshCw, RotateCcw, X } from 'lucide-react'
 import type { ShachrisDayAudit, ShachrisHistory, ShachrisSettings } from '../services/shachrisService'
 import type { ShachrisBackend } from '../services/shachrisBackend'
-import { calculateShachrisMinutesLate, calculateShachrisMinutesOut, DEFAULT_SHACHRIS_WEEKLY_RULES, isShachrisLate, localDateKey, shachrisDayResult, shachrisGraceMinutes, shachrisPresenceLabel, shachrisWeekDates, shachrisWeeklyEligibility } from '../utils/shachris'
-import type { ShachrisHistoricalResult } from '../utils/shachris'
+import { calculateShachrisMinutesLate, calculateShachrisMinutesOut, DEFAULT_SHACHRIS_WEEKLY_RULES, isShachrisLate, localDateKey, shachrisDayResult, shachrisDayTone, shachrisGraceMinutes, shachrisPresenceLabel, shachrisWeekDates, shachrisWeeklyEligibility, shachrisWeeklyJudgment } from '../utils/shachris'
+import type { ShachrisHistoricalResult, ShachrisWeeklyDecision } from '../utils/shachris'
 
 type Props = {
   loadHistory: NonNullable<ShachrisBackend['loadShachrisHistory']>
   saveDay?: ShachrisBackend['saveShachrisHistoricalDay']
   loadAudit?: ShachrisBackend['loadShachrisDayAudit']
+  loadDecisions?: ShachrisBackend['loadShachrisWeeklyDecisions']
+  saveDecision?: ShachrisBackend['saveShachrisWeeklyDecision']
   canEdit: boolean
   actorName: string
   settings: ShachrisSettings
@@ -19,7 +21,7 @@ function time(value: string | null | undefined) {
   return value ? new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Not recorded'
 }
 
-export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, canEdit, actorName, settings, students }: Props) {
+export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, loadDecisions, saveDecision, canEdit, actorName, settings, students }: Props) {
   const [offset, setOffset] = useState(0)
   const [reload, setReload] = useState(0)
   const [history, setHistory] = useState<ShachrisHistory>({ sessions: [], records: [] })
@@ -33,6 +35,10 @@ export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, 
   const [audit, setAudit] = useState<ShachrisDayAudit[]>([])
   const [auditResolved, setAuditResolved] = useState('')
   const [auditError, setAuditError] = useState('')
+  const [decisions, setDecisions] = useState<ShachrisWeeklyDecision[]>([])
+  const [decisionStudent, setDecisionStudent] = useState<number | null>(null)
+  const [decisionReason, setDecisionReason] = useState('')
+  const [decisionError, setDecisionError] = useState('')
   const dates = shachrisWeekDates(localDateKey(), offset)
   const studentIdsKey = students.map(student => Number(student.id)).filter(Number.isFinite).sort((left, right) => left - right).join(',')
   const from = dates[0]
@@ -43,8 +49,9 @@ export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, 
 
   useEffect(() => {
     let canceled = false
-    void loadHistory(from, through, studentIdsKey ? studentIdsKey.split(',').map(Number) : []).then(data => {
-      if (!canceled) { setHistory(data); setError('') }
+    const studentIds = studentIdsKey ? studentIdsKey.split(',').map(Number) : []
+    void Promise.all([loadHistory(from, through, studentIds), loadDecisions ? loadDecisions(from, studentIds) : Promise.resolve([])]).then(([data, savedDecisions]) => {
+      if (!canceled) { setHistory(data); setDecisions(savedDecisions); setError('') }
     }).catch(caught => {
       if (!canceled) {
         setHistory({ sessions: [], records: [] })
@@ -52,11 +59,29 @@ export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, 
       }
     }).finally(() => { if (!canceled) setResolved(requestKey) })
     return () => { canceled = true }
-  }, [from, through, studentIdsKey, reload, requestKey, loadHistory])
+  }, [from, through, studentIdsKey, reload, requestKey, loadHistory, loadDecisions])
 
   function day(studentId: number, date: string) {
     const session = history.sessions.find(entry => entry.session_date === date && !entry.voided_at)
     return { session, record: history.records.find(entry => entry.session_id === session?.id && entry.student_id === studentId) }
+  }
+
+  const studentDecisions = decisions.filter(entry => entry.student_id === decisionStudent && entry.week_start === from)
+  const decisionDays = decisionStudent === null ? [] : dates.map(date => day(decisionStudent, date))
+  const decisionJudgment = shachrisWeeklyJudgment(shachrisWeeklyEligibility(decisionDays, rules), decisionDays.map(({ session, record }, index) => shachrisDayTone(dates[index], session, record)), studentDecisions[0])
+
+  async function decide(decision: ShachrisWeeklyDecision['decision']) {
+    if (!saveDecision || !canEdit || saving || loading || error || decisionStudent === null || !decisionReason.trim()) return
+    if (decision !== 'clear' && decisionJudgment.automaticTone !== 'amber') return
+    setSaving(true)
+    setDecisionError('')
+    try {
+      const saved = await saveDecision({ weekStart: from, studentId: decisionStudent, decision, expectedId: studentDecisions[0]?.id ?? null, reason: decisionReason, actorName })
+      setDecisions(previous => [saved, ...previous])
+      setDecisionReason('')
+    } catch (caught) {
+      setDecisionError(caught && typeof caught === 'object' && 'message' in caught ? String(caught.message) : 'Could not save decision. Reload before trying again.')
+    } finally { setSaving(false) }
   }
 
   const detail = selected && !loading && !error ? day(selected.studentId, selected.date) : null
@@ -139,27 +164,35 @@ export default function ShachrisWeeklyRecord({ loadHistory, saveDay, loadAudit, 
       <tbody>{students.map(student => {
         const days = dates.map(date => day(Number(student.id), date))
         const eligibility = shachrisWeeklyEligibility(days, rules)
-        return <tr key={student.id}><th scope="row">{student.name}</th>{days.map(({ session, record }, index) => {
+        const dayStates = days.map(({ session, record }, index) => {
           const result = shachrisDayResult(session, record)
+          const lateExcused = record?.historical_result?.lateExcused ?? record?.late_excused
+          const tone = shachrisDayTone(dates[index], session, record)
+          return { session, record, result, lateExcused, tone }
+        })
+        const latestDecision = decisions.find(entry => entry.student_id === Number(student.id) && entry.week_start === from)
+        const judgment = shachrisWeeklyJudgment(eligibility, dayStates.map(day => day.tone), latestDecision)
+        const resultTone = judgment.tone
+        const pending = resultTone === 'pending'
+        return <tr key={student.id}><th scope="row">{student.name}</th>{dayStates.map(({ session, record, result, lateExcused, tone }, index) => {
           const arrival = result.absence && record ? record.historical_result ? { absent: 'Absent', excused: 'Excused from Shul', not_in_shul: 'Not in Shul', present: 'In Shul' }[record.historical_result.status] : shachrisPresenceLabel(record) : result.onTime === null ? 'Not recorded' : result.onTime ? 'On Time' : 'Late'
           const stay = result.entireStay === null ? 'Stay not confirmed' : result.entireStay ? 'Stayed Entire Time' : 'Did Not Stay Entire Time'
-          const lateExcused = record?.historical_result?.lateExcused ?? record?.late_excused
-          const tone = dates[index] > localDateKey() ? 'upcoming'
-            : !session || !record || !result.required ? 'incomplete'
-            : result.excusedAbsence ? 'excused'
-            : result.absence || result.onTime === false && !lateExcused || !record.historical_result && record.leave_intervals.some(interval => interval.permission === 'without') ? 'failed'
-            : !record.historical_result && record.leave_intervals.some(interval => interval.permission === 'with') ? 'mixed'
-            : result.entireStay === false ? 'failed'
-            : result.onTime === null || result.entireStay === null ? 'incomplete'
-            : result.onTime === false && lateExcused ? 'excused'
-            : 'good'
           const cellClass = `sh-week-day sh-week-${tone}`
           return <td className="sh-week-day-cell" key={dates[index]}>{session || dates[index] < localDateKey() ? <button className={cellClass} disabled={saving} aria-label={`${student.name}: ${dates[index]}`} onClick={() => openDay(Number(student.id), dates[index])}>
             {!session ? <span>No saved session</span> : !result.required ? <span>Not started</span> : !record ? <span>No student record</span> : <><span className={result.onTime === true ? 'sh-week-pass' : ''}>{arrival}{result.onTime === false && lateExcused && <small>Excused</small>}</span><span className={result.entireStay === true ? 'sh-week-pass' : ''}>{stay}</span></>}
           </button> : <div className={cellClass}><span className="sh-muted">{dates[index] > localDateKey() ? 'Upcoming' : 'No saved session'}</span></div>}</td>
-        })}<td><strong className={eligibility.eligible ? 'sh-week-pass' : ''}>{eligibility.eligible ? 'Yes' : 'No'}</strong><small>{eligibility.unresolved ? 'Incomplete records' : !eligibility.requiredDays ? 'No required days recorded' : `${eligibility.exceptions} exception day${eligibility.exceptions === 1 ? '' : 's'} / ${eligibility.requiredDays} required`}</small></td></tr>
+        })}<td className={`sh-week-result sh-week-result-${resultTone}`}><strong className={resultTone === 'eligible' ? 'sh-week-pass' : ''}>{pending ? 'Pending' : resultTone === 'amber' ? 'Review' : resultTone === 'eligible' ? 'YES / Eligible' : 'Not Eligible'}</strong><small>{pending ? 'Week incomplete / pending' : <>{resultTone === 'amber' && <>Needs your decision<br /></>}{eligibility.exceptions} exception day{eligibility.exceptions === 1 ? '' : 's'} / {eligibility.requiredDays} required</>}</small>{judgment.manual && <small>Manual decision: {judgment.manual.actor_name}</small>}{loadDecisions && (judgment.automaticTone === 'amber' || latestDecision) && <button className="sh-button" disabled={saving} aria-label={`${student.name}: Eligibility decision`} onClick={() => { setDecisionStudent(Number(student.id)); setDecisionReason(''); setDecisionError('') }}><Pencil size={14} />{canEdit && saveDecision ? 'Decision' : 'Decision History'}</button>}</td></tr>
       })}</tbody>
     </table>{!students.length && <p className="sh-empty">No active students in this roster</p>}</div>}
+    {decisionStudent !== null && !loading && !error && <div className="sh-drawer-backdrop"><section className="sh-drawer" role="dialog" aria-modal="true" aria-label="Weekly eligibility decision"><header><div><h2>{students.find(student => Number(student.id) === decisionStudent)?.name}</h2><span>{from} to {through}</span></div><button className="sh-icon" title="Close eligibility decision" aria-label="Close eligibility decision" disabled={saving} onClick={() => setDecisionStudent(null)}><X size={20} /></button></header><div className="sh-drawer-content">
+      <h3>Final Eligibility Decision</h3>
+      {decisionError && <p role="alert" className="sh-error">{decisionError}</p>}
+      {canEdit && saveDecision && (decisionJudgment.automaticTone === 'amber' || studentDecisions[0]?.decision !== 'clear' && studentDecisions.length > 0) && <>
+        <label>Decision reason<input aria-label="Eligibility decision reason" maxLength={500} disabled={saving} value={decisionReason} onChange={event => setDecisionReason(event.target.value)} /></label>
+        <div className="sh-progression-buttons"><button className="sh-button sh-primary" disabled={saving || !decisionReason.trim() || decisionJudgment.automaticTone !== 'amber'} onClick={() => void decide('eligible')}><Check size={16} /> Count as Eligible</button><button className="sh-button" disabled={saving || !decisionReason.trim() || decisionJudgment.automaticTone !== 'amber'} onClick={() => void decide('not_eligible')}><X size={16} /> Count as Not Eligible</button>{studentDecisions[0] && studentDecisions[0].decision !== 'clear' && <button className="sh-button" disabled={saving || !decisionReason.trim()} onClick={() => void decide('clear')}><RotateCcw size={16} /> Clear Manual Decision</button>}</div>
+      </>}
+      <h3>Decision History</h3>{!studentDecisions.length ? <p className="sh-muted">No manual decisions recorded</p> : studentDecisions.map(entry => <div className="sh-history-entry" key={entry.id}><strong>{entry.decision === 'clear' ? 'Manual decision cleared' : entry.decision === 'eligible' ? 'Count as Eligible' : 'Count as Not Eligible'}</strong><span>{entry.actor_name} / {new Date(entry.created_at).toLocaleString()}</span><p>{entry.reason}</p></div>)}
+    </div></section></div>}
     {selected && detail && <div className="sh-drawer-backdrop"><section className="sh-drawer" role="dialog" aria-modal="true" aria-label="Saved Shachris day" onKeyDown={event => { if (event.key === 'Escape' && !saving) { setDraft(null); setSelected(null) } }}><header><div><h2>{students.find(student => Number(student.id) === selected.studentId)?.name}</h2><span>{selected.date}</span></div><button autoFocus disabled={saving} className="sh-icon" title="Close day details" aria-label="Close day details" onClick={() => { setDraft(null); setSelected(null) }}><X size={20} /></button></header><div className="sh-drawer-content">
       {draft ? <form className="sh-day-edit" onSubmit={event => { event.preventDefault(); void saveEdit() }}>
         {editError && <div role="alert" className="sh-error">{editError}</div>}

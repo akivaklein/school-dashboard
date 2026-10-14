@@ -10,6 +10,9 @@ export type ShachrisBackend = Pick<typeof service,
 > & {
   undoShachrisArrival?: typeof service.undoShachrisArrival
   endShachrisLiveSession?: typeof service.endShachrisLiveSession
+  reopenShachrisLiveSession?: typeof service.reopenShachrisLiveSession
+  loadShachrisWeeklyDecisions?: typeof service.loadShachrisWeeklyDecisions
+  saveShachrisWeeklyDecision?: typeof service.saveShachrisWeeklyDecision
   supportsSessionRestart?: boolean
   loadShachrisHistory?: typeof service.loadShachrisHistory
   saveShachrisHistoricalDay?: typeof service.saveShachrisHistoricalDay

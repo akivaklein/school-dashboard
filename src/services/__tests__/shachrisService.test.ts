@@ -2,10 +2,63 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }))
 vi.mock('../../supabaseClient', () => ({ supabase: mocks }))
-import { correctShachrisStart, endShachrisLiveSession, loadShachrisDayAudit, loadShachrisHistory, saveShachrisHistoricalDay, undoShachrisArrival } from '../shachrisService'
+import { correctShachrisStart, endShachrisLiveSession, loadShachrisDayAudit, loadShachrisHistory, loadShachrisWeeklyDecisions, reopenShachrisLiveSession, saveShachrisHistoricalDay, saveShachrisWeeklyDecision, undoShachrisArrival } from '../shachrisService'
 
 describe('read-only Shachris history', () => {
   beforeEach(() => vi.resetAllMocks())
+
+  it('reopens the same session through its own confirmed, expected-end guarded RPC', async () => {
+    const session = { id: 'today', started_at: '2026-10-13T07:00:00Z', milestone_times: { 'first-live-session-ended': '2026-10-13T08:00:00Z' } }
+    mocks.rpc.mockResolvedValue({ data: session, error: null })
+    expect(await reopenShachrisLiveSession({ sessionId: 'today', expectedEnd: '2026-10-13T08:00:00Z', reason: ' Missed completion ', actorName: 'Editor', confirmed: true })).toEqual(session)
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('shachris_reopen_live_session', { p_session_id: 'today', p_expected_end: '2026-10-13T08:00:00Z', p_reason: 'Missed completion', p_actor_name: 'Editor', p_confirmed: true })
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it('rejects reopening without a reason or confirmation before any write', async () => {
+    for (const [reason, confirmed] of [[' ', true], ['Missed completion', false]] as const) {
+      await expect(reopenShachrisLiveSession({ sessionId: 'today', expectedEnd: 'end', reason, confirmed, actorName: 'Editor' })).rejects.toThrow('Confirm reopening')
+    }
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it.each(['Only today official started session can be reopened', 'Session end changed. Reload before reopening.', 'Shachris editing denied'])('surfaces reopen safety rejection: %s', async message => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message } })
+    await expect(reopenShachrisLiveSession({ sessionId: 'today', expectedEnd: 'end', reason: 'Missed completion', confirmed: true, actorName: 'Editor' })).rejects.toEqual({ message })
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it.each(['eligible', 'not_eligible', 'clear'] as const)('appends a %s weekly decision without writing attendance facts', async decision => {
+    mocks.rpc.mockResolvedValue({ data: { id: 'new', decision }, error: null })
+    await saveShachrisWeeklyDecision({ weekStart: '2020-01-05', studentId: 1, decision, expectedId: 'previous', reason: ' Reviewed facts ', actorName: 'Editor' })
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('shachris_save_weekly_decision', { p_week_start: '2020-01-05', p_student_id: 1, p_decision: decision, p_expected_id: 'previous', p_reason: 'Reviewed facts', p_actor_name: 'Editor' })
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it('rejects a blank weekly reason and surfaces stale decisions without attendance fallback', async () => {
+    const input = { weekStart: '2020-01-05', studentId: 1, decision: 'eligible' as const, expectedId: null, reason: ' ', actorName: 'Editor' }
+    await expect(saveShachrisWeeklyDecision(input)).rejects.toThrow('decision reason')
+    expect(mocks.rpc).not.toHaveBeenCalled()
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Decision changed. Reload before saving.' } })
+    await expect(saveShachrisWeeklyDecision({ ...input, reason: 'Reviewed' })).rejects.toEqual({ message: 'Decision changed. Reload before saving.' })
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it('loads ordered weekly decision history for only the requested week and roster', async () => {
+    const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), order: vi.fn() }
+    query.select.mockReturnValue(query)
+    query.eq.mockReturnValue(query)
+    query.in.mockReturnValue(query)
+    query.order.mockResolvedValue({ data: [{ id: 'latest' }, { id: 'previous' }], error: null })
+    mocks.from.mockReturnValue(query)
+    expect(await loadShachrisWeeklyDecisions('2020-01-05', [1, 2])).toHaveLength(2)
+    expect(mocks.from).toHaveBeenCalledWith('shachris_weekly_decisions')
+    expect(query.eq).toHaveBeenCalledWith('week_start', '2020-01-05')
+    expect(query.in).toHaveBeenCalledWith('student_id', [1, 2])
+    expect(query.order).toHaveBeenCalledWith('sequence', { ascending: false })
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
 
   it('uses a revision-checked audited RPC for arrival undo, never a departure or generic save', async () => {
     const record = { student_id: 1, presence: 'unmarked', arrival_at: null, revision: 4, note: 'Kept note' }

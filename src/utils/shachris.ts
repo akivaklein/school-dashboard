@@ -337,3 +337,29 @@ export function shachrisWeeklyEligibility(days: Array<{ session?: ShachrisHistor
   }
   return { eligible: requiredDays > 0 && !unresolved && exceptions <= rules.allowedExceptions, requiredDays, exceptions, unresolved }
 }
+
+export type ShachrisWeeklyDecision = {
+  id: string; student_id: number; week_start: string; decision: 'eligible' | 'not_eligible' | 'clear'
+  actor_id: string; actor_name: string; reason: string; created_at: string
+}
+
+export function shachrisDayTone(date: string, session?: ShachrisHistorySession, record?: ShachrisRecord) {
+  const result = shachrisDayResult(session, record)
+  const lateExcused = record?.historical_result?.lateExcused ?? record?.late_excused
+  return date > localDateKey() ? 'upcoming'
+    : !session || !record || !result.required ? 'incomplete'
+    : result.excusedAbsence ? 'excused'
+    : result.absence || result.onTime === false && !lateExcused || !record.historical_result && record.leave_intervals.some(interval => interval.permission === 'without') ? 'failed'
+    : !record.historical_result && record.leave_intervals.some(interval => interval.permission === 'with') ? 'mixed'
+    : result.entireStay === false ? 'failed'
+    : result.onTime === null || result.entireStay === null ? 'incomplete'
+    : result.onTime === false && lateExcused ? 'excused'
+    : 'good'
+}
+
+export function shachrisWeeklyJudgment(eligibility: ReturnType<typeof shachrisWeeklyEligibility>, tones: string[], decision?: ShachrisWeeklyDecision) {
+  const pending = eligibility.unresolved || !eligibility.requiredDays || tones.some(tone => tone === 'incomplete' || tone === 'upcoming')
+  const automaticTone = pending ? 'pending' : eligibility.eligible ? 'eligible' : tones.includes('failed') ? 'failed' : 'amber'
+  const manual = automaticTone === 'amber' && decision && decision.decision !== 'clear' ? decision : undefined
+  return { automaticTone, tone: manual ? manual.decision === 'eligible' ? 'eligible' : 'failed' : automaticTone, manual }
+}

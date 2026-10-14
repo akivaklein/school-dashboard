@@ -63,6 +63,11 @@ button.sh-week-day:hover, button.sh-week-day:focus-visible { border-color: #8197
 .sh-week-incomplete { --sh-day-background: #f3f4f4; }
 .sh-week-upcoming { --sh-day-background: #fff; }
 .sh-week-pass { color: #17613d; }
+.sh-week-table td.sh-week-result { border: 1px solid; border-radius: 8px; text-align: center; }
+.sh-week-table td.sh-week-result-eligible { background: #edf8f0; border-color: #32a663; color: #17613d; }
+.sh-week-table td.sh-week-result-amber { background: #fff8eb; border-color: #e3c887; color: #795c1f; }
+.sh-week-table td.sh-week-result-failed { background: #fff0f0; border-color: #e8b5b5; color: #a03131; }
+.sh-week-table td.sh-week-result-pending { background: #f1f3f5; border-color: #d2d8de; color: #59636e; }
 .sh-week-facts { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); gap: 10px; }
 .sh-week-facts dt { color: #59645e; }
 .sh-week-facts dd { margin: 0; overflow-wrap: anywhere; }

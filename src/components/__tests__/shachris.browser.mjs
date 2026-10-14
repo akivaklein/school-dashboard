@@ -59,6 +59,9 @@ const backfillRecords = []
 let rejectHistoricalSave = false
 let rejectArrivalUndo = false
 const preArrivalStatus = new Map()
+const reopenAudit = []
+const weeklyDecisions = []
+let rejectWeeklyDecision = false
 
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
@@ -72,7 +75,36 @@ await page.route('**/rest/v1/**', async route => {
   requests.push({ name, method: request.method() })
   const input = request.postDataJSON() || {}
   let response
-  if (name === 'shachris_sessions') {
+  if (name === 'shachris_weekly_decisions') {
+    assert.equal(request.method(), 'GET')
+    assert.equal(url.searchParams.get('student_id'), 'in.(1001,1002,1003)')
+    response = weeklyDecisions.filter(entry => entry.week_start === url.searchParams.get('week_start')?.slice(3)).toReversed()
+  } else if (name === 'shachris_save_weekly_decision') {
+    assert.equal(permission, 'edit')
+    assert.ok(input.p_reason.trim())
+    assert.equal(input.p_student_id, 1002)
+    const latest = weeklyDecisions.findLast(entry => entry.week_start === input.p_week_start && entry.student_id === input.p_student_id)
+    assert.equal(input.p_expected_id, latest?.id ?? null)
+    if (rejectWeeklyDecision) {
+      await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'Decision changed. Reload before saving.' }) })
+      return
+    }
+    response = { id: `decision-${weeklyDecisions.length}`, week_start: input.p_week_start, student_id: input.p_student_id, decision: input.p_decision, actor_id: 'synthetic-editor', actor_name: input.p_actor_name, reason: input.p_reason, created_at: new Date().toISOString() }
+    weeklyDecisions.push(response)
+  } else if (name === 'shachris_reopen_live_session') {
+    assert.equal(permission, 'edit')
+    assert.equal(input.p_session_id, session.id)
+    assert.equal(input.p_confirmed, true)
+    assert.ok(input.p_reason.trim())
+    assert.equal(input.p_expected_end, session.milestone_times['live-session-ended'])
+    assert.equal(session.session_date, today)
+    assert.ok(session.started_at)
+    assert.ok(!session.voided_at)
+    session.milestone_times['first-live-session-ended'] ||= session.milestone_times['live-session-ended']
+    reopenAudit.push({ session_id: session.id, actor_name: input.p_actor_name, reason: input.p_reason, previousEnd: session.milestone_times['live-session-ended'], at: new Date().toISOString() })
+    delete session.milestone_times['live-session-ended']
+    response = session
+  } else if (name === 'shachris_sessions') {
     assert.equal(request.method(), 'GET')
     assert.equal(url.searchParams.get('voided_at'), 'is.null')
     const bounds = url.searchParams.getAll('session_date')
@@ -428,8 +460,6 @@ try {
   assert.equal(await age13Requirement.getByRole('button', { name: 'Late reason', exact: true }).isEnabled(), true)
   assert.equal(await age11Card.getByRole('button', { name: 'Returned', exact: true }).isEnabled(), true)
   assert.equal(records[1].requirement_result, 'pending')
-  await age12Card.getByRole('button', { name: 'Confirm Completion' }).click()
-  await waitSaved()
   await page.getByRole('button', { name: 'End Live Session', exact: true }).click()
   await waitSaved()
   assert.equal(await page.getByRole('button', { name: 'Undo Arrival', exact: true }).count(), 0)
@@ -440,6 +470,42 @@ try {
   assert.equal(await age11Card.locator('.sh-current-leave > strong').innerText(), outAtSessionEnd)
   assert.equal(await age13Requirement.locator('.sh-extra-stay').innerText(), extraAtSessionEnd)
   assert.equal(await age13Requirement.getByRole('button', { name: 'Late reason', exact: true }).isEnabled(), true)
+  assert.equal(await age11Card.getByRole('button', { name: 'Returned', exact: true }).isDisabled(), true)
+  assert.equal(records[1].requirement_result, 'pending')
+  const beforeReopen = structuredClone(records)
+  const originalEnd = session.milestone_times['live-session-ended']
+  const originalSessionId = session.id
+  const restartsBeforeReopen = requests.filter(request => request.name === 'shachris_correct_start').length
+  const reopenDialog = page.getByRole('dialog', { name: 'Reopen Live Session', exact: true })
+  await page.getByRole('button', { name: 'Reopen Live Session', exact: true }).click()
+  assert.match(await reopenDialog.innerText(), /Existing attendance\/history will be preserved/)
+  const confirmReopen = reopenDialog.getByRole('button', { name: 'Reopen Live Session', exact: true })
+  assert.equal(await confirmReopen.isDisabled(), true)
+  await page.getByLabel('Reopen reason').fill('Missed personal completion check')
+  assert.equal(await confirmReopen.isDisabled(), true)
+  await reopenDialog.getByRole('checkbox').check()
+  await reopenDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  assert.equal(reopenAudit.length, 0)
+  assert.equal(session.milestone_times['live-session-ended'], originalEnd)
+  await page.getByRole('button', { name: 'Reopen Live Session', exact: true }).click()
+  await page.getByLabel('Reopen reason').fill('Missed personal completion check')
+  await reopenDialog.getByRole('checkbox').check()
+  await confirmReopen.click()
+  await page.getByRole('status').filter({ hasText: 'Same live session reopened.' }).waitFor()
+  assert.equal(session.id, originalSessionId)
+  assert.deepEqual(records, beforeReopen)
+  assert.equal(session.milestone_times['first-live-session-ended'], originalEnd)
+  assert.equal(session.milestone_times['live-session-ended'], undefined)
+  assert.equal(reopenAudit.length, 1)
+  assert.equal(requests.filter(request => request.name === 'shachris_correct_start').length, restartsBeforeReopen)
+  assert.equal(await age11Card.getByRole('button', { name: 'Returned', exact: true }).isEnabled(), true)
+  await age12Card.getByRole('button', { name: 'Confirm Completion' }).click()
+  await waitSaved()
+  await page.getByRole('button', { name: 'End Live Session', exact: true }).click()
+  await waitSaved()
+  assert.equal(session.id, originalSessionId)
+  assert.equal(session.milestone_times['first-live-session-ended'], originalEnd)
+  assert.ok(session.milestone_times['live-session-ended'])
   assert.equal(await age11Card.getByRole('button', { name: 'Returned', exact: true }).isDisabled(), true)
   assert.equal(records[1].requirement_result, 'met')
   assert.equal(records[2].requirement_result, 'met')
@@ -486,8 +552,8 @@ try {
     assert.ok(await cell.evaluate(node => node.getBoundingClientRect().height >= 44 && node.scrollWidth <= node.clientWidth + 1))
   }
   assert.equal(await page.locator('.sh-week-incomplete').first().evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(243, 244, 244)')
-  assert.equal(await page.locator('.sh-week-table tbody tr').filter({ hasText: 'Student Alef' }).locator('td').last().locator('strong').innerText(), 'Yes')
-  assert.equal(await page.locator('.sh-week-table tbody tr').filter({ hasText: 'Student Beis' }).locator('td').last().locator('strong').innerText(), 'Yes')
+  assert.equal(await page.locator('.sh-week-table tbody tr').filter({ hasText: 'Student Alef' }).locator('td').last().locator('strong').innerText(), 'Pending')
+  assert.equal(await page.locator('.sh-week-table tbody tr').filter({ hasText: 'Student Beis' }).locator('td').last().locator('strong').innerText(), 'Pending')
   await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).click()
   const dayDialog = page.getByRole('dialog', { name: 'Saved Shachris day' })
   assert.match(await dayDialog.innerText(), /Saved history note/)
@@ -501,8 +567,8 @@ try {
     await page.screenshot({ path: `${screenshotDirectory}/shachris-weekly-${width}.png`, fullPage: true })
   }
   await page.getByRole('button', { name: 'Previous week', exact: true }).click()
-  await page.getByText('No required days recorded', { exact: true }).first().waitFor()
-  assert.equal(await page.locator('.sh-week-table tbody tr').first().locator('td').last().locator('strong').innerText(), 'No')
+  await page.getByText('Week incomplete / pending', { exact: true }).first().waitFor()
+  assert.equal(await page.locator('.sh-week-table tbody tr').first().locator('td').last().locator('strong').innerText(), 'Pending')
   await page.getByRole('button', { name: 'Next week', exact: true }).click()
   await page.getByRole('button', { name: `Student Alef: ${priorDay}`, exact: true }).waitFor()
   assert.ok(requests.slice(requestsBeforeHistory).every(request => request.method === 'GET'))
@@ -545,7 +611,7 @@ try {
   rejectHistoricalSave = false
   await page.getByRole('button', { name: 'Close day details' }).click()
   await page.getByRole('button', { name: 'Previous week', exact: true }).click()
-  await page.getByText('No required days recorded', { exact: true }).first().waitFor()
+  await page.getByText('Week incomplete / pending', { exact: true }).first().waitFor()
   const backfillButton = page.locator('.sh-week-table tbody tr').first().locator('.sh-week-day').first()
   const backfillDate = (await backfillButton.getAttribute('aria-label')).split(': ')[1]
   await backfillButton.click()
@@ -561,7 +627,7 @@ try {
   assert.equal(backfillSessions[0].started_at, null)
   assert.equal(backfillRecords[0].arrival_at, null)
   await page.getByRole('button', { name: 'Close day details' }).click()
-  assert.equal(await page.locator('.sh-week-table tbody tr').first().locator('td').last().locator('strong').innerText(), 'Yes')
+  assert.equal(await page.locator('.sh-week-table tbody tr').first().locator('td').last().locator('strong').innerText(), 'Pending')
   await page.getByRole('button', { name: `Student Alef: ${backfillDate}`, exact: true }).click()
   await dayDialog.getByRole('button', { name: 'Edit Day', exact: true }).click()
   await page.getByLabel('Historical attendance status').selectOption('excused')
@@ -620,7 +686,7 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Start Session', exact: true }).count(), 1)
   await page.getByRole('button', { name: 'Weekly Record / History' }).click()
   await page.locator('.sh-week-table').waitFor()
-  assert.equal(await page.locator('.sh-week-table tbody tr').first().locator('td').last().locator('strong').innerText(), 'No')
+  assert.equal(await page.locator('.sh-week-table tbody tr').first().locator('td').last().locator('strong').innerText(), 'Pending')
   assert.match(await page.locator('.sh-week-table tbody tr').first().innerText(), /Not started/)
   await page.getByRole('navigation', { name: 'Shachris views' }).getByRole('button', { name: 'Live Session', exact: true }).click()
   await page.getByRole('button', { name: 'Session Corrections', exact: true }).click()
@@ -775,13 +841,97 @@ try {
   assert.equal(await page.getByLabel('Student Gimmel: Shul status').isEnabled(), true)
   assert.equal(await page.getByRole('button', { name: 'Mark Visible In Shul at Hodu', exact: true }).isEnabled(), true)
 
+  settings.config.weeklyEligibility = { requireOnTime: true, requireEntireStay: true, excusedLateCountsOnTime: false, ignoreExcusedAbsence: false, allowedExceptions: 0 }
+  backfillSessions.length = 0
+  backfillRecords.length = 0
+  priorRecords.forEach(record => {
+    record.historical_result = { status: 'present', onTime: true, stayedRequired: true, lateReason: 'no_reason', lateExcused: false, lateReasonNote: '', note: '' }
+  })
+  priorRecords[1].historical_result.onTime = false
+  priorRecords[1].historical_result.lateReason = 'excused'
+  priorRecords[1].historical_result.lateExcused = true
+  priorRecords[2].historical_result.onTime = false
+  for (const index of [-1, 1, 2, 3, 4]) {
+    const date = new Date(`${priorDay}T12:00:00`)
+    date.setDate(date.getDate() + index)
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const saved = { ...structuredClone(priorSession), id: `tone-week-${index}`, session_date: key }
+    backfillSessions.push(saved)
+    backfillRecords.push(...priorRecords.map(record => ({ ...structuredClone(record), session_id: saved.id, historical_result: { status: 'present', onTime: true, stayedRequired: true, lateReason: 'no_reason', lateExcused: false, lateReasonNote: '', note: '' } })))
+  }
+  await page.reload()
+  await page.getByRole('button', { name: 'Weekly Record / History', exact: true }).click()
+  await page.getByRole('button', { name: 'Last Week', exact: true }).click()
+  await page.locator('.sh-week-table').waitFor()
+  for (const [name, tone, text, background] of [
+    ['Student Alef', 'eligible', 'YES / Eligible', null],
+    ['Student Beis', 'amber', 'Review', 'rgb(255, 248, 235)'],
+    ['Student Gimmel', 'failed', 'Not Eligible', 'rgb(255, 240, 240)'],
+  ]) {
+    const cell = page.locator('.sh-week-table tbody tr').filter({ hasText: name }).locator('td').last()
+    assert.ok((await cell.getAttribute('class')).includes(`sh-week-result-${tone}`), `${name}: ${await cell.innerText()}`)
+    assert.equal(await cell.locator('strong').innerText(), text)
+    if (tone === 'amber') assert.match(await cell.innerText(), /Needs your decision/)
+    if (background) assert.equal(await cell.evaluate(node => getComputedStyle(node).backgroundColor), background)
+    assert.equal(await cell.evaluate(node => getComputedStyle(node).borderTopStyle), 'solid')
+  }
+  const factualBeforeDecisions = JSON.stringify({ priorRecords, priorSession, backfillRecords, backfillSessions })
+  const reviewRow = page.locator('.sh-week-table tbody tr').filter({ hasText: 'Student Beis' })
+  const decisionDialog = page.getByRole('dialog', { name: 'Weekly eligibility decision', exact: true })
+  assert.equal(await page.getByRole('button', { name: 'Student Alef: Eligibility decision', exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Student Gimmel: Eligibility decision', exact: true }).count(), 0)
+  await page.getByRole('button', { name: 'Student Beis: Eligibility decision', exact: true }).click()
+  assert.equal(await decisionDialog.getByRole('button', { name: 'Count as Eligible', exact: true }).isDisabled(), true)
+  await page.getByLabel('Eligibility decision reason').fill('Transportation delay accepted')
+  await decisionDialog.getByRole('button', { name: 'Count as Eligible', exact: true }).click()
+  await decisionDialog.getByText('Transportation delay accepted', { exact: true }).waitFor()
+  assert.match(await reviewRow.locator('td').last().getAttribute('class'), /sh-week-result-eligible/)
+  assert.equal(await reviewRow.locator('td').last().locator('strong').innerText(), 'YES / Eligible')
+  assert.match(await page.getByRole('button', { name: `Student Beis: ${priorDay}`, exact: true }).innerText(), /Late/)
+  await page.getByLabel('Eligibility decision reason').fill('Reconsidered exception')
+  await decisionDialog.getByRole('button', { name: 'Count as Not Eligible', exact: true }).click()
+  await decisionDialog.getByText('Reconsidered exception', { exact: true }).waitFor()
+  assert.match(await reviewRow.locator('td').last().getAttribute('class'), /sh-week-result-failed/)
+  assert.equal(weeklyDecisions.length, 2)
+  assert.equal(await decisionDialog.getByText('Transportation delay accepted', { exact: true }).count(), 1)
+  rejectWeeklyDecision = true
+  await page.getByLabel('Eligibility decision reason').fill('Stale attempt')
+  await decisionDialog.getByRole('button', { name: 'Count as Eligible', exact: true }).click()
+  await decisionDialog.getByRole('alert').filter({ hasText: 'Decision changed.' }).waitFor()
+  assert.equal(weeklyDecisions.length, 2)
+  rejectWeeklyDecision = false
+  await page.getByLabel('Eligibility decision reason').fill('Return to automatic review')
+  await decisionDialog.getByRole('button', { name: 'Clear Manual Decision', exact: true }).click()
+  await decisionDialog.getByText('Return to automatic review', { exact: true }).waitFor()
+  assert.match(await reviewRow.locator('td').last().getAttribute('class'), /sh-week-result-amber/)
+  await page.getByLabel('Eligibility decision reason').fill('Final accepted exception')
+  await decisionDialog.getByRole('button', { name: 'Count as Eligible', exact: true }).click()
+  await decisionDialog.getByText('Final accepted exception', { exact: true }).waitFor()
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    for (const button of await decisionDialog.getByRole('button').all()) assert.ok(await button.evaluate(node => node.scrollWidth <= node.clientWidth + 1))
+    await page.screenshot({ path: `${screenshotDirectory}/shachris-decision-${width}.png`, fullPage: true })
+  }
+  await page.getByRole('button', { name: 'Close eligibility decision', exact: true }).click()
+  await page.getByRole('button', { name: 'Reload saved history', exact: true }).click()
+  await reviewRow.locator('.sh-week-result-eligible').waitFor()
+  assert.equal(JSON.stringify({ priorRecords, priorSession, backfillRecords, backfillSessions }), factualBeforeDecisions)
+  await page.getByRole('button', { name: 'Student Beis: Eligibility decision', exact: true }).click()
+  assert.equal(await decisionDialog.locator('.sh-history-entry').count(), 4)
+  await page.getByRole('button', { name: 'Close eligibility decision', exact: true }).click()
+  await page.getByRole('button', { name: 'This Week', exact: true }).click()
+  await page.locator('.sh-week-table').waitFor()
+  assert.equal(await page.locator('.sh-week-result-pending').count(), 3)
+  assert.equal(await page.locator('.sh-week-result-pending').first().evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(241, 243, 245)')
+
   await page.goto(`${url}?dob=1`)
   await page.getByLabel('Regular date of birth').fill('2013-10-06')
   await page.getByRole('button', { name: 'Save DOB' }).click()
   await page.getByRole('status').filter({ hasText: 'Date of birth saved.' }).waitFor()
   assert.equal(savedDob, '2013-10-06')
   assert.deepEqual(errors, [])
-  console.log('PASS: reason/confirmation-required arrival undo, preserved notes, restored pre-arrival status and visible correction audit; ended live actions disabled with correction/history edits available, deliberate restart restores live controls; secure restart/audit/reopen/history, compact cards, historical editing and view-only regression. Synthetic data only; no school writes.')
+  console.log('PASS: same-session reason/confirmation/cancel reopening, preserved original end and facts, missed completion then re-end; Amber final decisions in both directions, reversal/clear/reload/audit/stale rejection and unchanged factual lateness; 1440/390/320px controls; existing arrival undo, restart, history and view-only regressions. Synthetic data only; no school writes.')
 } finally {
   await browser.close()
 }

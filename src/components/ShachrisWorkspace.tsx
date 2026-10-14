@@ -83,6 +83,9 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
   const [correctedStart, setCorrectedStart] = useState('')
   const [correctionReason, setCorrectionReason] = useState('')
   const [correctionConfirmed, setCorrectionConfirmed] = useState(false)
+  const [reopening, setReopening] = useState(false)
+  const [reopenReason, setReopenReason] = useState('')
+  const [reopenConfirmed, setReopenConfirmed] = useState(false)
   const busyRef = useRef(false)
   const activeStudents = students.filter(student => isShachrisRosterStudent(student, primaryClassIdsByStudent[student.id])).sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')))
   const studentIdsKey = activeStudents.map(student => Number(student.id)).filter(Number.isFinite).sort((left, right) => left - right).join(',')
@@ -273,6 +276,24 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
     }
   }
 
+  async function reopenLiveSession() {
+    const reopenSession = backend.reopenShachrisLiveSession
+    if (!reopenSession || !session || !finishedAt || locked || busyRef.current || !reopenReason.trim() || !reopenConfirmed) return
+    busyRef.current = true
+    setSaving(true)
+    setError('')
+    try {
+      setSession(await reopenSession({ sessionId: session.id, expectedEnd: finishedAt, reason: reopenReason, actorName, confirmed: reopenConfirmed }))
+      setReopening(false)
+      setStatus('Same live session reopened. Existing attendance and history preserved.')
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      busyRef.current = false
+      setSaving(false)
+    }
+  }
+
   async function saveStayRequirement(mode: 'manual' | 'default') {
     if (!editingStayStudent || !session || locked || busyRef.current || !today) return
     const record = records.find(entry => entry.student_id === Number(editingStayStudent.id))
@@ -404,7 +425,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
     {!liveOnly && backend.loadShachrisHistory && <nav className="sh-week-controls" aria-label="Shachris views">{(['live', 'weekly'] as const).map(tab => <button key={tab} className={`sh-button ${view === tab ? 'active' : ''}`} aria-pressed={view === tab} disabled={saving || !settings} onClick={() => setView(tab)}>{tab === 'live' ? 'Live Session' : 'Weekly Record / History'}</button>)}</nav>}
     {error && <div className="sh-error" role="alert">{error}</div>}
     {view === 'live' && canCorrectStart && today && session && (session.started_at || backend.supportsSessionRestart) && <button className="sh-adjust" disabled={locked} onClick={() => void openStartCorrection()}><RotateCcw size={14} />{session.started_at ? 'Correct Hodu Start' : 'Session Corrections'}</button>}
-    {!liveOnly && view === 'weekly' && settings && backend.loadShachrisHistory ? <ShachrisWeeklyRecord loadHistory={backend.loadShachrisHistory} saveDay={backend.saveShachrisHistoricalDay} loadAudit={backend.loadShachrisDayAudit} canEdit={canEdit} actorName={actorName} settings={settings} students={activeStudents} /> : !liveOnly && view === 'settings' && settings ? <ShachrisSettingsEditor key={settings.revision} settings={settings} canEdit={canManage} enableWeekly={Boolean(backend.loadShachrisHistory)} saveSettings={backend.saveShachrisSettings} onSaved={saved => { setSettings(saved); setStatus('Shachris settings saved.') }} /> : <>
+    {!liveOnly && view === 'weekly' && settings && backend.loadShachrisHistory ? <ShachrisWeeklyRecord loadHistory={backend.loadShachrisHistory} saveDay={backend.saveShachrisHistoricalDay} loadAudit={backend.loadShachrisDayAudit} loadDecisions={backend.loadShachrisWeeklyDecisions} saveDecision={backend.saveShachrisWeeklyDecision} canEdit={canEdit} actorName={actorName} settings={settings} students={activeStudents} /> : !liveOnly && view === 'settings' && settings ? <ShachrisSettingsEditor key={settings.revision} settings={settings} canEdit={canManage} enableWeekly={Boolean(backend.loadShachrisHistory)} saveSettings={backend.saveShachrisSettings} onSaved={saved => { setSettings(saved); setStatus('Shachris settings saved.') }} /> : <>
       <div className="sh-live-filters"><label>Roster<select aria-label="Class or group" value={scope} disabled={saving} onChange={event => setScope(event.target.value)}><option value="all">Entire roster</option><option value="class:yk-b">7th Grade</option><option value="class:yk-a">8th Grade</option></select></label><label className="sh-search"><span>Search students</span><input type="search" aria-label="Find student" placeholder="Search students..." value={search} disabled={saving} onChange={event => setSearch(event.target.value)} /></label></div>
       <section className="sh-communal-milestones" aria-label="Communal Shachris milestones">
         <div className={`sh-communal-milestone sh-hodu ${session?.started_at ? 'complete' : ''}`}><div><span className="sh-milestone-dot">{session?.started_at ? <Check size={16} /> : <AlarmClock size={17} />}</span><strong>Start Hodu</strong></div>{session?.started_at ? <time>{formatTime(session.started_at)}</time> : <button className="sh-start-hodu" disabled={liveActionsLocked || !today} onClick={() => void startSession()}>Start Session</button>}</div>
@@ -428,7 +449,7 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
           { label: 'Need Attention', value: visibleRecords.filter(record => needsShachrisAttention(record, session?.started_at, graceMinutes)).length, detail: 'unmarked, unexcused, or out', tone: 'orange', icon: <CircleAlert size={21} /> },
         ].map(stat => <div className={`sh-live-stat ${stat.tone}`} key={stat.label}><span className="sh-stat-icon">{stat.icon}</span><div><strong>{stat.value}</strong><b>{stat.label}</b><small>{stat.detail}</small></div></div>)}
       </div>
-      <div className="sh-live-toolbar"><strong>{visibleRecords.length} students</strong><button className="sh-button sh-primary" disabled={liveActionsLocked || !today || !session?.started_at || !visibleRecords.some(record => !record.arrival_at && record.presence === 'unmarked')} onClick={() => void bulkArriveAtStart()}><Users size={16} /> Mark Visible In Shul at Hodu</button>{finishedAt ? <span className="sh-save-status">Live session ended <time>{formatTime(finishedAt)}</time>. Use correction/history tools to edit, or Restart Today for a new live session.</span> : backend.endShachrisLiveSession && <button className="sh-button" disabled={locked || !today || !session?.started_at} onClick={() => void endLiveSession()}><CircleCheck size={16} /> End Live Session</button>}</div>
+      <div className="sh-live-toolbar"><strong>{visibleRecords.length} students</strong><button className="sh-button sh-primary" disabled={liveActionsLocked || !today || !session?.started_at || !visibleRecords.some(record => !record.arrival_at && record.presence === 'unmarked')} onClick={() => void bulkArriveAtStart()}><Users size={16} /> Mark Visible In Shul at Hodu</button>{finishedAt ? <><span className="sh-save-status">Live session ended <time>{formatTime(finishedAt)}</time>.</span>{backend.reopenShachrisLiveSession && today && !session?.voided_at && canEdit && <button className="sh-button" disabled={locked} onClick={() => { setReopenReason(''); setReopenConfirmed(false); setReopening(true) }}><RotateCcw size={16} /> Reopen Live Session</button>}</> : backend.endShachrisLiveSession && <button className="sh-button" disabled={locked || !today || !session?.started_at} onClick={() => void endLiveSession()}><CircleCheck size={16} /> End Live Session</button>}</div>
       <details className="sh-progress-bulk"><summary><CheckCheck size={15} /> Davening Progress Tools <span>Secondary checklist actions</span></summary><div><strong>{visibleRecords.length} visible students</strong><button className="sh-button" disabled={locked || !presentRequirements.length} onClick={() => void updateRecords(presentRequirements)}><CheckCheck size={16} /> Complete Present Sections</button><select aria-label="Set rating for visible students" disabled={locked || !visibleRecords.length} value="" onChange={event => { const rating = event.target.value; void updateRecords(visibleRecords.map(record => ({ ...record, rating_id: rating }))) }}><option value="" disabled>Rate visible students</option>{config?.ratings.map(rating => <option key={rating.id} value={rating.id}>{rating.label}</option>)}</select></div></details>
       <div className="sh-live-grid" aria-busy={saving || loading}>
         {visibleStudents.map(student => {
@@ -473,6 +494,13 @@ export default function ShachrisWorkspace({ backend, liveOnly = false, students,
         {loading && <div className="sh-empty">Opening session...</div>}
       </div>
     </>}
+    {reopening && <div className="sh-drawer-backdrop"><section className="sh-drawer" role="dialog" aria-modal="true" aria-label="Reopen Live Session"><header><h2>Reopen Live Session</h2><button className="sh-icon" title="Close reopen confirmation" aria-label="Close reopen confirmation" disabled={saving} onClick={() => setReopening(false)}><X size={20} /></button></header><form className="sh-drawer-content" onSubmit={event => { event.preventDefault(); void reopenLiveSession() }}>
+      <p>Reopen today's live session? This will restore live attendance controls so missed actions can be completed. Existing attendance/history will be preserved.</p>
+      {error && <p role="alert" className="sh-error">{error}</p>}
+      <label>Reopen reason<input autoFocus aria-label="Reopen reason" required maxLength={500} disabled={saving} value={reopenReason} onChange={event => setReopenReason(event.target.value)} /></label>
+      <label className="sh-check-label"><input type="checkbox" disabled={saving} checked={reopenConfirmed} onChange={event => setReopenConfirmed(event.target.checked)} />Confirm reopening the same session</label>
+      <div className="sh-progression-buttons"><button type="submit" className="sh-button sh-primary" disabled={locked || !finishedAt || !reopenReason.trim() || !reopenConfirmed}><RotateCcw size={16} /> Reopen Live Session</button><button type="button" className="sh-button" disabled={saving} onClick={() => setReopening(false)}>Cancel</button></div>
+    </form></section></div>}
     {correctingStart && <div className="sh-drawer-backdrop"><section className="sh-drawer" role="dialog" aria-modal="true" aria-label="Correct Hodu start"><header><h2>Correct Hodu Start</h2><button className="sh-icon" title="Close start correction" aria-label="Close start correction" disabled={saving} onClick={() => setCorrectingStart(false)}><X size={20} /></button></header><div className="sh-drawer-content">
       {error && <div className="sh-error" role="alert">{error}</div>}
       {!startCorrection ? <p>Checking session activity...</p> : <>

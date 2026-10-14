@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SHACHRIS_WEEKLY_RULES, shachrisDayResult, shachrisWeekDates, shachrisWeeklyEligibility } from '../shachris'
+import { DEFAULT_SHACHRIS_WEEKLY_RULES, shachrisDayResult, shachrisDayTone, shachrisWeekDates, shachrisWeeklyEligibility, shachrisWeeklyJudgment, type ShachrisWeeklyDecision } from '../shachris'
 import { calculateShachrisExtraSeconds, isShachrisLate, isShachrisReadyForCheck, needsShachrisAttention, personallyClearShachrisRecord, shachrisPresenceLabel } from '../shachris'
 import { isShachrisRosterStudent, shachrisGraceMinutes } from '../shachris'
 import { calculateAge, calculateShachrisMinutesLate, calculateShachrisMinutesOut, completePresentShachrisRequirements, completeShachrisExpectation, getShachrisGrade, hasMetShachrisExpectation, INITIAL_SHACHRIS_CONFIG, latestOpenShachrisLeave, nextShachrisSection, resolveShachrisExpectation, resolveShachrisStayRequirement, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord } from '../shachris'
@@ -7,6 +7,40 @@ import { calculateAge, calculateShachrisMinutesLate, calculateShachrisMinutesOut
 const assignment: ShachrisAssignment = { id: 'override', student_id: 1, mode: 'manual', milestone_id: 'ashrei', section_ids: null, reason: '', actor_name: 'Rebbe', effective_date: '2026-10-05', duration: 'future', created_at: '2026-10-05T12:00:00Z' }
 
 describe('Shachris individual requirements', () => {
+  const decision: ShachrisWeeklyDecision = { id: 'decision', student_id: 1, week_start: '2020-01-05', decision: 'eligible', actor_id: 'editor-id', actor_name: 'Editor', reason: 'Reviewed transportation delay', created_at: '2020-01-12T08:00:00Z' }
+
+  it('allows both final judgments for Review without changing factual lateness, stay, notes or history', () => {
+    const session = { id: 'saved', session_date: '2020-01-05', config: INITIAL_SHACHRIS_CONFIG, started_at: '2020-01-05T07:00:00Z', milestone_times: { 'shemoneh-esrei': '2020-01-05T07:30:00Z' } }
+    const record = { student_id: 1, presence: 'present', arrival_at: '2020-01-05T07:05:00Z', late_excused: true, late_reason: 'transportation', note: 'Original note', stay_requirement: { requiredUntil: 'shemoneh-esrei' }, leave_intervals: [], requirement_result: 'met' } as unknown as ShachrisRecord
+    const days = [{ session, record }]
+    const original = structuredClone(days)
+    const automatic = shachrisWeeklyEligibility(days, DEFAULT_SHACHRIS_WEEKLY_RULES)
+    const tones = [shachrisDayTone(session.session_date, session, record)]
+    expect(shachrisWeeklyJudgment(automatic, tones).tone).toBe('amber')
+    expect(shachrisWeeklyJudgment(automatic, tones, decision)).toMatchObject({ automaticTone: 'amber', tone: 'eligible', manual: decision })
+    expect(shachrisWeeklyJudgment(automatic, tones, { ...decision, decision: 'not_eligible' }).tone).toBe('failed')
+    expect(shachrisDayResult(session, record)).toMatchObject({ onTime: false, entireStay: true })
+    expect(days).toEqual(original)
+    expect(shachrisWeeklyEligibility(days, DEFAULT_SHACHRIS_WEEKLY_RULES)).toEqual(automatic)
+  })
+
+  it('can reverse or clear a weekly judgment without mutating prior decisions', () => {
+    const automatic = { eligible: false, requiredDays: 6, exceptions: 1, unresolved: false }
+    const original = structuredClone(decision)
+    expect(shachrisWeeklyJudgment(automatic, ['excused'], decision).tone).toBe('eligible')
+    expect(shachrisWeeklyJudgment(automatic, ['excused'], { ...decision, decision: 'not_eligible' }).tone).toBe('failed')
+    expect(shachrisWeeklyJudgment(automatic, ['excused'], { ...decision, decision: 'clear' }).tone).toBe('amber')
+    expect(decision).toEqual(original)
+  })
+
+  it('does not apply a manual decision to automatic eligible, failed or pending cases', () => {
+    const automatic = { eligible: false, requiredDays: 6, exceptions: 1, unresolved: false }
+    expect(shachrisWeeklyJudgment({ ...automatic, eligible: true }, ['good'], { ...decision, decision: 'not_eligible' }).tone).toBe('eligible')
+    expect(shachrisWeeklyJudgment(automatic, ['failed'], decision).tone).toBe('failed')
+    for (const tone of ['incomplete', 'upcoming']) expect(shachrisWeeklyJudgment(automatic, [tone], decision).tone).toBe('pending')
+    expect(shachrisWeeklyJudgment({ ...automatic, unresolved: true }, ['excused'], decision).tone).toBe('pending')
+    expect(shachrisWeeklyJudgment({ ...automatic, requiredDays: 0 }, [], decision).tone).toBe('pending')
+  })
   it('caps open and corrected closed durations at the saved session end without changing intervals', () => {
     const finishedAt = Date.parse('2026-10-05T07:30:00Z')
     const now = Date.parse('2026-10-05T09:00:00Z')

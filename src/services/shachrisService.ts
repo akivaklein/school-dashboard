@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient'
-import { calculateAge, localDateKey, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord, type ShachrisStayAssignment, type ShachrisHistoricalResult } from '../utils/shachris'
+import { calculateAge, localDateKey, validateShachrisConfig, type ShachrisAssignment, type ShachrisConfig, type ShachrisRecord, type ShachrisStayAssignment, type ShachrisHistoricalResult, type ShachrisWeeklyDecision } from '../utils/shachris'
 import { isLeadershipRole } from '../utils/permissions'
 import type { ShachrisBackend } from './shachrisBackend'
 
@@ -128,6 +128,33 @@ export async function endShachrisLiveSession(sessionId: string, actorName: strin
   return data as ShachrisSession
 }
 
+export async function reopenShachrisLiveSession(input: { sessionId: string; expectedEnd: string; reason: string; actorName: string; confirmed: boolean }): Promise<ShachrisSession> {
+  if (!input.confirmed || !input.reason.trim()) throw new Error('Confirm reopening and enter a short reason.')
+  const { data, error } = await supabase.rpc('shachris_reopen_live_session', {
+    p_session_id: input.sessionId, p_expected_end: input.expectedEnd, p_reason: input.reason.trim(),
+    p_actor_name: input.actorName, p_confirmed: input.confirmed,
+  })
+  if (error) throw error
+  return data as ShachrisSession
+}
+
+export async function loadShachrisWeeklyDecisions(weekStart: string, studentIds: number[]): Promise<ShachrisWeeklyDecision[]> {
+  if (!studentIds.length) return []
+  const { data, error } = await supabase.from('shachris_weekly_decisions').select('*').eq('week_start', weekStart).in('student_id', studentIds).order('sequence', { ascending: false })
+  if (error) throw error
+  return (data || []) as ShachrisWeeklyDecision[]
+}
+
+export async function saveShachrisWeeklyDecision(input: { weekStart: string; studentId: number; decision: ShachrisWeeklyDecision['decision']; expectedId: string | null; reason: string; actorName: string }): Promise<ShachrisWeeklyDecision> {
+  if (!input.reason.trim()) throw new Error('Enter a short decision reason.')
+  const { data, error } = await supabase.rpc('shachris_save_weekly_decision', {
+    p_week_start: input.weekStart, p_student_id: input.studentId, p_decision: input.decision,
+    p_expected_id: input.expectedId, p_reason: input.reason.trim(), p_actor_name: input.actorName,
+  })
+  if (error) throw error
+  return data as ShachrisWeeklyDecision
+}
+
 export async function saveShachrisExpectation(input: {
   studentId: number; mode: 'manual' | 'default'; milestoneId: string; sectionIds: string[] | null;
   reason: string; actorName: string; session: ShachrisSession; revision: number; duration: 'today' | 'future';
@@ -186,6 +213,7 @@ export async function saveStudentDob(studentId: number | string, dob: string | n
 
 export const secureShachrisBackend: ShachrisBackend = {
   supportsSessionRestart: true,
+  reopenShachrisLiveSession, loadShachrisWeeklyDecisions, saveShachrisWeeklyDecision,
   saveShachrisHistoricalDay, loadShachrisDayAudit,
   loadShachrisHistory,
   loadShachrisSettings, openShachrisSession, saveShachrisRecords, startShachrisSession,
